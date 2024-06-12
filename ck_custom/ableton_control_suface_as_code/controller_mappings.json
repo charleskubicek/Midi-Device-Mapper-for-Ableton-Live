@@ -1,0 +1,10 @@
+{
+  "encoders": [
+    {"midi_channel": 1, "type": "CC", "value": 21},
+    {"midi_channel": 1, "type": "CC", "value": 22}
+  ],
+  "buttons": [
+    {"midi_channel": 1, "type": "note", "value": 36},
+    {"midi_channel": 1, "type": "note", "value": 37}
+  ]
+}

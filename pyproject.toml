@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "ableton-control-suface-as-code"
+version = "0.1.0"
+description = ""
+authors = ["Charles Kubicek <charles.kubicek@springernature.com>"]
+readme = "README.md"
+packages = [{include = "ableton_control_suface_as_code"}]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
