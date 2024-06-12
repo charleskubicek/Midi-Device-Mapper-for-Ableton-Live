@@ -3,7 +3,7 @@ import Live
 from _Framework.ControlSurface import ControlSurface
 from _Framework.InputControlElement import *
 from _Framework.EncoderElement import EncoderElement
-
+from _Framework.MixerComponent import MixerComponent
 
 # from _Framework.EncoderElement import *
 
@@ -13,14 +13,16 @@ class CustomOps(ControlSurfaceComponent):
         self.class_identifier = "custopm_ops"
 
         self.manager = manager
-        self.setup_controls()
-        self.setup_listeners()
+        # self.setup_controls()
+        # self.setup_listeners()
 
     def remove_all_listeners(self):
         self.encoder_21.remove_value_listener(self.encoder_21_value)
         self.encoder_22.remove_value_listener(self.encoder_22_value)
         self.encoder_23.remove_value_listener(self.encoder_23_value)
         self.encoder_24.remove_value_listener(self.encoder_24_value)
+
+        self.encoder_44.remove_value_listener(self.encoder_44_value)
         # self.encoder_25.remove_value_listener(self.encoder_21_value)
         # self.encoder_26.remove_value_listener(self.encoder_21_value)
 
@@ -50,10 +52,16 @@ class CustomOps(ControlSurfaceComponent):
         self.encoder_23 = EncoderElement(MIDI_CC_TYPE, 1, 23, Live.MidiMap.MapMode.relative_binary_offset)
         self.encoder_24 = EncoderElement(MIDI_CC_TYPE, 1, 24, Live.MidiMap.MapMode.relative_binary_offset)
 
-        self.encoder_25 = EncoderElement(MIDI_NOTE_TYPE, 1, 29, Live.MidiMap.MapMode.relative_binary_offset)
-        self.encoder_26 = EncoderElement(MIDI_NOTE_TYPE, 1, 31, Live.MidiMap.MapMode.relative_binary_offset)
+        self.encoder_44 = EncoderElement(MIDI_CC_TYPE, 1, 44, Live.MidiMap.MapMode.relative_binary_offset)
+
+        # self.encoder_25 = EncoderElement(MIDI_NOTE_TYPE, 1, 29, Live.MidiMap.MapMode.relative_binary_offset)
+        # self.encoder_26 = EncoderElement(MIDI_NOTE_TYPE, 1, 31, Live.MidiMap.MapMode.relative_binary_offset)
         # self.button_36 = ConfigurableButtonElement(MIDI_NOTE_TYPE, 1, 36)
         # self.button_37 = ConfigurableButtonElement(MIDI_NOTE_TYPE, 1, 37)
+
+        self.mixer = MixerComponent(124, 24)
+
+        self.setup_listeners()
 
     def setup_listeners(self):
         self.manager.log_message("Setting up listeners")
@@ -62,8 +70,18 @@ class CustomOps(ControlSurfaceComponent):
         self.encoder_23.add_value_listener(self.encoder_23_value)
         self.encoder_24.add_value_listener(self.encoder_24_value)
 
+        self.encoder_44.add_value_listener(self.encoder_44_value)
+
     def log_message(self, message):
         self.manager.log_message(message)
+
+    def encoder_44_value(self, value):
+        self.log_message(f"encoder_44_value value = {value}")
+        self.log_message(f"encoder_44_value max = {self.song().view.selected_track.mixer_device.volume.max}")
+        self.log_message(f"encoder_44_value min = {self.song().view.selected_track.mixer_device.volume.min}")
+
+        self.song().view.selected_track.mixer_device.volume.value = float(value) / 128.0
+
 
     def encoder_21_value(self, value):
         selected_device = self.manager.song().view.selected_track.view.selected_device
