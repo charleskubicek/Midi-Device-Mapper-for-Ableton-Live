@@ -8,7 +8,8 @@ packages = [{include = "ableton_control_suface_as_code"}]
 
 [tool.poetry.dependencies]
 python = "^3.9"
-
+pydantic = "^2.7.4"
+autopep8 = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]

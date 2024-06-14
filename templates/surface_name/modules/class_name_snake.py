@@ -8,10 +8,10 @@ from _Framework.MixerComponent import MixerComponent
 
 # from _Framework.EncoderElement import *
 
-class CustomOps(ControlSurfaceComponent):
+class %class_name_cammel(ControlSurfaceComponent):
     def __init__(self, manager):
         super().__init__(manager)
-        self.class_identifier = "custopm_ops"
+        self.class_identifier = "%class_name_snake"
 
         self.manager = manager
         # self.setup_controls()
