@@ -272,11 +272,6 @@ def build_mode_model(mapping: Device, controller: Controller):
     return DeviceWithMidi(device=mapping, midi_range_maps=midi_range_mappings)
 
 
-@dataclass
-class Vars:
-    surface_name: str
-    class_name_snake: str
-    class_name_camel: str
 
 
 @dataclass
@@ -286,6 +281,13 @@ class EncoderCode:
     setup_listeners: [str]
     remove_listeners: [str]
 
+
+@dataclass
+class Vars:
+    surface_name: str
+    class_name_snake: str
+    class_name_camel: str
+    encoder_code:EncoderCode
 
 def generate_listener_action(n, parameter):
     return Template("""
@@ -326,24 +328,50 @@ def encoder_template(device_with_midi: DeviceWithMidi):
         creation, listener_fns, setup_listeners, remove_listeners
     )
 
+def function_body_code_block(lines:[str]):
+    tab_block = "    "
+    return f"\n{tab_block}{tab_block}".join(lines) + "\n"
 
-def gen(template_path: Path, target: Path, vars: Vars):
-    root_dir = Path(target, vars.surface_name)
+import ast
+def is_valid_python(code):
+    try:
+        ast.parse(code)
+    except SyntaxError:
+        return False
+    return True
+
+def function_code_block(lines:[str]):
+    return f"\n".join(lines) + "\n"
+
+def gen(template_path: Path, target: Path, vars: dict):
+    root_dir = Path(target, vars['surface_name'])
     root_dir.mkdir(exist_ok=True)
 
     device_with_midi = build_mode_model(Device.model_validate(device_mapping), Controller.model_validate(controller))
-    encoder_template(device_with_midi)
+    encoder_code = encoder_template(device_with_midi)
+    vars['encoder_code_creation'] = function_body_code_block(encoder_code.creation)
+    vars['encoder_code_remove_listeners'] = function_body_code_block(encoder_code.remove_listeners)
+    vars['encoder_code_setup_listeners'] = function_body_code_block(encoder_code.setup_listeners)
+    vars['encoder_code_listener_fns'] = function_code_block(encoder_code.listener_fns)
 
-    # template_file(root_dir, template_path, vars, "__init__.py", "__init__.py")
-    # template_file(root_dir, template_path, vars, f'modules/class_name_snake.py', f"modules/{vars.class_name_snake}.py")
-    # template_file(root_dir, template_path, vars, 'surface_name.py',f"{vars.surface_name}.py")
+    template_file(root_dir, template_path, vars, "__init__.py", "__init__.py")
+    template_file(root_dir, template_path, vars, f'modules/class_name_snake.py', f"modules/{vars['class_name_snake']}.py", verify_python=True)
+    template_file(root_dir, template_path, vars, 'surface_name.py',f"{vars['surface_name']}.py")
 
 
-def template_file(root_dir, template_path, vars, source_file_name, target_file_name):
+def template_file(root_dir, template_path, vars:dict, source_file_name, target_file_name, verify_python=False):
     target_file = root_dir / target_file_name
     target_file.parent.mkdir(exist_ok=True)
     new_text = Template((template_path / 'surface_name' / source_file_name).read_text()).substitute(
-        vars.__dict__)
+        vars)
+
+    if verify_python:
+        if not is_valid_python(new_text):
+            print(f"Code failed validation for file {target_file}")
+        else:
+            print("Code passed validation")
+
+
     target_file.write_text(new_text)
 
 
@@ -351,10 +379,10 @@ if __name__ == '__main__':
     surface_name = 'ck_test_surface'
     target_dir = Path('out')
     # (target_dir / 'ck_test_surface').rmdir()
-    vars = Vars(
-        surface_name=surface_name,
-        class_name_snake='control_mappings',
-        class_name_camel='ControlMappings'
-    )
+    vars = {
+        'surface_name':'surface_name',
+        'class_name_snake':'control_mappings',
+        'class_name_camel':'ControlMappings'
+    }
 
     gen(Path(f'templates'), target_dir, vars)

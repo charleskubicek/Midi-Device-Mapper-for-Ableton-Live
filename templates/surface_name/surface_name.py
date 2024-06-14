@@ -32,8 +32,8 @@ class $surface_name(ControlSurface):
 
     def init_modules(self):
 
-        self.%class_name_cammel = %class_name_snake.%class_name_cammel(self)
-        self.%class_name_cammel.setup_controls()
+        self.%class_name_camel = %class_name_snake.%class_name_camel(self)
+        self.%class_name_camel.setup_controls()
 
     def tick(self):
         # self.log_message(f"Ticking..")
