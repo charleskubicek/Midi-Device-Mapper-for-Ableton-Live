@@ -1,7 +1,7 @@
 import unittest
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import generate_listener_action, encoder_template, build_mode_model, Device, \
-    Controller
+    Controller, build_live_api_lookup_from_lom
 from  autopep8 import fix_code
 from difflib import Differ
 
@@ -14,9 +14,11 @@ class TestGen(unittest.TestCase):
     def test_generate_lister_fn(self):
         n = 1
         parameter = 2
+        lom = "tracks.0.devices.0"
+
         expected_output = """
 def encoder_1_value(self, value):
-    selected_device = self.manager.song().view.selected_track.view.selected_device
+    selected_device = lom_value
     if selected_device is None:
         return
     
@@ -31,7 +33,7 @@ def encoder_1_value(self, value):
     """
 
         expected_output = fix_code(expected_output)
-        generated = fix_code(generate_listener_action(n, parameter))
+        generated = fix_code(generate_listener_action(n, parameter, "lom_value"))
 
         self.assertEqual(generated, expected_output, diff(generated, expected_output))
 
@@ -87,6 +89,18 @@ def encoder_1_value(self, value):
         self.assertEqual(len(result.creation), 4)
         self.assertEqual(len(result.setup_listeners), 4)
         self.assertEqual(len(result.listener_fns), 4)
+
+
+    def test_build_live_api_lookup_from_lom(self):
+        lom = "tracks.1.device.1"
+        expected_output = "self.manager.song().view.tracks[1].view.devices[1]"
+        result = build_live_api_lookup_from_lom(lom)
+        self.assertEqual(result, expected_output)
+
+        lom = "tracks.selected.device.selected"
+        expected_output = "self.manager.song().view.selected_track.view.selected_device"
+        result = build_live_api_lookup_from_lom(lom)
+        self.assertEqual(result, expected_output)
 
 
 if __name__ == '__main__':

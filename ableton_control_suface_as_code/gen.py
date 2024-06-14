@@ -7,7 +7,7 @@ from typing import TypedDict
 from pydantic import BaseModel, Field, validator, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 from typing_extensions import Self
-
+import ast
 
 class ControlTypeEnum(str, Enum):
     knob = 'knob'
@@ -59,12 +59,6 @@ class MidiMapping(BaseModel):
     midi_type: MidiTypeEnum
     parameter: int
 
-
-# class RangeWithMidi(BaseModel):
-#     from_: int = Field(alias='from')
-#     to: int
-#     midi_channel: int
-#     midi_type: MidiTypeEnum
 
 class ControlGroup(BaseModel):
     layout: LayoutEnum
@@ -272,8 +266,6 @@ def build_mode_model(mapping: Device, controller: Controller):
     return DeviceWithMidi(device=mapping, midi_range_maps=midi_range_mappings)
 
 
-
-
 @dataclass
 class EncoderCode:
     creation: [str]
@@ -287,12 +279,13 @@ class Vars:
     surface_name: str
     class_name_snake: str
     class_name_camel: str
-    encoder_code:EncoderCode
+    encoder_code: EncoderCode
 
-def generate_listener_action(n, parameter):
+
+def generate_listener_action(n, parameter, lom):
     return Template("""
 def encoder_${n}_value(self, value):
-    selected_device = self.manager.song().view.selected_track.view.selected_device
+    selected_device = $lom
     if selected_device is None:
         return
 
@@ -304,7 +297,7 @@ def encoder_${n}_value(self, value):
         return
 
     selected_device.parameters[$parameter].value = value    
-    """).substitute(n=n, parameter=parameter)
+    """).substitute(n=n, parameter=parameter, lom=lom)
 
 
 def encoder_template(device_with_midi: DeviceWithMidi):
@@ -315,24 +308,27 @@ def encoder_template(device_with_midi: DeviceWithMidi):
     setup_listeners = []
     remove_listeners = []
 
+    lom = build_live_api_lookup_from_lom(device_with_midi.device.lom)
+
     for g in device_with_midi.midi_range_maps:
         creation.append(
             f"self.encoder_{encoder_count} = EncoderElement({g.midi_type}, {g.midi_channel}, {g.midi_number}, Live.MidiMap.MapMode.relative_binary_offset)")
         setup_listeners.append(f"self.encoder_{encoder_count}.add_value_listener(self.encoder_{encoder_count}_value)")
         remove_listeners.append(
             f"self.encoder_{encoder_count}.remove_value_listener(self.encoder_{encoder_count}_value)")
-        listener_fns.append(generate_listener_action(g.midi_number, g.parameter))
+        listener_fns.append(generate_listener_action(g.midi_number, g.parameter, lom))
         encoder_count += 1
 
     return EncoderCode(
         creation, listener_fns, setup_listeners, remove_listeners
     )
 
-def function_body_code_block(lines:[str]):
+
+def function_body_code_block(lines: [str]):
     tab_block = "    "
     return f"\n{tab_block}{tab_block}".join(lines) + "\n"
 
-import ast
+
 def is_valid_python(code):
     try:
         ast.parse(code)
@@ -340,8 +336,39 @@ def is_valid_python(code):
         return False
     return True
 
-def function_code_block(lines:[str]):
+def build_live_api_lookup_from_lom(lom):
+    """"
+        tracks.selected.device.selected
+        tracks.1.device.1.
+
+
+        self.manager.song().view.tracks[0].view.devices[0]
+        self.manager.song().view.selected_track.view.selected_device
+    """
+
+    [_, track, _, device] = lom.split(".")
+
+    if track.isnumeric():
+        track_st = f"tracks[{track}]"
+    elif track == 'selected':
+        track_st = 'selected_track'
+    else:
+        print(f"can't parse track: {track}")
+        exit(1)
+
+    if device.isnumeric():
+        device_st = f"devices[{device}]"
+    elif device == 'selected':
+        device_st = 'selected_device'
+    else:
+        print(f"can't parse device: {device}")
+        exit(1)
+
+    return f"self.manager.song().view.{track_st}.view.{device_st}"
+
+def function_code_block(lines: [str]):
     return f"\n".join(lines) + "\n"
+
 
 def gen(template_path: Path, target: Path, vars: dict):
     root_dir = Path(target, vars['surface_name'])
@@ -355,11 +382,12 @@ def gen(template_path: Path, target: Path, vars: dict):
     vars['encoder_code_listener_fns'] = function_code_block(encoder_code.listener_fns)
 
     template_file(root_dir, template_path, vars, "__init__.py", "__init__.py")
-    template_file(root_dir, template_path, vars, f'modules/class_name_snake.py', f"modules/{vars['class_name_snake']}.py", verify_python=True)
-    template_file(root_dir, template_path, vars, 'surface_name.py',f"{vars['surface_name']}.py")
+    template_file(root_dir, template_path, vars, f'modules/class_name_snake.py',
+                  f"modules/{vars['class_name_snake']}.py", verify_python=True)
+    template_file(root_dir, template_path, vars, 'surface_name.py', f"{vars['surface_name']}.py")
 
 
-def template_file(root_dir, template_path, vars:dict, source_file_name, target_file_name, verify_python=False):
+def template_file(root_dir, template_path, vars: dict, source_file_name, target_file_name, verify_python=False):
     target_file = root_dir / target_file_name
     target_file.parent.mkdir(exist_ok=True)
     new_text = Template((template_path / 'surface_name' / source_file_name).read_text()).substitute(
@@ -371,7 +399,6 @@ def template_file(root_dir, template_path, vars:dict, source_file_name, target_f
         else:
             print("Code passed validation")
 
-
     target_file.write_text(new_text)
 
 
@@ -380,9 +407,9 @@ if __name__ == '__main__':
     target_dir = Path('out')
     # (target_dir / 'ck_test_surface').rmdir()
     vars = {
-        'surface_name':'surface_name',
-        'class_name_snake':'control_mappings',
-        'class_name_camel':'ControlMappings'
+        'surface_name': 'surface_name',
+        'class_name_snake': 'control_mappings',
+        'class_name_camel': 'ControlMappings'
     }
 
     gen(Path(f'templates'), target_dir, vars)
