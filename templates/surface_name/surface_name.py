@@ -14,11 +14,6 @@ from . import modules
 from .modules import $class_name_snake
 
 
-
-globals = {
-    'debug': False
-}
-
 class $surface_name(ControlSurface):
     def __init__(self, c_instance):
         super($surface_name, self).__init__(c_instance)
@@ -29,11 +24,11 @@ class $surface_name(ControlSurface):
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self._socket.setblocking(0)
             self._socket.bind(('0.0.0.0', $udp_port))
+            self.log_message("$surface_name: listening on port $udp_port")
 
             self.init_modules()
 
             self.schedule_message(1, self.tick)
-            self.log_message("listening")
             self.show_message("Connected to $surface_name")
             self.debug = False
 
@@ -49,6 +44,7 @@ class $surface_name(ControlSurface):
             data, addr = self._socket.recvfrom(1024)
             self.log_message(f"data = {data}")
             self.log_message(f"data is reload {data == b'reload'}")
+            response = None
             if data == b'reload':
                 try:
                     self.log_message('Reloading modules')
@@ -57,11 +53,20 @@ class $surface_name(ControlSurface):
 
                     self.log_message('Re-initialising modules')
                     self.init_modules()
+                    response = b'reload complete'
                 except Exception as e:
                     self.log_message(f'Error reloading module: {e}')
                     self.log_message(traceback.format_exc())
+                    response = b'reload failed, check logs'
             elif data == b'debug':
                 self.debug = not self.debug
+                self.log_message(f"Debug set to {self.debug}")
+                response = b'Debug set to ' + str(self.debug).encode('utf-8')
+
+            if response is not None:
+                self._socket.sendto(response, addr)
+                print(f"Sent response to {addr}")
+
         except socket.error as e:
             if e.errno == errno.ECONNRESET:
                 #--------------------------------------------------------------------------------

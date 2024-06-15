@@ -15,13 +15,25 @@
       "midi_type": "CC",
       "midi_range": {
         "|": "The range is inclusive",
+        "from": 13,
+        "to": 20
+      }
+    },
+    {
+      "layout": "row",
+      "number": 2,
+      "type": "knob",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "|": "The range is inclusive",
         "from": 21,
         "to": 28
       }
     },
     {
-      "layout": "col",
-      "number": 2,
+      "layout": "row",
+      "number": 3,
       "type": "knob",
       "midi_channel": 2,
       "midi_type": "CC",
@@ -32,17 +44,15 @@
     },
     {
       "layout": "col",
-      "number": 3,
-      "type": "knob",
+      "number": 4,
+      "type": "button",
       "midi_channel": 2,
       "midi_type": "CC",
       "midi_range": {
-        "from": 38,
-        "to": 45
-      }
+        "from": 108,
+        "to": 111
+      },
+      "toggles": []
     }
-  ],
-  "toggles": [
-    "r2-4"
   ]
 }
