@@ -43,6 +43,17 @@
       }
     },
     {
+      "layout": "row",
+      "number": 4,
+      "type": "slider",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "from": 37,
+        "to": 44
+      }
+    },
+    {
       "layout": "col",
       "number": 4,
       "type": "button",
@@ -51,6 +62,18 @@
       "midi_range": {
         "from": 108,
         "to": 111
+      },
+      "toggles": []
+    },
+    {
+      "layout": "row",
+      "number": 5,
+      "type": "button",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "from": 60,
+        "to": 61
       },
       "toggles": []
     }

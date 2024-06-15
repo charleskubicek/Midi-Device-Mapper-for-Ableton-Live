@@ -1,7 +1,9 @@
 import unittest
+
+from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
 # from ableton_control_suface_as_code import gen
-from ableton_control_suface_as_code.gen import generate_listener_action, encoder_template, build_mode_model, Device, \
-    Controller, build_live_api_lookup_from_lom, MidiMapping
+from ableton_control_suface_as_code.gen import encoder_template
+from ableton_control_suface_as_code.model import MidiMapping, Controller, Device, build_mode_model
 from  autopep8 import fix_code
 from difflib import Differ
 

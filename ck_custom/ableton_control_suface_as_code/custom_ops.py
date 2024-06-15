@@ -165,6 +165,7 @@ class CustomOps(ControlSurfaceComponent):
         # self.button_37 = ConfigurableButtonElement(MIDI_NOTE_TYPE, 1, 37)
 
         self.mixer = MixerComponent(124, 24)
+        self.mixer.
 
         self.setup_listeners()
 

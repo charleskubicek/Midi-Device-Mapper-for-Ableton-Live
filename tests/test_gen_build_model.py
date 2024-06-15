@@ -1,6 +1,6 @@
 import unittest
-from ableton_control_suface_as_code.gen import build_mode_model, Device, Controller, ControlGroup, Range, LayoutEnum, \
-    ControlTypeEnum, MidiTypeEnum, RowMap
+from ableton_control_suface_as_code.model import ControlTypeEnum, LayoutEnum, MidiTypeEnum, Range, ControlGroup, \
+    Controller, RowMap, Device, build_mode_model
 
 
 class TestBuildModeModel(unittest.TestCase):
