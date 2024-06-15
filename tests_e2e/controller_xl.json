@@ -1,0 +1,48 @@
+{
+  "on_led_midi": "77",
+  "off_led_midi": "78",
+
+  "|": "Control groups are rows of controllers",
+
+  "control_groups": [
+    {
+      "|": "Each group contains one row or column of controllers and a range of MIDI CC numbers",
+
+      "layout": "row",
+      "number": 1,
+      "type": "knob",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "|": "The range is inclusive",
+        "from": 21,
+        "to": 28
+      }
+    },
+    {
+      "layout": "col",
+      "number": 2,
+      "type": "knob",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "from": 29,
+        "to": 37
+      }
+    },
+    {
+      "layout": "col",
+      "number": 3,
+      "type": "knob",
+      "midi_channel": 2,
+      "midi_type": "CC",
+      "midi_range": {
+        "from": 38,
+        "to": 45
+      }
+    }
+  ],
+  "toggles": [
+    "r2-4"
+  ]
+}

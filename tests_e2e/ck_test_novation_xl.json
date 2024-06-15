@@ -1,0 +1,22 @@
+{
+  "controller": "controller_xl.json",
+  "mappings": [
+    {
+      "type": "device",
+      "lom": "tracks.selected.device.selected",
+      "range_maps": [
+        {
+          "|": "maps a range of midi encoders to a range of Ableton device parameters",
+          "row": 2,
+          "range": { "from": 1,  "to": 8 },
+          "parameters": { "from": 1, "to": 8 }
+        },
+        {
+          "row": 3,
+          "range": { "from": 1, "to": 8 },
+          "parameters": { "from": 9, "to": 16 }
+        }
+      ]
+    }
+  ]
+}
