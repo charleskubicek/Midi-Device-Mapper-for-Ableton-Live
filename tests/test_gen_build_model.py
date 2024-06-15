@@ -6,8 +6,8 @@ from ableton_control_suface_as_code.model import ControlTypeEnum, LayoutEnum, Mi
 class TestBuildModeModel(unittest.TestCase):
 
     def test_build_mode_model(self):
-        device_with_midi = build_mode_model(self.build_mode_model(), self.build_controller())
-        self.assertEqual(len(device_with_midi.midi_range_maps), 16)  # 9 parameters for each of the 2 rows
+        device_with_midi = build_mode_model([self.build_mode_model()], self.build_controller())
+        self.assertEqual(len(device_with_midi[0].midi_range_maps), 16)  # 9 parameters for each of the 2 rows
 
     def build_controller(self):
         self.controller = {
@@ -57,8 +57,8 @@ class TestBuildModeModel(unittest.TestCase):
             lom="tracks.selected.device.selected",
             range_maps=[])
 
-        device_with_midi = build_mode_model(Device.model_validate(empty_device_mapping), self.build_controller())
-        self.assertEqual(len(device_with_midi.midi_range_maps), 0)
+        device_with_midi = build_mode_model([Device.model_validate(empty_device_mapping)], self.build_controller())
+        self.assertEqual(len(device_with_midi[0].midi_range_maps), 0)
 
     # def test_build_mode_model_empty_controller(self):
     #     empty_controller = Controller.model_construct(control_groups=[])
@@ -79,7 +79,7 @@ class TestBuildModeModel(unittest.TestCase):
             ]
         }
         with self.assertRaises(AssertionError):
-            build_mode_model(Device.model_validate(mismatched_device_mapping), self.build_controller())
+            build_mode_model([Device.model_validate(mismatched_device_mapping)], self.build_controller())
 
 
 if __name__ == '__main__':

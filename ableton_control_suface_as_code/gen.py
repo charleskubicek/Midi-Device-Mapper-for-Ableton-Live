@@ -11,15 +11,19 @@ from ableton_control_suface_as_code.code import encoder_template, class_function
 from ableton_control_suface_as_code.model import Controller, DeviceWithMidi, Mappings, build_mode_model
 
 
-def gen(template_path: Path, target: Path, device_with_midi: DeviceWithMidi, vars: dict):
+def gen(template_path: Path, target: Path, devices_with_midi: [DeviceWithMidi], vars: dict):
     root_dir = Path(target, vars['surface_name'])
     root_dir.mkdir(exist_ok=True)
 
-    encoder_code = encoder_template(device_with_midi)
-    vars['encoder_code_creation'] = class_function_body_code_block(encoder_code.creation)
-    vars['encoder_code_remove_listeners'] = class_function_body_code_block(encoder_code.remove_listeners)
-    vars['encoder_code_setup_listeners'] = class_function_body_code_block(encoder_code.setup_listeners)
-    vars['encoder_code_listener_fns'] = class_function_code_block(encoder_code.listener_fns)
+    for devices_with_midi in devices_with_midi:
+        if devices_with_midi.device.type == 'device':
+            encoder_code = encoder_template(devices_with_midi)
+            vars['encoder_code_creation'] = class_function_body_code_block(encoder_code.creation)
+            vars['encoder_code_remove_listeners'] = class_function_body_code_block(encoder_code.remove_listeners)
+            vars['encoder_code_setup_listeners'] = class_function_body_code_block(encoder_code.setup_listeners)
+            vars['encoder_code_listener_fns'] = class_function_code_block(encoder_code.listener_fns)
+        elif devices_with_midi.device.type == 'mixer':
+            pass
 
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
     template_file(root_dir, template_path / 'surface_name', vars, f'modules/class_name_snake.py',f"modules/{vars['class_name_snake']}.py", verify_python=True)
@@ -50,9 +54,9 @@ if __name__ == '__main__':
     mapping_file_name = "tests_e2e/ck_test_novation_xl.json"
     mapping_file_path = Path(mapping_file_name)
 
-    mapping = Mappings.parse_file(mapping_file_path)
+    mapping = Mappings.model_validate_json(mapping_file_path.read_text())
 
-    controller = Controller.parse_file(mapping_file_path.parent / mapping.controller)
+    controller = Controller.model_validate_json((mapping_file_path.parent / mapping.controller).read_text())
     surface_name = mapping_file_path.stem
 
 
@@ -64,6 +68,6 @@ if __name__ == '__main__':
     }
 
     target_dir = Path('out')
-    device_with_midi = build_mode_model(mapping.mappings[0], controller)
+    devices_with_midi = build_mode_model(mapping.mappings, controller)
 
-    gen(Path(f'templates'), target_dir, device_with_midi, vars)
+    gen(Path(f'templates'), target_dir, devices_with_midi, vars)

@@ -84,8 +84,8 @@ def encoder_1_value(self, value):
                 'r2-4'
             ]
         }
-        device_with_midi = build_mode_model(Device.model_validate(device_mapping), Controller.model_validate(controller))
-        result = encoder_template(device_with_midi)
+        device_with_midi = build_mode_model([Device.model_validate(device_mapping)], Controller.model_validate(controller))
+        result = encoder_template(device_with_midi[0])
 
         self.assertEqual(result.remove_listeners[0], "self.encoder_0.remove_value_listener(self.encoder_0_value)")
         self.assertEqual(result.creation[0], "self.encoder_0 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.relative_binary_offset)")

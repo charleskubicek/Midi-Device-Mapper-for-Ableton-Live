@@ -17,6 +17,22 @@
           "parameters": { "from": 9, "to": 16 }
         }
       ]
+    },
+    {
+      "type": "mixer",
+      "track": "selected",
+      "mappings": {
+        "volume": "r4-8",
+        "pan": "r1-4",
+        "mute": "r5-1",
+        "solo": "r5-2",
+        "sends": [
+          "r1-5",
+          "r1-6",
+          "r1-7",
+          "r1-8"
+        ]
+      }
     }
   ]
 }
