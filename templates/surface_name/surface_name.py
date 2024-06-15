@@ -48,7 +48,12 @@ class $surface_name(ControlSurface):
             if data == b'reload':
                 try:
                     self.log_message('Reloading modules')
-                    self.class_name_snake.remove_all_listeners()
+                    try:
+                        self.class_name_snake.remove_all_listeners()
+                    except Exception as e:
+                        self.log_message(f'Error removing listeners: {e}')
+                        self.log_message(traceback.format_exc())
+
                     importlib.reload(modules.$class_name_snake)
 
                     self.log_message('Re-initialising modules')

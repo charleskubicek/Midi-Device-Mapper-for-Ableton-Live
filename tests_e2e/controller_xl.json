@@ -11,7 +11,7 @@
       "layout": "row",
       "number": 1,
       "type": "knob",
-      "midi_channel": 2,
+      "midi_channel": 1,
       "midi_type": "CC",
       "midi_range": {
         "|": "The range is inclusive",

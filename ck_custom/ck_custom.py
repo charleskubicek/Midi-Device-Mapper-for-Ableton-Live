@@ -45,9 +45,13 @@ class ck_custom(ControlSurface):
             self.log_message(f"data is reload {data == b'reload'}")
             if data == b'reload':
                 try:
-                    self.ops.remove_all_listeners()
+                    try:
+                        self.ops.remove_all_listeners()
+                    except Exception as e:
+                        self.log_message(f'Error removing listeners: {e}')
+                        self.log_message(traceback.format_exc())
+
                     importlib.reload(ableton_control_suface_as_code.custom_ops)
-                    self.log_message('Reloading module')
 
                     self.init_modules()
                 except Exception as e:
