@@ -1,8 +1,8 @@
 import unittest
 
 from ableton_control_suface_as_code.code import mixer_templates
-from ableton_control_suface_as_code.model import MixerV1, MixerMappingsV1
-from ableton_control_suface_as_code.mappings_model import MixerWithMidi
+from ableton_control_suface_as_code.model_v1 import MixerV1, MixerMappingsV1
+from ableton_control_suface_as_code.core_model import MixerWithMidi
 from tests.builders import MixerMidiMappingBuilder
 
 class CustomAssertions:

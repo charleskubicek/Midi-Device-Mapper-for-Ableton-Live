@@ -4,7 +4,7 @@ from typing import Optional, Union, List, Literal, Annotated
 from pydantic import BaseModel, Field, model_validator, TypeAdapter
 from typing_extensions import Self
 
-from ableton_control_suface_as_code.mappings_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
+from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
     LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi
 
 

@@ -1,7 +1,7 @@
 import unittest
 
 from tests.test_mixer_template import CustomAssertions
-from ableton_control_suface_as_code.model import ControllerV1, build_mixer_model, MixerV1, MixerMappingsV1
+from ableton_control_suface_as_code.model_v1 import ControllerV1, build_mixer_model, MixerV1, MixerMappingsV1
 
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):

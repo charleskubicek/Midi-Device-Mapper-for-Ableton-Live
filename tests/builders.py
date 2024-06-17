@@ -1,8 +1,8 @@
 from typing import List
 
-from ableton_control_suface_as_code.model import MixerMappingsV1, MixerV1
-from ableton_control_suface_as_code.mappings_model import MixerMidiMapping, ControlTypeEnum, MidiTypeEnum, MixerWithMidi
-from ableton_control_suface_as_code.model import MixerV1, MixerMidiMapping
+from ableton_control_suface_as_code.model_v1 import MixerMappingsV1, MixerV1
+from ableton_control_suface_as_code.core_model import MixerMidiMapping, ControlTypeEnum, MidiTypeEnum, MixerWithMidi
+from ableton_control_suface_as_code.model_v1 import MixerV1, MixerMidiMapping
 
 class MixerMidiMappingBuilder:
     def __init__(self):

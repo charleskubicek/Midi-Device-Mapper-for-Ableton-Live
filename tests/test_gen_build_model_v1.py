@@ -1,7 +1,7 @@
 import unittest
-from ableton_control_suface_as_code.model import RangeV1, ControlGroupV1, \
+from ableton_control_suface_as_code.model_v1 import RangeV1, ControlGroupV1, \
     ControllerV1, RowMapV1, DeviceV1, build_mode_model_v1
-from ableton_control_suface_as_code.mappings_model import ControlTypeEnum, LayoutEnum, MidiTypeEnum
+from ableton_control_suface_as_code.core_model import ControlTypeEnum, LayoutEnum, MidiTypeEnum
 
 
 class TestBuildModeModel(unittest.TestCase):

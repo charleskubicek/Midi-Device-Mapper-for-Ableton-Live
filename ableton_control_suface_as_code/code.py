@@ -3,7 +3,7 @@ import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.mappings_model import DeviceWithMidi, MixerWithMidi
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
 
 
 @dataclass

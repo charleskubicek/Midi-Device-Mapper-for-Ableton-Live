@@ -1,12 +1,12 @@
 import unittest
+from difflib import Differ
+
+from autopep8 import fix_code
 
 from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_templates
-from ableton_control_suface_as_code.model import ControllerV1, DeviceV1, build_mode_model_v1
-from ableton_control_suface_as_code.mappings_model import DeviceMidiMapping
-from  autopep8 import fix_code
-from difflib import Differ
+from ableton_control_suface_as_code.model_v1 import ControllerV1, DeviceV1, build_mode_model_v1
 
 differ = Differ()
 

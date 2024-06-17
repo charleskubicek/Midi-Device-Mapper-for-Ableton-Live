@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import nested_text as nt
-from ableton_control_suface_as_code.model import MappingsV1
+from ableton_control_suface_as_code.model_v1 import MappingsV1
 
 try:
     xl_nt = 'tests_e2e/ck_test_novation_xl.nt'

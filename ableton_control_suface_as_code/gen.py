@@ -9,8 +9,8 @@ from typing import Union
 
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode
-from ableton_control_suface_as_code.model import ControllerV1, MappingsV1, build_mode_model_v1
-from ableton_control_suface_as_code.mappings_model import DeviceWithMidi, MixerWithMidi
+from ableton_control_suface_as_code.model_v1 import ControllerV1, MappingsV1, build_mode_model_v1
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
 
 template_to_code = {
     'device': device_templates,
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     }
 
     target_dir = Path('out')
+    # devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
     devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
 
     gen(Path(f'templates'), target_dir, devices_with_midi, vars)
