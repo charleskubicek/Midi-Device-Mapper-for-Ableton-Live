@@ -48,8 +48,8 @@ class CustomOps(ControlSurfaceComponent):
 
         self.controller_LED_on = 127
         self.controller_LED_off = 0
-        self.led_on = self.controller_LED_on
-        self.led_off = self.controller_LED_off
+        self.led_on = 120
+        self.led_off = 0
 
         is_momentary=True
         self.button1 = ConfigurableButtonElement(is_momentary, MIDI_CC_TYPE, 1, 60)

@@ -3,15 +3,25 @@ import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.model import DeviceWithMidi
+from ableton_control_suface_as_code.mappings_model import DeviceWithMidi, MixerWithMidi
 
 
 @dataclass
-class EncoderCode:
+class GeneratedCode:
+    setup: [str]
     creation: [str]
     listener_fns: [str]
     setup_listeners: [str]
     remove_listeners: [str]
+
+    def merge(self, other):
+        return GeneratedCode(
+            self.setup + other.setup,
+            self.creation + other.creation,
+            self.listener_fns + other.listener_fns,
+            self.setup_listeners + other.setup_listeners,
+            self.remove_listeners + other.remove_listeners
+        )
 
 
 def generate_listener_action(n, parameter, lom, debug_st) -> [str]:
@@ -34,8 +44,37 @@ def encoder_${n}_value(self, value):
     selected_device.parameters[$parameter].value = value    
     """).substitute(n=n, parameter=parameter, lom=lom, comment=debug_st).split("\n")
 
+def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
+    encoder_count = 0
 
-def encoder_template(device_with_midi: DeviceWithMidi):
+    setup = []
+    creation = []
+    listener_fns = []
+    setup_listeners = []
+    remove_listeners = []
+
+
+    setup.extend([
+        "self.led_on = 120",
+        "self.led_off = 0"
+    ])
+
+    for midi_map in mixer_with_midi.midi_maps:
+        if midi_map.controller_type.is_button():
+            if midi_map.selected_track:
+                #TODO fix momentary/toggle
+                bn = f"button_{midi_map.debug_string()}"
+                creation.append(f"self.{bn} = ConfigurableButtonElement(True, {midi_map.midi_type.ableton_name()}, {midi_map.midi_channel-1}, {midi_map.midi_number})")
+                creation.append(f"self.{bn}.set_on_off_values(self.led_on, self.led_off)")
+
+                setup_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_button(self.{bn})")
+                remove_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_button(None)")
+
+    return GeneratedCode(
+        setup, creation, listener_fns, setup_listeners, remove_listeners
+    )
+
+def device_templates(device_with_midi: DeviceWithMidi):
     encoder_count = 0
 
     creation = []
@@ -43,7 +82,7 @@ def encoder_template(device_with_midi: DeviceWithMidi):
     setup_listeners = []
     remove_listeners = []
 
-    lom = build_live_api_lookup_from_lom(device_with_midi.device.lom)
+    lom = build_live_api_lookup_from_lom(device_with_midi.lom)
 
     for g in device_with_midi.midi_range_maps:
         creation.append(
@@ -54,8 +93,8 @@ def encoder_template(device_with_midi: DeviceWithMidi):
         listener_fns.extend(generate_listener_action(encoder_count, g.parameter, lom, g.debug_string()))
         encoder_count += 1
 
-    return EncoderCode(
-        creation, listener_fns, setup_listeners, remove_listeners
+    return GeneratedCode(
+        [], creation, listener_fns, setup_listeners, remove_listeners
     )
 
 
@@ -102,9 +141,15 @@ def snake_to_camel(snake_str):
     return components[0] + ''.join(x.title() for x in components[1:])
 
 def class_function_code_block(lines: [str]):
+    if lines is None or lines == []:
+        return ""
+
     tab_block = "    "
     return f"\n{tab_block}".join(lines) + "\n"
 
 def class_function_body_code_block(lines: [str]):
+    if lines is None or lines == []:
+        return ""
+
     tab_block = "    "
     return f"\n{tab_block}{tab_block}".join(lines) + "\n"

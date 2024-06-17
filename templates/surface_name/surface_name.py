@@ -49,7 +49,7 @@ class $surface_name(ControlSurface):
                 try:
                     self.log_message('Reloading modules')
                     try:
-                        self.class_name_snake.remove_all_listeners()
+                        self.$class_name_snake.remove_all_listeners()
                     except Exception as e:
                         self.log_message(f'Error removing listeners: {e}')
                         self.log_message(traceback.format_exc())

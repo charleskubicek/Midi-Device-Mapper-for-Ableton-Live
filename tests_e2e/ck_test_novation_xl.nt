@@ -1,0 +1,26 @@
+controller: controller_json.nt
+mappings:
+    -
+        type: deivce
+        
+        # selected, master, or a number 
+        track: selected
+        device: selected
+        ranges:
+            - 
+                row: 2
+                range: 1-8
+                parameters: 1-8
+            -
+                row: 3
+                range: 1-8
+                parameters: 9-16
+    - 
+        type: mixer
+        track: selected
+        mappings:
+            volume: row_4:8
+            pan: row_1:4
+            mute: row_5:1
+            solo: row_5:2
+            sends: row_1:5-8

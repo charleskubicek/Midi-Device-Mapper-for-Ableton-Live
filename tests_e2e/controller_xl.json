@@ -55,7 +55,7 @@
     },
     {
       "layout": "col",
-      "number": 4,
+      "number": 5,
       "type": "button",
       "midi_channel": 2,
       "midi_type": "CC",
@@ -67,7 +67,7 @@
     },
     {
       "layout": "row",
-      "number": 5,
+      "number": 6,
       "type": "button",
       "midi_channel": 2,
       "midi_type": "CC",

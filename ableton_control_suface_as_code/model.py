@@ -1,33 +1,14 @@
-from enum import Enum
+import sys
 from typing import Optional, Union, List, Literal, Annotated
 
-from pydantic import BaseModel, Field, validator, field_validator, model_validator, TypeAdapter
-from pydantic_core.core_schema import ValidationInfo
+from pydantic import BaseModel, Field, model_validator, TypeAdapter
 from typing_extensions import Self
 
-
-class ControlTypeEnum(str, Enum):
-    knob = 'knob'
-    button = 'button'
-    slider = 'slider'
+from ableton_control_suface_as_code.mappings_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
+    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi
 
 
-class LayoutEnum(str, Enum):
-    row = 'row'
-    col = 'col'
-
-
-class MidiTypeEnum(str, Enum):
-    midi = 'midi'
-    CC = 'CC'
-
-    def ableton_name(self):
-        if self == MidiTypeEnum.midi:
-            return 'MIDI_NOTE_TYPE'
-        return 'MIDI_CC_TYPE'
-
-
-class Range(BaseModel):
+class RangeV1(BaseModel):
     from_: int = Field(alias='from')
     to: int
     comment: Optional[str] = Field(default=None, alias='|')
@@ -50,31 +31,30 @@ class Range(BaseModel):
     def is_present(self, value: int):
         return value in range(1, len(self.as_range()) + 1)
 
-
-class MidiMapping(BaseModel):
-    midi_channel: int
-    midi_number: int
-    midi_type: MidiTypeEnum
-    parameter: int
-    comment: Optional[str] = Field(default=None, alias='|')
-
-    def debug_string(self):
-        # c3,n30,cc
-        return f"ch{self.midi_channel - 1},no{self.midi_number},{self.midi_type.value}"
+    def item_at(self, index: int):
+        if index < 0 or index >= len(self.as_inclusive_list()):
+            raise ValueError(f"Index {index} out of range for {self.as_list()}")
+        return self.as_inclusive_list()[index]
 
 
-class ControlGroup(BaseModel):
+class ControlGroupV1(BaseModel):
     layout: LayoutEnum
     number: int
     type: ControlTypeEnum
     midi_channel: int
     midi_type: MidiTypeEnum
-    midi_range: Range
+    midi_range: RangeV1
     comment: Optional[str] = Field(default=None, alias='|')
 
 
-class Controller(BaseModel):
-    control_groups: list[ControlGroup]
+class MidiCoordsV1(BaseModel):
+    channel: int
+    type: MidiTypeEnum
+    number: int
+
+
+class ControllerV1(BaseModel):
+    control_groups: list[ControlGroupV1]
     comment: Optional[str] = Field(default=None, alias='|')
 
     def find_group(self, row_col: int):
@@ -88,12 +68,27 @@ class Controller(BaseModel):
 
         return None
 
+    def find_from_coords(self, enc_str) -> (MidiCoordsV1, ControlTypeEnum):
+        print(f"enc_str = {enc_str}")
+        row, col = enc_str[1:].split("-")
+        for group in self.control_groups:
+            if group.number == int(row):
+                no = group.midi_range.item_at(int(col) - 1)
+                return (MidiCoordsV1(
+                    channel=group.midi_channel,
+                    number=no,
+                    type=group.midi_type),
+                        group.type)
 
-class RowMap(BaseModel):
+        print("Didn't find any coords for {enc_str}")
+        sys.exit(1)
+
+
+class RowMapV1(BaseModel):
     row: int | None
     # col: int | None
-    range: Range
-    parameters: Range
+    range: RangeV1
+    parameters: RangeV1
     comment: Optional[str] = Field(default=None, alias='|')
 
     @model_validator(mode='after')
@@ -106,51 +101,51 @@ class RowMap(BaseModel):
         return self
 
 
-class Device(BaseModel):
+## Mapping Types
+
+class DeviceV1(BaseModel):
     type: Literal['device']
     lom: str
-    range_maps: list[RowMap]
+    range_maps: list[RowMapV1]
     comment: Optional[str] = Field(default=None, alias='|')
 
 
-class DeviceWithMidi(BaseModel):
-    device: Device
-    midi_range_maps: list[MidiMapping]
+class MixerMappingsV1(BaseModel):
+    volume: Optional[str] = Field(default=None)
+    pan: Optional[str] = Field(default=None)
+    mute: Optional[str] = Field(default=None)
+    solo: Optional[str] = Field(default=None)
+    arm: Optional[str] = Field(default=None)
+    sends: Optional[List[str]] = Field(default=None)
+
+    # validate mute/solo/arm are buttons and sends/pan/vol are knobs/sliders
 
 
-
-class MixerMappings(BaseModel):
-    volume: str
-    pan: str
-    mute: str
-    solo: str
-    sends: List[str]
-
-
-class Mixer(BaseModel):
-    type: Literal['mixer']
+class MixerV1(BaseModel):
+    type: Literal['mixer'] = 'mixer'
     track: str
-    mappings: MixerMappings
+    mappings: MixerMappingsV1
 
 
-# Mapping = TypeAdapter(Annotated[
-#                           Union[Mixer, Device],
-#                           Field(discriminator="type"),
-#                       ])
+Mapping = TypeAdapter(Annotated[
+                          Union[MixerV1, DeviceV1],
+                          Field(discriminator="type"),
+                      ])
 
-class Mappings(BaseModel):
+
+class MappingsV1(BaseModel):
     controller: str
-    mappings: List[Union[Mixer, Device]]
+    mappings: List[Union[MixerV1, DeviceV1]]
     comment: Optional[str] = Field(default=None, alias='|')
 
 
-class MixerWithMidi(BaseModel):
-    mixer: Mixer
-    midi_range_maps: list[MidiMapping]
+#
+# Models used for code generation
+#
 
 
-
-def build_mode_model(mappings: List[Union[Device, Mixer]], controller: Controller):
+def build_mode_model_v1(mappings: List[Union[DeviceV1, MixerV1]], controller: ControllerV1) -> List[Union[
+    DeviceWithMidi, MixerWithMidi]]:
     """
     Returns a model of the mapping with midi info attached
 
@@ -164,29 +159,58 @@ def build_mode_model(mappings: List[Union[Device, Mixer]], controller: Controlle
     for mapping in mappings:
 
         if mapping.type == "device":
-            midi_range_mappings = []
-            for rm in mapping.range_maps:
-                group = controller.find_group(rm.row)
-                assert len(rm.range) <= len(
-                    group.midi_range), f"rm.range of {len(rm.range)} is too long for group, max is {len(group.midi_range)} ({rm.range}) to group ({group.midi_range})"
-                group_midi_list = group.midi_range.as_inclusive_range()
-                print(f"group_midi_list = {group_midi_list}")
-
-                for device_range_index in rm.range.as_inclusive_range():
-                    print(f"device_range_index = {device_range_index}")
-                    midi_range_mappings.append(MidiMapping(
-                        midi_channel=group.midi_channel,
-                        midi_number=group_midi_list[device_range_index - 1],
-                        midi_type=group.midi_type,
-                        parameter=rm.parameters.as_inclusive_list()[device_range_index - 1]
-                    ))
-
-            mappings_with_midi.append(DeviceWithMidi(device=mapping, midi_range_maps=midi_range_mappings))
+            mappings_with_midi.append(build_device_model(controller, mapping))
         if mapping.type == "mixer":
-            pass
-
+            mappings_with_midi.append(build_mixer_model(controller, mapping))
 
     return mappings_with_midi
+
+
+def build_mixer_model(controller, mapping: MixerV1):
+    track = mapping.track
+    mixer_maps = []
+    for api_name, enc in mapping.mappings.dict().items():
+        if enc is None:
+            continue
+        elif api_name == 'sends':
+            continue
+        else:
+            coords, type = controller.find_from_coords(enc)
+            mixer_maps.append(MixerMidiMapping(
+                midi_channel=coords.channel,
+                midi_number=coords.number,
+                midi_type=coords.type,
+                controller_type=type,
+                api_function=api_name,
+                selected_track=True,
+                tracks=None,
+                encoder_coords=enc
+            ))
+
+    return MixerWithMidi(midi_maps=mixer_maps)
+
+
+def build_device_model(controller, mapping):
+    midi_range_mappings = []
+    for rm in mapping.range_maps:
+        group = controller.find_group(rm.row)
+        assert len(rm.range) <= len(
+            group.midi_range), f"rm.range of {len(rm.range)} is too long for group, max is {len(group.midi_range)} ({rm.range}) to group ({group.midi_range})"
+        group_midi_list = group.midi_range.as_inclusive_range()
+        print(f"group_midi_list = {group_midi_list}")
+
+        for device_range_index in rm.range.as_inclusive_range():
+            print(f"device_range_index = {device_range_index}")
+            midi_range_mappings.append(DeviceMidiMapping(
+                midi_channel=group.midi_channel,
+                midi_number=group_midi_list[device_range_index - 1],
+                midi_type=group.midi_type,
+                parameter=rm.parameters.as_inclusive_list()[device_range_index - 1]
+            ))
+
+    return DeviceWithMidi(
+        lom=mapping.lom,
+        midi_range_maps=midi_range_mappings)
 
 
 controller = {

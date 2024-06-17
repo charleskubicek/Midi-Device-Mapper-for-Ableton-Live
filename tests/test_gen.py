@@ -2,8 +2,9 @@ import unittest
 
 from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
 # from ableton_control_suface_as_code import gen
-from ableton_control_suface_as_code.gen import encoder_template
-from ableton_control_suface_as_code.model import MidiMapping, Controller, Device, build_mode_model
+from ableton_control_suface_as_code.gen import device_templates
+from ableton_control_suface_as_code.model import ControllerV1, DeviceV1, build_mode_model_v1
+from ableton_control_suface_as_code.mappings_model import DeviceMidiMapping
 from  autopep8 import fix_code
 from difflib import Differ
 
@@ -84,8 +85,8 @@ def encoder_1_value(self, value):
                 'r2-4'
             ]
         }
-        device_with_midi = build_mode_model([Device.model_validate(device_mapping)], Controller.model_validate(controller))
-        result = encoder_template(device_with_midi[0])
+        device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
+        result = device_templates(device_with_midi[0])
 
         self.assertEqual(result.remove_listeners[0], "self.encoder_0.remove_value_listener(self.encoder_0_value)")
         self.assertEqual(result.creation[0], "self.encoder_0 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.relative_binary_offset)")

@@ -24,8 +24,8 @@
       "mappings": {
         "volume": "r4-8",
         "pan": "r1-4",
-        "mute": "r5-1",
-        "solo": "r5-2",
+        "mute": "r6-1",
+        "solo": "r6-2",
         "sends": [
           "r1-5",
           "r1-6",
