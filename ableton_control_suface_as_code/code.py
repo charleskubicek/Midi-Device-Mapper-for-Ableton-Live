@@ -82,7 +82,7 @@ def device_templates(device_with_midi: DeviceWithMidi):
     setup_listeners = []
     remove_listeners = []
 
-    lom = build_live_api_lookup_from_lom(device_with_midi.lom)
+    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
 
     for g in device_with_midi.midi_range_maps:
         creation.append(
@@ -106,7 +106,7 @@ def is_valid_python(code):
     return True
 
 
-def build_live_api_lookup_from_lom(lom):
+def build_live_api_lookup_from_lom(track, device):
     """"
         tracks.selected.device.selected
         tracks.1.device.1.
@@ -116,10 +116,8 @@ def build_live_api_lookup_from_lom(lom):
         self.manager.song().view.selected_track.view.selected_device
     """
 
-    [_, track, _, device] = lom.split(".")
-
     if track.isnumeric():
-        track_st = f"tracks[{track}]"
+        track_st = f"tracks[{int(track)-1}]"
     elif track == 'selected':
         track_st = 'selected_track'
     else:
@@ -127,7 +125,7 @@ def build_live_api_lookup_from_lom(lom):
         exit(1)
 
     if device.isnumeric():
-        device_st = f"devices[{device}]"
+        device_st = f"devices[{int(device)-1}]"
     elif device == 'selected':
         device_st = 'selected_device'
     else:

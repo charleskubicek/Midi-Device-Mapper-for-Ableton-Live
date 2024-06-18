@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Optional, List
 
@@ -28,6 +29,17 @@ class LayoutEnum(str, Enum):
     col = 'col'
 
 
+class EncoderCoords(BaseModel):
+    row: int
+    col: Optional[int]
+    cols: Optional[List[int]]
+
+    def debug_string(self):
+        if self.col:
+            return f"r{self.row}c{self.col}"
+        return f"r{self.row}c{self.cols}"
+
+
 class MidiTypeEnum(str, Enum):
     midi = 'midi'
     CC = 'CC'
@@ -36,6 +48,13 @@ class MidiTypeEnum(str, Enum):
         if self == MidiTypeEnum.midi:
             return 'MIDI_NOTE_TYPE'
         return 'MIDI_CC_TYPE'
+
+
+class MidiCoords(BaseModel):
+    channel: int
+    type: MidiTypeEnum
+    number: int
+
 
 
 class DeviceMidiMapping(BaseModel):
@@ -59,17 +78,18 @@ class MixerMidiMapping(BaseModel):
     api_function: str
     selected_track: Optional[bool]
     tracks: Optional[List[str]]
-    encoder_coords:str
+    encoder_coords: EncoderCoords
 
-    #TDDO validate tracks is only present if selected_track is not and vv
+    # TDDO validate tracks is only present if selected_track is not and vv
 
     def debug_string(self):
-        return f"ch{self.midi_channel - 1}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoder_coords.replace('-', '_')}__api_{self.api_function}"
+        return f"ch{self.midi_channel - 1}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoder_coords.debug_string()}__api_{self.api_function}"
 
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
-    lom: str
+    track: str
+    device: str
     midi_range_maps: list[DeviceMidiMapping]
 
 

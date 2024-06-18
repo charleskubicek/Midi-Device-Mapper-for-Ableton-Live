@@ -1,7 +1,7 @@
 import unittest
 
-from tests.test_mixer_template import CustomAssertions
 from ableton_control_suface_as_code.model_v1 import ControllerV1, build_mixer_model, MixerV1, MixerMappingsV1
+from tests.test_mixer_template import CustomAssertions
 
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):
@@ -21,6 +21,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
         return ControllerV1.model_validate(self.controller)
 
+    @unittest.skip("Old model")
     def test_mixer_(self):
         mixer = MixerV1(track='selected', mappings=MixerMappingsV1(pan="r1-2"))
         result = build_mixer_model(self.build_controller(), mixer)

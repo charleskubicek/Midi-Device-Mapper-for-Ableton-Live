@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, model_validator, TypeAdapter
 from typing_extensions import Self
 
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
-    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi
+    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi, MidiCoords
 
 
 class RangeV1(BaseModel):
@@ -47,12 +47,6 @@ class ControlGroupV1(BaseModel):
     comment: Optional[str] = Field(default=None, alias='|')
 
 
-class MidiCoordsV1(BaseModel):
-    channel: int
-    type: MidiTypeEnum
-    number: int
-
-
 class ControllerV1(BaseModel):
     control_groups: list[ControlGroupV1]
     comment: Optional[str] = Field(default=None, alias='|')
@@ -68,13 +62,13 @@ class ControllerV1(BaseModel):
 
         return None
 
-    def find_from_coords(self, enc_str) -> (MidiCoordsV1, ControlTypeEnum):
+    def find_from_coords(self, enc_str) -> (MidiCoords, ControlTypeEnum):
         print(f"enc_str = {enc_str}")
         row, col = enc_str[1:].split("-")
         for group in self.control_groups:
             if group.number == int(row):
                 no = group.midi_range.item_at(int(col) - 1)
-                return (MidiCoordsV1(
+                return (MidiCoords(
                     channel=group.midi_channel,
                     number=no,
                     type=group.midi_type),

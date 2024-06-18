@@ -1,7 +1,7 @@
 controller: controller_json.nt
 mappings:
     -
-        type: deivce
+        type: device
         
         # selected, master, or a number 
         track: selected
@@ -15,7 +15,7 @@ mappings:
                 row: 3
                 range: 1-8
                 parameters: 9-16
-    - 
+    -
         type: mixer
         track: selected
         mappings:

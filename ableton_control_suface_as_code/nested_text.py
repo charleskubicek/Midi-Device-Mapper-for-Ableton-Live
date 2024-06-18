@@ -33,7 +33,7 @@ understood and used by both programmers and non-programmers.
 # SOFTWARE.
 
 # Imports {{{1
-from inform import (
+from ableton_control_suface_as_code.inform import (
     cull,
     full_stop,
     set_culprit,
@@ -2025,7 +2025,7 @@ def dumps(
         .. code-block:: python
 
             >>> import arrow
-            >>> from inform import cull
+            >>> from ableton_control_suface_as_code.inform import cull
             >>> import quantiphy
 
             >>> class Dollars(quantiphy.Quantity):
@@ -2161,7 +2161,7 @@ def dump(obj, dest, **kwargs):
         .. code-block:: python
 
             >>> import nestedtext as nt
-            >>> from inform import fatal, os_error
+            >>> from ableton_control_suface_as_code.inform import fatal, os_error
 
             >>> data = {
             ...     "name": "Kristel Templeton",

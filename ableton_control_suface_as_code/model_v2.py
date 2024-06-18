@@ -1,17 +1,18 @@
 import sys
+from pathlib import Path
 from typing import Optional, Union, List, Literal, Annotated
 
-from pydantic import BaseModel, Field, model_validator, TypeAdapter
+from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict
 from typing_extensions import Self
 
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
-    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi
+    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords
 
+from ableton_control_suface_as_code import nested_text as nt
 
 class RangeV2(BaseModel):
     from_: int = Field(alias='from')
     to: int
-    comment: Optional[str] = Field(default=None, alias='|')
 
     def __len__(self):
         return len(self.as_range())
@@ -43,23 +44,22 @@ class ControlGroupV2(BaseModel):
     type: ControlTypeEnum
     midi_channel: int
     midi_type: MidiTypeEnum
-    midi_range: RangeV2
-    comment: Optional[str] = Field(default=None, alias='|')
+    midi_range_raw: str = Field(alias='midi_range')
 
-
-class MidiCoordsV2(BaseModel):
-    channel: int
-    type: MidiTypeEnum
-    number: int
+    @property
+    def midi_range(self):
+        [s, e] = self.midi_range_raw.split("-")
+        return RangeV2.model_construct(from_=int(s), to=int(e))
 
 
 class ControllerV2(BaseModel):
-    control_groups: list[ControlGroupV2]
-    comment: Optional[str] = Field(default=None, alias='|')
+    control_groups: List[ControlGroupV2]
+    on_led_midi: int
+    off_led_midi: int
 
     def find_group(self, row_col: int):
         for group in self.control_groups:
-            # print(f"group.number = {group.number} ({row_col})")
+            print(f"group.number = {group.number} ({row_col})")
             if group.number == row_col:
                 return group
 
@@ -68,13 +68,12 @@ class ControllerV2(BaseModel):
 
         return None
 
-    def find_from_coords(self, enc_str) -> (MidiCoordsV2, ControlTypeEnum):
-        print(f"enc_str = {enc_str}")
-        row, col = enc_str[1:].split("-")
+    def find_from_coords(self, coords) -> (MidiCoords, ControlTypeEnum):
+        print(f"enc_str = {coords}")
         for group in self.control_groups:
-            if group.number == int(row):
-                no = group.midi_range.item_at(int(col) - 1)
-                return (MidiCoordsV2(
+            if group.number == int(coords.row):
+                no = group.midi_range.item_at(coords.col - 1)
+                return (MidiCoords.model_construct(
                     channel=group.midi_channel,
                     number=no,
                     type=group.midi_type),
@@ -87,9 +86,18 @@ class ControllerV2(BaseModel):
 class RowMapV2(BaseModel):
     row: int | None
     # col: int | None
-    range: RangeV2
-    parameters: RangeV2
-    comment: Optional[str] = Field(default=None, alias='|')
+    range_raw: str = Field(alias='range')
+    parameters_raw: str = Field(alias='parameters')
+
+    @property
+    def range(self) -> RangeV2:
+        a, b = self.range_raw.split("-")
+        return RangeV2.model_construct(from_=int(a), to=int(b))
+
+    @property
+    def parameters(self) -> RangeV2:
+        a, b = self.parameters_raw.split("-")
+        return RangeV2.model_construct(from_=int(a), to=int(b))
 
     @model_validator(mode='after')
     def verify_square(self) -> Self:
@@ -105,46 +113,79 @@ class RowMapV2(BaseModel):
 
 class DeviceV2(BaseModel):
     type: Literal['device']
-    lom: str
-    range_maps: list[RowMapV2]
-    comment: Optional[str] = Field(default=None, alias='|')
+    track: str
+    device: str
+    ranges: list[RowMapV2]
 
 
 class MixerMappingsV2(BaseModel):
-    volume: Optional[str] = Field(default=None)
-    pan: Optional[str] = Field(default=None)
-    mute: Optional[str] = Field(default=None)
-    solo: Optional[str] = Field(default=None)
-    arm: Optional[str] = Field(default=None)
-    sends: Optional[List[str]] = Field(default=None)
+    volume_raw: Optional[str] = Field(default=None, alias="volume")
+    pan_raw: Optional[str] = Field(default=None, alias="pan")
+    mute_raw: Optional[str] = Field(default=None, alias="mute")
+    solo_raw: Optional[str] = Field(default=None, alias="solo")
+    arm_raw: Optional[str] = Field(default=None, alias="arm")
+    sends_raw: Optional[str] = Field(default=None, alias="sends")
+
+    def parse_coords(self, raw):
+        if raw is None:
+            return None
+
+        [row_raw, cols] = raw.split(":")
+        row = int(row_raw.removeprefix("row_"))
+
+        if '-' in cols:
+            [start, end] = cols.split("-")
+            return EncoderCoords.model_construct(row=row, col=-1, cols=list(range(int(start), int(end) + 1)))
+        else:
+            return EncoderCoords.model_construct(row=row, col=int(cols), cols=None)
+
+    def as_parsed_dict(self):
+        return {key.removesuffix('_raw'): self.parse_coords(value) for key, value in self.model_dump().items() if value is not None}
+
+
+    # @property
+    # def volume(self):
+    #
+    # @property
+    # def pan(self):
+    #
+    # @property
+    # def mute(self):
+    #
+    # @property
+    # def solo(self):
+    #
+    # @property
+    # def arm(self):
+    #
+    # @property
+    # def sends(self):
 
     # validate mute/solo/arm are buttons and sends/pan/vol are knobs/sliders
 
 
 class MixerV2(BaseModel):
-    type: Literal['mixer'] = 'mixer'
+    type: Literal['mixer'] = "mixer"
     track: str
     mappings: MixerMappingsV2
 
 
-Mapping = TypeAdapter(Annotated[
-                          Union[MixerV2, DeviceV2],
-                          Field(discriminator="type"),
-                      ])
+# Mapping = TypeAdapter(Annotated[
+#                           Union[MixerV2, DeviceV2],
+#                           Field(discriminator="type"),
+#                       ])
 
 
 class MappingsV2(BaseModel):
     controller: str
     mappings: List[Union[MixerV2, DeviceV2]]
-    comment: Optional[str] = Field(default=None, alias='|')
-
 
 #
 # Models used for code generation
 #
 
 
-def build_mode_model_v1(mappings: List[Union[DeviceV2, MixerV2]], controller: ControllerV2) -> List[Union[
+def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2]], controller: ControllerV2) -> List[Union[
     DeviceWithMidi, MixerWithMidi]]:
     """
     Returns a model of the mapping with midi info attached
@@ -159,23 +200,21 @@ def build_mode_model_v1(mappings: List[Union[DeviceV2, MixerV2]], controller: Co
     for mapping in mappings:
 
         if mapping.type == "device":
-            mappings_with_midi.append(build_device_model(controller, mapping))
+            mappings_with_midi.append(build_device_model_v2(controller, mapping))
         if mapping.type == "mixer":
-            mappings_with_midi.append(build_mixer_model(controller, mapping))
+            mappings_with_midi.append(build_mixer_model_v2(controller, mapping))
 
     return mappings_with_midi
 
 
-def build_mixer_model(controller, mapping: MixerV2):
+def build_mixer_model_v2(controller, mapping: MixerV2):
     track = mapping.track
     mixer_maps = []
-    for api_name, enc in mapping.mappings.dict().items():
-        if enc is None:
-            continue
-        elif api_name == 'sends':
+    for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
+        if api_name == 'sends':
             continue
         else:
-            coords, type = controller.find_from_coords(enc)
+            coords, type = controller.find_from_coords(enc_coords)
             mixer_maps.append(MixerMidiMapping(
                 midi_channel=coords.channel,
                 midi_number=coords.number,
@@ -184,15 +223,15 @@ def build_mixer_model(controller, mapping: MixerV2):
                 api_function=api_name,
                 selected_track=True,
                 tracks=None,
-                encoder_coords=enc
+                encoder_coords=enc_coords
             ))
 
     return MixerWithMidi(midi_maps=mixer_maps)
 
 
-def build_device_model(controller, mapping):
+def build_device_model_v2(controller, mapping):
     midi_range_mappings = []
-    for rm in mapping.range_maps:
+    for rm in mapping.ranges:
         group = controller.find_group(rm.row)
         assert len(rm.range) <= len(
             group.midi_range), f"rm.range of {len(rm.range)} is too long for group, max is {len(group.midi_range)} ({rm.range}) to group ({group.midi_range})"
@@ -209,8 +248,32 @@ def build_device_model(controller, mapping):
             ))
 
     return DeviceWithMidi(
-        lom=mapping.lom,
+        track=mapping.track,
+        device=mapping.device,
         midi_range_maps=midi_range_mappings)
+
+def read_mapping(mapping_path):
+    try:
+
+        def normalize_key(key, parent_keys):
+            return '_'.join(key.lower().split())
+
+        data = nt.loads(mapping_path, normalize_key=normalize_key)
+        return MappingsV2.model_validate(data)
+    except nt.NestedTextError as e:
+        e.terminate()
+
+
+def read_controller(controller_path):
+    try:
+
+        def normalize_key(key, parent_keys):
+            return '_'.join(key.lower().split())
+
+        data = nt.loads(controller_path, normalize_key=normalize_key)
+        return ControllerV2.model_validate(data)
+    except nt.NestedTextError as e:
+        e.terminate()
 
 
 controller = {

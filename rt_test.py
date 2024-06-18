@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import nested_text as nt
+from ableton_control_suface_as_code import nested_text as nt
 from ableton_control_suface_as_code.model_v1 import MappingsV1
 
 try:

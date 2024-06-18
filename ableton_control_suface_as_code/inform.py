@@ -76,7 +76,7 @@ def indent(text, leader='    ', first=0, stops=1, sep='\n'):
 
     **Example**::
 
-        >>> from inform import display, indent
+        >>> from ableton_control_suface_as_code.inform import display, indent
         >>> display(indent('And the answer is ...\n42!', first=-1))
         And the answer is ...
             42!
@@ -111,7 +111,7 @@ def cull(collection, **kwargs):
 
     **Example**::
 
-        >>> from inform import cull, display
+        >>> from ableton_control_suface_as_code.inform import cull, display
         >>> from collections import OrderedDict
         >>> fruits = OrderedDict([
         ...    ('a','apple'), ('b','banana'), ('c','cranberry'), ('d','date'),
@@ -161,7 +161,7 @@ def is_str(arg):
 
     **Example**::
 
-        >>> from inform import is_str
+        >>> from ableton_control_suface_as_code.inform import is_str
         >>> is_str('abc')
         True
 
@@ -169,7 +169,7 @@ def is_str(arg):
         False
 
     """
-    from six import string_types
+    from ableton_control_suface_as_code.six import string_types
 
     return isinstance(arg, string_types)
 
@@ -182,7 +182,7 @@ def is_iterable(obj):
 
     **Example**::
 
-        >>> from inform import is_iterable
+        >>> from ableton_control_suface_as_code.inform import is_iterable
         >>> is_iterable('abc')
         True
 
@@ -202,7 +202,7 @@ def is_collection(obj):
 
     **Example**::
 
-        >>> from inform import is_collection
+        >>> from ableton_control_suface_as_code.inform import is_collection
         >>> is_collection('')  # string
         False
 
@@ -226,7 +226,7 @@ def is_mapping(obj):
 
     **Example**::
 
-        >>> from inform import is_mapping
+        >>> from ableton_control_suface_as_code.inform import is_mapping
         >>> is_mapping('')  # string
         False
 
@@ -263,7 +263,7 @@ class Color:
 
     **Example**::
 
-        >>> from inform import Color
+        >>> from ableton_control_suface_as_code.inform import Color
         >>> fail = Color('red')
 
     In this example, *fail* is a colorizer. It behave just like
@@ -342,7 +342,7 @@ class Color:
 
         **Example**::
 
-            >>> from inform import Color, display
+            >>> from ableton_control_suface_as_code.inform import Color, display
             >>> import sys, re
 
             >>> if Color.isTTY(sys.stdout):
@@ -387,7 +387,7 @@ class LoggingCache:
 
     **Example**::
 
-        >>> from inform import Inform, LoggingCache, log, indent
+        >>> from ableton_control_suface_as_code.inform import Inform, LoggingCache, log, indent
         >>> with Inform(logfile=LoggingCache()) as inform:
         ...     log("This message is cached.")
         ...     inform.set_logfile(".mylog")
@@ -468,7 +468,7 @@ def join(*args, **kwargs):
 
     **Examples**::
 
-        >>> from inform import join
+        >>> from ableton_control_suface_as_code.inform import join
         >>> join('a', 'b', 'c', x='x', y='y', z='z')
         'a b c'
 
@@ -541,7 +541,7 @@ def render(obj, sort=None, level=None, tab='    '):
 
     **Example**::
 
-        >>> from inform import display, render
+        >>> from ableton_control_suface_as_code.inform import display, render
         >>> display('result =', render({'a': (0, 1), 'b': [2, 3, 4]}))
         result = {'a': (0, 1), 'b': [2, 3, 4]}
 
@@ -688,7 +688,7 @@ def fmt(message, *args, **kwargs):
 
     **Examples**::
 
-        >>> from inform import fmt
+        >>> from ableton_control_suface_as_code.inform import fmt
         >>> s = 'str var'
         >>> d = {'msg': 'dict val'}
         >>> class Class:
@@ -754,7 +754,7 @@ def dedent(text, strip_nl=None, *, bolm=None, wrap=False):
         If true the string is wrapped using a width of 70. If an integer value
         is passed, is used as the width of the wrap.
 
-    >>> from inform import dedent
+    >>> from ableton_control_suface_as_code.inform import dedent
 
     >>> print(dedent('''
     ...     ◊   Diaspar
@@ -832,7 +832,7 @@ def os_error(e):
 
     **Example**::
 
-        >>> from inform import display, os_error
+        >>> from ableton_control_suface_as_code.inform import display, os_error
         >>> try:
         ...     with open('config') as f:
         ...         contents = f.read()
@@ -877,7 +877,7 @@ def conjoin(iterable, conj=' and ', sep=', ', end='', fmt=None):
 
     **Examples**::
 
-        >>> from inform import conjoin, display, Info
+        >>> from ableton_control_suface_as_code.inform import conjoin, display, Info
         >>> display(conjoin([], ' or '))
         <BLANKLINE>
 
@@ -977,7 +977,7 @@ def title_case(
 
     **Example**::
 
-        >>> from inform import title_case
+        >>> from ableton_control_suface_as_code.inform import title_case
         >>> cases = '''
         ...     CDC warns about "aggressive" rats as coronavirus shuts down restaurants
         ...     L.A. County opens churches, stores, pools, drive-in theaters
@@ -1028,7 +1028,7 @@ def did_you_mean(invalid_str, valid_strs):
 
     **Examples**::
 
-        >>> from inform import did_you_mean
+        >>> from ableton_control_suface_as_code.inform import did_you_mean
         >>> did_you_mean('cat', ['cat', 'dog'])
         'cat'
         >>> did_you_mean('car', ['cat', 'dog'])
@@ -1082,7 +1082,7 @@ def parse_range(
 
     **Examples**::
 
-        >>> from inform import parse_range
+        >>> from ableton_control_suface_as_code.inform import parse_range
         >>> parse_range('1-3,5')
         {1, 2, 3, 5}
         >>> abc_range = lambda a, b: [chr(x) for x in range(ord(a), ord(b) + 1)]
@@ -1148,7 +1148,7 @@ def format_range(
 
     **Examples**::
 
-        >>> from inform import format_range
+        >>> from ableton_control_suface_as_code.inform import format_range
         >>> format_range([1, 2, 3, 5])
         '1-3,5'
         >>> abc_diff = lambda a, b: ord(b) - ord(a)
@@ -1211,7 +1211,7 @@ class plural:
 
     **Examples**::
 
-        >>> from inform import plural
+        >>> from ableton_control_suface_as_code.inform import plural
 
         >>> f"{plural(1):thing}, {plural(2):thing}"
         'thing, things'
@@ -1364,7 +1364,7 @@ class truth:
 
     **Examples**::
 
-        >>> from inform import truth
+        >>> from ableton_control_suface_as_code.inform import truth
 
         >>> f"account is {truth(True):past due/current}."
         'account is past due.'
@@ -1444,7 +1444,7 @@ def full_stop(sentence, end='.', allow='.?!'):
 
     **Examples**::
 
-        >>> from inform import full_stop
+        >>> from ableton_control_suface_as_code.inform import full_stop
         >>> full_stop('The file is out of date')
         'The file is out of date.'
 
@@ -1500,7 +1500,7 @@ def columns(
 
     **Example**::
 
-        >>> from inform import columns, display, full_stop
+        >>> from ableton_control_suface_as_code.inform import columns, display, full_stop
         >>> title = 'The NATO phonetic alphabet:'
         >>> words = '''
         ...     Alfa Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett
@@ -1551,7 +1551,7 @@ def render_bar(value, width=72, full_width=False):
             bar.
     **Examples**::
 
-        >>> from inform import render_bar
+        >>> from ableton_control_suface_as_code.inform import render_bar
 
         >>> assets = {'property': 13_194, 'cash': 2846, 'equities': 19_301}
         >>> total = sum(assets.values())
@@ -2149,7 +2149,7 @@ class InformantFactory:
         messages in green, and *fails*, which prints its messages in red.  Output
         to the standard output for both is suppressed if *quiet* is *True*::
 
-            >>> from inform import InformantFactory, display
+            >>> from ableton_control_suface_as_code.inform import InformantFactory, display
 
             >>> success = InformantFactory(
             ...     clone = display,
@@ -3027,7 +3027,7 @@ class Inform:
 
         **Example**::
 
-            >>> from inform import get_culprit, set_culprit, warn
+            >>> from ableton_control_suface_as_code.inform import get_culprit, set_culprit, warn
 
             >>> def count_lines(lines):
             ...    empty = 0
@@ -3035,7 +3035,7 @@ class Inform:
             ...        if not line:
             ...            warn('empty line.', culprit=get_culprit(lineno+1))
 
-            >>> filename = 'pyproject.toml'
+            >>> filename = '../pyproject.toml'
             >>> with open(filename) as f, set_culprit(filename):
             ...    lines = f.read().splitlines()
             ...    num_lines = count_lines(lines)

@@ -11,6 +11,8 @@ from ableton_control_suface_as_code.code import device_templates, class_function
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode
 from ableton_control_suface_as_code.model_v1 import ControllerV1, MappingsV1, build_mode_model_v1
 from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
+from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, MappingsV2, ControllerV2, read_controller, \
+    read_mapping
 
 template_to_code = {
     'device': device_templates,
@@ -79,11 +81,13 @@ if __name__ == '__main__':
     mapping_file_name = "tests_e2e/ck_test_novation_xl.json"
     mapping_file_path = Path(mapping_file_name)
 
-    mapping = MappingsV1.model_validate_json(mapping_file_path.read_text())
-
-    controller = ControllerV1.model_validate_json((mapping_file_path.parent / mapping.controller).read_text())
+    controller = read_controller(Path('tests_e2e/controller_xl.nt').read_text())
+    mapping = read_mapping(Path('tests_e2e/ck_test_novation_xl.nt').read_text())
+    # mapping = MappingsV2.model_validate_json(mapping_file_path.read_text())
+    #
+    # controller = ControllerV2.model_validate_json((mapping_file_path.parent / mapping.controller).read_text())
     surface_name = mapping_file_path.stem
-
+    #
     vars = {
         'surface_name': surface_name,
         'udp_port': generate_5_digit_number(surface_name)+1,
@@ -93,6 +97,8 @@ if __name__ == '__main__':
 
     target_dir = Path('out')
     # devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
-    devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
+    devices_with_midi = build_mode_model_v2(mapping.mappings, controller)
 
     gen(Path(f'templates'), target_dir, devices_with_midi, vars)
+
+    print("Finished generating code.")

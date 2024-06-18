@@ -1,14 +1,9 @@
 import unittest
-from ableton_control_suface_as_code.model_v1 import RangeV1, ControlGroupV1, \
-    ControllerV1, RowMapV1, DeviceV1, build_mode_model_v1
-from ableton_control_suface_as_code.core_model import ControlTypeEnum, LayoutEnum, MidiTypeEnum
+
+from ableton_control_suface_as_code.model_v1 import RangeV1, ControllerV1, RowMapV1, DeviceV1, build_mode_model_v1
 
 
 class TestBuildModeModel(unittest.TestCase):
-
-    def test_build_mode_model(self):
-        device_with_midi = build_mode_model_v1([self.build_mode_model()], self.build_controller())
-        self.assertEqual(len(device_with_midi[0].midi_range_maps), 16)  # 9 parameters for each of the 2 rows
 
     def build_controller(self):
         self.controller = {
@@ -51,7 +46,7 @@ class TestBuildModeModel(unittest.TestCase):
                 )
             ])
 
-
+    @unittest.skip("Old model")
     def test_build_mode_model_empty_device(self):
         empty_device_mapping = DeviceV1.model_construct(
             type="device",

@@ -4,6 +4,7 @@ from difflib import Differ
 from autopep8 import fix_code
 
 from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidiMapping, MidiTypeEnum
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_templates
 from ableton_control_suface_as_code.model_v1 import ControllerV1, DeviceV1, build_mode_model_v1
@@ -85,11 +86,18 @@ def encoder_1_value(self, value):
                 'r2-4'
             ]
         }
-        device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
-        result = device_templates(device_with_midi[0])
+        # device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
+        device_with_midi = DeviceWithMidi.model_construct(track="selected", device="selected", midi_range_maps=[
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=21, midi_type=MidiTypeEnum.CC, parameter=1),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=22, midi_type=MidiTypeEnum.CC, parameter=2),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=23, midi_type=MidiTypeEnum.CC, parameter=3),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=24, midi_type=MidiTypeEnum.CC, parameter=4),
+        ])
+        result = device_templates(device_with_midi)
 
         self.assertEqual(result.remove_listeners[0], "self.encoder_0.remove_value_listener(self.encoder_0_value)")
         self.assertEqual(result.creation[0], "self.encoder_0 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.relative_binary_offset)")
+        self.assertEqual(result.creation[1], "self.encoder_1 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.relative_binary_offset)")
         self.assertEqual(result.setup_listeners[0], "self.encoder_0.add_value_listener(self.encoder_0_value)")
         self.assertTrue("def encoder_0_value(self, value):" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
 
@@ -100,14 +108,12 @@ def encoder_1_value(self, value):
 
 
     def test_build_live_api_lookup_from_lom(self):
-        lom = "tracks.1.device.1"
-        expected_output = "self.manager.song().view.tracks[1].view.devices[1]"
-        result = build_live_api_lookup_from_lom(lom)
+        expected_output = "self.manager.song().view.tracks[0].view.devices[1]"
+        result = build_live_api_lookup_from_lom("1", "2")
         self.assertEqual(result, expected_output)
 
-        lom = "tracks.selected.device.selected"
         expected_output = "self.manager.song().view.selected_track.view.selected_device"
-        result = build_live_api_lookup_from_lom(lom)
+        result = build_live_api_lookup_from_lom("selected", "selected")
         self.assertEqual(result, expected_output)
 
 
