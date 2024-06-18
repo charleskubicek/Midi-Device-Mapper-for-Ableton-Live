@@ -5,8 +5,8 @@ from typing import Optional, Union, List, Literal, Annotated
 from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict
 from typing_extensions import Self
 
-from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, ControlTypeEnum, \
-    LayoutEnum, MidiTypeEnum, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords
+from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, EncoderType, \
+    LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords
 
 from ableton_control_suface_as_code import nested_text as nt
 
@@ -39,11 +39,11 @@ class RangeV2(BaseModel):
 
 
 class ControlGroupV2(BaseModel):
-    layout: LayoutEnum
+    layout: LayoutAxis
     number: int
-    type: ControlTypeEnum
+    type: EncoderType
     midi_channel: int
-    midi_type: MidiTypeEnum
+    midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
 
     @property
@@ -68,7 +68,7 @@ class ControllerV2(BaseModel):
 
         return None
 
-    def find_from_coords(self, coords) -> (MidiCoords, ControlTypeEnum):
+    def find_from_coords(self, coords) -> (MidiCoords, EncoderType):
         print(f"enc_str = {coords}")
         for group in self.control_groups:
             if group.number == int(coords.row):

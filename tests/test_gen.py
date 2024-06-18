@@ -4,7 +4,7 @@ from difflib import Differ
 from autopep8 import fix_code
 
 from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidiMapping, MidiTypeEnum
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidiMapping, MidiType
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_templates
 from ableton_control_suface_as_code.model_v1 import ControllerV1, DeviceV1, build_mode_model_v1
@@ -88,10 +88,10 @@ def encoder_1_value(self, value):
         }
         # device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
         device_with_midi = DeviceWithMidi.model_construct(track="selected", device="selected", midi_range_maps=[
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=21, midi_type=MidiTypeEnum.CC, parameter=1),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=22, midi_type=MidiTypeEnum.CC, parameter=2),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=23, midi_type=MidiTypeEnum.CC, parameter=3),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=24, midi_type=MidiTypeEnum.CC, parameter=4),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=21, midi_type=MidiType.CC, parameter=1),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=22, midi_type=MidiType.CC, parameter=2),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=23, midi_type=MidiType.CC, parameter=3),
+            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=24, midi_type=MidiType.CC, parameter=4),
         ])
         result = device_templates(device_with_midi)
 

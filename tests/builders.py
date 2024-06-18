@@ -1,7 +1,7 @@
 from typing import List
 
 from ableton_control_suface_as_code.model_v1 import MixerMappingsV1, MixerV1
-from ableton_control_suface_as_code.core_model import MixerMidiMapping, ControlTypeEnum, MidiTypeEnum, MixerWithMidi, \
+from ableton_control_suface_as_code.core_model import MixerMidiMapping, EncoderType, MidiType, MixerWithMidi, \
     EncoderCoords
 from ableton_control_suface_as_code.model_v1 import MixerV1, MixerMidiMapping
 
@@ -9,8 +9,8 @@ class MixerMidiMappingBuilder:
     def __init__(self):
         self._midi_channel = 1
         self._midi_number = 1
-        self._midi_type = MidiTypeEnum.midi
-        self._controller_type = ControlTypeEnum.button
+        self._midi_type = MidiType.midi
+        self._controller_type = EncoderType.button
         self._api_function = "volume"
         self._selected_track = True
         self._tracks = None
@@ -31,7 +31,7 @@ class MixerMidiMappingBuilder:
     def midi_info(self, chan, no, midi_type):
         self._midi_channel = chan
         self._midi_number = no
-        self._midi_type = MidiTypeEnum[midi_type]
+        self._midi_type = MidiType[midi_type]
         return self
 
     def controller_type(self, controller_type):

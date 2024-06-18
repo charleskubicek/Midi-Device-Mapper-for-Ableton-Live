@@ -5,16 +5,16 @@ from typing import Literal, Optional, List
 from pydantic import BaseModel, Field
 
 
-class ControlTypeEnum(str, Enum):
+class EncoderType(str, Enum):
     knob = 'knob'
     button = 'button'
     slider = 'slider'
 
     def is_button(self):
-        return self == ControlTypeEnum.button
+        return self == EncoderType.button
 
     def is_encoder(self):
-        return self != ControlTypeEnum.button
+        return self != EncoderType.button
 
     @classmethod
     def create_from_first_char(cls, str):
@@ -24,7 +24,7 @@ class ControlTypeEnum(str, Enum):
         raise ValueError(f"No ControlTypeEnum starts with {str[0]} from {str}")
 
 
-class LayoutEnum(str, Enum):
+class LayoutAxis(str, Enum):
     row = 'row'
     col = 'col'
 
@@ -40,19 +40,19 @@ class EncoderCoords(BaseModel):
         return f"r{self.row}c{self.cols}"
 
 
-class MidiTypeEnum(str, Enum):
+class MidiType(str, Enum):
     midi = 'midi'
     CC = 'CC'
 
     def ableton_name(self):
-        if self == MidiTypeEnum.midi:
+        if self == MidiType.midi:
             return 'MIDI_NOTE_TYPE'
         return 'MIDI_CC_TYPE'
 
 
 class MidiCoords(BaseModel):
     channel: int
-    type: MidiTypeEnum
+    type: MidiType
     number: int
 
 
@@ -61,7 +61,7 @@ class DeviceMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
     midi_channel: int
     midi_number: int
-    midi_type: MidiTypeEnum
+    midi_type: MidiType
     parameter: int
     comment: Optional[str] = Field(default=None, alias='|')
 
@@ -73,8 +73,8 @@ class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_channel: int
     midi_number: int
-    midi_type: MidiTypeEnum
-    controller_type: ControlTypeEnum
+    midi_type: MidiType
+    controller_type: EncoderType
     api_function: str
     selected_track: Optional[bool]
     tracks: Optional[List[str]]
