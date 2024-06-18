@@ -41,11 +41,11 @@ class EncoderCoords(BaseModel):
 
 
 class MidiType(str, Enum):
-    midi = 'midi'
+    note = 'note'
     CC = 'CC'
 
     def ableton_name(self):
-        if self == MidiType.midi:
+        if self == MidiType.note:
             return 'MIDI_NOTE_TYPE'
         return 'MIDI_CC_TYPE'
 
@@ -71,14 +71,24 @@ class DeviceMidiMapping(BaseModel):
 
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
-    midi_channel: int
-    midi_number: int
-    midi_type: MidiType
+    midi_coords:MidiCoords
     controller_type: EncoderType
     api_function: str
     selected_track: Optional[bool]
     tracks: Optional[List[str]]
     encoder_coords: EncoderCoords
+
+    @property
+    def midi_channel(self):
+        return self.midi_coords.channel
+
+    @property
+    def midi_number(self):
+        return self.midi_coords.number
+
+    @property
+    def midi_type(self):
+        return self.midi_coords.type
 
     # TDDO validate tracks is only present if selected_track is not and vv
 

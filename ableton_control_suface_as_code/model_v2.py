@@ -216,9 +216,7 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
         else:
             coords, type = controller.find_from_coords(enc_coords)
             mixer_maps.append(MixerMidiMapping(
-                midi_channel=coords.channel,
-                midi_number=coords.number,
-                midi_type=coords.type,
+                midi_coords=coords,
                 controller_type=type,
                 api_function=api_name,
                 selected_track=True,

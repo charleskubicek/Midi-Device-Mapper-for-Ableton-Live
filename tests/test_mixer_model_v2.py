@@ -34,3 +34,18 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
 
 
+    def test_mixer_sends(self):
+        mixer = MixerV2(track='selected', mappings=MixerMappingsV2(sends="row_1:5-8"))
+        result = build_mixer_model_v2(self.build_controller(), mixer)
+
+        self.assertEqual(result.midi_maps[0].midi_type, "CC")
+        self.assertEqual(result.midi_maps[0].midi_channel, 2)
+        self.assertEqual(result.midi_maps[0].midi_number, 22)
+        self.assertEqual(result.midi_maps[0].encoder_coords.row, 1)
+        self.assertEqual(result.midi_maps[0].encoder_coords.col, 2)
+        self.assertEqual(result.midi_maps[0].encoder_coords.cols, None)
+        self.assertEqual(result.midi_maps[0].api_function, "send")
+
+
+
+

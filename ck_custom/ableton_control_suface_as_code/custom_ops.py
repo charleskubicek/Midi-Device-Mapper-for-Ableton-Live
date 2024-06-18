@@ -23,10 +23,13 @@ class CustomOps(ControlSurfaceComponent):
         # self.setup_listeners()
 
     def remove_all_listeners(self):
+        self.log_message("removing listeners")
         self.encoder_21.remove_value_listener(self.encoder_21_value)
         self.encoder_22.remove_value_listener(self.encoder_22_value)
         self.encoder_23.remove_value_listener(self.encoder_23_value)
         self.encoder_24.remove_value_listener(self.encoder_24_value)
+
+        self.encoder_2_5_sends.remove_value_listener(self.encoder_2_5_sends_listener)
 
         self.mixer.selected_strip().set_mute_button(None)
         self.mixer.selected_strip().set_solo_button(None)
@@ -41,10 +44,9 @@ class CustomOps(ControlSurfaceComponent):
         self.encoder_23 = EncoderElement(MIDI_CC_TYPE, 1, 23, Live.MidiMap.MapMode.relative_binary_offset)
         self.encoder_24 = EncoderElement(MIDI_CC_TYPE, 1, 24, Live.MidiMap.MapMode.relative_binary_offset)
 
-        self.encoder_44 = EncoderElement(MIDI_CC_TYPE, 1, 44, Live.MidiMap.MapMode.relative_binary_offset)
+        self.encoder_2_44_volume = EncoderElement(MIDI_CC_TYPE, 1, 44, Live.MidiMap.MapMode.relative_binary_offset)
 
-        self.encoder_16 = EncoderElement(MIDI_CC_TYPE, 0, 16, Live.MidiMap.MapMode.relative_binary_offset)
-        self.encoder_17 = EncoderElement(MIDI_CC_TYPE, 0, 17, Live.MidiMap.MapMode.relative_binary_offset)
+        self.encoder_2_5_sends = EncoderElement(MIDI_CC_TYPE, 1, 25, Live.MidiMap.MapMode.relative_binary_offset)
 
         self.controller_LED_on = 127
         self.controller_LED_off = 0
@@ -65,7 +67,9 @@ class CustomOps(ControlSurfaceComponent):
 
         self.mixer.selected_strip().set_mute_button(self.button1)
         self.mixer.selected_strip().set_solo_button(self.button2)
-        self.mixer.selected_strip().set_volume_control(self.encoder_44)
+        self.mixer.selected_strip().set_volume_control(self.encoder_2_44_volume)
+
+        # sends = self._track.mixer_device.sends[0]
 
         self.setup_listeners()
 
@@ -76,8 +80,7 @@ class CustomOps(ControlSurfaceComponent):
         self.encoder_23.add_value_listener(self.encoder_23_value)
         self.encoder_24.add_value_listener(self.encoder_24_value)
 
-        self.encoder_16.add_value_listener(self.encoder_16_value)
-        self.encoder_17.add_value_listener(self.encoder_17_value)
+        self.encoder_2_5_sends.add_value_listener(self.encoder_2_5_sends_listener)
         # self.button1.add_value_listener(self.button1_value)
 
 
@@ -85,19 +88,11 @@ class CustomOps(ControlSurfaceComponent):
         self.manager.log_message(message)
 
 
-    def encoder_16_value(self, value):
-        self.log_message(f"encoder_16_value value = {value}")
-        self.log_message(f"encoder_16_value max = {self.song().view.selected_track.mixer_device.panning.max}")
-        self.log_message(f"encoder_17_value min = {self.song().view.selected_track.mixer_device.panning.min}")
 
-
-        self.song().view.selected_track.mixer_device.panning.value = float(value) / 128.0
-
-
-    def encoder_17_value(self, value):
+    def encoder_2_5_sends_listener(self, value):
         self.log_message(f"encoder_17_value value = {value}")
-        self.log_message(f"encoder_17_value max = {self.song().view.selected_track.mixer_device.sends[0].max}")
-        self.log_message(f"encoder_17_value min = {self.song().view.selected_track.mixer_device.sends[0].min}")
+        self.log_message(f"encoder_17_value max = {self.manager.song().view.selected_track.mixer_device.sends[0].max}")
+        self.log_message(f"encoder_17_value min = {self.manager.song().view.selected_track.mixer_device.sends[0].min}")
 
 
         self.song().view.selected_track.mixer_device.sends[0].value = float(value) / 128.0

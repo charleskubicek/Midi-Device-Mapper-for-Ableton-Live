@@ -77,6 +77,19 @@ class ck_custom(ControlSurface):
 
         self.schedule_message(1, self.tick)
 
+
+    def disconnect(self):
+        self.show_message("Disconnecting...")
+        self._socket.close()
+        super().disconnect()
+        # def _setup_session(self):
+    #     self._session = SessionComponent(num_tracks=8, num_scenes=1)
+    #     self._session.set_enabled(True)
+    #
+    # def _setup_mixer(self):
+    #     self._mixer = MixerComponent(num_tracks=8)
+    #     self._mixer.set_enabled(True)
+
     # def _setup_session(self):
     #     self._session = SessionComponent(num_tracks=8, num_scenes=1)
     #     self._session.set_enabled(True)
