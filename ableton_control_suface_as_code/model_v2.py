@@ -73,7 +73,7 @@ class ControllerV2(BaseModel):
 
         return None
 
-    def find_from_coords(self, coords) -> ([MidiCoords], EncoderType):
+    def build_zero_based_midi_coords(self, coords) -> ([MidiCoords], EncoderType):
         print(f"enc_str = {coords}")
         for group in self.control_groups:
             if group.number == int(coords.row):
@@ -210,7 +210,8 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
     track = mapping.track
     mixer_maps = []
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
-        coords_list, type = controller.find_from_coords(enc_coords)
+        coords_list, type = controller.build_zero_based_midi_coords(enc_coords)
+
 
         mixer_maps.append(MixerMidiMapping.with_multiple_args(
             midi_coords_list=coords_list,
@@ -219,6 +220,9 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
             selected_track=True,
             tracks=None,
             encoder_coords=enc_coords))
+
+    for m in mixer_maps:
+        print("mixer: ", [(x.number, x.channel, x.type.name) for x in m.midi_coords], m.api_function, f"row:{m.encoder_coords.row}-{m.encoder_coords.row_range_end}, col:{m.encoder_coords.col}")
 
     return MixerWithMidi(midi_maps=mixer_maps)
 

@@ -85,6 +85,12 @@ class MidiCoords(BaseModel):
     def ableton_channel(self):
         return self.channel - 1
 
+    def create_button_element(self):
+        return f"ConfigurableButtonElement(True, {self.type.ableton_name()}, {self.ableton_channel()}, {self.number})"
+
+    def create_encoder_element(self):
+        return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
+
     def __init__(self, channel, number, type):
         super().__init__(channel=channel, type=type, number=number)
 
@@ -102,9 +108,12 @@ class DeviceMidiMapping(BaseModel):
 
 
     def info_string(self):
-        return f"ch{self.midi_channel - 1}_no{self.midi_number}_{self.midi_type.value}__p{self.parameter}"
+        return f"ch{self.midi_channel}_no{self.midi_number}_{self.midi_type.value}__p{self.parameter}"
 
 
+#
+# The data in this class has been zerobased
+#
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_coords:List[MidiCoords]
@@ -174,7 +183,7 @@ class MixerMidiMapping(BaseModel):
     # TDDO validate tracks is only present if selected_track is not and vv
 
     def info_string(self):
-        return f"ch{self.midi_channel - 1}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
+        return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
 
 class DeviceWithMidi(BaseModel):

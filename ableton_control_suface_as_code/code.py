@@ -44,11 +44,11 @@ def ${fn_name}(self, value):
     selected_device.parameters[$parameter].value = value    
     """).substitute(parameter=parameter, lom=lom, fn_name=fn_name, comment=debug_st).split("\n")
 
-def button_element(midi_coords:MidiCoords):
-    return f"ConfigurableButtonElement(True, {midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number})"
+# def button_element(midi_coords:MidiCoords):
+#     return f"ConfigurableButtonElement(True, {midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number})"
 
-def encoder_element(midi_coords:MidiCoords):
-    return f"EncoderElement({midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number}, Live.MidiMap.MapMode.absolute)"
+# def encoder_element(midi_coords:MidiCoords):
+#     return f"EncoderElement({midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number}, Live.MidiMap.MapMode.absolute)"
 
 
 def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
@@ -69,7 +69,7 @@ def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
             if midi_map.selected_track:
                 #TODO fix momentary/toggle
                 bn = f"button_{midi_map.info_string()}"
-                creation.append(f"self.{bn} = {button_element(midi_map.midi_coords[0])}")
+                creation.append(f"self.{bn} = {midi_map.midi_coords[0].create_button_element()}")
                 creation.append(f"self.{bn}.set_on_off_values(self.led_on, self.led_off)")
 
                 setup_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(self.{bn})")
@@ -86,14 +86,14 @@ def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
                     #TODO sends lenth max of midi range or actual sends size
 
                     for i, midi in enumerate(midi_map.midi_coords):
-                        creation.append(f"self.{sends_var}[{i}] = {encoder_element(midi)}")
+                        creation.append(f"self.{sends_var}[{i}] = {midi.create_encoder_element()}")
 
                     setup_listeners.append(f"self.mixer.selected_strip().set_send_controls(self.{sends_var})")
                     remove_listeners.append(f"self.mixer.selected_strip().set_send_controls(None)")
                 else:
                     cn = f"encodr_{midi_map.info_string()}"
 
-                    creation.append(f"self.{cn} = {encoder_element(midi_map.midi_coords[0])}")
+                    creation.append(f"self.{cn} = {midi_map.midi_coords[0].create_encoder_element()}")
                     setup_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(self.{cn})")
                     remove_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(None)")
 
@@ -117,7 +117,7 @@ def device_templates(device_with_midi: DeviceWithMidi):
         enc_name = f"encoder_{g.info_string()}"
         enc_listener_name = f"encoder_{g.info_string()}_value"
 
-        creation.append(f"self.{enc_name} = {encoder_element(g.midi_coords)}")
+        creation.append(f"self.{enc_name} = {g.midi_coords.create_encoder_element()}")
         setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
         remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
         listener_fns.extend(generate_listener_action(g.parameter, lom, enc_listener_name, g.info_string()))
