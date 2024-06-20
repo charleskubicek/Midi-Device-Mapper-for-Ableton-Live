@@ -46,22 +46,6 @@ class TestBuildModeModel(unittest.TestCase):
                 )
             ])
 
-    @unittest.skip("Old model")
-    def test_build_mode_model_empty_device(self):
-        empty_device_mapping = DeviceV1.model_construct(
-            type="device",
-            lom="tracks.selected.device.selected",
-            range_maps=[])
-
-        device_with_midi = build_mode_model_v1([DeviceV1.model_validate(empty_device_mapping)], self.build_controller())
-        self.assertEqual(len(device_with_midi[0].midi_range_maps), 0)
-
-    # def test_build_mode_model_empty_controller(self):
-    #     empty_controller = Controller.model_construct(control_groups=[])
-    #
-    #     device_with_midi = build_mode_model(self.build_mode_model(), empty_controller)
-    #     self.assertEqual(len(device_with_midi.midi_range_maps), 0)
-
     def test_build_mode_model_mismatched_ranges(self):
         mismatched_device_mapping = {
             'type': 'device',

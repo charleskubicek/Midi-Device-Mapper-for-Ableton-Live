@@ -28,16 +28,43 @@ class LayoutAxis(str, Enum):
     row = 'row'
     col = 'col'
 
+class NamedTrack(str, Enum):
+    master = 'master'
+    selected = 'selected'
+
+    @property
+    def is_master(self):
+        return self == NamedTrack.master
+
+    @property
+    def is_selected(self):
+        return self == NamedTrack.selected
+
+class Track(BaseModel):
+    name:Optional[NamedTrack]
+    list:Optional[List[int]]
 
 class EncoderCoords(BaseModel):
     row: int
-    col: Optional[int]
-    cols: Optional[List[int]]
+    col: int
+    row_range_end: int
+
+    @property
+    def is_range(self):
+        return self.row_range_end != self.col
+
+    @property
+    def range_inclusive(self):
+        return range(self.col, self.row_range_end + 1)
+
+    def list_inclusive(self):
+        return list(self.range_inclusive)
+
+    def __init__(self, row, col=None, row_range_end=None):
+        super().__init__(row=row, col=col, row_range_end=row_range_end)
 
     def debug_string(self):
-        if self.col:
-            return f"r{self.row}c{self.col}"
-        return f"r{self.row}c{self.cols}"
+        return f"r{self.row}c{self.col}"
 
 
 class MidiType(str, Enum):
@@ -55,6 +82,11 @@ class MidiCoords(BaseModel):
     type: MidiType
     number: int
 
+    def ableton_channel(self):
+        return self.channel - 1
+
+    def __init__(self, channel, number, type):
+        super().__init__(channel=channel, type=type, number=number)
 
 
 class DeviceMidiMapping(BaseModel):
@@ -63,37 +95,85 @@ class DeviceMidiMapping(BaseModel):
     midi_number: int
     midi_type: MidiType
     parameter: int
-    comment: Optional[str] = Field(default=None, alias='|')
 
-    def debug_string(self):
-        return f"ch{self.midi_channel - 1},no{self.midi_number},{self.midi_type.value},p{self.parameter}"
+    @property
+    def midi_coords(self) -> MidiCoords:
+        return MidiCoords(channel=self.midi_channel, number=self.midi_number, type=self.midi_type)
+
+
+    def info_string(self):
+        return f"ch{self.midi_channel - 1}_no{self.midi_number}_{self.midi_type.value}__p{self.parameter}"
 
 
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
-    midi_coords:MidiCoords
+    midi_coords:List[MidiCoords]
     controller_type: EncoderType
     api_function: str
     selected_track: Optional[bool]
     tracks: Optional[List[str]]
     encoder_coords: EncoderCoords
 
+    def encoders_debug_string(self):
+        return self.encoder_coords.debug_string()
+
+    def __init__(self,
+                 midi_coords:MidiCoords,
+                 encoder_type:EncoderType,
+                 api_function,
+                 encoder_coords:EncoderCoords,
+                 selected_track=None, tracks=None):
+        super().__init__(
+            type='mixer',
+            midi_coords=[midi_coords],
+            controller_type=encoder_type,
+            api_function=api_function,
+            encoder_coords=encoder_coords,
+            selected_track=selected_track,
+            tracks=tracks if tracks is not None else []
+        )
+
+    @classmethod
+    def with_multiple_args(cls,
+                 midi_coords_list:List[MidiCoords],
+                 encoder_type:EncoderType,
+                 api_function,
+                 encoder_coords:EncoderCoords,
+                 selected_track=None, tracks=None):
+        return MixerMidiMapping.model_construct(
+            midi_coords=midi_coords_list,
+            controller_type=encoder_type,
+            api_function=api_function,
+            encoder_coords=encoder_coords,
+            selected_track=selected_track,
+            tracks=tracks if tracks is not None else []
+        )
+
     @property
     def midi_channel(self):
-        return self.midi_coords.channel
+        return self.midi_coords[0].channel
 
     @property
     def midi_number(self):
-        return self.midi_coords.number
+        return self.midi_coords[0].number
 
     @property
     def midi_type(self):
-        return self.midi_coords.type
+        return self.midi_coords[0].type
+
+    @property
+    def api_control_type(self):
+        if self.api_function in ['solo', 'mute', 'arm']:
+            return 'button'
+        elif self.api_function == 'sends':
+            return 'controls'
+        else:
+            return 'control'
 
     # TDDO validate tracks is only present if selected_track is not and vv
 
-    def debug_string(self):
-        return f"ch{self.midi_channel - 1}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoder_coords.debug_string()}__api_{self.api_function}"
+    def info_string(self):
+        return f"ch{self.midi_channel - 1}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
 
 class DeviceWithMidi(BaseModel):

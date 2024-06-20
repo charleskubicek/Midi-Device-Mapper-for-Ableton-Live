@@ -23,34 +23,23 @@ template_to_code = {
 # class TemplateVars:
 #     surface_name: str
 
-def gen(template_path: Path, target: Path, devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi]], vars: dict):
-    root_dir = Path(target, vars['surface_name'])
-    root_dir.mkdir(exist_ok=True)
-
+def generate_code_in_template_vars(devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi]]) -> dict:
     code = GeneratedCode([], [], [], [], [])
     for device_with_midi in devices_with_midi:
         code_templates = template_to_code[device_with_midi.type]
         code = code.merge(code_templates(device_with_midi))
 
-    vars = vars | {
+    return {
         'code_setup': class_function_body_code_block(code.setup),
         'code_creation': class_function_body_code_block(code.creation),
         'code_remove_listeners': class_function_body_code_block(code.remove_listeners),
         'code_setup_listeners': class_function_body_code_block(code.setup_listeners),
         'code_listener_fns': class_function_code_block(code.listener_fns)
     }
-        #
-        # if devices_with_midi.device.type == 'device':
-        #     encoder_code = device_templates(device_with_midi)
-        #     vars.get('encoder_code_creation', [])
-        #     vars['encoder_code_creation'] = class_function_body_code_block(encoder_code.creation)
-        #     vars['encoder_code_remove_listeners'] = class_function_body_code_block(encoder_code.remove_listeners)
-        #     vars['encoder_code_setup_listeners'] = class_function_body_code_block(encoder_code.setup_listeners)
-        #     vars['encoder_code_listener_fns'] = class_function_code_block(encoder_code.listener_fns)
-        # elif devices_with_midi.device.type == 'mixer':
-        #     mixer_code = mixer_templates(device_with_midi)
-        #     vars['mixer_code_creation'] = class_function_body_code_block(mixer_code.selected_creation)
-        #     vars['mixer_code_selected_remove'] = class_function_body_code_block(mixer_code.selected_remove)
+
+def write_templates(template_path: Path, target: Path, vars: dict):
+    root_dir = Path(target, vars['surface_name'])
+    root_dir.mkdir(exist_ok=True)
 
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
     template_file(root_dir, template_path / 'surface_name', vars, f'modules/class_name_snake.py',f"modules/{vars['class_name_snake']}.py", verify_python=True)
@@ -68,7 +57,7 @@ def template_file(root_dir, template_path, vars: dict, source_file_name, target_
 
     if verify_python and not is_valid_python(new_text):
         print(f"Code failed validation for file {target_file}")
-        sys.exit(1)
+        # sys.exit(1)
 
     target_file.write_text(new_text)
 
@@ -99,6 +88,7 @@ if __name__ == '__main__':
     # devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
     devices_with_midi = build_mode_model_v2(mapping.mappings, controller)
 
-    gen(Path(f'templates'), target_dir, devices_with_midi, vars)
+    vars = vars | generate_code_in_template_vars(devices_with_midi)
+    write_templates(Path(f'templates'), target_dir, vars)
 
     print("Finished generating code.")

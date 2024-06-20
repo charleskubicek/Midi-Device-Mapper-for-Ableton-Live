@@ -5,62 +5,62 @@ from ableton_control_suface_as_code.core_model import MixerMidiMapping, EncoderT
     EncoderCoords, MidiCoords
 from ableton_control_suface_as_code.model_v1 import MixerV1, MixerMidiMapping
 
-class MixerMidiMappingBuilder:
-    def __init__(self):
-
-        self._midi_coords = MidiCoords(channel=1, number=1, type='note')
-        self._controller_type = EncoderType.button
-        self._api_function = "volume"
-        self._selected_track = True
-        self._tracks = None
-        self._encoder_coords = EncoderCoords(row=1, col=1, cols=None)
-
-    def midi_channel(self, midi_channel):
-        self._midi_channel = midi_channel
-        return self
-
-    def midi_number(self, midi_number):
-        self._midi_number = midi_number
-        return self
-
-    def midi_type(self, midi_type):
-        self._midi_type = midi_type
-        return self
-
-    def midi_info(self, chan, no, midi_type):
-        self._midi_coords = MidiCoords(channel=chan, number=no, type=midi_type)
-        return self
-
-    def controller_type(self, controller_type):
-        self._controller_type = controller_type
-        return self
-
-    def api_function(self, api_function):
-        self._api_function = api_function
-        return self
-
-    def selected_track(self, selected_track):
-        self._selected_track = selected_track
-        return self
-
-    def tracks(self, tracks):
-        self._tracks = tracks
-        return self
-
-    def encoder_coords(self, encoder_coords):
-        self._encoder_coords = encoder_coords
-        return self
-
-
-    def build(self):
-        return MixerMidiMapping(
-            midi_coords = self._midi_coords,
-            controller_type=self._controller_type,
-            api_function=self._api_function,
-            selected_track=self._selected_track,
-            tracks=self._tracks,
-            encoder_coords=self._encoder_coords
-        )
+# class MixerMidiMappingBuilder:
+#     def __init__(self):
+#
+#         self._midi_coords = MidiCoords(channel=1, number=1, type='note')
+#         self._controller_type = EncoderType.button
+#         self._api_function = "volume"
+#         self._selected_track = True
+#         self._tracks = None
+#         self._encoder_coords = EncoderCoords(row=1, col=1, cols=None)
+#
+#     def midi_channel(self, midi_channel):
+#         self._midi_channel = midi_channel
+#         return self
+#
+#     def midi_number(self, midi_number):
+#         self._midi_number = midi_number
+#         return self
+#
+#     def midi_type(self, midi_type):
+#         self._midi_type = midi_type
+#         return self
+#
+#     def midi_info(self, chan, no, midi_type):
+#         self._midi_coords = MidiCoords(channel=chan, number=no, type=midi_type)
+#         return self
+#
+#     def controller_type(self, controller_type):
+#         self._controller_type = controller_type
+#         return self
+#
+#     def api_function(self, api_function):
+#         self._api_function = api_function
+#         return self
+#
+#     def selected_track(self, selected_track):
+#         self._selected_track = selected_track
+#         return self
+#
+#     def tracks(self, tracks):
+#         self._tracks = tracks
+#         return self
+#
+#     def encoder_coords(self, encoder_coords):
+#         self._encoder_coords = encoder_coords
+#         return self
+#
+#
+#     def build(self):
+#         return MixerMidiMapping(
+#             midi_coords = self._midi_coords,
+#             encoder_type=self._controller_type,
+#             api_function=self._api_function,
+#             selected_track=self._selected_track,
+#             tracks=self._tracks,
+#             encoder_coords=self._encoder_coords
+#         )
 
 #     @property
 #     def api_function_val(self):

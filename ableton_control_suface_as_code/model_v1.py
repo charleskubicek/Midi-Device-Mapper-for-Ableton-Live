@@ -79,7 +79,7 @@ class ControllerV1(BaseModel):
 
 
 class RowMapV1(BaseModel):
-    row: int | None
+    row: Union[int,  None]
     # col: int | None
     range: RangeV1
     parameters: RangeV1
@@ -172,7 +172,7 @@ def build_mixer_model(controller, mapping: MixerV1):
             coords, type = controller.find_from_coords(enc)
             mixer_maps.append(MixerMidiMapping(
                 midi_coords=coords,
-                controller_type=type,
+                encoder_type=type,
                 api_function=api_name,
                 selected_track=True,
                 tracks=None,
