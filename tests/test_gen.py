@@ -122,11 +122,11 @@ def fn(self, value):
         ])
         result = device_templates(device_with_midi)
 
-        self.assertEqual(result.remove_listeners[0], "self.encoder_ch1_no21_CC__p1.remove_value_listener(self.encoder_ch1_no21_CC__p1_value)")
-        self.assertEqual(result.creation[0], "self.encoder_ch1_no21_CC__p1 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.absolute)")
-        self.assertEqual(result.creation[1], "self.encoder_ch1_no22_CC__p2 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.absolute)")
-        self.assertEqual(result.setup_listeners[0], "self.encoder_ch1_no21_CC__p1.add_value_listener(self.encoder_ch1_no21_CC__p1_value)")
-        self.assertTrue("def encoder_ch1_no21_CC__p1_value(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
+        self.assertEqual(result.remove_listeners[0], "self.encoder_ch2_no21_CC__p1.remove_value_listener(self.encoder_ch2_no21_CC__p1_value)")
+        self.assertEqual(result.creation[0], "self.encoder_ch2_no21_CC__p1 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.absolute)")
+        self.assertEqual(result.creation[1], "self.encoder_ch2_no22_CC__p2 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.absolute)")
+        self.assertEqual(result.setup_listeners[0], "self.encoder_ch2_no21_CC__p1.add_value_listener(self.encoder_ch2_no21_CC__p1_value)")
+        self.assertTrue("def encoder_ch2_no21_CC__p1_value(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
 
         self.assertEqual(len(result.remove_listeners), 4)
         self.assertEqual(len(result.creation), 4)

@@ -40,7 +40,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
         result = mixer_templates(mixer_with_midi)
 
-        self.assertEqual("self.encodr_ch1_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)", result.creation[0])
+        self.assertEqual("self.encodr_ch2_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)", result.creation[0])
         self.assertStringInOne('self.mixer.selected_strip().set_volume_control(self.', result.setup_listeners)
         self.assertStringInOne('self.mixer.selected_strip().set_volume_control(None)', result.remove_listeners)
         self.assertEqual(result.listener_fns , [])

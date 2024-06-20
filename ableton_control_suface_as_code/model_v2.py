@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from typing import Optional, Union, List, Literal, Annotated
 
-from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict
+from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict, validator, field_validator
 from typing_extensions import Self
 
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, EncoderType, \
@@ -47,6 +47,13 @@ class ControlGroupV2(BaseModel):
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
 
+    @classmethod
+    @field_validator('midi_type')
+    def check_midi_type_is_enum_member(cls, value):
+        if not isinstance(value, MidiType):
+            raise ValueError(f"Value must be an instance of MiiType Enum, not {type(value)}")
+        return value
+
     @property
     def midi_range(self):
         try:
@@ -73,14 +80,14 @@ class ControllerV2(BaseModel):
 
         return None
 
-    def build_zero_based_midi_coords(self, coords) -> ([MidiCoords], EncoderType):
+    def build_midi_coords(self, coords) -> ([MidiCoords], EncoderType):
         print(f"enc_str = {coords}")
         for group in self.control_groups:
             if group.number == int(coords.row):
                 res = []
                 for col in coords.range_inclusive:
                     no = group.midi_range.item_at(col - 1)
-                    res.append(MidiCoords.model_construct(
+                    res.append(MidiCoords(
                         channel=group.midi_channel,
                         number=no,
                         type=group.midi_type))
@@ -210,7 +217,7 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
     track = mapping.track
     mixer_maps = []
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
-        coords_list, type = controller.build_zero_based_midi_coords(enc_coords)
+        coords_list, type = controller.build_midi_coords(enc_coords)
 
 
         mixer_maps.append(MixerMidiMapping.with_multiple_args(
@@ -222,7 +229,9 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
             encoder_coords=enc_coords))
 
     for m in mixer_maps:
-        print("mixer: ", [(x.number, x.channel, x.type.name) for x in m.midi_coords], m.api_function, f"row:{m.encoder_coords.row}-{m.encoder_coords.row_range_end}, col:{m.encoder_coords.col}")
+        coords_ = [(x.channel, x.channel, x.type.name) for x in m.midi_coords]
+        row_info = f"row:{m.encoder_coords.row}-{m.encoder_coords.row_range_end}"
+        print("mixer: ", coords_, m.api_function, row_info, f"col:{m.encoder_coords.col}")
 
     return MixerWithMidi(midi_maps=mixer_maps)
 

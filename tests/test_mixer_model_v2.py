@@ -1,5 +1,6 @@
 import unittest
 
+from ableton_control_suface_as_code.core_model import EncoderType, MidiType
 from ableton_control_suface_as_code.model_v2 import ControllerV2, build_mixer_model_v2, MixerV2, MixerMappingsV2, \
     ControlGroupV2
 from tests.test_mixer_template import CustomAssertions
@@ -13,9 +14,9 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
             control_groups=[ControlGroupV2.model_construct(
                 layout='row',
                 number=1,
-                type='knob',
+                type=EncoderType.knob,
                 midi_channel=2,
-                midi_type="CC",
+                midi_type=MidiType.CC,
                 midi_range=group_1_range
             )])
 
