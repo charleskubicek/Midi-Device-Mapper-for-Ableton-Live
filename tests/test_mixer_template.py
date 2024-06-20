@@ -40,16 +40,29 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
         result = mixer_templates(mixer_with_midi)
 
-        self.assertEqual("self.encodr_ch1_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.relative_binary_offset)", result.creation[0])
+        self.assertEqual("self.encodr_ch1_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)", result.creation[0])
         self.assertStringInOne('self.mixer.selected_strip().set_volume_control(self.', result.setup_listeners)
         self.assertStringInOne('self.mixer.selected_strip().set_volume_control(None)', result.remove_listeners)
         self.assertEqual(result.listener_fns , [])
+
+
+    # def test_master_volume(self):
+    #     mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='volume',
+    #                                                         enocder_type=EncoderType.slider, )
+    #
+    #     result = mixer_templates(mixer_with_midi)
+    #
+    #     self.assertEqual("self.encodr_ch1_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.relative_binary_offset)", result.creation[0])
+    #     self.assertStringInOne('self.mixer.selected_strip().set_volume_control(self.', result.setup_listeners)
+    #     self.assertStringInOne('self.mixer.selected_strip().set_volume_control(None)', result.remove_listeners)
+    #     self.assertEqual(result.listener_fns , [])
 
     def test_mixer_sends(self):
         mixer_with_midi = self.build_mixer_with_multiple_mappings(2, [50, 51, 52], 'CC', api_fn='sends', enocder_type=EncoderType.knob)
 
         result = mixer_templates(mixer_with_midi)
 
+        self.assertStringInOne(f"sends = [None] * 3", result.creation)
         self.assertStringInOne("sends[0] = EncoderElement(MIDI_CC_TYPE, 1, 50", result.creation)
         self.assertStringInOne("sends[1] = EncoderElement(MIDI_CC_TYPE, 1, 51", result.creation)
         self.assertStringInOne("sends[2] = EncoderElement(MIDI_CC_TYPE, 1, 52", result.creation)

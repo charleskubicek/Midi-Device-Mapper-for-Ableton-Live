@@ -48,18 +48,16 @@ def button_element(midi_coords:MidiCoords):
     return f"ConfigurableButtonElement(True, {midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number})"
 
 def encoder_element(midi_coords:MidiCoords):
-    return f"EncoderElement({midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number}, Live.MidiMap.MapMode.relative_binary_offset)"
+    return f"EncoderElement({midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number}, Live.MidiMap.MapMode.absolute)"
 
 
 def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
-    encoder_count = 0
 
     setup = []
     creation = []
     listener_fns = []
     setup_listeners = []
     remove_listeners = []
-
 
     setup.extend([
         "self.led_on = 120",
@@ -82,9 +80,10 @@ def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
             if midi_map.selected_track:
                 if midi_map.api_function == "sends":
                     sends_var = f"send_controls_{midi_map.info_string()}"
-                    creation.append(f"self.{sends_var} = []")
+                    sends_len = len(midi_map.midi_coords)
+                    creation.append(f"self.{sends_var} = [None] * {sends_len}")
 
-                    #TODO assert length
+                    #TODO sends lenth max of midi range or actual sends size
 
                     for i, midi in enumerate(midi_map.midi_coords):
                         creation.append(f"self.{sends_var}[{i}] = {encoder_element(midi)}")

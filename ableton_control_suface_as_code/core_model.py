@@ -139,7 +139,8 @@ class MixerMidiMapping(BaseModel):
                  encoder_type:EncoderType,
                  api_function,
                  encoder_coords:EncoderCoords,
-                 selected_track=None, tracks=None):
+                 selected_track=None,
+                           tracks=None):
         return MixerMidiMapping.model_construct(
             midi_coords=midi_coords_list,
             controller_type=encoder_type,
