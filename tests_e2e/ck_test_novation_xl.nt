@@ -29,3 +29,19 @@ mappings:
         track: master
         mappings:
             volume: row_4:7
+    -
+        type: track nav
+        mappings:
+            left: row_4:2
+            right: row_4:4
+    -
+        type: device nav
+        skip_nested: true
+
+        mappings:
+            left: row_4:2
+            right: row_4:4
+            first: row_4:1
+            last: row_4:6
+            instrument: row_4:3
+            CK_MIXER: row_4:5

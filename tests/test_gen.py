@@ -115,10 +115,10 @@ def fn(self, value):
         }
         # device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
         device_with_midi = DeviceWithMidi.model_construct(track=TrackInfo.selected(), device="selected", midi_range_maps=[
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=21, midi_type=MidiType.CC, parameter=1, control_type='knob'),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=22, midi_type=MidiType.CC, parameter=2, control_type='knob'),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=23, midi_type=MidiType.CC, parameter=3, control_type='knob'),
-            DeviceMidiMapping.model_construct(midi_channel=2, midi_number=24, midi_type=MidiType.CC, parameter=4, control_type='knob')
+            DeviceMidiMapping(midi_channel=2, midi_number=21, midi_type=MidiType.CC, parameter=1),
+            DeviceMidiMapping(midi_channel=2, midi_number=22, midi_type=MidiType.CC, parameter=2),
+            DeviceMidiMapping(midi_channel=2, midi_number=23, midi_type=MidiType.CC, parameter=3),
+            DeviceMidiMapping(midi_channel=2, midi_number=24, midi_type=MidiType.CC, parameter=4)
         ])
         result = device_templates(device_with_midi)
 

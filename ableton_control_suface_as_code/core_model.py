@@ -126,18 +126,14 @@ class MidiCoords(BaseModel):
 
 class DeviceMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
-    midi_channel: int
-    midi_number: int
-    midi_type: MidiType
+    midi_coords:MidiCoords
     parameter: int
 
-    @property
-    def midi_coords(self) -> MidiCoords:
-        return MidiCoords(channel=self.midi_channel, number=self.midi_number, type=self.midi_type)
-
+    def __init__(self, midi_channel, midi_number, midi_type, parameter):
+        super().__init__(midi_coords=MidiCoords(midi_channel, midi_number, midi_type), parameter=parameter)
 
     def info_string(self):
-        return f"ch{self.midi_channel}_no{self.midi_number}_{self.midi_type.value}__p{self.parameter}"
+        return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
 
 
 #

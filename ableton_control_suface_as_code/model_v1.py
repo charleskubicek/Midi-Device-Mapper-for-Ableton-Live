@@ -174,8 +174,6 @@ def build_mixer_model(controller, mapping: MixerV1):
                 midi_coords=coords,
                 encoder_type=type,
                 api_function=api_name,
-                selected_track=True,
-                tracks=None,
                 encoder_coords=enc
             ))
 
