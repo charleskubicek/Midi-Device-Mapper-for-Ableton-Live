@@ -1,14 +1,12 @@
 import sys
-from pathlib import Path
-from typing import Optional, Union, List, Literal, Annotated
+from typing import Optional, Union, List, Literal
 
-from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict, validator, field_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from typing_extensions import Self
 
+from ableton_control_suface_as_code import nested_text as nt
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, EncoderType, \
     LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords, TrackInfo, NamedTrack
-
-from ableton_control_suface_as_code import nested_text as nt
 
 
 class RangeV2(BaseModel):

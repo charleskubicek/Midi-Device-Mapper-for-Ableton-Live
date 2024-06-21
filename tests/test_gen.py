@@ -8,7 +8,6 @@ from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidi
     MidiCoords, MixerMidiMapping, EncoderType, EncoderCoords, TrackInfo
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_templates, generate_code_in_template_vars
-from ableton_control_suface_as_code.model_v1 import ControllerV1, DeviceV1, build_mode_model_v1
 
 differ = Differ()
 

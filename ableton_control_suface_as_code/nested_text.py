@@ -32,6 +32,10 @@ understood and used by both programmers and non-programmers.
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import collections.abc
+import re
+import unicodedata
+
 # Imports {{{1
 from ableton_control_suface_as_code.inform import (
     cull,
@@ -46,9 +50,6 @@ from ableton_control_suface_as_code.inform import (
     Error,
     Info,
 )
-import collections.abc
-import re
-import unicodedata
 
 
 # Utility functions {{{1

@@ -1,8 +1,7 @@
-from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class EncoderType(str, Enum):

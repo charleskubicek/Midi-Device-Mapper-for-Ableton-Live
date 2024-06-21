@@ -1,9 +1,8 @@
-from dataclasses import dataclass
 import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi, MidiCoords, TrackInfo
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi, TrackInfo
 
 
 @dataclass

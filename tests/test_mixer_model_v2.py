@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_suface_as_code.core_model import EncoderType, MidiType, TrackInfo
+from ableton_control_suface_as_code.core_model import EncoderType, MidiType
 from ableton_control_suface_as_code.model_v2 import ControllerV2, build_mixer_model_v2, MixerV2, MixerMappingsV2, \
     ControlGroupV2
 from tests.test_mixer_template import CustomAssertions

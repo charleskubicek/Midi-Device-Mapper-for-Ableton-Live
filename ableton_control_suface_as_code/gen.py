@@ -1,17 +1,13 @@
 import hashlib
-import sys
-from dataclasses import dataclass, asdict
 from pathlib import Path
 from string import Template
 
-import ast
 from typing import Union
 
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode
-from ableton_control_suface_as_code.model_v1 import ControllerV1, MappingsV1, build_mode_model_v1
 from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
-from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, MappingsV2, ControllerV2, read_controller, \
+from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, read_controller, \
     read_mapping
 
 template_to_code = {
