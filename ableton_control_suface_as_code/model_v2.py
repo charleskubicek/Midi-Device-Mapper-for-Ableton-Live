@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator, TypeAdapter, ConfigDict,
 from typing_extensions import Self
 
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, EncoderType, \
-    LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords
+    LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords, TrackInfo, NamedTrack
 
 from ableton_control_suface_as_code import nested_text as nt
 
@@ -128,9 +128,18 @@ class RowMapV2(BaseModel):
 
 class DeviceV2(BaseModel):
     type: Literal['device']
-    track: str
+    track_raw: str = Field(alias='track')
     device: str
     ranges: list[RowMapV2]
+
+    @property
+    def track_info(self) -> TrackInfo:
+        if self.track_raw == "selected":
+            return TrackInfo(name=NamedTrack.selected)
+        if self.track_raw == "master":
+            return TrackInfo(name=NamedTrack.master)
+        else:
+            exit(1)
 
 
 class MixerMappingsV2(BaseModel):
@@ -171,9 +180,20 @@ class MixerMappingsV2(BaseModel):
 
 class MixerV2(BaseModel):
     type: Literal['mixer'] = "mixer"
-    track: str
+    track_raw: str = Field(alias='track')
     mappings: MixerMappingsV2
 
+    # def __init__(self, track:str, mappings: MixerMappingsV2):
+    #     super().__init__(track_raw=track, mappings=mappings)
+
+    @property
+    def track_info(self) -> TrackInfo:
+        if self.track_raw == "selected":
+            return TrackInfo(name=NamedTrack.selected)
+        if self.track_raw == "master":
+            return TrackInfo(name=NamedTrack.master)
+        else:
+            exit(1)
 
 # Mapping = TypeAdapter(Annotated[
 #                           Union[MixerV2, DeviceV2],
@@ -214,7 +234,6 @@ def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2]], controller: Co
 
 
 def build_mixer_model_v2(controller, mapping: MixerV2):
-    track = mapping.track
     mixer_maps = []
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
         coords_list, type = controller.build_midi_coords(enc_coords)
@@ -224,8 +243,7 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
             midi_coords_list=coords_list,
             encoder_type=type,
             api_function=api_name,
-            selected_track=True,
-            tracks=None,
+            track_info=mapping.track_info,
             encoder_coords=enc_coords))
 
     for m in mixer_maps:
@@ -255,7 +273,7 @@ def build_device_model_v2(controller, mapping):
             ))
 
     return DeviceWithMidi(
-        track=mapping.track,
+        track=mapping.track_info,
         device=mapping.device,
         midi_range_maps=midi_range_mappings)
 

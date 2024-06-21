@@ -3,7 +3,7 @@ import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi, MidiCoords
+from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi, MidiCoords, TrackInfo
 
 
 @dataclass
@@ -66,7 +66,8 @@ def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
 
     for midi_map in mixer_with_midi.midi_maps:
         if midi_map.controller_type.is_button():
-            if midi_map.selected_track:
+            # if midi_map.selected_track:
+            if midi_map.track_info.is_selected():
                 #TODO fix momentary/toggle
                 bn = f"button_{midi_map.info_string()}"
                 creation.append(f"self.{bn} = {midi_map.midi_coords[0].create_button_element()}")
@@ -77,25 +78,24 @@ def mixer_templates(mixer_with_midi:MixerWithMidi) -> GeneratedCode:
             else:
                 print("Button on number track not implemented")
         else:
-            if midi_map.selected_track:
-                if midi_map.api_function == "sends":
-                    sends_var = f"send_controls_{midi_map.info_string()}"
-                    sends_len = len(midi_map.midi_coords)
-                    creation.append(f"self.{sends_var} = [None] * {sends_len}")
+            if midi_map.api_function == "sends":
+                sends_var = f"send_controls_{midi_map.info_string()}"
+                sends_len = len(midi_map.midi_coords)
+                creation.append(f"self.{sends_var} = [None] * {sends_len}")
 
-                    #TODO sends lenth max of midi range or actual sends size
+                #TODO sends lenth max of midi range or actual sends size
 
-                    for i, midi in enumerate(midi_map.midi_coords):
-                        creation.append(f"self.{sends_var}[{i}] = {midi.create_encoder_element()}")
+                for i, midi in enumerate(midi_map.midi_coords):
+                    creation.append(f"self.{sends_var}[{i}] = {midi.create_encoder_element()}")
 
-                    setup_listeners.append(f"self.mixer.selected_strip().set_send_controls(self.{sends_var})")
-                    remove_listeners.append(f"self.mixer.selected_strip().set_send_controls(None)")
-                else:
-                    cn = f"encodr_{midi_map.info_string()}"
+                setup_listeners.append(f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_send_controls(self.{sends_var})")
+                remove_listeners.append(f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_send_controls(None)")
+            else:
+                cn = f"encodr_{midi_map.info_string()}"
 
-                    creation.append(f"self.{cn} = {midi_map.midi_coords[0].create_encoder_element()}")
-                    setup_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(self.{cn})")
-                    remove_listeners.append(f"self.mixer.selected_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(None)")
+                creation.append(f"self.{cn} = {midi_map.midi_coords[0].create_encoder_element()}")
+                setup_listeners.append(f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(self.{cn})")
+                remove_listeners.append(f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(None)")
 
 
 
@@ -135,7 +135,7 @@ def is_valid_python(code):
     return True
 
 
-def build_live_api_lookup_from_lom(track, device):
+def build_live_api_lookup_from_lom(track:TrackInfo, device):
     """"
         tracks.selected.device.selected
         tracks.1.device.1.
@@ -145,13 +145,14 @@ def build_live_api_lookup_from_lom(track, device):
         self.manager.song().view.selected_track.view.selected_device
     """
 
-    if track.isnumeric():
-        track_st = f"tracks[{int(track)-1}]"
-    elif track == 'selected':
-        track_st = 'selected_track'
-    else:
-        print(f"can't parse track: {track}")
-        exit(1)
+    # if track.isnumeric():
+    #     track_st = f"tracks[{int(track)-1}]"
+    # elif track == 'selected':
+    #     track_st = 'selected_track'
+    # else:
+    #     print(f"can't parse track: {track}")
+    #     exit(1)
+    track_st = track.name.lom_name
 
     if device.isnumeric():
         device_st = f"devices[{int(device)-1}]"

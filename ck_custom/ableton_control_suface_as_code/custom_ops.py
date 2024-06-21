@@ -45,6 +45,7 @@ class CustomOps(ControlSurfaceComponent):
         self.encoder_24 = EncoderElement(MIDI_CC_TYPE, 1, 24, Live.MidiMap.MapMode.relative_binary_offset)
 
         self.encoder_2_44_volume = EncoderElement(MIDI_CC_TYPE, 1, 44, Live.MidiMap.MapMode.relative_binary_offset)
+        self.encoder_2_43_master_volume = EncoderElement(MIDI_CC_TYPE, 1, 43, Live.MidiMap.MapMode.relative_binary_offset)
 
         self.encoder_2_5_sends = EncoderElement(MIDI_CC_TYPE, 1, 25, Live.MidiMap.MapMode.relative_binary_offset)
 
@@ -69,6 +70,7 @@ class CustomOps(ControlSurfaceComponent):
         self.mixer.selected_strip().set_solo_button(self.button2)
         self.mixer.selected_strip().set_volume_control(self.encoder_2_44_volume)
 
+        self.mixer.master_strip().set_volume_control(self.encoder_2_43_master_volume)
         # sends = self._track.mixer_device.sends[0]
 
         self.setup_listeners()

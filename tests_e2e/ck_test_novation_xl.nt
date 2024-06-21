@@ -24,3 +24,8 @@ mappings:
             mute: row_5:1
             solo: row_5:2
             sends: row_1:5-8
+    -
+        type: mixer
+        track: master
+        mappings:
+            volume: row_4:7

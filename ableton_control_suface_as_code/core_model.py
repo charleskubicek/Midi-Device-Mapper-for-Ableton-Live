@@ -40,9 +40,38 @@ class NamedTrack(str, Enum):
     def is_selected(self):
         return self == NamedTrack.selected
 
-class Track(BaseModel):
+    @property
+    def lom_name(self):
+        if self.is_master:
+            return None
+        return 'selected_track'
+
+    @property
+    def mixer_strip_name(self):
+        if self.is_master:
+            return 'master'
+        return 'selected'
+
+class TrackInfo(BaseModel):
     name:Optional[NamedTrack]
     list:Optional[List[int]]
+
+    @classmethod
+    def selected(cls):
+        return cls(name=NamedTrack.selected)
+
+    @classmethod
+    def master(cls):
+        return cls(name=NamedTrack.master)
+
+    def __init__(self, name=None, list=None):
+        super().__init__(name=name, list=list)
+
+    def is_selected(self):
+        return self.name is not None and self.name.is_selected
+
+    def is_multi(self):
+        return self.list is not None
 
 class EncoderCoords(BaseModel):
     row: int
@@ -119,8 +148,7 @@ class MixerMidiMapping(BaseModel):
     midi_coords:List[MidiCoords]
     controller_type: EncoderType
     api_function: str
-    selected_track: Optional[bool]
-    tracks: Optional[List[str]]
+    track_info: TrackInfo
     encoder_coords: EncoderCoords
 
     def encoders_debug_string(self):
@@ -131,15 +159,14 @@ class MixerMidiMapping(BaseModel):
                  encoder_type:EncoderType,
                  api_function,
                  encoder_coords:EncoderCoords,
-                 selected_track=None, tracks=None):
+                 track_info:TrackInfo):
         super().__init__(
             type='mixer',
             midi_coords=[midi_coords],
             controller_type=encoder_type,
             api_function=api_function,
             encoder_coords=encoder_coords,
-            selected_track=selected_track,
-            tracks=tracks if tracks is not None else []
+            track_info=track_info
         )
 
     @classmethod
@@ -148,15 +175,13 @@ class MixerMidiMapping(BaseModel):
                  encoder_type:EncoderType,
                  api_function,
                  encoder_coords:EncoderCoords,
-                 selected_track=None,
-                           tracks=None):
+                 track_info:TrackInfo):
         return MixerMidiMapping.model_construct(
             midi_coords=midi_coords_list,
             controller_type=encoder_type,
             api_function=api_function,
             encoder_coords=encoder_coords,
-            selected_track=selected_track,
-            tracks=tracks if tracks is not None else []
+            track_info=track_info
         )
 
     @property
@@ -188,7 +213,7 @@ class MixerMidiMapping(BaseModel):
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
-    track: str
+    track: TrackInfo
     device: str
     midi_range_maps: list[DeviceMidiMapping]
 

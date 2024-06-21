@@ -2,7 +2,7 @@ import unittest
 
 from ableton_control_suface_as_code.code import mixer_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MixerMidiMapping, MidiCoords, EncoderType, \
-    EncoderCoords
+    EncoderCoords, TrackInfo
 
 
 class CustomAssertions:
@@ -46,16 +46,16 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assertEqual(result.listener_fns , [])
 
 
-    # def test_master_volume(self):
-    #     mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='volume',
-    #                                                         enocder_type=EncoderType.slider, )
-    #
-    #     result = mixer_templates(mixer_with_midi)
-    #
-    #     self.assertEqual("self.encodr_ch1_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.relative_binary_offset)", result.creation[0])
-    #     self.assertStringInOne('self.mixer.selected_strip().set_volume_control(self.', result.setup_listeners)
-    #     self.assertStringInOne('self.mixer.selected_strip().set_volume_control(None)', result.remove_listeners)
-    #     self.assertEqual(result.listener_fns , [])
+    def test_master_volume(self):
+        mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='volume',
+                                                            enocder_type=EncoderType.slider, track_info=TrackInfo.master())
+
+        result = mixer_templates(mixer_with_midi)
+
+        self.assertEqual("self.encodr_ch2_50_CC__cds_r1c2__api_volume = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)", result.creation[0])
+        self.assertStringInOne('self.mixer.master_strip().set_volume_control(self.', result.setup_listeners)
+        self.assertStringInOne('self.mixer.master_strip().set_volume_control(None)', result.remove_listeners)
+        self.assertEqual(result.listener_fns , [])
 
     def test_mixer_sends(self):
         mixer_with_midi = self.build_mixer_with_multiple_mappings(2, [50, 51, 52], 'CC', api_fn='sends', enocder_type=EncoderType.knob)
@@ -71,17 +71,18 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assertStringInOne('self.mixer.selected_strip().set_send_controls(None)', result.remove_listeners)
         self.assertEqual(result.listener_fns , [])
 
-    def build_mixer_with_one_mapping(self, chan=2, no=50, type="CC", api_fn="pan", enocder_type=EncoderType.knob):
-        return self.build_mixer_with_multiple_mappings(chan, [no], type, api_fn, enocder_type)
+    def build_mixer_with_one_mapping(self, chan=2, no=50, type="CC", api_fn="pan",
+                                     enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
+        return self.build_mixer_with_multiple_mappings(chan, [no], type, api_fn, enocder_type, track_info)
 
-    def build_mixer_with_multiple_mappings(self, chan=2, nos=[], type="CC", api_fn="pan", enocder_type=EncoderType.knob):
+    def build_mixer_with_multiple_mappings(self, chan=2, nos=[], type="CC", api_fn="pan", enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
         return MixerWithMidi.model_construct(
             midi_maps=[MixerMidiMapping.with_multiple_args(
                 [MidiCoords(chan, no, type) for no in nos],
                 enocder_type,
                 api_fn,
                 encoder_coords=EncoderCoords(1, 2, 1+ len(nos) - 1),
-                selected_track=True
+                track_info=track_info
             )])
 
 if __name__ == '__main__':
