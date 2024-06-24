@@ -24,7 +24,7 @@ class CustomAssertions:
 class TestTrackNavTemplates(unittest.TestCase, CustomAssertions):
     def test_track_nav(self):
         track_nav = TrackNavWithMidi(midi_maps=[TrackNavMidiMapping(
-            midi_coords=MidiCoords(channel=2, type='CC', number=50),
+            midi_coords=[MidiCoords(channel=2, type='CC', number=50)],
             direction=Direction.inc
         )])
 
@@ -97,12 +97,13 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         return self.build_mixer_with_multiple_mappings(chan, [no], type, api_fn, enocder_type, track_info)
 
     def build_mixer_with_multiple_mappings(self, chan=2, nos=[], type="CC", api_fn="pan", enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
+        col=2
         return MixerWithMidi.model_construct(
             midi_maps=[MixerMidiMapping.with_multiple_args(
                 [MidiCoords(channel=chan, type=type, number=no) for no in nos],
                 enocder_type,
                 api_fn,
-                encoder_coords=EncoderCoords(row=1, col=2, row_range_end=(1+ len(nos) - 1)),
+                encoder_coords=EncoderCoords(row=1, col=col, row_range_end=(col + 1+ len(nos) - 1)),
                 track_info=track_info
             )])
 

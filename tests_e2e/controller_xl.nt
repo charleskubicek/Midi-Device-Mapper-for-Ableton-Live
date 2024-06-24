@@ -35,12 +35,21 @@ control_groups:
         midi_type: CC
         midi_range: 37-44
     -
-        layout: row
+        layout: row-part
+        number: 5
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: 60-61
+        row_parts: 1-2
+    -
+        layout: row-part
         number: 5
         type: button
         midi_channel: 2
-        midi_type: CC
-        midi_range: 60-61
+        midi_type: note
+        midi_range: 4-6
+        row_parts: 3-4
     -
         layout: col
         number: 6

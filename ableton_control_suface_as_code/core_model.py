@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class EncoderType(str, Enum):
@@ -25,6 +25,7 @@ class EncoderType(str, Enum):
 
 class LayoutAxis(str, Enum):
     row = 'row'
+    row_part = 'row-part'
     col = 'col'
 
 
@@ -80,6 +81,13 @@ class EncoderCoords(BaseModel):
     col: int
     row_range_end: int
 
+    @model_validator(mode='after')
+    def range_is_in_bound(self) -> 'EncoderCoords':
+        if self.row_range_end < self.col:
+            raise ValueError('row_range_end must be greater than col')
+        return self
+
+
     @property
     def is_range(self):
         return self.row_range_end != self.col
@@ -91,8 +99,9 @@ class EncoderCoords(BaseModel):
     def list_inclusive(self):
         return list(self.range_inclusive)
 
-    # def __init__(self, row, col=None, row_range_end=None):
-    #     super().__init__(row=row, col=col, row_range_end=row_range_end)
+    @classmethod
+    def from_row_col(cls, row, col):
+        return cls(row=row, col=col, row_range_end=col)
 
     def debug_string(self):
         return f"r{self.row}c{self.col}"

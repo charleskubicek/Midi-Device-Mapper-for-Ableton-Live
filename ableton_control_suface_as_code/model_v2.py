@@ -43,6 +43,17 @@ class RangeV2(BaseModel):
         return self.as_inclusive_list()[index]
 
 
+class ControlGroupPartV2(BaseModel):
+    layout: LayoutAxis
+    number: int
+    type: EncoderType
+    midi_channel: int
+    midi_type: MidiType
+    midi_range_raw: str = Field(alias='midi_range')
+
+
+# class ControlGroupAggregateV2(BaseModel):
+
 class ControlGroupV2(BaseModel):
     layout: LayoutAxis
     number: int
@@ -51,12 +62,12 @@ class ControlGroupV2(BaseModel):
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
 
-    @classmethod
-    @field_validator('midi_type')
-    def check_midi_type_is_enum_member(cls, value):
-        if not isinstance(value, MidiType):
-            raise ValueError(f"Value must be an instance of MiiType Enum, not {type(value)}")
-        return value
+
+    def to_midi_coords(self, midi_number) -> MidiCoords:
+        return MidiCoords(
+            channel=self.midi_channel,
+            type=self.midi_type,
+            number=midi_number)
 
     @property
     def midi_range(self):
@@ -89,16 +100,15 @@ class ControllerV2(BaseModel):
         for group in self.control_groups:
             if group.number == int(coords.row):
                 res = []
+                print(f"  Looking in range {coords.range_inclusive}")
                 for col in coords.range_inclusive:
-                    no = group.midi_range.item_at(col - 1)
-                    res.append(MidiCoords(
-                        channel=group.midi_channel,
-                        number=no,
-                        type=group.midi_type))
+                    midi_range_index = col - 1
+                    no = group.midi_range.item_at(midi_range_index)
+                    res.append(group.to_midi_coords(no))
 
                 return res, group.type
 
-        print("Didn't find any coords for {enc_str}")
+        print(f"Didn't find any coords for {coords} in {self.control_groups}")
         sys.exit(1)
 
 
