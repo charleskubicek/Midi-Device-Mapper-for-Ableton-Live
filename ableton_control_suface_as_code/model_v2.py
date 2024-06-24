@@ -6,7 +6,10 @@ from typing_extensions import Self
 
 from ableton_control_suface_as_code import nested_text as nt
 from ableton_control_suface_as_code.core_model import DeviceMidiMapping, MixerMidiMapping, EncoderType, \
-    LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords, TrackInfo, NamedTrack
+    LayoutAxis, MidiType, DeviceWithMidi, MixerWithMidi, EncoderCoords, MidiCoords, TrackInfo, NamedTrack, parse_coords
+from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
+from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
+ build_track_nav_model_v2
 
 
 class RangeV2(BaseModel):
@@ -78,7 +81,7 @@ class ControllerV2(BaseModel):
 
         return None
 
-    def build_midi_coords(self, coords) -> ([MidiCoords], EncoderType):
+    def build_midi_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
         print(f"enc_str = {coords}")
         for group in self.control_groups:
             if group.number == int(coords.row):
@@ -147,6 +150,7 @@ class MixerMappingsV2(BaseModel):
     solo_raw: Optional[str] = Field(default=None, alias="solo")
     arm_raw: Optional[str] = Field(default=None, alias="arm")
     sends_raw: Optional[str] = Field(default=None, alias="sends")
+
     #
     # @model_validator(mode='after')
     # def verify_correct_ranges(self) -> Self:
@@ -157,22 +161,8 @@ class MixerMappingsV2(BaseModel):
     #         if sc in d and '-' in d[sc]:
     #             raise ValueError(f"{sc} can't have a range value")
 
-
-    def parse_coords(self, raw):
-        if raw is None:
-            return None
-
-        [row_raw, col] = raw.split(":")
-        row = int(row_raw.removeprefix("row_"))
-
-        if '-' in col:
-            [start, end] = col.split("-")
-            return EncoderCoords.model_construct(row=row, col=int(start), row_range_end=int(end))
-        else:
-            return EncoderCoords.model_construct(row=row, col=int(col), row_range_end=int(col))
-
     def as_parsed_dict(self):
-        return {key.removesuffix('_raw'): self.parse_coords(value) for key, value in self.model_dump().items() if
+        return {key.removesuffix('_raw'): parse_coords(value) for key, value in self.model_dump().items() if
                 value is not None}
 
 
@@ -193,6 +183,7 @@ class MixerV2(BaseModel):
         else:
             exit(1)
 
+
 # Mapping = TypeAdapter(Annotated[
 #                           Union[MixerV2, DeviceV2],
 #                           Field(discriminator="type"),
@@ -201,7 +192,7 @@ class MixerV2(BaseModel):
 
 class MappingsV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2]]
+    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav]]
 
 
 #
@@ -209,8 +200,8 @@ class MappingsV2(BaseModel):
 #
 
 
-def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2]], controller: ControllerV2) -> List[Union[
-    DeviceWithMidi, MixerWithMidi]]:
+def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav]], controller: ControllerV2) -> (
+        List)[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]:
     """
     Returns a model of the mapping with midi info attached
 
@@ -227,6 +218,10 @@ def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2]], controller: Co
             mappings_with_midi.append(build_device_model_v2(controller, mapping))
         if mapping.type == "mixer":
             mappings_with_midi.append(build_mixer_model_v2(controller, mapping))
+        if mapping.type == "track-nav":
+            mappings_with_midi.append(build_track_nav_model_v2(controller, mapping))
+        if mapping.type == "device-nav":
+            mappings_with_midi.append(build_device_nav_model_v2(controller, mapping))
 
     return mappings_with_midi
 
@@ -235,7 +230,6 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
     mixer_maps = []
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
         coords_list, type = controller.build_midi_coords(enc_coords)
-
 
         mixer_maps.append(MixerMidiMapping.with_multiple_args(
             midi_coords_list=coords_list,

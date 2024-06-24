@@ -1,8 +1,9 @@
 import unittest
 
-from ableton_control_suface_as_code.code import mixer_templates
+from ableton_control_suface_as_code.code import mixer_templates, track_nav_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MixerMidiMapping, MidiCoords, EncoderType, \
-    EncoderCoords, TrackInfo
+    EncoderCoords, TrackInfo, Direction
+from ableton_control_suface_as_code.model_track_nav import TrackNavMidiMapping, TrackNavWithMidi
 
 
 class CustomAssertions:
@@ -20,6 +21,26 @@ class CustomAssertions:
         if not found:
             raise self.failureException(f"{sub} not in {sts}")
 
+class TestTrackNavTemplates(unittest.TestCase, CustomAssertions):
+    def test_track_nav(self):
+        track_nav = TrackNavWithMidi(midi_maps=[TrackNavMidiMapping(
+            midi_coords=MidiCoords(2, 50, 'CC'),
+            direction=Direction.inc
+        )])
+
+        result = track_nav_templates(track_nav)
+
+        print(result.creation)
+
+        self.assertStringInOne('self.button_ch2_no50_CC__track_nav_inc = ConfigurableButtonElement(True, MIDI_CC_TYPE, 1, 50)', result.creation)
+        self.assertEqual(result.setup_listeners[0], "self.button_ch2_no50_CC__track_nav_inc.add_value_listener(self.button_ch2_no50_CC__track_nav_inc_value)")
+        self.assertTrue("def button_ch2_no50_CC__track_nav_inc_value(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
+        # self.assertStringInOne('set_on_off_values(self.led_on, self.led_off)', result.creation)
+
+        # self.assertStringInOne('self.button_ch2_no50_CC__track_nav_inc = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)', result.creation)
+        # self.assertStringInOne('self.mixer.set_track_nav_inc(self.encodr_ch2_50_CC__cds_r1c2__api_track_nav_inc)', result.setup_listeners)
+        # self.assertStringInOne('self.mixer.set_track_nav_inc(None)', result.remove_listeners)
+        # self.assertEqual(result.listener_fns , [])
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def test_mixer_with_buttons(self):

@@ -27,6 +27,7 @@ class LayoutAxis(str, Enum):
     row = 'row'
     col = 'col'
 
+
 class NamedTrack(str, Enum):
     master = 'master'
     selected = 'selected'
@@ -51,9 +52,10 @@ class NamedTrack(str, Enum):
             return 'master'
         return 'selected'
 
+
 class TrackInfo(BaseModel):
-    name:Optional[NamedTrack]
-    list:Optional[List[int]]
+    name: Optional[NamedTrack]
+    list: Optional[List[int]]
 
     @classmethod
     def selected(cls):
@@ -71,6 +73,7 @@ class TrackInfo(BaseModel):
 
     def is_multi(self):
         return self.list is not None
+
 
 class EncoderCoords(BaseModel):
     row: int
@@ -125,7 +128,7 @@ class MidiCoords(BaseModel):
 
 class DeviceMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
-    midi_coords:MidiCoords
+    midi_coords: MidiCoords
     parameter: int
 
     def __init__(self, midi_channel, midi_number, midi_type, parameter):
@@ -135,12 +138,31 @@ class DeviceMidiMapping(BaseModel):
         return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
 
 
+class Direction(Enum):
+    inc = 'inc'
+    dec = 'dec'
+
+class DeviceNavAction(Enum):
+    left = 'left', 'self.device_nav_left()'
+    right = 'right', 'self.device_nav_right()'
+    first = 'first', 'self.device_nav_first()'
+    last = 'last', 'self.device_nav_last()'
+
+    def __new__(cls, *args, **kwargs):
+        obj = object.__new__(cls)
+        obj._value_ = args[0]
+        obj.template_call = args[1]
+        return obj
+
+    # def tmplate_call(self):
+    #     return self.template_call
+
 #
 # The data in this class has been zerobased
 #
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
-    midi_coords:List[MidiCoords]
+    midi_coords: List[MidiCoords]
     controller_type: EncoderType
     api_function: str
     track_info: TrackInfo
@@ -150,11 +172,11 @@ class MixerMidiMapping(BaseModel):
         return self.encoder_coords.debug_string()
 
     def __init__(self,
-                 midi_coords:MidiCoords,
-                 encoder_type:EncoderType,
+                 midi_coords: MidiCoords,
+                 encoder_type: EncoderType,
                  api_function,
-                 encoder_coords:EncoderCoords,
-                 track_info:TrackInfo):
+                 encoder_coords: EncoderCoords,
+                 track_info: TrackInfo):
         super().__init__(
             type='mixer',
             midi_coords=[midi_coords],
@@ -166,11 +188,11 @@ class MixerMidiMapping(BaseModel):
 
     @classmethod
     def with_multiple_args(cls,
-                 midi_coords_list:List[MidiCoords],
-                 encoder_type:EncoderType,
-                 api_function,
-                 encoder_coords:EncoderCoords,
-                 track_info:TrackInfo):
+                           midi_coords_list: List[MidiCoords],
+                           encoder_type: EncoderType,
+                           api_function,
+                           encoder_coords: EncoderCoords,
+                           track_info: TrackInfo):
         return MixerMidiMapping.model_construct(
             midi_coords=midi_coords_list,
             controller_type=encoder_type,
@@ -216,3 +238,17 @@ class DeviceWithMidi(BaseModel):
 class MixerWithMidi(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_maps: list[MixerMidiMapping]
+
+
+def parse_coords(raw) -> EncoderCoords:
+    if raw is None:
+        return None
+
+    [row_raw, col] = raw.split(":")
+    row = int(row_raw.removeprefix("row_"))
+
+    if '-' in col:
+        [start, end] = col.split("-")
+        return EncoderCoords.model_construct(row=row, col=int(start), row_range_end=int(end))
+    else:
+        return EncoderCoords.model_construct(row=row, col=int(col), row_range_end=int(col))

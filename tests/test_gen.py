@@ -3,7 +3,7 @@ from difflib import Differ
 
 from autopep8 import fix_code
 
-from ableton_control_suface_as_code.code import generate_listener_action, build_live_api_lookup_from_lom
+from ableton_control_suface_as_code.code import generate_lom_listener_action, build_live_api_lookup_from_lom
 from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidiMapping, MidiType, MixerWithMidi, \
     MidiCoords, MixerMidiMapping, EncoderType, EncoderCoords, TrackInfo
 # from ableton_control_suface_as_code import gen
@@ -56,7 +56,7 @@ def fn(self, value):
     """
 
         expected_output = fix_code(expected_output)
-        generated = fix_code("\n".join(generate_listener_action(parameter, "lom_value",'fn', "dbg")))
+        generated = fix_code("\n".join(generate_lom_listener_action(parameter, "lom_value", 'fn', "dbg")))
 
         print(generated)
 

@@ -5,21 +5,26 @@ from string import Template
 from typing import Union
 
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
-    class_function_code_block, is_valid_python, mixer_templates, GeneratedCode
+    class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
+    device_nav_templates
 from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
+from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
+from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, read_controller, \
     read_mapping
 
 template_to_code = {
     'device': device_templates,
-    'mixer': mixer_templates
+    'mixer': mixer_templates,
+    'track-nav': track_nav_templates,
+    'device-nav': device_nav_templates
 }
 
 # @dataclass
 # class TemplateVars:
 #     surface_name: str
 
-def generate_code_in_template_vars(devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi]]) -> dict:
+def generate_code_in_template_vars(devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]) -> dict:
     code = GeneratedCode([], [], [], [], [])
     for device_with_midi in devices_with_midi:
         code_templates = template_to_code[device_with_midi.type]
