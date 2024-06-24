@@ -250,38 +250,34 @@ class RangeV2(BaseModel):
 
     @staticmethod
     def parse(value):
-        [a, b] = value.split("-")
-        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+        if '-' in value:
+            [a, b] = value.split("-")
+            return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+        # elif ',' in value:
+        #     values = value.split(",")
+        #     return RangeV2.model_validate({'from': int(a), 'to': int(b)})
 
     @property
     def first(self):
         return self.from_
 
     def __len__(self):
-        return len(self.as_range())
+        return len(self._as_range())
 
-    def as_range(self):
-        return range(self.from_, self.to)
-
-    def as_inclusive_range(self):
-        return range(self.from_, self.to + 1)
+    def as_inclusive_list(self):
+        return list(self._as_inclusive_range())
 
     def as_inclusive_zero_based_range(self):
         return range(self.from_-1, self.to)
 
-    def as_list(self):
-        return list(self.as_range())
+    def _as_range(self):
+        return range(self.from_, self.to)
 
-    def as_inclusive_list(self):
-        return list(self.as_inclusive_range())
+    def _as_inclusive_range(self):
+        return range(self.from_, self.to + 1)
 
-    def is_present(self, value: int):
-        return value in range(1, len(self.as_range()) + 1)
-
-    def item_at(self, index: int):
-        if index < 0 or index >= len(self.as_inclusive_list()):
-            raise ValueError(f"Index {index} out of range for {self.as_list()}")
-        return self.as_inclusive_list()[index]
+    def _as_list(self):
+        return list(self._as_range())
 
 
 class RowMapV2(BaseModel):

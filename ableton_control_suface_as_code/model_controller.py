@@ -22,9 +22,6 @@ class ControlGroupPartV2(BaseModel):
     def row_parts(self) -> RangeV2:
         return RangeV2.parse(self.row_parts_raw)
 
-    def row_parts_to_midi_list(self):
-        return zip(self.row_parts.as_inclusive_list(), RangeV2.parse(self.midi_range_raw).as_inclusive_list())
-
     def midi_list(self):
         return RangeV2.parse(self.midi_range_raw).as_inclusive_list()
 
