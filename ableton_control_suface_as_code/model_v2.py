@@ -1,4 +1,6 @@
 import sys
+from dataclasses import dataclass
+from operator import itemgetter
 from typing import Optional, Union, List, Literal
 
 from pydantic import BaseModel, Field, model_validator, field_validator
@@ -16,8 +18,14 @@ class RangeV2(BaseModel):
     from_: int = Field(alias='from')
     to: int
 
-    # def __init__(self, from_: int, to: int):
-    #     super().model_validate({'from': from_, 'to': to})
+    @staticmethod
+    def parse(value):
+        [a, b] = value.split("-")
+        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+
+    @property
+    def first(self):
+        return self.from_
 
     def __len__(self):
         return len(self.as_range())
@@ -27,6 +35,9 @@ class RangeV2(BaseModel):
 
     def as_inclusive_range(self):
         return range(self.from_, self.to + 1)
+
+    def as_inclusive_zero_based_range(self):
+        return range(self.from_-1, self.to)
 
     def as_list(self):
         return list(self.as_range())
@@ -50,9 +61,71 @@ class ControlGroupPartV2(BaseModel):
     midi_channel: int
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
+    row_parts_raw:Optional[str] = Field(None, alias='row_parts')
+
+    @property
+    def row_parts(self) -> RangeV2:
+        return RangeV2.parse(self.row_parts_raw)
+
+    def row_parts_to_midi_list(self):
+        return zip(self.row_parts.as_inclusive_list(), RangeV2.parse(self.midi_range_raw).as_inclusive_list())
+
+    def midi_list(self):
+        return RangeV2.parse(self.midi_range_raw).as_inclusive_list()
 
 
-# class ControlGroupAggregateV2(BaseModel):
+class ControlGroupAggregateV2:
+    def __init__(self, parts: List[ControlGroupPartV2]):
+        #TODO verify parts are the same row
+        self.parts = self._sort_parts(parts)
+        self.midi_coords = self.build_midi_coords(parts)
+
+
+    @property
+    def type(self):
+        return self.parts[0].type
+
+    ## assert numbers are the same
+    @property
+    def number(self):
+        return self.parts[0].number
+
+    def midi_item_at(self, index: int) -> MidiCoords:
+        if index < 0 or index >= len(self.midi_coords):
+            raise ValueError(f"Index {index} out of range for {len(self.midi_coords)}")
+        return self.midi_coords[index]
+
+    def midi_range_for(self, r:range):
+        return self.midi_coords[r.start:r.stop]
+
+    def _sort_parts(self, parts):
+        if len(parts) == 1:
+            return parts
+        else:
+            return sorted(parts, key=lambda x: x.row_parts.first)
+
+    def build_midi_coords(self, parts:List[ControlGroupPartV2]):
+        res = []
+        for part in parts:
+            for midi_number in part.midi_list():
+                res.append(MidiCoords(
+                    channel=part.midi_channel,
+                    type=part.midi_type,
+                    number=midi_number))
+
+        return res
+
+
+    @property
+    def midi_range(self):
+        try:
+            s = self.parts[0].midi_range_raw.split("-")[0]
+            e = self.parts[-1].midi_range_raw.split("-")[1]
+            return RangeV2.model_validate({'from': int(s), 'to': int(e)})
+        except ValueError as e:
+            print(f"Error parsing midi range")
+            raise e
+
 
 class ControlGroupV2(BaseModel):
     layout: LayoutAxis
@@ -79,10 +152,25 @@ class ControlGroupV2(BaseModel):
             exit(-1)
 
 
-class ControllerV2(BaseModel):
-    control_groups: List[ControlGroupV2]
+class ControllerRawV2(BaseModel):
+    control_groups: List[ControlGroupPartV2]
     on_led_midi: int
     off_led_midi: int
+
+from itertools import groupby
+
+@dataclass
+class ControllerV2:
+    control_groups: List[ControlGroupAggregateV2]
+    on_led_midi: int
+    off_led_midi: int
+
+    @staticmethod
+    def build_from(c:ControllerRawV2):
+        c.control_groups.sort(key=lambda x:x.number)
+        control_groups = [ControlGroupAggregateV2(list(group)) for key, group in groupby(c.control_groups, lambda x:x.number)]
+
+        return ControllerV2(control_groups, c.on_led_midi, c.off_led_midi)
 
     def find_group(self, row_col: int):
         for group in self.control_groups:
@@ -96,6 +184,11 @@ class ControllerV2(BaseModel):
         return None
 
     def build_midi_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
+        '''
+        Given midi coordinate(s), return the midi values for the value/range
+        :param coords:
+        :return:
+        '''
         print(f"enc_str = {coords}")
         for group in self.control_groups:
             if group.number == int(coords.row):
@@ -103,8 +196,8 @@ class ControllerV2(BaseModel):
                 print(f"  Looking in range {coords.range_inclusive}")
                 for col in coords.range_inclusive:
                     midi_range_index = col - 1
-                    no = group.midi_range.item_at(midi_range_index)
-                    res.append(group.to_midi_coords(no))
+                    midi_coords = group.midi_item_at(midi_range_index)
+                    res.append(midi_coords)
 
                 return res, group.type
 
@@ -120,13 +213,11 @@ class RowMapV2(BaseModel):
 
     @property
     def range(self) -> RangeV2:
-        a, b = self.range_raw.split("-")
-        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+        return RangeV2.parse(self.range_raw)
 
     @property
     def parameters(self) -> RangeV2:
-        a, b = self.parameters_raw.split("-")
-        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+        return RangeV2.parse(self.parameters_raw)
 
     @model_validator(mode='after')
     def verify_square(self) -> Self:
@@ -265,16 +356,15 @@ def build_device_model_v2(controller, mapping):
         group = controller.find_group(rm.row)
         assert len(rm.range) <= len(
             group.midi_range), f"rm.range of {len(rm.range)} is too long for group, max is {len(group.midi_range)} ({rm.range}) to group ({group.midi_range})"
-        group_midi_list = group.midi_range.as_inclusive_range()
-        print(f"group_midi_list = {group_midi_list}")
 
-        for device_range_index in rm.range.as_inclusive_range():
-            print(f"device_range_index = {device_range_index}")
-            midi_range_mappings.append(DeviceMidiMapping.from_coords(
-                midi_channel=group.midi_channel,
-                midi_number=group_midi_list[device_range_index - 1],
-                midi_type=group.midi_type,
-                parameter=rm.parameters.as_inclusive_list()[device_range_index - 1]
+        # Go back go the group to find the midi values. We have to switch to zero based
+        # because the group is 0 based
+        midis = group.midi_range_for(rm.range.as_inclusive_zero_based_range())
+
+        for m, p in zip(midis, rm.parameters.as_inclusive_list()):
+            midi_range_mappings.append(DeviceMidiMapping(
+                midi_coords=m,
+                parameter=p
             ))
 
     return DeviceWithMidi(
@@ -302,7 +392,7 @@ def read_controller(controller_path):
             return '_'.join(key.lower().split())
 
         data = nt.loads(controller_path, normalize_key=normalize_key)
-        return ControllerV2.model_validate(data)
+        return ControllerV2.build_from(ControllerRawV2.model_validate(data))
     except nt.NestedTextError as e:
         e.terminate()
 

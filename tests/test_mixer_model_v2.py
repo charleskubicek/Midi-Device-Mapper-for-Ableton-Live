@@ -2,23 +2,23 @@ import unittest
 
 from ableton_control_suface_as_code.core_model import EncoderType, MidiType
 from ableton_control_suface_as_code.model_v2 import ControllerV2, build_mixer_model_v2, MixerV2, MixerMappingsV2, \
-    ControlGroupV2
+    ControlGroupV2, ControlGroupAggregateV2, ControllerRawV2, ControlGroupPartV2
 from tests.test_mixer_template import CustomAssertions
 
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def build_1_group_controller(self, midi_range='21-28'):
-        return ControllerV2.model_construct(
+        return ControllerV2.build_from(ControllerRawV2(
             on_led_midi =1,
             off_led_midi=1,
-            control_groups=[ControlGroupV2.model_construct(
+            control_groups=[ControlGroupPartV2(
                 layout='row',
                 number=1,
                 type=EncoderType.knob,
                 midi_channel=2,
                 midi_type=MidiType.CC,
                 midi_range=midi_range
-            )])
+            )]))
 
     def test_mixer_pan(self):
         mixer = MixerV2(track='selected', mappings=MixerMappingsV2(pan="row_1:2"))

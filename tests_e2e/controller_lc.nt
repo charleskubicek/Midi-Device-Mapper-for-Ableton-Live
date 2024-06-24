@@ -1,0 +1,29 @@
+on_led_midi: 77
+off_led_midi: 78
+
+# Control groups are rows of controllers,
+
+control_groups:
+
+  # Each group contains one row or column of controllers and a range of MIDI CC numbers,
+    -
+        layout: row
+        number: 1
+        type: knob
+        midi_channel: 3
+        midi_type: CC
+        midi_range: 21-28
+    -
+        layout: row
+        number: 2
+        type: knob
+        midi_channel: 3
+        midi_type: CC
+        midi_range: 29, 10, 11, 12, 13, 46, 47, 80
+    -
+        layout: row
+        number: 3
+        type: button
+        midi_channel: 9
+        midi_type: note
+        midi_range: A-2, C-1, CS1, D1, C1, C3, F1, G1
