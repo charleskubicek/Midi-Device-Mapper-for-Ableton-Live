@@ -4,8 +4,9 @@ from difflib import Differ
 from autopep8 import fix_code
 
 from ableton_control_suface_as_code.code import generate_lom_listener_action, build_live_api_lookup_from_lom
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, DeviceMidiMapping, MidiType, MixerWithMidi, \
+from ableton_control_suface_as_code.core_model import MidiType, MixerWithMidi, \
     MidiCoords, MixerMidiMapping, EncoderType, EncoderCoords, TrackInfo
+from ableton_control_suface_as_code.model_device import DeviceMidiMapping, DeviceWithMidi
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_templates, generate_code_in_template_vars
 

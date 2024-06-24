@@ -1,7 +1,8 @@
 from enum import Enum
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Union
+from typing_extensions import Self
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
 
 
 class EncoderType(str, Enum):
@@ -135,21 +136,6 @@ class MidiCoords(BaseModel):
     #     super().__init__(channel=channel, type=type, number=number)
 
 
-class DeviceMidiMapping(BaseModel):
-    type: Literal['device'] = 'device'
-    midi_coords: MidiCoords
-    parameter: int
-
-    @classmethod
-    def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
-        return cls(midi_coords=MidiCoords(channel=midi_channel, type=midi_type, number=midi_number), parameter=parameter)
-    # def __init__(self, midi_channel, midi_number, midi_type, parameter):
-    #     super().__init__({'midi_coords': MidiCoords(midi_channel, midi_type, midi_number), 'parameter' :parameter})
-
-    def info_string(self):
-        return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
-
-
 class Direction(Enum):
     inc = 'inc'
     dec = 'dec'
@@ -240,13 +226,6 @@ class MixerMidiMapping(BaseModel):
         return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
 
-class DeviceWithMidi(BaseModel):
-    type: Literal['device'] = 'device'
-    track: TrackInfo
-    device: str
-    midi_range_maps: List[DeviceMidiMapping]
-
-
 class MixerWithMidi(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_maps: List[MixerMidiMapping]
@@ -264,3 +243,68 @@ def parse_coords(raw) -> EncoderCoords:
         return EncoderCoords(row=row, col=int(start), row_range_end=int(end))
     else:
         return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
+
+class RangeV2(BaseModel):
+    from_: int = Field(alias='from')
+    to: int
+
+    @staticmethod
+    def parse(value):
+        [a, b] = value.split("-")
+        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+
+    @property
+    def first(self):
+        return self.from_
+
+    def __len__(self):
+        return len(self.as_range())
+
+    def as_range(self):
+        return range(self.from_, self.to)
+
+    def as_inclusive_range(self):
+        return range(self.from_, self.to + 1)
+
+    def as_inclusive_zero_based_range(self):
+        return range(self.from_-1, self.to)
+
+    def as_list(self):
+        return list(self.as_range())
+
+    def as_inclusive_list(self):
+        return list(self.as_inclusive_range())
+
+    def is_present(self, value: int):
+        return value in range(1, len(self.as_range()) + 1)
+
+    def item_at(self, index: int):
+        if index < 0 or index >= len(self.as_inclusive_list()):
+            raise ValueError(f"Index {index} out of range for {self.as_list()}")
+        return self.as_inclusive_list()[index]
+
+
+class RowMapV2(BaseModel):
+    row: Union[int, None]
+    # col: int | None
+    range_raw: str = Field(alias='range')
+    parameters_raw: str = Field(alias='parameters')
+
+    @property
+    def range(self) -> RangeV2:
+        return RangeV2.parse(self.range_raw)
+
+    @property
+    def parameters(self) -> RangeV2:
+        return RangeV2.parse(self.parameters_raw)
+
+    @model_validator(mode='after')
+    def verify_square(self) -> Self:
+        # if self.row is None and self.col is None:
+        #     raise ValueError('row and col cannot both be None')
+        # if self.row is not None and self.col is not None:
+        #     raise ValueError('row and col cannot both be set')
+
+        return self
+
+

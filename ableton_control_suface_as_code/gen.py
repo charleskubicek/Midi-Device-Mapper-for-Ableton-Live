@@ -7,7 +7,8 @@ from typing import Union
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
     device_nav_templates
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi
+from ableton_control_suface_as_code.core_model import MixerWithMidi
+from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, read_controller, \

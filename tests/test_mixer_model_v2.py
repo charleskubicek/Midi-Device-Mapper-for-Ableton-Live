@@ -1,8 +1,9 @@
 import unittest
 
 from ableton_control_suface_as_code.core_model import EncoderType, MidiType
-from ableton_control_suface_as_code.model_v2 import ControllerV2, build_mixer_model_v2, MixerV2, MixerMappingsV2, \
-    ControlGroupV2, ControlGroupAggregateV2, ControllerRawV2, ControlGroupPartV2
+from ableton_control_suface_as_code.model_controller import ControlGroupPartV2, ControlGroupAggregateV2, ControlGroupV2, \
+    ControllerRawV2, ControllerV2
+from ableton_control_suface_as_code.model_mixer import MixerMappingsV2, MixerV2, build_mixer_model_v2
 from tests.test_mixer_template import CustomAssertions
 
 

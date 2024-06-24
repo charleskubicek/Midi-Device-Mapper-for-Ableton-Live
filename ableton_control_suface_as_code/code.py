@@ -2,7 +2,8 @@ import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.core_model import DeviceWithMidi, MixerWithMidi, TrackInfo
+from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo
+from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavMidiMapping, TrackNavWithMidi
 

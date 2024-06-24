@@ -1,8 +1,10 @@
 import unittest
 
-from ableton_control_suface_as_code.core_model import LayoutAxis
-from ableton_control_suface_as_code.model_v2 import build_mode_model_v2, DeviceV2, ControllerV2, RowMapV2, RangeV2, \
-    ControlGroupV2, ControllerRawV2, ControlGroupPartV2
+from ableton_control_suface_as_code.core_model import LayoutAxis, RowMapV2, RangeV2
+from ableton_control_suface_as_code.model_v2 import build_mode_model_v2
+from ableton_control_suface_as_code.model_controller import ControlGroupPartV2, ControlGroupV2, ControllerRawV2, \
+    ControllerV2
+from ableton_control_suface_as_code.model_device import DeviceV2
 
 
 def build_control_group_part(midi_range='21-28', number=1, layout=LayoutAxis.row, row_parts='1-2'):
