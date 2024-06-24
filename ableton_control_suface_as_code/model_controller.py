@@ -1,3 +1,4 @@
+import itertools
 import sys
 from dataclasses import dataclass
 from itertools import groupby
@@ -22,13 +23,28 @@ class ControlGroupPartV2(BaseModel):
     def row_parts(self) -> RangeV2:
         return RangeV2.parse(self.row_parts_raw)
 
-    def midi_list(self):
-        return RangeV2.parse(self.midi_range_raw).as_inclusive_list()
+    @property
+    def _midi_list(self):
+        if '-' in self.midi_range_raw:
+            [a, b] = self.midi_range_raw.split("-")
+            return RangeV2.model_validate({'from': int(a), 'to': int(b)}).as_inclusive_list()
+        elif ',' in self.midi_range_raw:
+            return self.midi_range_raw.split(",")
+            # return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+
+        # return RangeV2.parse(self.midi_range_raw).as_inclusive_list()
+
+    def midi_coords_list(self):
+        return [MidiCoords(
+            channel=self.midi_channel,
+            type=self.midi_type,
+            number=midi_number) for midi_number in self._midi_list]
 
 
 class ControlGroupAggregateV2:
     def __init__(self, parts: List[ControlGroupPartV2]):
         #TODO verify parts are the same row
+        #TODO verify parts haven't been used with range arrays
         self.parts = self._sort_parts(parts)
         self.midi_coords = self.build_midi_coords(parts)
 
@@ -54,18 +70,11 @@ class ControlGroupAggregateV2:
         if len(parts) == 1:
             return parts
         else:
-            return sorted(parts, key=lambda x: x.row_parts.first)
+            return sorted(parts, key=lambda x: x.row_parts.first_index)
 
     def build_midi_coords(self, parts:List[ControlGroupPartV2]):
-        res = []
-        for part in parts:
-            for midi_number in part.midi_list():
-                res.append(MidiCoords(
-                    channel=part.midi_channel,
-                    type=part.midi_type,
-                    number=midi_number))
-
-        return res
+        list_of_lists = [part.midi_coords_list() for part in parts]
+        return list(itertools.chain.from_iterable(list_of_lists))
 
 
     @property

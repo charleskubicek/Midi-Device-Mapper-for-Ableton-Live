@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal, Optional, List, Union
 from typing_extensions import Self
@@ -244,6 +245,31 @@ def parse_coords(raw) -> EncoderCoords:
     else:
         return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
 
+class AbstractListV2(BaseModel, ABC):
+    @abstractmethod
+    def _as_range(self) -> range:
+        pass
+
+    @property
+    def first_index(self):
+        return self._as_range().start
+
+    def __len__(self):
+        return len(self._as_range())
+
+    def as_inclusive_list(self):
+        return list(self._as_inclusive_range())
+
+    def as_inclusive_zero_based_range(self):
+        r = self._as_range()
+        return range(r.start-1, r.stop)
+        # return range(self.from_-1, self.to)
+
+    def _as_inclusive_range(self):
+        r = self._as_range()
+        return range(r.start, r.stop + 1)
+        # return range(self.from_, self.to + 1)
+
 class RangeV2(BaseModel):
     from_: int = Field(alias='from')
     to: int
@@ -258,7 +284,7 @@ class RangeV2(BaseModel):
         #     return RangeV2.model_validate({'from': int(a), 'to': int(b)})
 
     @property
-    def first(self):
+    def first_index(self):
         return self.from_
 
     def __len__(self):
@@ -275,9 +301,6 @@ class RangeV2(BaseModel):
 
     def _as_inclusive_range(self):
         return range(self.from_, self.to + 1)
-
-    def _as_list(self):
-        return list(self._as_range())
 
 
 class RowMapV2(BaseModel):

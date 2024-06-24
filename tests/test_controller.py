@@ -38,7 +38,7 @@ class TestBuildModeModelV2(unittest.TestCase):
     def test_build_midi_coords_from_list(self):
 
         groups =[
-            build_control_group_part(midi_range='29, 19, 11, 12', number=1, layout='row-part', row_parts='1-4'),
+            build_control_group_part(midi_range='29, 10, 11, 12', number=1, layout='row-part', row_parts='1-4'),
         ]
 
 
@@ -46,5 +46,5 @@ class TestBuildModeModelV2(unittest.TestCase):
         e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=4))
 
         self.assertEqual(4, len(e))
-        self.assertEqual(e[0].number, 21)
-        self.assertEqual(e[3].number, 24)
+        self.assertEqual(e[0].number, 29)
+        self.assertEqual(e[3].number, 12)
