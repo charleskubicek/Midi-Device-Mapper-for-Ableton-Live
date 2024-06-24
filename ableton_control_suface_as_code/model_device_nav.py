@@ -63,4 +63,4 @@ def build_device_nav_model_v2(controller, mapping: DeviceNav) -> DeviceNavWithMi
         midi_coords, _ = controller.build_midi_coords(enc)
         midi_maps.append(DeviceNavMidiMapping(midi_coords=midi_coords, action=action))
 
-    return DeviceNavWithMidi.model_construct(midi_maps=midi_maps)
+    return DeviceNavWithMidi(midi_maps=midi_maps)

@@ -16,6 +16,9 @@ class RangeV2(BaseModel):
     from_: int = Field(alias='from')
     to: int
 
+    # def __init__(self, from_: int, to: int):
+    #     super().model_validate({'from': from_, 'to': to})
+
     def __len__(self):
         return len(self.as_range())
 
@@ -59,7 +62,7 @@ class ControlGroupV2(BaseModel):
     def midi_range(self):
         try:
             [s, e] = self.midi_range_raw.split("-")
-            return RangeV2.model_construct(from_=int(s), to=int(e))
+            return RangeV2.model_validate({'from': int(s), 'to': int(e)})
         except ValueError as e:
             print(f"Error parsing {self.midi_range_raw}")
             exit(-1)
@@ -108,12 +111,12 @@ class RowMapV2(BaseModel):
     @property
     def range(self) -> RangeV2:
         a, b = self.range_raw.split("-")
-        return RangeV2.model_construct(from_=int(a), to=int(b))
+        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
 
     @property
     def parameters(self) -> RangeV2:
         a, b = self.parameters_raw.split("-")
-        return RangeV2.model_construct(from_=int(a), to=int(b))
+        return RangeV2.model_validate({'from': int(a), 'to': int(b)})
 
     @model_validator(mode='after')
     def verify_square(self) -> Self:
@@ -231,9 +234,9 @@ def build_mixer_model_v2(controller, mapping: MixerV2):
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
         coords_list, type = controller.build_midi_coords(enc_coords)
 
-        mixer_maps.append(MixerMidiMapping.with_multiple_args(
-            midi_coords_list=coords_list,
-            encoder_type=type,
+        mixer_maps.append(MixerMidiMapping(
+            midi_coords=coords_list,
+            controller_type=type,
             api_function=api_name,
             track_info=mapping.track_info,
             encoder_coords=enc_coords))
@@ -257,7 +260,7 @@ def build_device_model_v2(controller, mapping):
 
         for device_range_index in rm.range.as_inclusive_range():
             print(f"device_range_index = {device_range_index}")
-            midi_range_mappings.append(DeviceMidiMapping(
+            midi_range_mappings.append(DeviceMidiMapping.from_coords(
                 midi_channel=group.midi_channel,
                 midi_number=group_midi_list[device_range_index - 1],
                 midi_type=group.midi_type,

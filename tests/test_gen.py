@@ -11,8 +11,10 @@ from ableton_control_suface_as_code.gen import device_templates, generate_code_i
 
 differ = Differ()
 
+
 def diff(a, b):
     return ''.join(differ.compare(a.split("\n"), b.split("\n")))
+
 
 class TestGen(unittest.TestCase):
 
@@ -23,12 +25,12 @@ class TestGen(unittest.TestCase):
         self.assertGreater(len(res['code_creation']), 1)
 
     def build_mixer_with_one_mapping(self, api_fn="pan"):
-        return MixerWithMidi.model_construct(
+        return MixerWithMidi(
             midi_maps=[MixerMidiMapping(
-                midi_coords=MidiCoords(2, 50, 'CC'),
-                encoder_type=EncoderType.knob,
+                midi_coords=[MidiCoords(channel=2, type='CC', number=50)],
+                controller_type=EncoderType.knob,
                 api_function=api_fn,
-                encoder_coords=EncoderCoords(1, 2, 2),
+                encoder_coords=EncoderCoords(row=1, col=2, row_range_end=2),
                 track_info=TrackInfo.selected()
             )])
 
@@ -61,7 +63,6 @@ def fn(self, value):
         print(generated)
 
         self.assertEqual(generated, expected_output, diff(generated, expected_output))
-
 
     def test_encoder_template(self):
         device_mapping = {
@@ -108,30 +109,47 @@ def fn(self, value):
                  'midi_range': {'from': 29, 'to': 37}
                  },
             ],
-            'toggles':[
+            'toggles': [
                 'r2-4'
             ]
         }
         # device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
-        device_with_midi = DeviceWithMidi.model_construct(track=TrackInfo.selected(), device="selected", midi_range_maps=[
-            DeviceMidiMapping(midi_channel=2, midi_number=21, midi_type=MidiType.CC, parameter=1),
-            DeviceMidiMapping(midi_channel=2, midi_number=22, midi_type=MidiType.CC, parameter=2),
-            DeviceMidiMapping(midi_channel=2, midi_number=23, midi_type=MidiType.CC, parameter=3),
-            DeviceMidiMapping(midi_channel=2, midi_number=24, midi_type=MidiType.CC, parameter=4)
-        ])
+        device_with_midi = DeviceWithMidi.model_construct(track=TrackInfo.selected(), device="selected",
+                                                          midi_range_maps=[
+                                                              DeviceMidiMapping.from_coords(midi_channel=2,
+                                                                                            midi_number=21,
+                                                                                            midi_type=MidiType.CC,
+                                                                                            parameter=1),
+                                                              DeviceMidiMapping.from_coords(midi_channel=2,
+                                                                                            midi_number=22,
+                                                                                            midi_type=MidiType.CC,
+                                                                                            parameter=2),
+                                                              DeviceMidiMapping.from_coords(midi_channel=2,
+                                                                                            midi_number=23,
+                                                                                            midi_type=MidiType.CC,
+                                                                                            parameter=3),
+                                                              DeviceMidiMapping.from_coords(midi_channel=2,
+                                                                                            midi_number=24,
+                                                                                            midi_type=MidiType.CC,
+                                                                                            parameter=4)
+                                                          ])
         result = device_templates(device_with_midi)
 
-        self.assertEqual(result.remove_listeners[0], "self.encoder_ch2_no21_CC__p1.remove_value_listener(self.encoder_ch2_no21_CC__p1_value)")
-        self.assertEqual(result.creation[0], "self.encoder_ch2_no21_CC__p1 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.absolute)")
-        self.assertEqual(result.creation[1], "self.encoder_ch2_no22_CC__p2 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.absolute)")
-        self.assertEqual(result.setup_listeners[0], "self.encoder_ch2_no21_CC__p1.add_value_listener(self.encoder_ch2_no21_CC__p1_value)")
-        self.assertTrue("def encoder_ch2_no21_CC__p1_value(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
+        self.assertEqual(result.remove_listeners[0],
+                         "self.encoder_ch2_no21_CC__p1.remove_value_listener(self.encoder_ch2_no21_CC__p1_value)")
+        self.assertEqual(result.creation[0],
+                         "self.encoder_ch2_no21_CC__p1 = EncoderElement(MIDI_CC_TYPE, 1, 21, Live.MidiMap.MapMode.absolute)")
+        self.assertEqual(result.creation[1],
+                         "self.encoder_ch2_no22_CC__p2 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.absolute)")
+        self.assertEqual(result.setup_listeners[0],
+                         "self.encoder_ch2_no21_CC__p1.add_value_listener(self.encoder_ch2_no21_CC__p1_value)")
+        self.assertTrue("def encoder_ch2_no21_CC__p1_value(self, value)" in result.listener_fns[2],
+                        f"code was {result.listener_fns[2]}")
 
         self.assertEqual(len(result.remove_listeners), 4)
         self.assertEqual(len(result.creation), 4)
         self.assertEqual(len(result.setup_listeners), 4)
         self.assertGreater(len(result.listener_fns), 40)
-
 
     def test_build_live_api_lookup_from_lom(self):
         # expected_output = "self.manager.song().view.tracks[0].view.devices[1]"

@@ -30,8 +30,9 @@ class TrackNavMidiMapping(BaseModel):
     midi_coords: List[MidiCoords]
     direction: Direction
 
-    def __init__(self, midi_coords: MidiCoords, direction: Direction):
-        super().__init__(midi_coords=[midi_coords], direction=direction)
+    @classmethod
+    def from_single_coord(cls, midi_coord:MidiCoords, direction: Direction):
+        return TrackNavMidiMapping(midi_coords=[midi_coord], direction=direction)
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -56,6 +57,6 @@ def build_track_nav_model_v2(controller, mapping: TrackNav) -> TrackNavWithMidi:
     midi_maps = []
     for dir, enc in mapping.mappings.as_list():
         midi_coords, _ = controller.build_midi_coords(enc)
-        midi_maps.append(TrackNavMidiMapping.model_construct(midi_coords=midi_coords, direction=dir))
+        midi_maps.append(TrackNavMidiMapping(midi_coords=midi_coords, direction=dir))
 
-    return TrackNavWithMidi.model_construct(midi_maps=midi_maps)
+    return TrackNavWithMidi(midi_maps=midi_maps)

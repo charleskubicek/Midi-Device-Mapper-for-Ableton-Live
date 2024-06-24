@@ -91,8 +91,8 @@ class EncoderCoords(BaseModel):
     def list_inclusive(self):
         return list(self.range_inclusive)
 
-    def __init__(self, row, col=None, row_range_end=None):
-        super().__init__(row=row, col=col, row_range_end=row_range_end)
+    # def __init__(self, row, col=None, row_range_end=None):
+    #     super().__init__(row=row, col=col, row_range_end=row_range_end)
 
     def debug_string(self):
         return f"r{self.row}c{self.col}"
@@ -122,8 +122,8 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
-    def __init__(self, channel, number, type):
-        super().__init__(channel=channel, type=type, number=number)
+    # def __init__(self, channel, number, type):
+    #     super().__init__(channel=channel, type=type, number=number)
 
 
 class DeviceMidiMapping(BaseModel):
@@ -131,8 +131,11 @@ class DeviceMidiMapping(BaseModel):
     midi_coords: MidiCoords
     parameter: int
 
-    def __init__(self, midi_channel, midi_number, midi_type, parameter):
-        super().__init__(midi_coords=MidiCoords(midi_channel, midi_number, midi_type), parameter=parameter)
+    @classmethod
+    def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
+        return cls(midi_coords=MidiCoords(channel=midi_channel, type=midi_type, number=midi_number), parameter=parameter)
+    # def __init__(self, midi_channel, midi_number, midi_type, parameter):
+    #     super().__init__({'midi_coords': MidiCoords(midi_channel, midi_type, midi_number), 'parameter' :parameter})
 
     def info_string(self):
         return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
@@ -171,20 +174,20 @@ class MixerMidiMapping(BaseModel):
     def encoders_debug_string(self):
         return self.encoder_coords.debug_string()
 
-    def __init__(self,
-                 midi_coords: MidiCoords,
-                 encoder_type: EncoderType,
-                 api_function,
-                 encoder_coords: EncoderCoords,
-                 track_info: TrackInfo):
-        super().__init__(
-            type='mixer',
-            midi_coords=[midi_coords],
-            controller_type=encoder_type,
-            api_function=api_function,
-            encoder_coords=encoder_coords,
-            track_info=track_info
-        )
+    # def __init__(self,
+    #              midi_coords: MidiCoords,
+    #              encoder_type: EncoderType,
+    #              api_function,
+    #              encoder_coords: EncoderCoords,
+    #              track_info: TrackInfo):
+    #     super().__init__(
+    #         # type='mixer',
+    #         midi_coords=list(midi_coords),
+    #         controller_type=encoder_type,
+    #         api_function=api_function,
+    #         encoder_coords=encoder_coords,
+    #         track_info=track_info
+    #     )
 
     @classmethod
     def with_multiple_args(cls,
@@ -193,7 +196,7 @@ class MixerMidiMapping(BaseModel):
                            api_function,
                            encoder_coords: EncoderCoords,
                            track_info: TrackInfo):
-        return MixerMidiMapping.model_construct(
+        return MixerMidiMapping(
             midi_coords=midi_coords_list,
             controller_type=encoder_type,
             api_function=api_function,
@@ -232,12 +235,12 @@ class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
     device: str
-    midi_range_maps: list[DeviceMidiMapping]
+    midi_range_maps: List[DeviceMidiMapping]
 
 
 class MixerWithMidi(BaseModel):
     type: Literal['mixer'] = 'mixer'
-    midi_maps: list[MixerMidiMapping]
+    midi_maps: List[MixerMidiMapping]
 
 
 def parse_coords(raw) -> EncoderCoords:
@@ -249,6 +252,6 @@ def parse_coords(raw) -> EncoderCoords:
 
     if '-' in col:
         [start, end] = col.split("-")
-        return EncoderCoords.model_construct(row=row, col=int(start), row_range_end=int(end))
+        return EncoderCoords(row=row, col=int(start), row_range_end=int(end))
     else:
-        return EncoderCoords.model_construct(row=row, col=int(col), row_range_end=int(col))
+        return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
