@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal, Optional, List, Union
@@ -89,7 +90,6 @@ class EncoderCoords(BaseModel):
             raise ValueError('row_range_end must be greater than col')
         return self
 
-
     @property
     def is_range(self):
         return self.row_range_end != self.col
@@ -113,6 +113,9 @@ class MidiType(str, Enum):
     note = 'note'
     CC = 'CC'
 
+    def is_note(self):
+        return self == MidiType.note
+
     def ableton_name(self):
         if self == MidiType.note:
             return 'MIDI_NOTE_TYPE'
@@ -133,13 +136,11 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
-    # def __init__(self, channel, number, type):
-    #     super().__init__(channel=channel, type=type, number=number)
-
 
 class Direction(Enum):
     inc = 'inc'
     dec = 'dec'
+
 
 class DeviceNavAction(Enum):
     left = 'left', 'self.device_nav_left()'
@@ -152,9 +153,6 @@ class DeviceNavAction(Enum):
         obj._value_ = args[0]
         obj.template_call = args[1]
         return obj
-
-    # def tmplate_call(self):
-    #     return self.template_call
 
 #
 # The data in this class has been zerobased
@@ -245,6 +243,7 @@ def parse_coords(raw) -> EncoderCoords:
     else:
         return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
 
+
 class AbstractListV2(BaseModel, ABC):
     @abstractmethod
     def _as_range(self) -> range:
@@ -262,7 +261,7 @@ class AbstractListV2(BaseModel, ABC):
 
     def as_inclusive_zero_based_range(self):
         r = self._as_range()
-        return range(r.start-1, r.stop)
+        return range(r.start - 1, r.stop)
         # return range(self.from_-1, self.to)
 
     def _as_inclusive_range(self):
@@ -270,9 +269,16 @@ class AbstractListV2(BaseModel, ABC):
         return range(r.start, r.stop + 1)
         # return range(self.from_, self.to + 1)
 
+
 class RangeV2(BaseModel):
     from_: int = Field(alias='from')
     to: int
+
+    @staticmethod
+    def is_valid_range(s):
+        # Regular expression pattern to match 1 to 3 digits, followed by a hyphen, followed by 1 to 3 digits
+        pattern = r'^\d{1,3}-\d{1,3}$'
+        return bool(re.match(pattern, s))
 
     @staticmethod
     def parse(value):
@@ -294,7 +300,7 @@ class RangeV2(BaseModel):
         return list(self._as_inclusive_range())
 
     def as_inclusive_zero_based_range(self):
-        return range(self.from_-1, self.to)
+        return range(self.from_ - 1, self.to)
 
     def _as_range(self):
         return range(self.from_, self.to)
@@ -325,5 +331,3 @@ class RowMapV2(BaseModel):
         #     raise ValueError('row and col cannot both be set')
 
         return self
-
-

@@ -7,7 +7,18 @@ from ableton_control_suface_as_code.model_controller import ControlGroupPartV2, 
 from ableton_control_suface_as_code.model_device import DeviceV2
 
 
-def build_control_group_part(midi_range='21-28', number=1, layout=LayoutAxis.row, row_parts='1-2'):
+def build_control_group(midi_range='21-28', number=1, layout=LayoutAxis.row, midi_type='CC'):
+    return ControlGroupPartV2(
+        layout=layout,
+        number=number,
+        type='knob',
+        midi_channel=2,
+        midi_type=midi_type,
+        midi_range=midi_range,
+        row_parts=None
+    )
+
+def build_control_group_part(midi_range='21-28', number=1, layout=LayoutAxis.row_part, row_parts='1-2'):
     return ControlGroupPartV2(
         layout=layout,
         number=number,

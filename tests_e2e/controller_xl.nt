@@ -39,7 +39,7 @@ control_groups:
         number: 5
         type: button
         midi_channel: 1
-        midi_type: note
+        midi_type: CC
         midi_range: 60-61
         row_parts: 1-2
     -
@@ -48,7 +48,7 @@ control_groups:
         type: button
         midi_channel: 2
         midi_type: note
-        midi_range: 4-6
+        midi_range: C-1, F-1
         row_parts: 3-4
     -
         layout: col
