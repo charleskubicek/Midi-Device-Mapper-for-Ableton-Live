@@ -2,7 +2,7 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import Direction, MidiCoords, parse_coords
+from ableton_control_suface_as_code.core_model import Direction, MidiCoords, parse_coords, ButtonProviderBaseModel
 
 
 class TrackNavMappings(BaseModel):
@@ -25,7 +25,7 @@ class TrackNav(BaseModel):
     mappings: TrackNavMappings
 
 
-class TrackNavMidiMapping(BaseModel):
+class TrackNavMidiMapping(ButtonProviderBaseModel):
     type: Literal['track-nav'] = 'track-nav'
     midi_coords: List[MidiCoords]
     direction: Direction
@@ -40,6 +40,9 @@ class TrackNavMidiMapping(BaseModel):
 
     def info_string(self):
         return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__track_nav_{self.direction.value}"
+
+    def create_button_element(self):
+        return self.only_midi_coord.create_button_element()
 
     def template_function_name(self):
         if self.direction == Direction.inc:

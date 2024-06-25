@@ -2,7 +2,7 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction
+from ableton_control_suface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction, ButtonProviderBaseModel
 
 
 class DeviceNavMappings(BaseModel):
@@ -33,7 +33,7 @@ class DeviceNav(BaseModel):
     mappings: DeviceNavMappings
 
 
-class DeviceNavMidiMapping(BaseModel):
+class DeviceNavMidiMapping(ButtonProviderBaseModel):
     type: Literal['device-nav'] = 'device-nav'
     midi_coords: List[MidiCoords]
     action: DeviceNavAction
@@ -47,6 +47,9 @@ class DeviceNavMidiMapping(BaseModel):
 
     def info_string(self):
         return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__device_nav_{self.action.value}"
+
+    def create_button_element(self):
+        return self.only_midi_coord.create_button_element()
 
     def template_function_name(self):
         return self.action.template_call

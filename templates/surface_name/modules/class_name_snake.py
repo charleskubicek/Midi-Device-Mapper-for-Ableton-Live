@@ -8,6 +8,13 @@ from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
 
 # from _Framework.EncoderElement import *
 
+functions_loaded_error = None
+
+try:
+    from functions import functions
+except Exception as e:
+    functions_loaded_error = e
+
 class $class_name_camel(ControlSurfaceComponent):
     def __init__(self, manager):
         super().__init__(manager)
@@ -19,7 +26,13 @@ class $class_name_camel(ControlSurfaceComponent):
         # self.setup_controls()
         # self.setup_listeners()
 
+        if functions_loaded_error is not None:
+            self.log_message(f"Error loading functions: {functions_loaded_error}")
+        else:
+            self.functions = functions(self)
+
         $code_setup
+
 
     def remove_all_listeners(self):
         $code_remove_listeners

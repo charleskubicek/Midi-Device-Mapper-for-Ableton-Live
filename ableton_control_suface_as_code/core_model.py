@@ -1,10 +1,9 @@
 import re
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import Enum
 from typing import Literal, Optional, List, Union
-from typing_extensions import Self
 
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, Field
 
 
 class EncoderType(str, Enum):
@@ -84,12 +83,6 @@ class EncoderCoords(BaseModel):
     col: int
     row_range_end: int
 
-    @model_validator(mode='after')
-    def range_is_in_bound(self) -> 'EncoderCoords':
-        if self.row_range_end < self.col:
-            raise ValueError('row_range_end must be greater than col')
-        return self
-
     @property
     def is_range(self):
         return self.row_range_end != self.col
@@ -101,9 +94,8 @@ class EncoderCoords(BaseModel):
     def list_inclusive(self):
         return list(self.range_inclusive)
 
-    @classmethod
-    def from_row_col(cls, row, col):
-        return cls(row=row, col=col, row_range_end=col)
+    def __init__(self, row, col=None, row_range_end=None):
+        super().__init__(row=row, col=col, row_range_end=row_range_end)
 
     def debug_string(self):
         return f"r{self.row}c{self.col}"
@@ -136,11 +128,25 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
+    def __init__(self, channel, number, type):
+        super().__init__(channel=channel, type=type, number=number)
+
+
+class DeviceMidiMapping(BaseModel):
+    type: Literal['device'] = 'device'
+    midi_coords: MidiCoords
+    parameter: int
+
+    def __init__(self, midi_channel, midi_number, midi_type, parameter):
+        super().__init__(midi_coords=MidiCoords(midi_channel, midi_number, midi_type), parameter=parameter)
+
+    def info_string(self):
+        return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
+
 
 class Direction(Enum):
     inc = 'inc'
     dec = 'dec'
-
 
 class DeviceNavAction(Enum):
     left = 'left', 'self.device_nav_left()'
@@ -153,6 +159,9 @@ class DeviceNavAction(Enum):
         obj._value_ = args[0]
         obj.template_call = args[1]
         return obj
+
+    # def tmplate_call(self):
+    #     return self.template_call
 
 #
 # The data in this class has been zerobased
@@ -175,8 +184,8 @@ class MixerMidiMapping(BaseModel):
     #              encoder_coords: EncoderCoords,
     #              track_info: TrackInfo):
     #     super().__init__(
-    #         # type='mixer',
-    #         midi_coords=list(midi_coords),
+    #         type='mixer',
+    #         midi_coords=[midi_coords],
     #         controller_type=encoder_type,
     #         api_function=api_function,
     #         encoder_coords=encoder_coords,
@@ -190,7 +199,7 @@ class MixerMidiMapping(BaseModel):
                            api_function,
                            encoder_coords: EncoderCoords,
                            track_info: TrackInfo):
-        return MixerMidiMapping(
+        return MixerMidiMapping.model_construct(
             midi_coords=midi_coords_list,
             controller_type=encoder_type,
             api_function=api_function,
@@ -225,9 +234,28 @@ class MixerMidiMapping(BaseModel):
         return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
 
+class DeviceWithMidi(BaseModel):
+    type: Literal['device'] = 'device'
+    track: TrackInfo
+    device: str
+    midi_range_maps: list[DeviceMidiMapping]
+
+
 class MixerWithMidi(BaseModel):
     type: Literal['mixer'] = 'mixer'
-    midi_maps: List[MixerMidiMapping]
+    midi_maps: list[MixerMidiMapping]
+
+
+class ButtonProviderBaseModel(ABC, BaseModel):
+    def info_string(self):
+        pass
+
+    def create_button_element(self):
+        pass
+
+    def template_function_name(self):
+        pass
+
 
 
 def parse_coords(raw) -> EncoderCoords:
@@ -239,35 +267,10 @@ def parse_coords(raw) -> EncoderCoords:
 
     if '-' in col:
         [start, end] = col.split("-")
-        return EncoderCoords(row=row, col=int(start), row_range_end=int(end))
+        return EncoderCoords.model_construct(row=row, col=int(start), row_range_end=int(end))
     else:
-        return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
+        return EncoderCoords.model_construct(row=row, col=int(col), row_range_end=int(col))
 
-
-class AbstractListV2(BaseModel, ABC):
-    @abstractmethod
-    def _as_range(self) -> range:
-        pass
-
-    @property
-    def first_index(self):
-        return self._as_range().start
-
-    def __len__(self):
-        return len(self._as_range())
-
-    def as_inclusive_list(self):
-        return list(self._as_inclusive_range())
-
-    def as_inclusive_zero_based_range(self):
-        r = self._as_range()
-        return range(r.start - 1, r.stop)
-        # return range(self.from_-1, self.to)
-
-    def _as_inclusive_range(self):
-        r = self._as_range()
-        return range(r.start, r.stop + 1)
-        # return range(self.from_, self.to + 1)
 
 
 class RangeV2(BaseModel):
@@ -322,12 +325,12 @@ class RowMapV2(BaseModel):
     @property
     def parameters(self) -> RangeV2:
         return RangeV2.parse(self.parameters_raw)
-
-    @model_validator(mode='after')
-    def verify_square(self) -> Self:
-        # if self.row is None and self.col is None:
-        #     raise ValueError('row and col cannot both be None')
-        # if self.row is not None and self.col is not None:
-        #     raise ValueError('row and col cannot both be set')
-
-        return self
+    #
+    # @model_validator(mode='after')
+    # def verify_square(self) -> Self:
+    #     # if self.row is None and self.col is None:
+    #     #     raise ValueError('row and col cannot both be None')
+    #     # if self.row is not None and self.col is not None:
+    #     #     raise ValueError('row and col cannot both be set')
+    #
+    #     return self

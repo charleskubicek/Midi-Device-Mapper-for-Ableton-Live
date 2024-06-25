@@ -2,10 +2,11 @@ import ast
 from dataclasses import dataclass
 from string import Template
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo
+from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
-from ableton_control_suface_as_code.model_track_nav import TrackNavMidiMapping, TrackNavWithMidi
+from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
+from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 
 
 @dataclass
@@ -149,7 +150,7 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
     )
 
 
-def button_listener_function_caller_templates(midi_map: TrackNavMidiMapping):
+def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel):
     creation = []
     listener_fns = []
     setup_listeners = []
@@ -158,7 +159,7 @@ def button_listener_function_caller_templates(midi_map: TrackNavMidiMapping):
     button_name = f"button_{midi_map.info_string()}"
     button_listener_name = f"button_{midi_map.info_string()}_value"
 
-    creation.append(f"self.{button_name} = {midi_map.only_midi_coord.create_button_element()}")
+    creation.append(f"self.{button_name} = {midi_map.create_button_element()}")
     setup_listeners.append(f"self.{button_name}.add_value_listener(self.{button_listener_name})")
     remove_listeners.append(f"self.{button_name}.remove_value_listener(self.{button_listener_name})")
     listener_fns.extend(generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string()))
@@ -177,6 +178,10 @@ def device_nav_templates(deivce_nav_with_midi: DeviceNavWithMidi) -> GeneratedCo
     codes = [button_listener_function_caller_templates(m) for m in deivce_nav_with_midi.midi_maps]
     return GeneratedCode.merge_all(codes)
 
+
+def functions_templates(functions_with_midi: FunctionsWithMidi) -> GeneratedCode:
+    codes = [button_listener_function_caller_templates(m) for m in functions_with_midi.midi_maps]
+    return GeneratedCode.merge_all(codes)
 
 def device_templates(device_with_midi: DeviceWithMidi):
     creation = []

@@ -106,7 +106,7 @@ class ControlGroupAggregateV2:
         else:
             return sorted(parts, key=lambda x: x.row_parts.first_index)
 
-    def build_midi_coords(self, parts: List[ControlGroupPartV2]):
+    def build_midi_coords(self, parts: List[ControlGroupPartV2]) -> List[MidiCoords]:
         list_of_lists = [part.midi_coords_list() for part in parts]
         return list(itertools.chain.from_iterable(list_of_lists))
 

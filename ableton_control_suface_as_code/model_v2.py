@@ -7,6 +7,7 @@ from ableton_control_suface_as_code.core_model import MixerWithMidi
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, build_device_model_v2, DeviceV2
 from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
+from ableton_control_suface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
 from ableton_control_suface_as_code.model_mixer import MixerV2, build_mixer_model_v2
 from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
  build_track_nav_model_v2
@@ -14,11 +15,11 @@ from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWit
 
 class MappingsV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav]]
+    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
 
 
-def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav]], controller: ControllerV2) -> (
-        List)[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]:
+def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions]], controller: ControllerV2) -> (
+        List)[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]:
     """
     Returns a model of the mapping with midi info attached
 
@@ -39,6 +40,8 @@ def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, Device
             mappings_with_midi.append(build_track_nav_model_v2(controller, mapping))
         if mapping.type == "device-nav":
             mappings_with_midi.append(build_device_nav_model_v2(controller, mapping))
+        if mapping.type == "functions":
+            mappings_with_midi.append(build_functions_model_v2(controller, mapping))
 
     return mappings_with_midi
 

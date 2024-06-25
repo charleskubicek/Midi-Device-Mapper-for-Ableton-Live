@@ -10,6 +10,7 @@ packages = [{include = "ableton_control_suface_as_code"}]
 python = "^3.9"
 pydantic = "^2.7.4"
 autopep8 = "^2.2.0"
+prettytable = "^3.10.0"
 
 [build-system]
 requires = ["poetry-core"]
