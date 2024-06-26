@@ -2,7 +2,7 @@ from typing import Union, List
 
 from pydantic import BaseModel
 
-from ableton_control_suface_as_code import nested_text as nt
+from nestedtext import nestedtext as nt
 from ableton_control_suface_as_code.core_model import MixerWithMidi
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, build_device_model_v2, DeviceV2
