@@ -1,4 +1,4 @@
-controller: controller_json.nt
+controller: controller_xl.nt
 mappings:
     -
         type: device

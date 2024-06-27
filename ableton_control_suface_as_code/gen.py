@@ -23,11 +23,13 @@ template_to_code = {
     'functions': functions_templates
 }
 
+
 # @dataclass
 # class TemplateVars:
 #     surface_name: str
 
-def generate_code_in_template_vars(devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]) -> dict:
+def generate_code_in_template_vars(
+        devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]) -> dict:
     code = GeneratedCode([], [], [], [], [])
     for device_with_midi in devices_with_midi:
         code_templates = template_to_code[device_with_midi.type]
@@ -41,12 +43,14 @@ def generate_code_in_template_vars(devices_with_midi: [Union[DeviceWithMidi, Mix
         'code_listener_fns': class_function_code_block(code.listener_fns)
     }
 
+
 def write_templates(template_path: Path, target: Path, vars: dict, functions_path: Path):
     root_dir = Path(target, vars['surface_name'])
     root_dir.mkdir(exist_ok=True)
 
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
-    template_file(root_dir, template_path / 'surface_name', vars, f'modules/class_name_snake.py',f"modules/{vars['class_name_snake']}.py", verify_python=True)
+    template_file(root_dir, template_path / 'surface_name', vars, f'modules/class_name_snake.py',
+                  f"modules/{vars['class_name_snake']}.py", verify_python=True)
     template_file(root_dir, template_path / 'surface_name', vars, 'surface_name.py', f"{vars['surface_name']}.py")
     template_file(root_dir, template_path, vars, 'deploy.sh', 'deploy.sh')
     template_file(root_dir, template_path, vars, 'tail_logs.sh', 'tail_logs.sh')
@@ -71,15 +75,17 @@ def template_file(root_dir, template_path, vars: dict, source_file_name, target_
 
     target_file.write_text(new_text)
 
+
 def generate_5_digit_number(input_string):
     hex_digest = hashlib.sha256(input_string.encode()).hexdigest()
     five_digits = int(hex_digest[:5], 16)
     return 10000 + (five_digits % 55535)
 
-def print_model(model:ControllerV2):
+
+def print_model(model: ControllerV2):
     from prettytable import PrettyTable
 
-    def padded(f:MidiType):
+    def padded(f: MidiType):
         if f.is_note():
             return f" {f.value} "
         else:
@@ -96,40 +102,36 @@ def print_model(model:ControllerV2):
         print(table)
 
 
-
-if __name__ == '__main__':
-
-    root_dir = Path("tests_e2e")
-    mapping_file_path = root_dir / "ck_test_novation_xl.json"
+def generate(mapping_file_path):
     functions_path = root_dir / "functions.py"
-
 
     if not functions_path.exists():
         functions_path = None
 
-    controller_lc = read_controller(Path('tests_e2e/controller_lc.nt').read_text())
-    print_model(controller_lc)
-    controller_xl = read_controller(Path('tests_e2e/controller_xl.nt').read_text())
-    print_model(controller_xl)
-    controller = read_controller(Path('tests_e2e/controller_xl.nt').read_text())
-    mapping = read_mapping(Path('tests_e2e/ck_test_novation_xl.nt').read_text())
-    # mapping = MappingsV2.model_validate_json(mapping_file_path.read_text())
-    #
-    # controller = ControllerV2.model_validate_json((mapping_file_path.parent / mapping.controller).read_text())
+    mapping = read_mapping(mapping_file_path.read_text())
     surface_name = mapping_file_path.stem
-    #
+
     vars = {
         'surface_name': surface_name,
-        'udp_port': generate_5_digit_number(surface_name)+1,
+        'udp_port': generate_5_digit_number(surface_name) + 1,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings'
     }
 
     target_dir = Path('out')
-    # devices_with_midi = build_mode_model_v1(mapping.mappings, controller)
+
+    controller_path = mapping_file_path.parent / mapping.controller
+    controller = read_controller(controller_path.read_text())
+    print_model(controller)
     devices_with_midi = build_mode_model_v2(mapping.mappings, controller)
 
     vars = vars | generate_code_in_template_vars(devices_with_midi)
     write_templates(Path(f'templates'), target_dir, vars, functions_path)
 
     print("Finished generating code.")
+
+
+if __name__ == '__main__':
+    root_dir = Path("tests_e2e")
+    generate(root_dir / "ck_test_novation_xl.nt")
+    generate(root_dir / "ck_test_novation_lc.nt")

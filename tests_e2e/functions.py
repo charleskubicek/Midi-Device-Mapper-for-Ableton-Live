@@ -11,4 +11,4 @@ class functions(ControlSurface):
         device = self.selected_device()
 
         if device.can_have_chains:
-            device.randomize_mac
+            device.randomize_macro_assignments()

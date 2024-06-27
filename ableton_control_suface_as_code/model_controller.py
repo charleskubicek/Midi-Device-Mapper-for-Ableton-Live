@@ -110,17 +110,6 @@ class ControlGroupAggregateV2:
         list_of_lists = [part.midi_coords_list() for part in parts]
         return list(itertools.chain.from_iterable(list_of_lists))
 
-    @property
-    def midi_range(self):
-        try:
-            s = self.parts[0].midi_range_raw.split("-")[0]
-            e = self.parts[-1].midi_range_raw.split("-")[1]
-            return RangeV2.model_validate({'from': int(s), 'to': int(e)})
-        except ValueError as e:
-            print(f"Error parsing midi range")
-            raise e
-
-
 class ControlGroupV2(BaseModel):
     layout: LayoutAxis
     number: int

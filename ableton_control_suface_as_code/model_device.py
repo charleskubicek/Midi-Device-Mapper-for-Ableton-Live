@@ -31,8 +31,6 @@ def build_device_model_v2(controller, mapping):
     midi_range_mappings = []
     for rm in mapping.ranges:
         group = controller.find_group(rm.row)
-        assert len(rm.range) <= len(
-            group.midi_range), f"rm.range of {len(rm.range)} is too long for group, max is {len(group.midi_range)} ({rm.range}) to group ({group.midi_range})"
 
         # Go back go the group to find the midi values. We have to switch to zero based
         # because the group is 0 based

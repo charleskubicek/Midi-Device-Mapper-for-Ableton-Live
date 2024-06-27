@@ -1,0 +1,21 @@
+controller: controller_lc.nt
+mappings:
+    -
+        type: device
+        
+        # selected, master, or a number 
+        track: selected
+        device: selected
+        ranges:
+            - 
+                row: 1
+                range: 1-8
+                parameters: 1-8
+            -
+                row: 2
+                range: 1-8
+                parameters: 9-16
+    -
+        type: functions
+        mappings:
+            press_rack_random_button: row_3:8

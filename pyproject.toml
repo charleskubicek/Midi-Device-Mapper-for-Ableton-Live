@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "ableton-control-suface-as-code"
+name = "ableton_control_suface_as_code"
 version = "0.1.0"
 description = ""
-authors = ["Charles Kubicek <charles.kubicek@springernature.com>"]
+authors = ["Charles Kubicek <charles@kubi.cek>"]
 readme = "README.md"
 packages = [{include = "ableton_control_suface_as_code"}]
 
