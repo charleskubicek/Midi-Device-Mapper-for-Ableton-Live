@@ -1,6 +1,6 @@
 from _Framework.ControlSurface import ControlSurface
 
-class functions(ControlSurface):
+class Functions(ControlSurface):
     def __init__(self, c_instance=None, publish_self=True, *a, **k):
         super().__init__(c_instance=c_instance)
 
@@ -10,5 +10,5 @@ class functions(ControlSurface):
     def press_rack_random_button(self):
         device = self.selected_device()
 
-        if device.can_have_chains:
-            device.randomize_macro_assignments()
+        if device is not None and device.can_have_chains:
+            device.randomize_macros()

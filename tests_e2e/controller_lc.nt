@@ -19,7 +19,7 @@ control_groups:
         type: knob
         midi_channel: 3
         midi_type: CC
-        midi_range: 29, 10, 11, 12, 13, 46, 47, 80
+        midi_range: 29, 42, 43, 44, 45, 46, 47, 48
     -
         layout: row
         number: 3

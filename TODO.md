@@ -15,6 +15,10 @@
 - [ ] Encoder value custom min/max
 
 
+## Transport
+
+Call methods on song:
+- play, stop, record, metronome, tempo_up, tempo_down, loop, overdub, punch_in, punch_out, loop
 
 ## Notes
 

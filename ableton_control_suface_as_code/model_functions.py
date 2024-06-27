@@ -21,7 +21,7 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     function: str
 
     def info_string(self):
-        return f"function {self.function}, {self.midi_coords}"
+        return f"function_{self.function}_{self.only_midi_coord.info_string()}"
 
     def create_button_element(self):
         return self.only_midi_coord.create_button_element()
@@ -31,7 +31,7 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
         return self.midi_coords[0]
 
     def template_function_name(self):
-        return f"self.functions.{self.function}(self)"
+        return f"self.functions.{self.function}()"
 
 
 class FunctionsWithMidi(BaseModel):

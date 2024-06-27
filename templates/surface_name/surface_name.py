@@ -1,4 +1,5 @@
 import errno
+from pathlib import Path
 
 import Live
 from _Framework.ControlSurface import ControlSurface
@@ -32,6 +33,8 @@ class $surface_name(ControlSurface):
             self.show_message("Connected to $surface_name")
             self.debug = False
 
+    def functions_file_exsits(self):
+        return (Path(__file__).resolve().parent / 'functions.py').exists()
 
     def init_modules(self):
 
@@ -55,6 +58,9 @@ class $surface_name(ControlSurface):
                         self.log_message(traceback.format_exc())
 
                     importlib.reload(modules.$class_name_snake)
+
+                    if self.functions_file_exsits():
+                        importlib.reload(modules.functions.py)
 
                     self.log_message('Re-initialising modules')
                     self.init_modules()

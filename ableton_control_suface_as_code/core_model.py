@@ -123,6 +123,7 @@ class MidiCoords(BaseModel):
         return self.channel - 1
 
     def create_button_element(self):
+        print(f"self.type = {self.type}")
         return f"ConfigurableButtonElement(True, {self.type.ableton_name()}, {self.ableton_channel()}, {self.number})"
 
     def create_encoder_element(self):
@@ -130,6 +131,11 @@ class MidiCoords(BaseModel):
 
     def __init__(self, channel, number, type):
         super().__init__(channel=channel, type=type, number=number)
+
+
+    def info_string(self):
+        return f"ch{self.channel}_{self.number}_{self.type.value}"
+
 
 
 class DeviceMidiMapping(BaseModel):

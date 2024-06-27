@@ -33,6 +33,18 @@ class GeneratedCode:
         self.setup_listeners.append(line)
         return self
 
+    def print_all(self):
+        print("Setup:")
+        print("\n".join(self.setup))
+        print("Creation:")
+        print("\n".join(self.creation))
+        print("Listener Fns:")
+        print("\n".join(self.listener_fns))
+        print("Setup Listeners:")
+        print("\n".join(self.setup_listeners))
+        print("Remove Listeners:")
+        print("\n".join(self.remove_listeners))
+
     @classmethod
     def merge_all(cls, codes:[]):
         if len(codes) == 0:
