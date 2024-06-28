@@ -1,0 +1,59 @@
+controller: controller_lc.nt
+
+
+modes:
+    -   
+        name: main
+        mode:
+            button: row_3:1
+            type: shift
+            next-mode: shifted
+        mappings:
+            -
+                type: device
+                track: selected
+                device: selected
+                ranges:
+                    -
+                        row: 1
+                        range: 1-8
+                        parameters: 1-8
+                    -
+                        row: 2
+                        range: 1-8
+                        parameters: 9-16
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    mute: row_3:2
+                    solo: row_3:3
+            -
+                type: functions
+                mappings:
+                    set_colours: row_3:8
+    -   
+        name: shifted
+        mappings:
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    volume: row_1:8
+                    pan: row_2:8
+                    sends:
+                    -   row_1:5
+                    -   row_1:6
+                    -   row_1:7
+                    -   row_2:5
+                    -   row_2:6
+                    -   row_2:7
+            -
+                type: mixer
+                track: master
+                mappings:
+                    volume: row_1:1
+            -
+                type: functions
+                mappings:
+                    press_rack_random_button: row_3:8
