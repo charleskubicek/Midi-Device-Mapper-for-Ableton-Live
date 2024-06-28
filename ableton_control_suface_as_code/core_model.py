@@ -183,21 +183,6 @@ class MixerMidiMapping(BaseModel):
     def encoders_debug_string(self):
         return self.encoder_coords.debug_string()
 
-    # def __init__(self,
-    #              midi_coords: MidiCoords,
-    #              encoder_type: EncoderType,
-    #              api_function,
-    #              encoder_coords: EncoderCoords,
-    #              track_info: TrackInfo):
-    #     super().__init__(
-    #         type='mixer',
-    #         midi_coords=[midi_coords],
-    #         controller_type=encoder_type,
-    #         api_function=api_function,
-    #         encoder_coords=encoder_coords,
-    #         track_info=track_info
-    #     )
-
     @classmethod
     def with_multiple_args(cls,
                            midi_coords_list: List[MidiCoords],

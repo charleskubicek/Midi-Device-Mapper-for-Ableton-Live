@@ -1,8 +1,8 @@
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from string import Template
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel
+from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
@@ -11,27 +11,12 @@ from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 
 @dataclass
 class GeneratedCode:
-    setup: [str]
-    creation: [str]
-    listener_fns: [str]
-    setup_listeners: [str]
-    remove_listeners: [str]
-
-    def creation_line(self, line:str):
-        self.creation.append(line)
-        return self
-
-    def add_setup_lines(self, lines: [str]):
-        self.setup.extend(lines)
-        return self
-
-    def setup_listener_line(self, line:str):
-        self.setup_listeners.append(line)
-        return self
-
-    def remove_listener_line(self, line:str):
-        self.setup_listeners.append(line)
-        return self
+    setup_new:[MidiCoords] = field(default_factory=list)
+    setup: [str] = field(default_factory=list)
+    creation: [str] = field(default_factory=list)
+    listener_fns: [str] = field(default_factory=list)
+    setup_listeners: [str] = field(default_factory=list)
+    remove_listeners: [str] = field(default_factory=list)
 
     def print_all(self):
         print("Setup:")
@@ -48,7 +33,7 @@ class GeneratedCode:
     @classmethod
     def merge_all(cls, codes:[]):
         if len(codes) == 0:
-            return GeneratedCode([], [], [], [], [])
+            return GeneratedCode([], [], [], [], [], [])
         if len(codes) == 1:
             return codes[0]
         else:
@@ -59,6 +44,7 @@ class GeneratedCode:
 
     def merge(self, other):
         return GeneratedCode(
+            self.setup_new + other.setup_new,
             self.setup + other.setup,
             self.creation + other.creation,
             self.listener_fns + other.listener_fns,
@@ -121,6 +107,7 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
             else:
                 print("Button on number track not implemented")
         else:
+            track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
             if midi_map.api_function == "sends":
                 sends_var = f"send_controls_{midi_map.info_string()}"
                 sends_len = len(midi_map.midi_coords)
@@ -132,22 +119,43 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
                     creation.append(f"self.{sends_var}[{i}] = {midi.create_encoder_element()}")
 
                 setup_listeners.append(
-                    f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_send_controls(self.{sends_var})")
+                    f"self.mixer.{track_strip}.set_send_controls(self.{sends_var})")
                 remove_listeners.append(
-                    f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_send_controls(None)")
+                    f"self.mixer.{track_strip}.set_send_controls(None)")
             else:
                 cn = f"encodr_{midi_map.info_string()}"
 
                 creation.append(f"self.{cn} = {midi_map.midi_coords[0].create_encoder_element()}")
                 setup_listeners.append(
-                    f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(self.{cn})")
+                    f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(self.{cn})")
                 remove_listeners.append(
-                    f"self.mixer.{midi_map.track_info.name.mixer_strip_name}_strip().set_{midi_map.api_function}_{midi_map.api_control_type}(None)")
+                    f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(None)")
 
     return GeneratedCode(
-        setup, creation, listener_fns, setup_listeners, remove_listeners
+        [], setup, creation, listener_fns, setup_listeners, remove_listeners
     )
 
+
+def device_templates(device_with_midi: DeviceWithMidi):
+    creation = []
+    listener_fns = []
+    setup_listeners = []
+    remove_listeners = []
+
+    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
+
+    for mm in device_with_midi.midi_range_maps:
+        enc_name = f"encoder_{mm.info_string()}"
+        enc_listener_name = f"encoder_{mm.info_string()}_value"
+
+        creation.append(f"self.{enc_name} = {mm.midi_coords.create_encoder_element()}")
+        setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
+        remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
+        listener_fns.extend(generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string()))
+
+    return GeneratedCode(
+        [], [], creation, listener_fns, setup_listeners, remove_listeners
+    )
 
 def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel):
     creation = []
@@ -164,7 +172,7 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel)
     listener_fns.extend(generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string()))
 
     return GeneratedCode(
-        [], creation, listener_fns, setup_listeners, remove_listeners
+        [], [], creation, listener_fns, setup_listeners, remove_listeners
     )
 
 
@@ -181,27 +189,6 @@ def device_nav_templates(deivce_nav_with_midi: DeviceNavWithMidi) -> GeneratedCo
 def functions_templates(functions_with_midi: FunctionsWithMidi) -> GeneratedCode:
     codes = [button_listener_function_caller_templates(m) for m in functions_with_midi.midi_maps]
     return GeneratedCode.merge_all(codes)
-
-def device_templates(device_with_midi: DeviceWithMidi):
-    creation = []
-    listener_fns = []
-    setup_listeners = []
-    remove_listeners = []
-
-    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
-
-    for g in device_with_midi.midi_range_maps:
-        enc_name = f"encoder_{g.info_string()}"
-        enc_listener_name = f"encoder_{g.info_string()}_value"
-
-        creation.append(f"self.{enc_name} = {g.midi_coords.create_encoder_element()}")
-        setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
-        remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
-        listener_fns.extend(generate_lom_listener_action(g.parameter, lom, enc_listener_name, g.info_string()))
-
-    return GeneratedCode(
-        [], creation, listener_fns, setup_listeners, remove_listeners
-    )
 
 
 def is_valid_python(code):

@@ -40,22 +40,9 @@ class TestGen(unittest.TestCase):
         parameter = 2
 
         expected_output = """
-# dbg
 def fn(self, value):
-    selected_device = lom_value
-    if selected_device is None:
-        return
-
-    if self.manager.debug:
-        self.log_message(f"fn (dbg) selected_device = {selected_device.name}, value is {value}")
-
-    selected_device = self.manager.song().view.selected_track.view.selected_device
-
-    if len(selected_device.parameters) < 2:
-        self.log_message(f"2 too large, max is {len(selected_device.parameters)}")
-        return
-
-    selected_device.parameters[2].value = value
+    device = lom_value
+    self.device_parameter_action(device, 2, value, "fn")
     """
 
         expected_output = fix_code(expected_output)
@@ -144,13 +131,13 @@ def fn(self, value):
                          "self.encoder_ch2_no22_CC__p2 = EncoderElement(MIDI_CC_TYPE, 1, 22, Live.MidiMap.MapMode.absolute)")
         self.assertEqual(result.setup_listeners[0],
                          "self.encoder_ch2_no21_CC__p1.add_value_listener(self.encoder_ch2_no21_CC__p1_value)")
-        self.assertTrue("def encoder_ch2_no21_CC__p1_value(self, value)" in result.listener_fns[2],
-                        f"code was {result.listener_fns[2]}")
+        self.assertTrue("self.device_parameter_action(device, 1, value, \"encoder_ch2_no21_CC__p1_value\")" in result.listener_fns[3].strip(),
+                        f"code was {result.listener_fns[3]}")
 
         self.assertEqual(len(result.remove_listeners), 4)
         self.assertEqual(len(result.creation), 4)
         self.assertEqual(len(result.setup_listeners), 4)
-        self.assertGreater(len(result.listener_fns), 40)
+        self.assertEqual(len(result.listener_fns), 20)
 
     def test_build_live_api_lookup_from_lom(self):
         # expected_output = "self.manager.song().view.tracks[0].view.devices[1]"
