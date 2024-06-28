@@ -264,7 +264,7 @@ class ButtonProviderBaseModel(ABC, BaseModel):
 
 
 
-def parse_coords(raw) -> EncoderCoords:
+def parse_coords(raw) -> EncoderCoords | None:
     if raw is None:
         return None
 

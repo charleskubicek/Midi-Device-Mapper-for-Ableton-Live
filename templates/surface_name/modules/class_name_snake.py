@@ -112,4 +112,19 @@ class $class_name_camel(ControlSurfaceComponent):
         self._scroll_device_chain(NavDirection.left)
 
 
+    def device_parameter_action(self, device, parameter_no, value, fn_name):
+        if device is None:
+            return
+
+        if len(device.parameters) < parameter_no:
+            self.log_message(f"{parameter_no} too large, max is {len(device.parameters)}")
+            return
+
+        if self.manager.debug:
+            self.log_message(f"{fn_name}: selected_device:{device.name}, value:{value}")
+            self.log_message(f"Device param min:{device.parameters[parameter_no].min}, max: {device.parameters[parameter_no].max}")
+
+        device.parameters[parameter_no].value = value
+
+
     $code_listener_fns

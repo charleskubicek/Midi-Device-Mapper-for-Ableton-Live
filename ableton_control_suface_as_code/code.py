@@ -69,22 +69,9 @@ class GeneratedCode:
 
 def generate_lom_listener_action(parameter, lom, fn_name, debug_st) -> [str]:
     return Template("""
-# $comment   
 def ${fn_name}(self, value):
-    selected_device = $lom
-    if selected_device is None:
-        return
-
-    if self.manager.debug:
-        self.log_message(f"${fn_name} ($comment) selected_device = {selected_device.name}, value is {value}")
-    
-    selected_device = self.manager.song().view.selected_track.view.selected_device
-
-    if len(selected_device.parameters) < $parameter:
-        self.log_message(f"${parameter} too large, max is {len(selected_device.parameters)}")
-        return
-
-    selected_device.parameters[$parameter].value = value    
+    device = $lom
+    self.device_parameter_action(device, $parameter, value, "$fn_name")    
     """).substitute(parameter=parameter, lom=lom, fn_name=fn_name, comment=debug_st).split("\n")
 
 
