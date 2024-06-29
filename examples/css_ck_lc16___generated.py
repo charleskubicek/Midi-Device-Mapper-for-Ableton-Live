@@ -99,7 +99,8 @@ class css_ck_lc16___generated(ControlSurface):
         self.global_LED_off = 0
         self.controller_LED_on = 127
         self.controller_LED_off = 0
-        self.led_on = self.controller_LED_on
+        self.led_on = self.controller_LE
+        D_on
         self.led_off = self.controller_LED_off
     def mode_list(self):
         global modes

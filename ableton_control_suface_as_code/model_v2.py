@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Union, List, Self, Optional
 
 from pydantic import BaseModel, model_validator, Field
@@ -15,11 +16,19 @@ from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWit
 class ModeMappingsV2(BaseModel):
     mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
 
+@dataclass
+class ModeData:
+    name: str
+    next: str
+    is_shift: bool
+    color: Optional[str]
 
 class ModeGroupV2(BaseModel):
     name: str
     button: str = None
     type: str = None
+    on_color: Optional[str] = None
+    off_color: Optional[str] = None
     mode_1: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
     mode_2: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
 
@@ -27,22 +36,6 @@ class ModeGroupV2(BaseModel):
     def mappings(self):
         return self.mode_1 + self.mode_2
 
-    def is_shift(self):
-        return self.type is not None and self.type == 'shift'
-
-    def fsm(self):
-        return [
-            {
-                'name': "mode_1",
-                'next': "mode_2",
-                'is_shift': True
-            },
-            {
-                'name': "mode_2",
-                'next': "mode_1",
-                'is_shift': True
-            }
-        ]
 
 class MappingsV2(BaseModel):
     controller: str
@@ -63,10 +56,35 @@ class MappingsV2(BaseModel):
 class ModeGroupWithMidi(BaseModel):
     mode: ModeGroupV2
     button: MidiCoords
+    on_color: Optional[int] = None
+    off_color: Optional[int] = None
     mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
 
 
-def build_mappings_model_with_mode(mode_:ModeGroupV2, controller:ControllerV2) -> ModeGroupWithMidi:
+    def is_shift(self):
+        return self.mode.type is not None and self.mode.type == 'shift'
+
+    def first_mode_name(self):
+        return "mode_1"
+
+    def fsm(self):
+        return [
+            ModeData(
+                name="mode_1",
+                next="mode_2",
+                is_shift=self.is_shift(),
+                color=self.off_color
+            ),
+            ModeData(
+                name="mode_2",
+                next="mode_1",
+                is_shift=self.is_shift(),
+                color=self.on_color
+            )
+        ]
+
+
+def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) -> ModeGroupWithMidi:
     # def to_mode_with_midi(mappings):
     #
     #     if mode.button is None:
@@ -80,16 +98,18 @@ def build_mappings_model_with_mode(mode_:ModeGroupV2, controller:ControllerV2) -
     #         mappings=build_mappings_model_v2(mappings, controller)
     #     )
     #
-    modes = [mode_.mode_2, mode_.mode_1]
+    modes = [mode.mode_2, mode.mode_1]
 
-    mapping_1 = build_mappings_model_v2(mode_.mode_1, controller)
-    mapping_2 = build_mappings_model_v2(mode_.mode_2, controller)
+    mapping_1 = build_mappings_model_v2(mode.mode_1, controller)
+    mapping_2 = build_mappings_model_v2(mode.mode_2, controller)
 
     # return [to_mode_with_midi(mode) for mode in modes]
 
     return ModeGroupWithMidi(
-        mode=mode_,
-        button=controller.build_midi_coords(parse_coords(mode_.button))[0][0],
+        mode=mode,
+        button=controller.build_midi_coords(parse_coords(mode.button))[0][0],
+        on_color=controller.light_color_for(mode.on_color),
+        off_color=controller.light_color_for(mode.off_color),
         mappings={
             'mode_1': mapping_1,
             'mode_2': mapping_2,

@@ -129,21 +129,25 @@ $code_setup_listeners
 
     $code_listener_fns
 
+    def goto_mode(self, next_mode_name):
+        self.log_message(f'switching to {next_mode_name}')
+        next_mode = self._modes[next_mode_name]
+        self.log_message(f'next mode: {next_mode}')
+        self.remove_all_listeners(modes_only=True)
+        self._modes[next_mode_name]['add_listeners_fn']()
+
+        if next_mode['color'] is not None:
+            self.mode_button.send_value(next_mode['color'])
+        else:
+            self.mode_button.send_value(0)
+
+        self.current_mode = next_mode
+
+
     def mode_button_listener(self, value):
         self.log_message(f'mode_button_listener: {value}, current mode is {self.current_mode}')
-        current_mode = self.current_mode
 
         if value == 127:# and self._modes[current_mode['next_mode_name']]['is_shift'] is not True:
-            next_mode_name = current_mode['next_mode_name']
-            self.log_message(f'switching to {next_mode_name}')
-            next_mode = self._modes[next_mode_name]
-            self.remove_all_listeners(modes_only=True)
-            self._modes[next_mode_name]['add_listeners_fn']()
-            self.current_mode = next_mode
-        if value == 0 and self.current_mode['is_shift']:
-            next_mode_name = current_mode['next_mode_name']
-            self.log_message(f'switching to {next_mode_name} due to shift')
-            next_mode = self._modes[next_mode_name]
-            self.remove_all_listeners(modes_only=True)
-            self._modes[next_mode_name]['add_listeners_fn']()
-            self.current_mode = next_mode
+            self.goto_mode(self.current_mode['next_mode_name'])
+        elif value == 0 and self.current_mode['is_shift']:
+            self.goto_mode(self.current_mode['next_mode_name'])

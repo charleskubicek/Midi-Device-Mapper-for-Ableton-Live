@@ -136,15 +136,13 @@ class ControlGroupV2(BaseModel):
 
 class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
-    on_led_midi: int
-    off_led_midi: int
+    light_colors: dict[str, int]
 
 
 @dataclass
 class ControllerV2:
     control_groups: List[ControlGroupAggregateV2]
-    on_led_midi: int
-    off_led_midi: int
+    light_colors: dict[str, int]
 
     @staticmethod
     def build_from(c: ControllerRawV2):
@@ -152,7 +150,7 @@ class ControllerV2:
         control_groups = [ControlGroupAggregateV2(list(group)) for key, group in
                           groupby(c.control_groups, lambda x: x.number)]
 
-        return ControllerV2(control_groups, c.on_led_midi, c.off_led_midi)
+        return ControllerV2(control_groups, c.light_colors)
 
     def find_group(self, row_col: int):
         for group in self.control_groups:
@@ -164,6 +162,13 @@ class ControllerV2:
         print(f"Didn't find group number for {row_col}, group numbers were {group_numbers}")
 
         return None
+
+    def light_color_for(self, name: str) -> Optional[int]:
+        if name is None:
+            return None
+        if name not in self.light_colors:
+            raise ValueError(f"Light color {name} not found in {self.light_colors}")
+        return self.light_colors[name]
 
     def build_midi_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
         '''

@@ -33,17 +33,17 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     # )
 
     setup = [
-        "self.current_mode = None\n"
+        "self.current_mode = None\n",
+        f"{tabs(2)}self._first_mode = '{modes.first_mode_name()}'\n",
         f"{tabs(2)}self.mode_button = " + modes.button.create_button_element(),
     ]
 
-    for mode in modes.mode.fsm():
-        setup.append(generate_dict_string(mode['name'], mode['next'],
-                                          f"self.mode_{mode['name']}_add_listeners", mode['is_shift']))
-
-    # for mode in modes_with_midi:
-
-    # setup.append(f"{tabs(2)}self.current_mode = self._modes['" + modes_with_midi[0].mode.name + "']")
+    for mode in modes.fsm():
+        setup.append(generate_dict_string(mode.name,
+                                          mode.next,
+                                          f"self.mode_{mode.name}_add_listeners", mode.is_shift,
+                                          mode.color
+                                          ))
     mode_codes = {}
 
     for name, mode_mappings in modes.mappings.items():
@@ -61,6 +61,7 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     new_creation.append(f"self.current_mode = self._modes['mode_1']")
     new_creation.append(f"self.mode_mode_1_add_listeners()")
+    new_creation.append(f"self.goto_mode(self._first_mode)\n")
 
     codes = GeneratedCode()
     for name, mode_code in mode_codes.items():
@@ -79,6 +80,7 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
 
+
     return {
         'code_setup': "\n".join(setup),
         'code_creation': class_function_body_code_block(new_creation),
@@ -87,13 +89,14 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
 
-def generate_dict_string(name, next_mode, add_listeners_fn, is_shift):
+def generate_dict_string(name, next_mode, add_listeners_fn, is_shift, color):
     return f"""
 {tabs(2)}self._modes['{name}'] = {{
 {tabs(3)}'name': '{name}',
 {tabs(3)}'next_mode_name': '{next_mode}',
 {tabs(3)}'add_listeners_fn': {add_listeners_fn},
-{tabs(3)}'is_shift': {is_shift}
+{tabs(3)}'is_shift': {is_shift},
+{tabs(3)}'color': {color}
 {tabs(2)}}}\n"""
 
 def generate_code_in_template_vars(

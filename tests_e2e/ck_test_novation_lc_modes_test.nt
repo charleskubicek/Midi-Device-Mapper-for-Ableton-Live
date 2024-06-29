@@ -3,6 +3,8 @@ mode:
     name: main
     button: row_3:1
     type: shift
+    on_color: green_full
+    on_off: red_low
     mode_1:
         -
             type: device
