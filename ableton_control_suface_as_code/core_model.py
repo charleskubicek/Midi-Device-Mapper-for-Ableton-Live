@@ -248,20 +248,22 @@ class ButtonProviderBaseModel(ABC, BaseModel):
         pass
 
 
-
 def parse_coords(raw) -> EncoderCoords | None:
     if raw is None:
         return None
 
-    [row_raw, col] = raw.split(":")
-    row = int(row_raw.removeprefix("row_"))
+    try:
+        [row_raw, col] = raw.split(":")
+        row = int(row_raw.removeprefix("row_"))
 
-    if '-' in col:
-        [start, end] = col.split("-")
-        return EncoderCoords.model_construct(row=row, col=int(start), row_range_end=int(end))
-    else:
-        return EncoderCoords.model_construct(row=row, col=int(col), row_range_end=int(col))
-
+        if '-' in col:
+            [start, end] = col.split("-")
+            return EncoderCoords(row=row, col=int(start), row_range_end=int(end))
+        else:
+            return EncoderCoords(row=row, col=int(col), row_range_end=int(col))
+    except Exception as e:
+        print(f"Failed to parse '{raw}' due to {e}")
+        raise e
 
 
 class RangeV2(BaseModel):

@@ -1,24 +1,106 @@
-from typing import Union, List
+from typing import Union, List, Self, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator, Field
 
 from nestedtext import nestedtext as nt
-from ableton_control_suface_as_code.core_model import MixerWithMidi
+from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, build_device_model_v2, DeviceV2
 from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
 from ableton_control_suface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
 from ableton_control_suface_as_code.model_mixer import MixerV2, build_mixer_model_v2
 from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
- build_track_nav_model_v2
+    build_track_nav_model_v2
 
+class ModeMappingsV2(BaseModel):
+    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
+
+
+class ModeGroupV2(BaseModel):
+    name: str
+    button: str = None
+    type: str = None
+    mode_1: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
+    mode_2: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
+
+    @property
+    def mappings(self):
+        return self.mode_1 + self.mode_2
+
+    def is_shift(self):
+        return self.type is not None and self.type == 'shift'
+
+    def fsm(self):
+        return [
+            {
+                'name': "mode_1",
+                'next': "mode_2",
+                'is_shift': True
+            },
+            {
+                'name': "mode_2",
+                'next': "mode_1",
+                'is_shift': True
+            }
+        ]
 
 class MappingsV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
+    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
+    mode: Optional[ModeGroupV2] = None
+
+    @model_validator(mode='after')
+    def mode_or_mapping(self) -> Self:
+        if self.mode is None and len(self.mappings) == 0:
+            raise ValueError('no mappings or modes')
+
+        if self.mode is not None and len(self.mappings) > 0:
+            raise ValueError('cannot have both mappings and modes')
+
+        return self
 
 
-def build_mode_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions]], controller: ControllerV2) -> (
+class ModeGroupWithMidi(BaseModel):
+    mode: ModeGroupV2
+    button: MidiCoords
+    mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
+
+
+def build_mappings_model_with_mode(mode_:ModeGroupV2, controller:ControllerV2) -> ModeGroupWithMidi:
+    # def to_mode_with_midi(mappings):
+    #
+    #     if mode.button is None:
+    #         button = None
+    #     else:
+    #         button = controller.build_midi_coords(parse_coords(mode.button))[0][0]
+    #
+    #     return ModeGroupWithMidi(
+    #         mode=mode,
+    #         button=button,
+    #         mappings=build_mappings_model_v2(mappings, controller)
+    #     )
+    #
+    modes = [mode_.mode_2, mode_.mode_1]
+
+    mapping_1 = build_mappings_model_v2(mode_.mode_1, controller)
+    mapping_2 = build_mappings_model_v2(mode_.mode_2, controller)
+
+    # return [to_mode_with_midi(mode) for mode in modes]
+
+    return ModeGroupWithMidi(
+        mode=mode_,
+        button=controller.build_midi_coords(parse_coords(mode_.button))[0][0],
+        mappings={
+            'mode_1': mapping_1,
+            'mode_2': mapping_2,
+        }
+    )
+
+
+
+
+def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions]],
+                            controller: ControllerV2) -> (
         List)[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]:
     """
     Returns a model of the mapping with midi info attached

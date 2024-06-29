@@ -1,7 +1,7 @@
 import unittest
 
 from ableton_control_suface_as_code.core_model import LayoutAxis, RowMapV2, RangeV2
-from ableton_control_suface_as_code.model_v2 import build_mode_model_v2
+from ableton_control_suface_as_code.model_v2 import build_mappings_model_v2
 from ableton_control_suface_as_code.model_controller import ControlGroupPartV2, ControlGroupV2, ControllerRawV2, \
     ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceV2

@@ -7,6 +7,49 @@ from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
+from ableton_control_suface_as_code.model_v2 import ModeGroupWithMidi
+
+
+@dataclass
+class GeneratedModeCode:
+    setup: [str] = field(default_factory=list)
+    creation: [MidiCoords] = field(default_factory=list)
+    listener_fns: [str] = field(default_factory=list)
+    setup_listeners: [str] = field(default_factory=list)
+    remove_listeners: [str] = field(default_factory=list)
+
+    def print_all(self):
+        print("Setup:")
+        print("\n".join(self.setup))
+        print("Creation:")
+        print("\n".join(self.creation))
+        print("Listener Fns:")
+        print("\n".join(self.listener_fns))
+        print("Setup Listeners:")
+        print("\n".join(self.setup_listeners))
+        print("Remove Listeners:")
+        print("\n".join(self.remove_listeners))
+
+    @classmethod
+    def merge_all(cls, codes:[]):
+        if len(codes) == 0:
+            return GeneratedCode([], [], [], [], [], [])
+        if len(codes) == 1:
+            return codes[0]
+        else:
+            first = codes[0]
+            for c in codes[1:]:
+                first = first.merge(c)
+            return first
+
+    def merge(self, other):
+        return GeneratedModeCode(
+            self.setup + other.setup,
+            self.creation + other.creation,
+            self.listener_fns + other.listener_fns,
+            self.setup_listeners + other.setup_listeners,
+            self.remove_listeners + other.remove_listeners
+        )
 
 
 @dataclass
@@ -51,6 +94,15 @@ class GeneratedCode:
             self.setup_listeners + other.setup_listeners,
             self.remove_listeners + other.remove_listeners
         )
+
+def mode_template(modes_with_midi: [ModeGroupWithMidi]) -> GeneratedModeCode:
+    mode_dict_lines = "\n\t".join([f"'{m.mode.name}': {m.mode.next}," for m in modes_with_midi])
+    return Template("""
+self._modes = {
+    $mode_dict_lines
+}
+
+    """).substitute(mode_dict_lines=mode_dict_lines).split("\n")
 
 
 def generate_lom_listener_action(parameter, lom, fn_name, debug_st) -> [str]:
@@ -133,6 +185,29 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
 
     return GeneratedCode(
         [], setup, creation, listener_fns, setup_listeners, remove_listeners
+    )
+
+def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name:str):
+
+    creation = []
+    listener_fns = []
+    setup_listeners = []
+    remove_listeners = []
+
+    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
+
+    for mm in device_with_midi.midi_range_maps:
+        creation.append(mm.midi_coords)
+
+        enc_name = f"{mm.midi_coords.info_string()}"
+        enc_listener_name = f"encoder_mode_{mode_name}_{mm.info_string()}_value"
+
+        setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
+        remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
+        listener_fns.extend(generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string()))
+
+    return GeneratedModeCode(
+        [], creation, listener_fns, setup_listeners, remove_listeners
     )
 
 
@@ -247,4 +322,4 @@ def class_function_body_code_block(lines: [str]):
         return ""
 
     tab_block = "    "
-    return f"\n{tab_block}{tab_block}".join(lines) + "\n"
+    return f"\n{tab_block}{tab_block}" + f"\n{tab_block}{tab_block}".join(lines) + "\n"

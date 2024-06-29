@@ -1,0 +1,25 @@
+controller: controller_lc.nt
+mode:
+    name: main
+    button: row_3:1
+    type: shift
+    mode_1:
+        -
+            type: device
+            track: selected
+            device: selected
+            ranges:
+                -
+                    row: 1
+                    range: 1-8
+                    parameters: 1-8
+    mode_2:
+        -
+            type: device
+            track: selected
+            device: selected
+            ranges:
+                -
+                    row: 2
+                    range: 1-8
+                    parameters: 9-19
