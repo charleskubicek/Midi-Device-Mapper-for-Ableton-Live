@@ -6,7 +6,8 @@ from typing import Union
 
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
-    device_nav_templates, functions_templates, device_mode_templates, GeneratedModeCode, mode_template
+    device_nav_templates, functions_templates, device_mode_templates, GeneratedModeCode, mode_template, \
+    functions_mode_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiType
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
@@ -28,9 +29,6 @@ def tabs(n):
     return tab * n
 
 def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
-    # code = GeneratedModeCode(
-    #     setup=mode_template(modes_with_midi),
-    # )
 
     setup = [
         "self.current_mode = None\n",
@@ -48,15 +46,18 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     for name, mode_mappings in modes.mappings.items():
         mode_code = GeneratedModeCode()
-        for device_with_midi in mode_mappings:
-            if device_with_midi.type == 'device':
-                code_templates = device_mode_templates(device_with_midi, name)
+        for mapping in mode_mappings:
+            if mapping.type == 'device':
+                code_templates = device_mode_templates(mapping, name)
+                mode_code = mode_code.merge(code_templates)
+            elif mapping.type == 'functions':
+                code_templates = functions_mode_templates(mapping, name)
                 mode_code = mode_code.merge(code_templates)
 
         mode_codes[name] = mode_code
 
 
-    new_creation = [f"self.{creation.info_string()} = {creation.create_encoder_element()}"
+    new_creation = [f"self.{creation.controller_variable_name()} = {creation.create_encoder_element()}"
      for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
 
     new_creation.append(f"self.current_mode = self._modes['mode_1']")

@@ -19,6 +19,12 @@ class DeviceMidiMapping(BaseModel):
     def info_string(self):
         return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
 
+    def controller_variable_name(self):
+        return self.midi_coords.controller_variable_name()
+
+    def controller_listener_fn_name(self, mode_name):
+        return self.midi_coords.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
+
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'

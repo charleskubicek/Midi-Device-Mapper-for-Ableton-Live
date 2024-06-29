@@ -118,6 +118,7 @@ class MidiCoords(BaseModel):
     channel: int
     type: MidiType
     number: int
+    encoder_type: EncoderType
 
     def ableton_channel(self):
         return self.channel - 1
@@ -129,12 +130,24 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
-    def __init__(self, channel, number, type):
-        super().__init__(channel=channel, type=type, number=number)
+    def __init__(self, channel, number, type, encoder_type):
+        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type)
 
+    def create_controller_element(self):
+        if self.encoder_type.is_button():
+            return self.create_button_element()
+        else:
+            return self.create_encoder_element()
+
+    def controller_variable_name(self):
+        return f"{self.encoder_type.value}_{self.info_string()}"
+
+    def controller_listener_fn_name(self, suffix):
+        return f"{self.encoder_type.value}_{self.info_string()}_{suffix}value"
 
     def info_string(self):
         return f"ch{self.channel}_{self.number}_{self.type.value}"
+
 
 
 
@@ -241,10 +254,19 @@ class ButtonProviderBaseModel(ABC, BaseModel):
     def info_string(self):
         pass
 
-    def create_button_element(self):
+    def create_controller_element(self):
+        pass
+
+    def controller_variable_name(self):
+        pass
+
+    def controller_listener_fn_name(self, mode_name):
         pass
 
     def template_function_name(self):
+        pass
+
+    def only_midi_coord(self) -> MidiCoords:
         pass
 
 

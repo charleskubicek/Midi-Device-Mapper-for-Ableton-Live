@@ -68,7 +68,8 @@ class ControlGroupPartV2(BaseModel):
         return [MidiCoords(
             channel=self.midi_channel,
             type=self.midi_type,
-            number=midi_number) for midi_number in self._midi_list]
+            number=midi_number,
+            encoder_type=self.type) for midi_number in self._midi_list]
 
 
 class ControlGroupAggregateV2:

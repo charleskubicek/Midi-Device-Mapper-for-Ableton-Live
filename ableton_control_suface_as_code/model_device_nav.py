@@ -48,8 +48,8 @@ class DeviceNavMidiMapping(ButtonProviderBaseModel):
     def info_string(self):
         return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__device_nav_{self.action.value}"
 
-    def create_button_element(self):
-        return self.only_midi_coord.create_button_element()
+    def create_controller_element(self):
+        return self.only_midi_coord.create_controller_element()
 
     def template_function_name(self):
         return self.action.template_call

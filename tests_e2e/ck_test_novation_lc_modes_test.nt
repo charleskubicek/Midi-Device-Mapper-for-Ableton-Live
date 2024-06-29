@@ -15,7 +15,6 @@ mode:
                     row: 1
                     range: 1-8
                     parameters: 1-8
-    mode_2:
         -
             type: device
             track: selected
@@ -25,3 +24,21 @@ mode:
                     row: 2
                     range: 1-8
                     parameters: 9-19
+        -
+            type: mixer
+            track: selected
+            mappings:
+                mute: row_3:2
+                solo: row_3:3
+    mode_2:
+        -
+            type: mixer
+            track: selected
+            mappings:
+                volume: row_1:8
+                pan: row_2:8
+#                sends: row_1:5-8
+        -
+            type: functions
+            mappings:
+                press_rack_random_button: row_3:8

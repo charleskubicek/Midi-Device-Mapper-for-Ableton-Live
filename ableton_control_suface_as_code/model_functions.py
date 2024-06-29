@@ -23,8 +23,8 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     def info_string(self):
         return f"function_{self.function}_{self.only_midi_coord.info_string()}"
 
-    def create_button_element(self):
-        return self.only_midi_coord.create_button_element()
+    def create_controller_element(self):
+        return self.only_midi_coord.create_controller_element()
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -32,6 +32,12 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
 
     def template_function_name(self):
         return f"self.functions.{self.function}()"
+
+    def controller_variable_name(self):
+        return self.only_midi_coord.controller_variable_name()
+
+    def controller_listener_fn_name(self, mode_name):
+        return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_fn_{self.function}")
 
 
 class FunctionsWithMidi(BaseModel):
