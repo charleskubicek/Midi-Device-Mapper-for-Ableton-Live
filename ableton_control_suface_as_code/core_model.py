@@ -148,7 +148,8 @@ class MidiCoords(BaseModel):
     def info_string(self):
         return f"ch{self.channel}_{self.number}_{self.type.value}"
 
-
+    def variable_initialisation(self):
+        return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
 class DeviceMidiMapping(BaseModel):
@@ -167,6 +168,7 @@ class Direction(Enum):
     inc = 'inc'
     dec = 'dec'
 
+
 class DeviceNavAction(Enum):
     left = 'left', 'self.device_nav_left()'
     right = 'right', 'self.device_nav_right()'
@@ -182,16 +184,17 @@ class DeviceNavAction(Enum):
     # def tmplate_call(self):
     #     return self.template_call
 
+
 #
 # The data in this class has been zerobased
 #
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_coords: List[MidiCoords]
-    controller_type: EncoderType
+    controller_type: EncoderType  # TODO modes-  remove this after modes done
     api_function: str
     track_info: TrackInfo
-    encoder_coords: EncoderCoords
+    encoder_coords: EncoderCoords  # TODO modes-  remove this after modes done
 
     def encoders_debug_string(self):
         return self.encoder_coords.debug_string()
@@ -210,6 +213,12 @@ class MixerMidiMapping(BaseModel):
             encoder_coords=encoder_coords,
             track_info=track_info
         )
+
+    @property
+    def only_midi_coord(self) -> MidiCoords:
+        if len(self.midi_coords) > 1:
+            raise ValueError(f"Expected only one midi coord but got {len(self.midi_coords)}")
+        return self.midi_coords[0]
 
     @property
     def midi_channel(self):
@@ -234,8 +243,14 @@ class MixerMidiMapping(BaseModel):
 
     # TDDO validate tracks is only present if selected_track is not and vv
 
+    # TODO this should go away
     def info_string(self):
         return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
+
+    def array_variable_initialisation(self):
+        var_name = self.midi_coords[0].controller_variable_name()
+        return [f"self.{var_name}[{i}] = {midi_coord.create_controller_element()}"
+                for i, midi_coord in enumerate(self.midi_coords)]
 
 
 class DeviceWithMidi(BaseModel):
@@ -268,6 +283,9 @@ class ButtonProviderBaseModel(ABC, BaseModel):
 
     def only_midi_coord(self) -> MidiCoords:
         pass
+
+    def variable_initialisation(self):
+        return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
 def parse_coords(raw) -> EncoderCoords | None:

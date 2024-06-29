@@ -12,6 +12,7 @@ from ableton_control_suface_as_code.model_v2 import ModeGroupWithMidi
 
 @dataclass
 class GeneratedModeCode:
+    array_defs: [str] = field(default_factory=list)
     setup: [str] = field(default_factory=list)
     creation: [MidiCoords] = field(default_factory=list)
     listener_fns: [str] = field(default_factory=list)
@@ -19,6 +20,8 @@ class GeneratedModeCode:
     remove_listeners: [str] = field(default_factory=list)
 
     def print_all(self):
+        print("Array Defs:")
+        print("\n".join(self.array_defs))
         print("Setup:")
         print("\n".join(self.setup))
         print("Creation:")
@@ -44,6 +47,7 @@ class GeneratedModeCode:
 
     def merge(self, other):
         return GeneratedModeCode(
+            self.array_defs + other.array_defs,
             self.setup + other.setup,
             self.creation + other.creation,
             self.listener_fns + other.listener_fns,
@@ -124,12 +128,67 @@ def ${fn_name}(self, value):
     """).substitute(callee=callee, fn_name=fn_name, comment=debug_st).split("\n")
 
 
-# def button_element(midi_coords:MidiCoords):
-#     return f"ConfigurableButtonElement(True, {midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number})"
 
-# def encoder_element(midi_coords:MidiCoords):
-#     return f"EncoderElement({midi_coords.type.ableton_name()}, {midi_coords.ableton_channel()}, {midi_coords.number}, Live.MidiMap.MapMode.absolute)"
+# def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name:str):
+#
+#     button_name = midi_map.controller_variable_name()
+#     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
+#
+#     return GeneratedModeCode(
+#         creation=[midi_map.only_midi_coord],
+#         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
+#         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
+#         listener_fns=generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string())
+#     )
 
+
+def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name:str) -> GeneratedModeCode:
+
+    # setup.extend([
+    #     "self.led_on = 120",
+    #     "self.led_off = 0"
+    # ])
+    codes = GeneratedModeCode()
+
+    for midi_map in mixer_with_midi.midi_maps:
+        ## TODO dont' need if buttons here? It's really to toggle on sends with multiple midi cords
+        if midi_map.controller_type.is_button() and midi_map.track_info.is_selected():
+            track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
+            fmm = midi_map.only_midi_coord
+            var_name = fmm.controller_variable_name()
+
+            codes = codes.merge(GeneratedModeCode(
+                creation=[fmm],
+                setup_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(self.{var_name})"],
+                remove_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(None)"]
+            ))
+        else:
+            track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
+            if midi_map.api_function == "sends":
+                var_name = f"send_controls_{midi_map.info_string()}"
+
+                # TODO sends lenth max of midi range or actual sends size
+
+                send_inits = [f"self.{var_name}[{i}] = {midi.create_encoder_element()}"
+                              for i, midi in enumerate(midi_map.midi_coords)]
+
+                codes = codes.merge(GeneratedModeCode(
+                    array_defs=send_inits,
+                    setup_listeners=[f"self.mixer.{track_strip}.set_send_controls(self.{var_name})"],
+                    remove_listeners=[f"self.mixer.{track_strip}.set_send_controls(None)"]
+                ))
+            else:
+                track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
+                fmm = midi_map.only_midi_coord
+                var_name = fmm.controller_variable_name()  #f"encodr_{midi_map.info_string()}"
+
+                codes = codes.merge(GeneratedModeCode(
+                    creation=[fmm],
+                    setup_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(self.{var_name})"],
+                    remove_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(None)"]
+                ))
+
+    return codes
 
 def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
     setup = []
@@ -137,11 +196,6 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
     listener_fns = []
     setup_listeners = []
     remove_listeners = []
-
-    setup.extend([
-        "self.led_on = 120",
-        "self.led_off = 0"
-    ])
 
     for midi_map in mixer_with_midi.midi_maps:
         if midi_map.controller_type.is_button():
@@ -188,43 +242,45 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
     )
 
 def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name:str):
-
-    creation = []
-    listener_fns = []
-    setup_listeners = []
-    remove_listeners = []
-
-    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
-
-    for mm in device_with_midi.midi_range_maps:
-        creation.append(mm.midi_coords)
-        enc_name = mm.controller_variable_name()
-        enc_listener_name = mm.controller_listener_fn_name(mode_name)
-
-        setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
-        remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
-        listener_fns.extend(generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string()))
-
-    return GeneratedModeCode(
-        [], creation, listener_fns, setup_listeners, remove_listeners
-    )
-
-
-def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name:str):
+    #
     # creation = []
     # listener_fns = []
     # setup_listeners = []
     # remove_listeners = []
 
-    button_name = midi_map.controller_variable_name()
-    # button_name = f"button_{midi_map.info_string()}"
-    # button_listener_name = f"button_{midi_map.info_string()}_value"
-    button_listener_name = midi_map.controller_listener_fn_name(mode_name)
+    codes = GeneratedModeCode()
 
-    # creation.append(f"self.{button_name} = {midi_map.create_button_element()}")
-    # setup_listeners.append(f"self.{button_name}.add_value_listener(self.{button_listener_name})")
-    # remove_listeners.append(f"self.{button_name}.remove_value_listener(self.{button_listener_name})")
-    # listener_fns.extend(generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string()))
+    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
+
+    for mm in device_with_midi.midi_range_maps:
+        # creation.append(mm.midi_coords)
+        enc_name = mm.controller_variable_name()
+        enc_listener_name = mm.controller_listener_fn_name(mode_name)
+        #
+        # setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
+        # remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
+        # listener_fns.extend(generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string()))
+
+        codes = codes.merge(GeneratedModeCode(
+            creation=[mm.midi_coords],
+            setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
+            remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
+            listener_fns=generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string())
+        ))
+
+    return codes
+    #
+    # return GeneratedModeCode(
+    #     [], [], creation, listener_fns, setup_listeners, remove_listeners
+    # )
+
+
+
+
+def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name:str):
+
+    button_name = midi_map.controller_variable_name()
+    button_listener_name = midi_map.controller_listener_fn_name(mode_name)
 
     return GeneratedModeCode(
         creation=[midi_map.only_midi_coord],

@@ -28,6 +28,8 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
 
     @property
     def only_midi_coord(self) -> MidiCoords:
+        if len(self.midi_coords) != 1:
+            raise ValueError(f'More than one midi coord found for function mapping: {self.midi_coords}')
         return self.midi_coords[0]
 
     def template_function_name(self):

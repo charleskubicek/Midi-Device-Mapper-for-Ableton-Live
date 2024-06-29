@@ -7,7 +7,7 @@ from typing import Union
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
     device_nav_templates, functions_templates, device_mode_templates, GeneratedModeCode, mode_template, \
-    functions_mode_templates
+    functions_mode_templates, mixer_mode_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiType
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
@@ -24,12 +24,22 @@ template_to_code = {
     'functions': functions_templates
 }
 
+mode_template_to_code = {
+    'device': device_mode_templates,
+    'mixer': mixer_mode_templates,
+    # 'track-nav': track_nav_templates,
+    # 'device-nav': device_nav_templates,
+    'functions': functions_mode_templates
+}
+
 tab = " " * 4
+
+
 def tabs(n):
     return tab * n
 
-def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
+def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     setup = [
         "self.current_mode = None\n",
         f"{tabs(2)}self._first_mode = '{modes.first_mode_name()}'\n",
@@ -47,18 +57,22 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     for name, mode_mappings in modes.mappings.items():
         mode_code = GeneratedModeCode()
         for mapping in mode_mappings:
-            if mapping.type == 'device':
-                code_templates = device_mode_templates(mapping, name)
-                mode_code = mode_code.merge(code_templates)
-            elif mapping.type == 'functions':
-                code_templates = functions_mode_templates(mapping, name)
-                mode_code = mode_code.merge(code_templates)
+            code_templates = mode_template_to_code[mapping.type](mapping, name)
+            mode_code = mode_code.merge(code_templates)
+
+            # if mapping.type == 'device':
+            #     code_templates = device_mode_templates(mapping, name)
+            #     mode_code = mode_code.merge(code_templates)
+            # elif mapping.type == 'functions':
+            #     code_templates = functions_mode_templates(mapping, name)
+            #     mode_code = mode_code.merge(code_templates)
 
         mode_codes[name] = mode_code
 
+    array_defs = [x for x in GeneratedModeCode.merge_all(list(mode_codes.values())).array_defs]
 
-    new_creation = [f"self.{creation.controller_variable_name()} = {creation.create_encoder_element()}"
-     for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
+    new_creation = [creation.variable_initialisation()
+                    for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
 
     new_creation.append(f"self.current_mode = self._modes['mode_1']")
     new_creation.append(f"self.mode_mode_1_add_listeners()")
@@ -80,15 +94,14 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
-
-
     return {
-        'code_setup': "\n".join(setup),
+        'code_setup': "\n".join(setup + array_defs),
         'code_creation': class_function_body_code_block(new_creation),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
+
 
 def generate_dict_string(name, next_mode, add_listeners_fn, is_shift, color):
     return f"""
@@ -99,6 +112,7 @@ def generate_dict_string(name, next_mode, add_listeners_fn, is_shift, color):
 {tabs(3)}'is_shift': {is_shift},
 {tabs(3)}'color': {color}
 {tabs(2)}}}\n"""
+
 
 def generate_code_in_template_vars(
         devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]) -> dict:

@@ -29,4 +29,4 @@ control_groups:
         type: button
         midi_channel: 9
         midi_type: note
-        midi_range: A-2, C-1, CS-1, D1, C1, C3, F1, G1
+        midi_range: A-2, C-1, CS1, D1, C1, C3, F1, G1
