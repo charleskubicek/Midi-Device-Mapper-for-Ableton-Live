@@ -191,13 +191,9 @@ class DeviceNavAction(Enum):
 class MixerMidiMapping(BaseModel):
     type: Literal['mixer'] = 'mixer'
     midi_coords: List[MidiCoords]
-    controller_type: EncoderType  # TODO modes-  remove this after modes done
     api_function: str
     track_info: TrackInfo
-    encoder_coords: EncoderCoords  # TODO modes-  remove this after modes done
-
-    def encoders_debug_string(self):
-        return self.encoder_coords.debug_string()
+    encoder_coords: EncoderCoords  # For debugging
 
     @classmethod
     def with_multiple_args(cls,
@@ -206,9 +202,8 @@ class MixerMidiMapping(BaseModel):
                            api_function,
                            encoder_coords: EncoderCoords,
                            track_info: TrackInfo):
-        return MixerMidiMapping.model_construct(
+        return MixerMidiMapping(
             midi_coords=midi_coords_list,
-            controller_type=encoder_type,
             api_function=api_function,
             encoder_coords=encoder_coords,
             track_info=track_info
@@ -252,10 +247,6 @@ class MixerMidiMapping(BaseModel):
         return self.api_function
 
     # TDDO validate tracks is only present if selected_track is not and vv
-
-    # TODO this should go away
-    def info_string(self):
-        return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
     def listener_setup_code(self, var_name=None):
         track_strip = self.track_info.name.mixer_strip_name

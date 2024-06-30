@@ -1,28 +1,18 @@
 import hashlib
 from pathlib import Path
 from string import Template
-
 from typing import Union
 
-from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
-    class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
-    device_nav_templates, functions_templates, device_mode_templates, GeneratedModeCode, mode_template, \
+from ableton_control_suface_as_code.code import class_function_body_code_block, \
+    class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
     functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiType
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
-from ableton_control_suface_as_code.model_v2 import build_mappings_model_v2, read_controller, \
-    read_root, build_mappings_model_with_mode, ModeGroupWithMidi, read_root_v2
-
-template_to_code = {
-    'device': device_templates,
-    'mixer': mixer_templates,
-    'track-nav': track_nav_templates,
-    'device-nav': device_nav_templates,
-    'functions': functions_templates
-}
+from ableton_control_suface_as_code.model_v2 import read_controller, \
+    read_root, ModeGroupWithMidi, read_root_v2
 
 mode_template_to_code = {
     'device': device_mode_templates,
@@ -90,7 +80,7 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     creation.append(f"self.mode_mode_1_add_listeners()")
 
 
-    codes = GeneratedCode()
+    codes = GeneratedModeCode()
 
     for name, mode_code in mode_codes.items():
         codes.remove_listeners.append(class_function_body_code_block(mode_code.remove_listeners))
@@ -133,21 +123,6 @@ def generate_dict_string(name, next_mode, add_listeners_fn, is_shift, color):
 {tabs(3)}'color': {color}
 {tabs(2)}}}\n"""
 
-
-def generate_code_in_template_vars(
-        devices_with_midi: [Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi]]) -> dict:
-    code = GeneratedCode([], [], [], [], [])
-    for device_with_midi in devices_with_midi:
-        code_templates = template_to_code[device_with_midi.type]
-        code = code.merge(code_templates(device_with_midi))
-
-    return {
-        'code_setup': class_function_body_code_block(code.setup),
-        'code_creation': class_function_body_code_block(code.creation),
-        'code_remove_listeners': class_function_body_code_block(code.remove_listeners),
-        'code_setup_listeners': class_function_body_code_block(code.setup_listeners),
-        'code_listener_fns': class_function_code_block(code.listener_fns)
-    }
 
 
 def write_templates(template_path: Path, target: Path, vars: dict, functions_path: Path):
@@ -208,35 +183,6 @@ def print_model(model: ControllerV2):
         print(table)
 
 
-def generate(mapping_file_path):
-    functions_path = root_dir / "functions.py"
-
-    if not functions_path.exists():
-        functions_path = None
-
-    mapping = read_root(mapping_file_path.read_text())
-    surface_name = mapping_file_path.stem
-
-    vars = {
-        'surface_name': surface_name,
-        'udp_port': generate_5_digit_number(surface_name) + 1,
-        'class_name_snake': 'control_mappings',
-        'class_name_camel': 'ControlMappings'
-    }
-
-    target_dir = Path('out')
-
-    controller_path = mapping_file_path.parent / mapping.controller
-    controller = read_controller(controller_path.read_text())
-    print_model(controller)
-    devices_with_midi = build_mappings_model_v2(mapping.mappings, controller)
-
-    vars = vars | generate_code_in_template_vars(devices_with_midi)
-    write_templates(Path(f'templates'), target_dir, vars, functions_path)
-
-    print("Finished generating code.")
-
-
 def generate_modes(mapping_file_path):
     functions_path = root_dir / "functions.py"
 
@@ -269,7 +215,7 @@ def generate_modes(mapping_file_path):
 
 if __name__ == '__main__':
     root_dir = Path("tests_e2e")
-    # generate(root_dir / "ck_test_novation_xl.nt")
+    # generate_modes(root_dir / "ck_test_novation_xl.nt")
     # generate(root_dir / "ck_test_novation_lc.nt")
-    # generate_modes(root_dir / "ck_test_novation_lc.nt")
+    generate_modes(root_dir / "ck_test_novation_lc.nt")
     generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")

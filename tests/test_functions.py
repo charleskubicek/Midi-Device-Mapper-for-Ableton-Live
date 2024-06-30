@@ -14,7 +14,6 @@ class TestFunctionsTemplates(unittest.TestCase, CustomAssertions):
             "function": "toggle"
         }])
         result = functions_templates(functions_with_midi=midi)
-        result.print_all()
 
 
         self.assertStringInOne('def button_function_toggle_ch1_51_note_value(self, value)', result.listener_fns)
