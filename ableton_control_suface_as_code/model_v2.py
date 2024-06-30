@@ -58,6 +58,9 @@ class ModeMappingsV2(BaseModel):
     on_color: Optional[int] = None
     off_color: Optional[int] = None
 
+    def is_shift(self):
+        return self.mode.type is not None and self.mode.type == 'shift'
+
 class ModeGroupWithMidi(BaseModel):
     mode_mappings: Optional[ModeMappingsV2]
     mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
@@ -66,7 +69,7 @@ class ModeGroupWithMidi(BaseModel):
         return self.mode_mappings is not None
 
     def is_shift(self):
-        return self.mode.type is not None and self.mode.type == 'shift'
+        return self.mode_mappings.is_shift()
 
     def first_mode_name(self):
         return "mode_1"
@@ -76,14 +79,14 @@ class ModeGroupWithMidi(BaseModel):
             ModeData(
                 name="mode_1",
                 next="mode_2",
-                is_shift=self.is_shift(),
-                color=self.off_color
+                is_shift=self.mode_mappings.is_shift(),
+                color=self.mode_mappings.on_color
             ),
             ModeData(
                 name="mode_2",
                 next="mode_1",
-                is_shift=self.is_shift(),
-                color=self.on_color
+                is_shift=self.mode_mappings.is_shift(),
+                color=self.mode_mappings.on_color
             )
         ]
 

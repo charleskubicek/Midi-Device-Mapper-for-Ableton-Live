@@ -39,24 +39,34 @@ def tabs(n):
     return tab * n
 
 
+def mode_setup_template(mode_name):
+    return f"""
+        self.current_mode = None
+        self._first_mode = '{mode_name}'
+        self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)    
+    """
+
+def mode_creation_template(mode_name):
+    return f"""
+        self.current_mode = self._modes['{mode_name}']
+        self.goto_mode(self._first_mode)
+        """
+
+def mode_add_listeners_template(mode_name):
+    return f"""
+    def mode_{mode_name}_add_listeners(self):
+        self.log_message(f'Adding listeners for mode {mode_name}')
+    """
+
+def mode_remove_listeners_template():
+    return f"""
+        if not modes_only:
+            self.mode_button.remove_value_listener(self.mode_button_listener)
+    """
+
 def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
-    if modes.has_modes():
-        setup = [
-            "self.current_mode = None\n",
-            f"{tabs(2)}self._first_mode = '{modes.first_mode_name()}'\n",
-            f"{tabs(2)}self.mode_button = " + modes.button.create_button_element(),
-        ]
-        for mode in modes.fsm():
-            setup.append(generate_dict_string(mode.name,
-                                              mode.next,
-                                              f"self.mode_{mode.name}_add_listeners",
-                                              mode.is_shift,
-                                              mode.color
-                                              ))
-    else:
-        setup = []
 
-
+    first_mode_name = "mode_1"
     mode_codes = {}
 
     for name, mode_mappings in modes.mappings.items():
@@ -70,41 +80,43 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     array_defs = []
 
     for mame, value in mode_codes.items():
-        if len(value.array_defs) == 0:
-            continue
         for array_def in value.array_defs:
             els = f",\n{tabs(3)}".join([f"self.{item.controller_variable_name()}" for item in array_def[1]])
             array_defs.append(f"self.{array_def[0]} = [\n{tabs(3)}{els}]")
 
-    new_creation = [creation.variable_initialisation()
+    creation = [creation.variable_initialisation()
                     for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
 
-    if modes.has_modes():
-        new_creation.append(f"self.current_mode = self._modes['mode_1']")
-        new_creation.append(f"self.goto_mode(self._first_mode)\n")
-
-    new_creation.append(f"self.mode_mode_1_add_listeners()")
+    creation.append(f"self.mode_mode_1_add_listeners()")
 
 
     codes = GeneratedCode()
+
     for name, mode_code in mode_codes.items():
         codes.remove_listeners.append(class_function_body_code_block(mode_code.remove_listeners))
 
-        codes.setup_listeners.append(f"{tab}def mode_{name}_add_listeners(self):")
-        codes.setup_listeners.append(f"{tab}{tab}self.log_message(f'Adding listeners for mode {name}')")
+        codes.setup_listeners.append(mode_add_listeners_template(name))
         codes.setup_listeners.append(class_function_body_code_block(mode_code.setup_listeners))
-
         codes.listener_fns.append(class_function_code_block(mode_code.listener_fns))
 
     if modes.has_modes():
-        codes.remove_listeners.append(f"{tabs(2)}if not modes_only:")
-        codes.remove_listeners.append(f"{tabs(3)}self.mode_button.remove_value_listener(self.mode_button_listener)")
+        creation.append(mode_creation_template(first_mode_name))
+        codes.remove_listeners.append(mode_remove_listeners_template())
+        codes.setup.append(mode_setup_template(first_mode_name))
 
-        setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
+        for mode in modes.fsm():
+            codes.setup.append(generate_dict_string(mode.name,
+                                              mode.next,
+                                              f"self.mode_{mode.name}_add_listeners",
+                                              mode.is_shift,
+                                              mode.color
+                                              ))
+
+        codes.setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
     return {
-        'code_setup': "\n".join(setup),
-        'code_creation': class_function_body_code_block(new_creation+array_defs),
+        'code_setup': "\n".join(codes.setup),
+        'code_creation': class_function_body_code_block(creation+array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns)
@@ -259,5 +271,5 @@ if __name__ == '__main__':
     root_dir = Path("tests_e2e")
     # generate(root_dir / "ck_test_novation_xl.nt")
     # generate(root_dir / "ck_test_novation_lc.nt")
-    generate_modes(root_dir / "ck_test_novation_lc.nt")
-    # generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
+    # generate_modes(root_dir / "ck_test_novation_lc.nt")
+    generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
