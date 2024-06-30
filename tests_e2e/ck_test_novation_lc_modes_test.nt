@@ -37,7 +37,7 @@ mode:
             mappings:
                 volume: row_1:8
                 pan: row_2:8
-#                sends: row_1:5-8
+                sends: row_1:5-7
         -
             type: functions
             mappings:

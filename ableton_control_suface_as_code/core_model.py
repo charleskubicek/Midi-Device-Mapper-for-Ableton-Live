@@ -221,6 +221,10 @@ class MixerMidiMapping(BaseModel):
         return self.midi_coords[0]
 
     @property
+    def first_midi_coord(self) -> MidiCoords:
+        return self.midi_coords[0]
+
+    @property
     def midi_channel(self):
         return self.midi_coords[0].channel
 
@@ -241,16 +245,30 @@ class MixerMidiMapping(BaseModel):
         else:
             return 'control'
 
+    @property
+    def _api_name_in_listener_code(self):
+        if self.api_function == "sends":
+            return "send"
+        return self.api_function
+
     # TDDO validate tracks is only present if selected_track is not and vv
 
     # TODO this should go away
     def info_string(self):
         return f"ch{self.midi_channel}_{self.midi_number}_{self.midi_type.value}__cds_{self.encoders_debug_string()}__api_{self.api_function}"
 
-    def array_variable_initialisation(self):
-        var_name = self.midi_coords[0].controller_variable_name()
-        return [f"self.{var_name}[{i}] = {midi_coord.create_controller_element()}"
-                for i, midi_coord in enumerate(self.midi_coords)]
+    def listener_setup_code(self, var_name=None):
+        track_strip = self.track_info.name.mixer_strip_name
+        api = self._api_name_in_listener_code
+        var = self.first_midi_coord.controller_variable_name() if var_name is None else var_name
+
+        return f"self.mixer.{track_strip}_strip().set_{api}_{self.api_control_type}(self.{var})"
+
+    def listener_remove_code(self):
+        track_strip = self.track_info.name.mixer_strip_name
+        api = self._api_name_in_listener_code
+
+        return f"self.mixer.{track_strip}_strip().set_{api}_{self.api_control_type}(None)"
 
 
 class DeviceWithMidi(BaseModel):

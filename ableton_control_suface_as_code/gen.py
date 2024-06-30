@@ -69,7 +69,19 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
         mode_codes[name] = mode_code
 
-    array_defs = [x for x in GeneratedModeCode.merge_all(list(mode_codes.values())).array_defs]
+    array_defs = []
+
+    for mame, value in mode_codes.items():
+        if len(value.array_defs) == 0:
+            continue
+        for array_def in value.array_defs:
+            els = f",\n{tabs(3)}".join([f"self.{item.controller_variable_name()}" for item in array_def[1]])
+            array_defs.append(f"self.{array_def[0]} = [\n{tabs(3)}{els}]")
+        # els = f",\n{tabs(3)}".join([f"self.{[i.controller_variable_name() for i in items]}" for (var_name, items) in value.array_defs])
+        # array_defs.append(f"self.{value.array_defs.controller_variable_name()}_arr = [\n{tabs(3)}{els}]")
+
+
+    # array_defs = [x for x in GeneratedModeCode.merge_all(list(mode_codes.values())).array_defs]
 
     new_creation = [creation.variable_initialisation()
                     for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
@@ -95,8 +107,8 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
     return {
-        'code_setup': "\n".join(setup + array_defs),
-        'code_creation': class_function_body_code_block(new_creation),
+        'code_setup': "\n".join(setup),
+        'code_creation': class_function_body_code_block(new_creation+array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns)

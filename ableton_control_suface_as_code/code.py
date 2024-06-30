@@ -12,7 +12,7 @@ from ableton_control_suface_as_code.model_v2 import ModeGroupWithMidi
 
 @dataclass
 class GeneratedModeCode:
-    array_defs: [str] = field(default_factory=list)
+    array_defs: [(str, [MidiCoords])] = field(default_factory=list)
     setup: [str] = field(default_factory=list)
     creation: [MidiCoords] = field(default_factory=list)
     listener_fns: [str] = field(default_factory=list)
@@ -128,65 +128,25 @@ def ${fn_name}(self, value):
     """).substitute(callee=callee, fn_name=fn_name, comment=debug_st).split("\n")
 
 
-
-# def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name:str):
-#
-#     button_name = midi_map.controller_variable_name()
-#     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
-#
-#     return GeneratedModeCode(
-#         creation=[midi_map.only_midi_coord],
-#         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
-#         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
-#         listener_fns=generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string())
-#     )
-
-
 def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name:str) -> GeneratedModeCode:
 
-    # setup.extend([
-    #     "self.led_on = 120",
-    #     "self.led_off = 0"
-    # ])
     codes = GeneratedModeCode()
 
     for midi_map in mixer_with_midi.midi_maps:
-        ## TODO dont' need if buttons here? It's really to toggle on sends with multiple midi cords
-        if midi_map.controller_type.is_button() and midi_map.track_info.is_selected():
-            track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
-            fmm = midi_map.only_midi_coord
-            var_name = fmm.controller_variable_name()
+        if midi_map.api_function == "sends":
+            var_name = f"{midi_map.midi_coords[0].controller_variable_name()}_{mode_name}_sends"
 
             codes = codes.merge(GeneratedModeCode(
-                creation=[fmm],
-                setup_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(self.{var_name})"],
-                remove_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(None)"]
+                array_defs=[(var_name, midi_map.midi_coords)],
+                setup_listeners=[midi_map.listener_setup_code(var_name)],
+                remove_listeners=[midi_map.listener_remove_code()]
             ))
         else:
-            track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
-            if midi_map.api_function == "sends":
-                var_name = f"send_controls_{midi_map.info_string()}"
-
-                # TODO sends lenth max of midi range or actual sends size
-
-                send_inits = [f"self.{var_name}[{i}] = {midi.create_encoder_element()}"
-                              for i, midi in enumerate(midi_map.midi_coords)]
-
-                codes = codes.merge(GeneratedModeCode(
-                    array_defs=send_inits,
-                    setup_listeners=[f"self.mixer.{track_strip}.set_send_controls(self.{var_name})"],
-                    remove_listeners=[f"self.mixer.{track_strip}.set_send_controls(None)"]
-                ))
-            else:
-                track_strip = f"{midi_map.track_info.name.mixer_strip_name}_strip()"
-                fmm = midi_map.only_midi_coord
-                var_name = fmm.controller_variable_name()  #f"encodr_{midi_map.info_string()}"
-
-                codes = codes.merge(GeneratedModeCode(
-                    creation=[fmm],
-                    setup_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(self.{var_name})"],
-                    remove_listeners=[f"self.mixer.{track_strip}.set_{midi_map.api_function}_{midi_map.api_control_type}(None)"]
-                ))
+            codes = codes.merge(GeneratedModeCode(
+                creation=[midi_map.only_midi_coord],
+                setup_listeners=[midi_map.listener_setup_code()],
+                remove_listeners=[midi_map.listener_remove_code()]
+            ))
 
     return codes
 
