@@ -30,6 +30,16 @@ mode:
             mappings:
                 mute: row_3:2
                 solo: row_3:3
+        -
+            type: device-nav
+            mappings:
+                left: row_4:1
+                right: row_4:2
+        -
+            type: track-nav
+            mappings:
+                left: row_5:1
+                right: row_5:2
     mode_2:
         -
             type: mixer

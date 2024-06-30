@@ -6,10 +6,10 @@ from ableton_control_suface_as_code.core_model import MidiCoords, parse_coords, 
 
 
 class DeviceNavMappings(BaseModel):
-    left_raw: Optional[str] = Field(alias='left')
-    right_raw: Optional[str] = Field(alias='right')
-    first_raw: Optional[str] = Field(alias='first')
-    last_raw: Optional[str] = Field(alias='last')
+    left_raw: Optional[str] = Field(default=None, alias='left')
+    right_raw: Optional[str] = Field(default=None, alias='right')
+    first_raw: Optional[str] = Field(default=None, alias='first')
+    last_raw: Optional[str] = Field(default=None, alias='last')
 
     def as_list(self):
         res = []
@@ -53,6 +53,12 @@ class DeviceNavMidiMapping(ButtonProviderBaseModel):
 
     def template_function_name(self):
         return self.action.template_call
+
+    def controller_variable_name(self):
+        return self.only_midi_coord.controller_variable_name()
+
+    def controller_listener_fn_name(self, mode_name):
+        return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_{self.action.value}")
 
 
 class DeviceNavWithMidi(BaseModel):

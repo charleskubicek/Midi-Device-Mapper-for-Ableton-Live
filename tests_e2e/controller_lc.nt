@@ -30,3 +30,17 @@ control_groups:
         midi_channel: 9
         midi_type: note
         midi_range: A-2, C-1, CS1, D1, C1, C3, F1, G1
+    -
+        layout: row
+        number: 4
+        type: button
+        midi_channel: 3
+        midi_type: CC
+        midi_range: 114, 115
+    -
+        layout: row
+        number: 5
+        type: button
+        midi_channel: 3
+        midi_type: CC
+        midi_range: 116, 117

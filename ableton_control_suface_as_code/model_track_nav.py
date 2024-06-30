@@ -50,6 +50,11 @@ class TrackNavMidiMapping(ButtonProviderBaseModel):
         else:
             return 'self.track_nav_dec()'
 
+    def controller_variable_name(self):
+        return self.only_midi_coord.controller_variable_name()
+
+    def controller_listener_fn_name(self, mode_name):
+        return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_{self.direction .value}")
 
 class TrackNavWithMidi(BaseModel):
     type: Literal['track-nav'] = 'track-nav'

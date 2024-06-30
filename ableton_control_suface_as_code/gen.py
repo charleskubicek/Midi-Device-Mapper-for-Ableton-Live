@@ -7,7 +7,7 @@ from typing import Union
 from ableton_control_suface_as_code.code import device_templates, class_function_body_code_block, \
     class_function_code_block, is_valid_python, mixer_templates, GeneratedCode, track_nav_templates, \
     device_nav_templates, functions_templates, device_mode_templates, GeneratedModeCode, mode_template, \
-    functions_mode_templates, mixer_mode_templates
+    functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiType
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
@@ -27,8 +27,8 @@ template_to_code = {
 mode_template_to_code = {
     'device': device_mode_templates,
     'mixer': mixer_mode_templates,
-    # 'track-nav': track_nav_templates,
-    # 'device-nav': device_nav_templates,
+    'track-nav': track_nav_mode_templates,
+    'device-nav': device_nav_mode_templates,
     'functions': functions_mode_templates
 }
 
@@ -59,13 +59,6 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         for mapping in mode_mappings:
             code_templates = mode_template_to_code[mapping.type](mapping, name)
             mode_code = mode_code.merge(code_templates)
-
-            # if mapping.type == 'device':
-            #     code_templates = device_mode_templates(mapping, name)
-            #     mode_code = mode_code.merge(code_templates)
-            # elif mapping.type == 'functions':
-            #     code_templates = functions_mode_templates(mapping, name)
-            #     mode_code = mode_code.merge(code_templates)
 
         mode_codes[name] = mode_code
 

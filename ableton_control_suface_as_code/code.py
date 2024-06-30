@@ -46,6 +46,10 @@ class GeneratedModeCode:
             return first
 
     def merge(self, other):
+        # check other is a GeneratedModeCode
+        if not isinstance(other, GeneratedModeCode):
+            raise ValueError(f"Can't merge with {other}")
+
         return GeneratedModeCode(
             self.array_defs + other.array_defs,
             self.setup + other.setup,
@@ -117,7 +121,7 @@ def ${fn_name}(self, value):
     """).substitute(parameter=parameter, lom=lom, fn_name=fn_name, comment=debug_st).split("\n")
 
 
-def generate_button_listener_function_action(fn_name, callee, debug_st) -> [str]:
+def generate_control_value_listener_function_action(fn_name, callee, debug_st) -> [str]:
     return Template("""
 # $comment   
 def ${fn_name}(self, value):
@@ -202,24 +206,14 @@ def mixer_templates(mixer_with_midi: MixerWithMidi) -> GeneratedCode:
     )
 
 def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name:str):
-    #
-    # creation = []
-    # listener_fns = []
-    # setup_listeners = []
-    # remove_listeners = []
 
     codes = GeneratedModeCode()
 
     lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
 
     for mm in device_with_midi.midi_range_maps:
-        # creation.append(mm.midi_coords)
         enc_name = mm.controller_variable_name()
         enc_listener_name = mm.controller_listener_fn_name(mode_name)
-        #
-        # setup_listeners.append(f"self.{enc_name}.add_value_listener(self.{enc_listener_name})")
-        # remove_listeners.append(f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})")
-        # listener_fns.extend(generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string()))
 
         codes = codes.merge(GeneratedModeCode(
             creation=[mm.midi_coords],
@@ -229,12 +223,6 @@ def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name:str):
         ))
 
     return codes
-    #
-    # return GeneratedModeCode(
-    #     [], [], creation, listener_fns, setup_listeners, remove_listeners
-    # )
-
-
 
 
 def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name:str):
@@ -246,7 +234,7 @@ def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseM
         creation=[midi_map.only_midi_coord],
         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
-        listener_fns=generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string())
+        listener_fns=generate_control_value_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string())
     )
 
 
@@ -283,7 +271,7 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel)
     creation.append(f"self.{button_name} = {midi_map.create_controller_element()}")
     setup_listeners.append(f"self.{button_name}.add_value_listener(self.{button_listener_name})")
     remove_listeners.append(f"self.{button_name}.remove_value_listener(self.{button_listener_name})")
-    listener_fns.extend(generate_button_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string()))
+    listener_fns.extend(generate_control_value_listener_function_action(button_listener_name, midi_map.template_function_name(), midi_map.info_string()))
 
     return GeneratedCode(
         [], [], creation, listener_fns, setup_listeners, remove_listeners
@@ -294,11 +282,17 @@ def track_nav_templates(track_nav_with_midi: TrackNavWithMidi) -> GeneratedCode:
     codes = [button_listener_function_caller_templates(m) for m in track_nav_with_midi.midi_maps]
     return GeneratedCode.merge_all(codes)
 
+def track_nav_mode_templates(track_nav_with_midi: TrackNavWithMidi, mode_name) -> GeneratedCode:
+    codes = [button_listener_function_caller_mode_templates(m, mode_name) for m in track_nav_with_midi.midi_maps]
+    return GeneratedModeCode.merge_all(codes)
+
+def device_nav_mode_templates(deivce_nav_with_midi: DeviceNavWithMidi, mode_name) -> GeneratedCode:
+    codes = [button_listener_function_caller_mode_templates(m, mode_name) for m in deivce_nav_with_midi.midi_maps]
+    return GeneratedModeCode.merge_all(codes)
 
 def device_nav_templates(deivce_nav_with_midi: DeviceNavWithMidi) -> GeneratedCode:
     codes = [button_listener_function_caller_templates(m) for m in deivce_nav_with_midi.midi_maps]
     return GeneratedCode.merge_all(codes)
-
 
 def functions_templates(functions_with_midi: FunctionsWithMidi) -> GeneratedCode:
     codes = [button_listener_function_caller_templates(m) for m in functions_with_midi.midi_maps]
@@ -306,7 +300,7 @@ def functions_templates(functions_with_midi: FunctionsWithMidi) -> GeneratedCode
 
 def functions_mode_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> GeneratedCode:
     codes = [button_listener_function_caller_mode_templates(m, mode_name) for m in functions_with_midi.midi_maps]
-    return GeneratedCode.merge_all(codes)
+    return GeneratedModeCode.merge_all(codes)
 
 
 def is_valid_python(code):

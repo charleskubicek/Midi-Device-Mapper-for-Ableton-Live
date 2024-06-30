@@ -61,7 +61,7 @@ $code_setup_listeners
         self._scroll_device_chain(NavDirection.right)
 
     def _scroll_device_chain(self, direction):
-        view = self.manager.application.view
+        view = self.manager.application().view
         if not view.is_view_visible('Detail') or not view.is_view_visible('Detail/DeviceChain'):
             view.show_view('Detail')
             view.show_view('Detail/DeviceChain')
@@ -73,7 +73,7 @@ $code_setup_listeners
         all_tracks = len(self._song.tracks)
         selected_track = self._song.view.selected_track  # Get the currently selected track
 
-        self.manager.log_message.info(f"Selected track name is {selected_track.name}")
+        self.manager.log_message(f"Selected track name is {selected_track.name}")
 
         if selected_track.name == "Master":
             self.manager.log_message("Can't increment from Master")
