@@ -96,8 +96,6 @@ def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) ->
     mapping_1 = build_mappings_model_v2(mode.mode_1, controller)
     mapping_2 = build_mappings_model_v2(mode.mode_2, controller)
 
-    # return [to_mode_with_midi(mode) for mode in modes]
-
     return ModeGroupWithMidi(
         mode_mappings=ModeMappingsV2(
             mode=mode,

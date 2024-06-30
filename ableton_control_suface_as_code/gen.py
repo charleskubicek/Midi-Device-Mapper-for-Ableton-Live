@@ -12,7 +12,7 @@ from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_suface_as_code.model_v2 import read_controller, \
-    read_root, ModeGroupWithMidi, read_root_v2
+    read_root, ModeGroupWithMidi, read_root_v2, ModeData
 
 mode_template_to_code = {
     'device': device_mode_templates,
@@ -54,6 +54,24 @@ def mode_remove_listeners_template():
             self.mode_button.remove_value_listener(self.mode_button_listener)
     """
 
+def mode_state_dict_template(mode:ModeData, listners_function):
+    return f"""
+        self._modes['{mode.name}'] = {{
+            'name': '{mode.name}',
+            'next_mode_name': '{mode.next}',
+            'add_listeners_fn': {listners_function},
+            'is_shift': {mode.is_shift},
+            'color': {mode.color}
+        }}
+"""
+
+def array_def_template(array_name, array_values):
+    return f"""
+        self.{array_name} = [
+            {f",\n{tabs(3)}".join([f"self.{v.controller_variable_name()}" for v in array_values])}
+        ]
+    """
+
 def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     first_mode_name = "mode_1"
@@ -68,19 +86,13 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         mode_codes[name] = mode_code
 
     array_defs = []
-
-    for mame, value in mode_codes.items():
-        for array_def in value.array_defs:
-            els = f",\n{tabs(3)}".join([f"self.{item.controller_variable_name()}" for item in array_def[1]])
-            array_defs.append(f"self.{array_def[0]} = [\n{tabs(3)}{els}]")
+    codes = GeneratedModeCode()
 
     creation = [creation.variable_initialisation()
                     for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
 
     creation.append(f"self.mode_mode_1_add_listeners()")
 
-
-    codes = GeneratedModeCode()
 
     for name, mode_code in mode_codes.items():
         codes.remove_listeners.append(class_function_body_code_block(mode_code.remove_listeners))
@@ -89,18 +101,16 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         codes.setup_listeners.append(class_function_body_code_block(mode_code.setup_listeners))
         codes.listener_fns.append(class_function_code_block(mode_code.listener_fns))
 
+        for (name, values) in mode_code.array_defs:
+            array_defs.append(array_def_template(name, values))
+
     if modes.has_modes():
         creation.append(mode_creation_template(first_mode_name))
         codes.remove_listeners.append(mode_remove_listeners_template())
         codes.setup.append(mode_setup_template(first_mode_name))
 
         for mode in modes.fsm():
-            codes.setup.append(generate_dict_string(mode.name,
-                                              mode.next,
-                                              f"self.mode_{mode.name}_add_listeners",
-                                              mode.is_shift,
-                                              mode.color
-                                              ))
+            codes.setup.append(mode_state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
 
         codes.setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
@@ -111,17 +121,6 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
-
-
-def generate_dict_string(name, next_mode, add_listeners_fn, is_shift, color):
-    return f"""
-{tabs(2)}self._modes['{name}'] = {{
-{tabs(3)}'name': '{name}',
-{tabs(3)}'next_mode_name': '{next_mode}',
-{tabs(3)}'add_listeners_fn': {add_listeners_fn},
-{tabs(3)}'is_shift': {is_shift},
-{tabs(3)}'color': {color}
-{tabs(2)}}}\n"""
 
 
 
@@ -205,7 +204,6 @@ def generate_modes(mapping_file_path):
     controller = read_controller(controller_path.read_text())
     print_model(controller)
     mode_with_midi = read_root_v2(mode_mappings, controller)
-    # mode_with_midi = build_mappings_model_with_mode(mode_mappings.mode, controller)
 
     mode_vars = vars | generate_mode_code_in_template_vars(mode_with_midi)
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
@@ -215,7 +213,6 @@ def generate_modes(mapping_file_path):
 
 if __name__ == '__main__':
     root_dir = Path("tests_e2e")
-    # generate_modes(root_dir / "ck_test_novation_xl.nt")
-    # generate(root_dir / "ck_test_novation_lc.nt")
+    generate_modes(root_dir / "ck_test_novation_xl.nt")
     generate_modes(root_dir / "ck_test_novation_lc.nt")
     generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
