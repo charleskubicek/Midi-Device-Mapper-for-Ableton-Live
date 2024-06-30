@@ -37,7 +37,7 @@ class ModeGroupV2(BaseModel):
         return self.mode_1 + self.mode_2
 
 
-class MappingsV2(BaseModel):
+class RootV2(BaseModel):
     controller: str
     mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
     mode: Optional[ModeGroupV2] = None
@@ -52,14 +52,18 @@ class MappingsV2(BaseModel):
 
         return self
 
-
-class ModeGroupWithMidi(BaseModel):
+class ModeMappingsV2(BaseModel):
     mode: ModeGroupV2
     button: MidiCoords
     on_color: Optional[int] = None
     off_color: Optional[int] = None
+
+class ModeGroupWithMidi(BaseModel):
+    mode_mappings: Optional[ModeMappingsV2]
     mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
 
+    def has_modes(self):
+        return self.mode_mappings is not None
 
     def is_shift(self):
         return self.mode.type is not None and self.mode.type == 'shift'
@@ -85,20 +89,6 @@ class ModeGroupWithMidi(BaseModel):
 
 
 def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) -> ModeGroupWithMidi:
-    # def to_mode_with_midi(mappings):
-    #
-    #     if mode.button is None:
-    #         button = None
-    #     else:
-    #         button = controller.build_midi_coords(parse_coords(mode.button))[0][0]
-    #
-    #     return ModeGroupWithMidi(
-    #         mode=mode,
-    #         button=button,
-    #         mappings=build_mappings_model_v2(mappings, controller)
-    #     )
-    #
-    modes = [mode.mode_2, mode.mode_1]
 
     mapping_1 = build_mappings_model_v2(mode.mode_1, controller)
     mapping_2 = build_mappings_model_v2(mode.mode_2, controller)
@@ -106,10 +96,12 @@ def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) ->
     # return [to_mode_with_midi(mode) for mode in modes]
 
     return ModeGroupWithMidi(
-        mode=mode,
-        button=controller.build_midi_coords(parse_coords(mode.button))[0][0],
-        on_color=controller.light_color_for(mode.on_color),
-        off_color=controller.light_color_for(mode.off_color),
+        mode_mappings=ModeMappingsV2(
+            mode=mode,
+            button=controller.build_midi_coords(parse_coords(mode.button))[0][0],
+            on_color=controller.light_color_for(mode.on_color),
+            off_color=controller.light_color_for(mode.off_color)
+        ),
         mappings={
             'mode_1': mapping_1,
             'mode_2': mapping_2,
@@ -117,7 +109,16 @@ def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) ->
     )
 
 
-
+def read_root_v2(root:RootV2, controller:ControllerV2) -> Union[RootV2, ModeGroupWithMidi]:
+    if root.mode is not None:
+        return build_mappings_model_with_mode(root.mode, controller)
+    else:
+        return ModeGroupWithMidi(
+            mode_mappings=None,
+            mappings={
+                'mode_1': build_mappings_model_v2(root.mappings, controller)
+            }
+        )
 
 def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions]],
                             controller: ControllerV2) -> (
@@ -148,14 +149,14 @@ def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, De
     return mappings_with_midi
 
 
-def read_mapping(mapping_path):
+def read_root(mapping_path):
     try:
 
         def normalize_key(key, parent_keys):
             return '_'.join(key.lower().split())
 
         data = nt.loads(mapping_path, normalize_key=normalize_key)
-        return MappingsV2.model_validate(data)
+        return RootV2.model_validate(data)
     except nt.NestedTextError as e:
         e.terminate()
 

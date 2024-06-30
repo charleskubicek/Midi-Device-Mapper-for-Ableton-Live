@@ -14,7 +14,7 @@ from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_suface_as_code.model_v2 import build_mappings_model_v2, read_controller, \
-    read_mapping, build_mappings_model_with_mode, ModeGroupWithMidi
+    read_root, build_mappings_model_with_mode, ModeGroupWithMidi, read_root_v2
 
 template_to_code = {
     'device': device_templates,
@@ -40,18 +40,23 @@ def tabs(n):
 
 
 def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
-    setup = [
-        "self.current_mode = None\n",
-        f"{tabs(2)}self._first_mode = '{modes.first_mode_name()}'\n",
-        f"{tabs(2)}self.mode_button = " + modes.button.create_button_element(),
-    ]
+    if modes.has_modes():
+        setup = [
+            "self.current_mode = None\n",
+            f"{tabs(2)}self._first_mode = '{modes.first_mode_name()}'\n",
+            f"{tabs(2)}self.mode_button = " + modes.button.create_button_element(),
+        ]
+        for mode in modes.fsm():
+            setup.append(generate_dict_string(mode.name,
+                                              mode.next,
+                                              f"self.mode_{mode.name}_add_listeners",
+                                              mode.is_shift,
+                                              mode.color
+                                              ))
+    else:
+        setup = []
 
-    for mode in modes.fsm():
-        setup.append(generate_dict_string(mode.name,
-                                          mode.next,
-                                          f"self.mode_{mode.name}_add_listeners", mode.is_shift,
-                                          mode.color
-                                          ))
+
     mode_codes = {}
 
     for name, mode_mappings in modes.mappings.items():
@@ -70,22 +75,19 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         for array_def in value.array_defs:
             els = f",\n{tabs(3)}".join([f"self.{item.controller_variable_name()}" for item in array_def[1]])
             array_defs.append(f"self.{array_def[0]} = [\n{tabs(3)}{els}]")
-        # els = f",\n{tabs(3)}".join([f"self.{[i.controller_variable_name() for i in items]}" for (var_name, items) in value.array_defs])
-        # array_defs.append(f"self.{value.array_defs.controller_variable_name()}_arr = [\n{tabs(3)}{els}]")
-
-
-    # array_defs = [x for x in GeneratedModeCode.merge_all(list(mode_codes.values())).array_defs]
 
     new_creation = [creation.variable_initialisation()
                     for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
 
-    new_creation.append(f"self.current_mode = self._modes['mode_1']")
+    if modes.has_modes():
+        new_creation.append(f"self.current_mode = self._modes['mode_1']")
+        new_creation.append(f"self.goto_mode(self._first_mode)\n")
+
     new_creation.append(f"self.mode_mode_1_add_listeners()")
-    new_creation.append(f"self.goto_mode(self._first_mode)\n")
+
 
     codes = GeneratedCode()
     for name, mode_code in mode_codes.items():
-        fn_header = f"def mode_{name}_remove_listeners(self):"
         codes.remove_listeners.append(class_function_body_code_block(mode_code.remove_listeners))
 
         codes.setup_listeners.append(f"{tab}def mode_{name}_add_listeners(self):")
@@ -94,10 +96,11 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
 
         codes.listener_fns.append(class_function_code_block(mode_code.listener_fns))
 
-    codes.remove_listeners.append(f"{tabs(2)}if not modes_only:")
-    codes.remove_listeners.append(f"{tabs(3)}self.mode_button.remove_value_listener(self.mode_button_listener)")
+    if modes.has_modes():
+        codes.remove_listeners.append(f"{tabs(2)}if not modes_only:")
+        codes.remove_listeners.append(f"{tabs(3)}self.mode_button.remove_value_listener(self.mode_button_listener)")
 
-    setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
+        setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
     return {
         'code_setup': "\n".join(setup),
@@ -199,7 +202,7 @@ def generate(mapping_file_path):
     if not functions_path.exists():
         functions_path = None
 
-    mapping = read_mapping(mapping_file_path.read_text())
+    mapping = read_root(mapping_file_path.read_text())
     surface_name = mapping_file_path.stem
 
     vars = {
@@ -228,7 +231,7 @@ def generate_modes(mapping_file_path):
     if not functions_path.exists():
         functions_path = None
 
-    mapping = read_mapping(mapping_file_path.read_text())
+    mode_mappings = read_root(mapping_file_path.read_text())
     surface_name = mapping_file_path.stem
 
     vars = {
@@ -240,10 +243,11 @@ def generate_modes(mapping_file_path):
 
     target_dir = Path('out')
 
-    controller_path = mapping_file_path.parent / mapping.controller
+    controller_path = mapping_file_path.parent / mode_mappings.controller
     controller = read_controller(controller_path.read_text())
     print_model(controller)
-    mode_with_midi = build_mappings_model_with_mode(mapping.mode, controller)
+    mode_with_midi = read_root_v2(mode_mappings, controller)
+    # mode_with_midi = build_mappings_model_with_mode(mode_mappings.mode, controller)
 
     mode_vars = vars | generate_mode_code_in_template_vars(mode_with_midi)
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
@@ -255,4 +259,5 @@ if __name__ == '__main__':
     root_dir = Path("tests_e2e")
     # generate(root_dir / "ck_test_novation_xl.nt")
     # generate(root_dir / "ck_test_novation_lc.nt")
-    generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
+    generate_modes(root_dir / "ck_test_novation_lc.nt")
+    # generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
