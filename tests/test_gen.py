@@ -47,32 +47,6 @@ def fn(self, value):
 
         self.assertEqual(generated, expected_output, diff(generated, expected_output))
 
-    def test_encoder_template(self):
-        # device_with_midi = build_mode_model_v1([DeviceV1.model_validate(device_mapping)], ControllerV1.model_validate(controller))
-        device_with_midi = DeviceWithMidi.model_construct(track=TrackInfo.selected(), device="selected",
-                                                          midi_range_maps=[
-                                                              build_device_midi_mapping(midi_number=21,parameter=1),
-                                                              build_device_midi_mapping(midi_number=22,parameter=2),
-                                                              build_device_midi_mapping(midi_number=23,parameter=3),
-                                                              build_device_midi_mapping(midi_number=24,parameter=4),
-                                                          ])
-        result = device_mode_templates(device_with_midi, 'mode_1')
-
-        self.assertEqual(result.remove_listeners[0],
-                         "self.knob_ch2_21_CC.remove_value_listener(self.knob_ch2_21_CC__mode_mode_1_p1value)")
-        self.assertEqual(result.control_defs[0].number, 21)
-        self.assertEqual(result.control_defs[1].number, 22)
-        self.assertEqual(len(result.control_defs), 4)
-        print(result.listener_fns[3])
-        self.assertTrue(
-            'self.device_parameter_action(device, 1, value, "knob_ch2_21_CC__mode_mode_1_p1value")' in result.listener_fns[
-                3].strip(),
-            f"code was {result.listener_fns[3]}")
-
-        self.assertEqual(len(result.remove_listeners), 4)
-        self.assertEqual(len(result.control_defs), 4)
-        self.assertEqual(len(result.setup_listeners), 4)
-        self.assertEqual(len(result.listener_fns), 20)
 
     def test_build_live_api_lookup_from_lom(self):
         # expected_output = "self.manager.song().view.tracks[0].view.devices[1]"

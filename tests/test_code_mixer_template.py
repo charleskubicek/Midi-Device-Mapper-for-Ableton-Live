@@ -31,12 +31,7 @@ class TestTrackNavTemplates(unittest.TestCase, CustomAssertions):
 
         self.assertEqual(result.setup_listeners[0], "self.button_ch2_50_CC.add_value_listener(self.button_ch2_50_CC__mode_1_incvalue)")
         self.assertTrue("def button_ch2_50_CC__mode_1_incvalue(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
-        # self.assertStringInOne('set_on_off_values(self.led_on, self.led_off)', result.creation)
 
-        # self.assertStringInOne('self.button_ch2_no50_CC__track_nav_inc = EncoderElement(MIDI_CC_TYPE, 1, 50, Live.MidiMap.MapMode.absolute)', result.creation)
-        # self.assertStringInOne('self.mixer.set_track_nav_inc(self.encodr_ch2_50_CC__cds_r1c2__api_track_nav_inc)', result.setup_listeners)
-        # self.assertStringInOne('self.mixer.set_track_nav_inc(None)', result.remove_listeners)
-        # self.assertEqual(result.listener_fns , [])
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def test_mixer_with_buttons(self):
@@ -88,17 +83,6 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def build_mixer_with_one_mapping(self, chan=2, no=50, type="CC", api_fn="pan",
                                      enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
         return build_mixer_with_multiple_mappings(chan, [no], type, api_fn, enocder_type, track_info)
-
-    # def build_mixer_with_multiple_mappings(self, chan=2, nos=[], type="CC", api_fn="pan", enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
-    #     col=2
-    #     return MixerWithMidi.model_construct(
-    #         midi_maps=[MixerMidiMapping.with_multiple_args(
-    #             [MidiCoords(channel=chan, type=type, number=no) for no in nos],
-    #             enocder_type,
-    #             api_fn,
-    #             encoder_coords=EncoderCoords(row=1, col=col, row_range_end=(col + 1+ len(nos) - 1)),
-    #             track_info=track_info
-    #         )])
 
 if __name__ == '__main__':
     unittest.main()
