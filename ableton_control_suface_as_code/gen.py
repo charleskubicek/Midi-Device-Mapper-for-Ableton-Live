@@ -1,16 +1,12 @@
 import hashlib
 from pathlib import Path
 from string import Template
-from typing import Union
 
 from ableton_control_suface_as_code.code import class_function_body_code_block, \
     class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
     functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates
-from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiType
+from ableton_control_suface_as_code.core_model import MidiType
 from ableton_control_suface_as_code.model_controller import ControllerV2
-from ableton_control_suface_as_code.model_device import DeviceWithMidi
-from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
-from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_suface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
 
@@ -89,7 +85,7 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     codes = GeneratedModeCode()
 
     creation = [creation.variable_initialisation()
-                    for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).creation]
+                for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).control_defs]
 
     creation.append(f"self.mode_mode_1_add_listeners()")
 
@@ -107,15 +103,15 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
     if modes.has_modes():
         creation.append(mode_creation_template(first_mode_name))
         codes.remove_listeners.append(mode_remove_listeners_template())
-        codes.setup.append(mode_setup_template(first_mode_name))
+        codes.init.append(mode_setup_template(first_mode_name))
 
         for mode in modes.fsm():
-            codes.setup.append(mode_state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
+            codes.init.append(mode_state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
 
-        codes.setup.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
+        codes.init.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
     return {
-        'code_setup': "\n".join(codes.setup),
+        'code_setup': "\n".join(codes.init),
         'code_creation': class_function_body_code_block(creation+array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),

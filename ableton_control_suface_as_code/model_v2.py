@@ -62,7 +62,7 @@ class ModeMappingsV2(BaseModel):
         return self.mode.type is not None and self.mode.type == 'shift'
 
 class ModeGroupWithMidi(BaseModel):
-    mode_mappings: Optional[ModeMappingsV2]
+    mode_mappings: Optional[ModeMappingsV2] = None
     mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
 
     def has_modes(self):

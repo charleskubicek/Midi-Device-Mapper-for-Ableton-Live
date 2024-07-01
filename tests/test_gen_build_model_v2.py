@@ -31,8 +31,7 @@ def build_control_group_part(midi_range='21-28', number=1, layout=LayoutAxis.row
 
 def build_raw_controller_v2(groups=[build_control_group_part()]):
     return ControllerRawV2(
-        on_led_midi =1,
-        off_led_midi=1,
+        light_colors={},
         control_groups=groups
 
     )

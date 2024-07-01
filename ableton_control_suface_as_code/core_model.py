@@ -152,18 +152,6 @@ class MidiCoords(BaseModel):
         return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
-class DeviceMidiMapping(BaseModel):
-    type: Literal['device'] = 'device'
-    midi_coords: MidiCoords
-    parameter: int
-
-    def __init__(self, midi_channel, midi_number, midi_type, parameter):
-        super().__init__(midi_coords=MidiCoords(midi_channel, midi_number, midi_type), parameter=parameter)
-
-    def info_string(self):
-        return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
-
-
 class Direction(Enum):
     inc = 'inc'
     dec = 'dec'
@@ -194,20 +182,6 @@ class MixerMidiMapping(BaseModel):
     api_function: str
     track_info: TrackInfo
     encoder_coords: EncoderCoords  # For debugging
-
-    @classmethod
-    def with_multiple_args(cls,
-                           midi_coords_list: List[MidiCoords],
-                           encoder_type: EncoderType,
-                           api_function,
-                           encoder_coords: EncoderCoords,
-                           track_info: TrackInfo):
-        return MixerMidiMapping(
-            midi_coords=midi_coords_list,
-            api_function=api_function,
-            encoder_coords=encoder_coords,
-            track_info=track_info
-        )
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -260,13 +234,6 @@ class MixerMidiMapping(BaseModel):
         api = self._api_name_in_listener_code
 
         return f"self.mixer.{track_strip}_strip().set_{api}_{self.api_control_type}(None)"
-
-
-class DeviceWithMidi(BaseModel):
-    type: Literal['device'] = 'device'
-    track: TrackInfo
-    device: str
-    midi_range_maps: list[DeviceMidiMapping]
 
 
 class MixerWithMidi(BaseModel):
