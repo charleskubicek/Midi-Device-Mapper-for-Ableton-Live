@@ -51,7 +51,7 @@ mode:
         -
             type: transport
             mappings:
-                play-stop: row_3:4
+                play-stop: row_3:4 toggle
                 record-session: row_3:5
                 record-arrangement: row_3:6
                 loop: row_3:7

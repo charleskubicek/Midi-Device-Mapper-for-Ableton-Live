@@ -34,9 +34,6 @@ class DeviceWithMidi(BaseModel):
     device: str
     midi_maps: List[DeviceMidiMapping]
 
-    # def midi_coords(self) -> List[MidiCoords]:
-    #     return [m.midi_coords for m in self.midi_maps]
-
 
 def build_device_model_v2(controller, mapping):
     midi_range_mappings = []

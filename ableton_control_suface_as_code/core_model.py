@@ -82,6 +82,7 @@ class EncoderCoords(BaseModel):
     row: int
     col: int
     row_range_end: int
+    is_toggle: bool = False
 
     @property
     def is_range(self):
@@ -94,8 +95,8 @@ class EncoderCoords(BaseModel):
     def list_inclusive(self):
         return list(self.range_inclusive)
 
-    def __init__(self, row, col=None, row_range_end=None):
-        super().__init__(row=row, col=col, row_range_end=row_range_end)
+    def __init__(self, row, col=None, row_range_end=None, is_toggle=False):
+        super().__init__(row=row, col=col, row_range_end=row_range_end, is_toggle=is_toggle)
 
     def debug_string(self):
         return f"r{self.row}c{self.col}"
@@ -275,9 +276,15 @@ def parse_coords(raw) -> EncoderCoords | None:
     if raw is None:
         return None
 
+    is_button_toggle = False
+
     try:
         [row_raw, col] = raw.split(":")
         row = int(row_raw.removeprefix("row_"))
+
+        if ' toggle' in col:
+            is_button_toggle = True
+            col = col.removesuffix(' toggle')
 
         if '-' in col:
             [start, end] = col.split("-")
