@@ -9,7 +9,7 @@ class TestBuildModeModelV2(unittest.TestCase):
 
     def test_build_midi_coords(self):
         controller = ControllerV2.build_from(build_raw_controller_v2())
-        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=1))
+        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=1, encoder_refs=[]))
 
         self.assertEqual(1, len(e))
         self.assertEqual(e[0].number, 21)
@@ -21,7 +21,7 @@ class TestBuildModeModelV2(unittest.TestCase):
         ]
 
         controller = ControllerV2.build_from(build_raw_controller_v2(groups))
-        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=8))
+        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=8, encoder_refs=[]))
 
         self.assertEqual(8, len(e))
         self.assertEqual(e[0].number, 21)
@@ -33,7 +33,7 @@ class TestBuildModeModelV2(unittest.TestCase):
         ]
 
         controller = ControllerV2.build_from(build_raw_controller_v2(groups))
-        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=4))
+        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=4, encoder_refs=[]))
 
         self.assertEqual(4, len(e))
         self.assertEqual(e[0].number, 29)
@@ -62,7 +62,7 @@ class TestBuildModeModelV2(unittest.TestCase):
         ]
 
         controller = ControllerV2.build_from(build_raw_controller_v2(groups))
-        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=4))
+        e, tps = controller.build_midi_coords(EncoderCoords(row=1, col=1, row_range_end=4, encoder_refs=[]))
 
         self.assertEqual(4, len(e))
         self.assertEqual(e[0].number, 0)

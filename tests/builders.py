@@ -7,11 +7,18 @@ from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi, Tra
 
 
 def midi_coords_ch2_cc_50_knob(encoder_override=EncoderType.knob):
-    return MidiCoords(channel=2, type='CC', number=50, encoder_type=encoder_override, source_info="tests")
+    return MidiCoords(
+        channel=2,
+        type='CC',
+        number=50,
+        encoder_type=encoder_override,
+        source_info="tests",
+        encoder_refs=[]
+    )
 
 
 def encoder_coords_1_2():
-    return EncoderCoords(row=1, col=2, row_range_end=2)
+    return EncoderCoords(row=1, col=2, row_range_end=2, encoder_refs=[])
 
 
 def build_track_nav_with_midi_button(midi_coords=midi_coords_ch2_cc_50_knob(EncoderType.button)):
@@ -71,10 +78,10 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
     col = 2
     return MixerWithMidi(
         midi_maps=[MixerMidiMapping(
-            midi_coords=[MidiCoords(channel=chan, type=type, number=no, encoder_type=EncoderType.knob, source_info="tests") for no in nos],
+            midi_coords=[MidiCoords(channel=chan, type=type, number=no, encoder_type=EncoderType.knob, source_info="tests", encoder_refs=[]) for no in nos],
             api_function=api_fn,
             track_info=track_info,
-            encoder_coords=EncoderCoords(row=1, col=col, row_range_end=(col + 1 + len(nos) - 1)),
+            encoder_coords=EncoderCoords(row=1, col=col, row_range_end=(col + 1 + len(nos) - 1), encoder_refs=[]),
 
         )])
 
@@ -82,7 +89,7 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
 def build_functions_with_midi(channel=1, number=51, type="CC", function="toggle") -> FunctionsWithMidi:
     return FunctionsWithMidi(midi_maps=[
         FunctionsMidiMapping(
-            midi_coords=[MidiCoords(channel=channel, type=type, number=number, encoder_type=EncoderType.button, source_info="tests")],
+            midi_coords=[MidiCoords(channel=channel, type=type, number=number, encoder_type=EncoderType.button, source_info="tests",encoder_refs=[])],
             function=function
         )
     ])

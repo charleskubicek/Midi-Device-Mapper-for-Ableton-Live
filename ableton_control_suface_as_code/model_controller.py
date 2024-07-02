@@ -7,7 +7,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_suface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords, \
-    EncoderCoords
+    EncoderCoords, EncoderRefinement
 
 
 class ControlGroupPartV2(BaseModel):
@@ -64,14 +64,16 @@ class ControlGroupPartV2(BaseModel):
     def info_string(self):
         return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
 
-    def midi_coords_list(self):
+    def build_midi_coords(self):
         info = self.info_string() +f", from {self.layout.value} {self.number}"
         return [MidiCoords(
             channel=self.midi_channel,
             type=self.midi_type,
             number=midi_number,
             encoder_type=self.type,
-            source_info=info+f", position {i}") for i, midi_number in enumerate(self._midi_list)]
+            source_info=info+f", position {i}",
+            encoder_refs=list()
+        ) for i, midi_number in enumerate(self._midi_list)]
 
 
 class ControlGroupAggregateV2:
@@ -110,7 +112,7 @@ class ControlGroupAggregateV2:
             return sorted(parts, key=lambda x: x.row_parts.first_index)
 
     def build_midi_coords(self, parts: List[ControlGroupPartV2]) -> List[MidiCoords]:
-        list_of_lists = [part.midi_coords_list() for part in parts]
+        list_of_lists = [part.build_midi_coords() for part in parts]
         return list(itertools.chain.from_iterable(list_of_lists))
 
 class ControlGroupV2(BaseModel):
@@ -121,12 +123,7 @@ class ControlGroupV2(BaseModel):
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
 
-    def to_midi_coords(self, midi_number) -> MidiCoords:
-        return MidiCoords(
-            channel=self.midi_channel,
-            type=self.midi_type,
-            number=midi_number)
-
+    #TODO not used?
     @property
     def midi_range(self):
         try:
@@ -187,7 +184,7 @@ class ControllerV2:
                 for col in coords.range_inclusive:
                     midi_range_index = col - 1
                     midi_coords = group.midi_item_at(midi_range_index)
-                    res.append(midi_coords)
+                    res.append(midi_coords.with_encoder_refs(coords.encoder_refs))
 
                 return res, group.type
 
