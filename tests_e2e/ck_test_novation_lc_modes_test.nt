@@ -56,7 +56,7 @@ mode:
                 record-arrangement: row_3:6
                 loop: row_3:7
                 midi-arrange-overdub: row_3:8
-        -
-            type: functions
-            mappings:
-                press_rack_random_button: row_3:8
+#        -
+#            type: functions
+#            mappings:
+#                press_rack_random_button: row_3:8

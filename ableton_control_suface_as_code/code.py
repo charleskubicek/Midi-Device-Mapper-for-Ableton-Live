@@ -98,7 +98,7 @@ def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
         enc_listener_name = mm.controller_listener_fn_name(mode_name)
 
         codes = codes.merge(GeneratedModeCode(
-            control_defs=[mm.midi_coords],
+            control_defs=mm.midi_coords,
             setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
             listener_fns=generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string())
