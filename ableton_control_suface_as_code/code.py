@@ -8,6 +8,7 @@ from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
+from ableton_control_suface_as_code.model_transport import TransportWithMidi
 
 
 @dataclass
@@ -92,7 +93,7 @@ def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
     lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
 
-    for mm in device_with_midi.midi_range_maps:
+    for mm in device_with_midi.midi_maps:
         enc_name = mm.controller_variable_name()
         enc_listener_name = mm.controller_listener_fn_name(mode_name)
 
@@ -131,6 +132,10 @@ def track_nav_mode_templates(track_nav_with_midi: TrackNavWithMidi, mode_name) -
 
 def device_nav_mode_templates(deivce_nav_with_midi: DeviceNavWithMidi, mode_name) -> GeneratedModeCode:
     return map_controllers(mode_name, deivce_nav_with_midi.midi_maps)
+
+
+def transport_mode_templates(transport_with_midi: TransportWithMidi, mode_name) -> GeneratedModeCode:
+    return map_controllers(mode_name, transport_with_midi.midi_maps)
 
 
 def functions_mode_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> GeneratedModeCode:

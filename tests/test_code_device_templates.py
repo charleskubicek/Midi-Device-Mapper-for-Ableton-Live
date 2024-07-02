@@ -1,7 +1,8 @@
 import unittest
-from ableton_control_suface_as_code.core_model import MidiCoords, EncoderType, MidiType, TrackInfo, EncoderCoords
+
 from ableton_control_suface_as_code.code import device_mode_templates
-from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceMidiMapping
+from ableton_control_suface_as_code.core_model import TrackInfo
+from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from tests.builders import build_device_midi_mapping
 
 

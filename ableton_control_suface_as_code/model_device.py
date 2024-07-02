@@ -7,28 +7,35 @@ from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, Nam
 
 class DeviceMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
-    midi_coords: MidiCoords
+    midi_coords: List[MidiCoords]
     parameter: int
 
     @classmethod
     def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
-        return cls(midi_coords=MidiCoords(channel=midi_channel, type=midi_type, number=midi_number), parameter=parameter)
+        return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)], parameter=parameter)
+
+    @property
+    def only_midi_coord(self) -> MidiCoords:
+        return self.midi_coords[0]
 
     def info_string(self):
-        return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__p{self.parameter}"
+        return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__p{self.parameter}"
 
     def controller_variable_name(self):
-        return self.midi_coords.controller_variable_name()
+        return self.only_midi_coord.controller_variable_name()
 
     def controller_listener_fn_name(self, mode_name):
-        return self.midi_coords.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
+        return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
 
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
     device: str
-    midi_range_maps: List[DeviceMidiMapping]
+    midi_maps: List[DeviceMidiMapping]
+
+    # def midi_coords(self) -> List[MidiCoords]:
+    #     return [m.midi_coords for m in self.midi_maps]
 
 
 def build_device_model_v2(controller, mapping):
@@ -42,14 +49,14 @@ def build_device_model_v2(controller, mapping):
 
         for m, p in zip(midis, rm.parameters.as_inclusive_list()):
             midi_range_mappings.append(DeviceMidiMapping(
-                midi_coords=m,
+                midi_coords=[m],
                 parameter=p
             ))
 
     return DeviceWithMidi(
         track=mapping.track_info,
         device=mapping.device,
-        midi_range_maps=midi_range_mappings)
+        midi_maps=midi_range_mappings)
 
 
 class DeviceV2(BaseModel):

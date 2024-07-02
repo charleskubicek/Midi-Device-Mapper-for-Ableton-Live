@@ -119,6 +119,11 @@ class MidiCoords(BaseModel):
     type: MidiType
     number: int
     encoder_type: EncoderType
+    source_info:Optional[str] = None
+
+    @property
+    def ch_num(self):
+        return f"{self.channel}_{self.number}"
 
     def ableton_channel(self):
         return self.channel - 1
@@ -130,8 +135,9 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
-    def __init__(self, channel, number, type, encoder_type):
-        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type)
+    #TODO remove this
+    def __init__(self, channel, number, type, encoder_type, source_info):
+        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type, source_info=source_info)
 
     def create_controller_element(self):
         if self.encoder_type.is_button():
@@ -241,6 +247,7 @@ class MixerWithMidi(BaseModel):
     midi_maps: list[MixerMidiMapping]
 
 
+# TODO bring some implementations up
 class ButtonProviderBaseModel(ABC, BaseModel):
     def info_string(self):
         pass

@@ -25,10 +25,14 @@ modes:
                 mappings:
                     mute: row_3:2
                     solo: row_3:3
-            #-
-            #    type: functions
-            #    mappings:
-            #        set_colours: row_3:8
+            -
+                type: transport
+                mappings:
+                    play-stop: row_3:4
+                    record-session: row_3:5
+                    record-arrangement: row_3:6
+                    loop: row_3:7
+                    midi-arrange-overdub: row_3:8
     -
         name: shifted
         mappings:

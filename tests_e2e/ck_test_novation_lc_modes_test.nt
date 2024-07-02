@@ -49,6 +49,14 @@ mode:
                 pan: row_2:8
                 sends: row_1:5-7
         -
+            type: transport
+            mappings:
+                play-stop: row_3:4
+                record-session: row_3:5
+                record-arrangement: row_3:6
+                loop: row_3:7
+                midi-arrange-overdub: row_3:8
+        -
             type: functions
             mappings:
                 press_rack_random_button: row_3:8

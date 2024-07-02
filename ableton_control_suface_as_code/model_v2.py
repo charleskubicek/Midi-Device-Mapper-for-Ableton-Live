@@ -5,6 +5,7 @@ from pydantic import BaseModel, model_validator, Field
 
 from nestedtext import nestedtext as nt
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords
+from ableton_control_suface_as_code.gen_error import GenError
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, build_device_model_v2, DeviceV2
 from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
@@ -12,9 +13,12 @@ from ableton_control_suface_as_code.model_functions import build_functions_model
 from ableton_control_suface_as_code.model_mixer import MixerV2, build_mixer_model_v2
 from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
     build_track_nav_model_v2
+from ableton_control_suface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
+
 
 class ModeMappingsV2(BaseModel):
     mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
+
 
 @dataclass
 class ModeData:
@@ -23,14 +27,15 @@ class ModeData:
     is_shift: bool
     color: Optional[str]
 
+
 class ModeGroupV2(BaseModel):
     name: str
     button: str = None
     type: str = None
     on_color: Optional[str] = None
     off_color: Optional[str] = None
-    mode_1: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
-    mode_2: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]]
+    mode_1: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]]
+    mode_2: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]]
 
     @property
     def mappings(self):
@@ -39,7 +44,7 @@ class ModeGroupV2(BaseModel):
 
 class RootV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
+    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]] = []
     mode: Optional[ModeGroupV2] = None
 
     @model_validator(mode='after')
@@ -52,6 +57,7 @@ class RootV2(BaseModel):
 
         return self
 
+
 class ModeMappingsV2(BaseModel):
     mode: ModeGroupV2
     button: MidiCoords
@@ -61,9 +67,11 @@ class ModeMappingsV2(BaseModel):
     def is_shift(self):
         return self.mode.type is not None and self.mode.type == 'shift'
 
+
 class ModeGroupWithMidi(BaseModel):
     mode_mappings: Optional[ModeMappingsV2] = None
-    mappings: dict[str, List[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]]
+    mappings: dict[str, List[Union[
+        DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]]
 
     def has_modes(self):
         return self.mode_mappings is not None
@@ -91,8 +99,23 @@ class ModeGroupWithMidi(BaseModel):
         ]
 
 
-def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) -> ModeGroupWithMidi:
+def validate_mappings(mappings: List[
+    Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]):
+    seen = {}
+    for withMidi in mappings:
+        for midi_maps in withMidi.midi_maps:
+            mcs = midi_maps.midi_coords
+            for mc in mcs:
+                if mc.ch_num in seen:
+                    (pmc, previous)  = seen[mc.ch_num]
+                    raise GenError(f"Clashing mappings in {withMidi.type} and {previous.type} to chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
+                                    + f"\n from source 1: {mc.source_info}"
+                                    + f"\n from source 2: {pmc.source_info}", 1)
+                else:
+                    seen[mc.ch_num] = (mc, withMidi)
 
+
+def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) -> ModeGroupWithMidi:
     mapping_1 = build_mappings_model_v2(mode.mode_1, controller)
     mapping_2 = build_mappings_model_v2(mode.mode_2, controller)
 
@@ -110,7 +133,7 @@ def build_mappings_model_with_mode(mode:ModeGroupV2, controller:ControllerV2) ->
     )
 
 
-def read_root_v2(root:RootV2, controller:ControllerV2) -> Union[RootV2, ModeGroupWithMidi]:
+def read_root_v2(root: RootV2, controller: ControllerV2) -> Union[RootV2, ModeGroupWithMidi]:
     if root.mode is not None:
         return build_mappings_model_with_mode(root.mode, controller)
     else:
@@ -121,9 +144,11 @@ def read_root_v2(root:RootV2, controller:ControllerV2) -> Union[RootV2, ModeGrou
             }
         )
 
-def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions]],
+
+def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions, Transport]],
                             controller: ControllerV2) -> (
-        List)[Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi]]:
+        List)[
+    Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]:
     """
     Returns a model of the mapping with midi info attached
 
@@ -146,6 +171,10 @@ def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, De
             mappings_with_midi.append(build_device_nav_model_v2(controller, mapping))
         if mapping.type == "functions":
             mappings_with_midi.append(build_functions_model_v2(controller, mapping))
+        if mapping.type == "transport":
+            mappings_with_midi.append(build_transport_model(controller, mapping))
+
+    validate_mappings(mappings_with_midi)
 
     return mappings_with_midi
 

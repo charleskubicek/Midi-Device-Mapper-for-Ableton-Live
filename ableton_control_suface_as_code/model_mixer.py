@@ -1,6 +1,6 @@
-from typing import Optional, Literal
+from typing import Optional, Literal, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_suface_as_code.core_model import parse_coords, TrackInfo, NamedTrack, MixerMidiMapping, \
     MixerWithMidi
@@ -14,15 +14,16 @@ class MixerMappingsV2(BaseModel):
     arm_raw: Optional[str] = Field(default=None, alias="arm")
     sends_raw: Optional[str] = Field(default=None, alias="sends")
 
-    #
-    # @model_validator(mode='after')
-    # def verify_correct_ranges(self) -> Self:
-    #     single_controllers = ['volume', 'pan', 'mute', 'solo', 'arm']
-    #
-    #     d = self.as_parsed_dict()
-    #     for sc in single_controllers:
-    #         if sc in d and '-' in d[sc]:
-    #             raise ValueError(f"{sc} can't have a range value")
+    @model_validator(mode='after')
+    def verify_correct_ranges(self) -> Self:
+        single_controllers = ['volume', 'pan', 'mute', 'solo', 'arm']
+
+        d = self.as_parsed_dict()
+        for sc in single_controllers:
+            if sc in d and '-' in d[sc]:
+                raise ValueError(f"{sc} can't have a range value")
+
+        return self
 
     def as_parsed_dict(self):
         return {key.removesuffix('_raw'): parse_coords(value) for key, value in self.model_dump().items() if

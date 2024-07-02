@@ -4,8 +4,10 @@ from string import Template
 
 from ableton_control_suface_as_code.code import class_function_body_code_block, \
     class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
-    functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates
+    functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates, \
+    transport_mode_templates
 from ableton_control_suface_as_code.core_model import MidiType
+from ableton_control_suface_as_code.gen_error import GenError
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
@@ -15,7 +17,8 @@ mode_template_to_code = {
     'mixer': mixer_mode_templates,
     'track-nav': track_nav_mode_templates,
     'device-nav': device_nav_mode_templates,
-    'functions': functions_mode_templates
+    'functions': functions_mode_templates,
+    'transport': transport_mode_templates
 }
 
 tab = " " * 4
@@ -178,6 +181,8 @@ def print_model(model: ControllerV2):
         print(table)
 
 
+
+
 def generate_modes(mapping_file_path):
     functions_path = root_dir / "functions.py"
 
@@ -201,14 +206,24 @@ def generate_modes(mapping_file_path):
     print_model(controller)
     mode_with_midi = read_root_v2(mode_mappings, controller)
 
-    mode_vars = vars | generate_mode_code_in_template_vars(mode_with_midi)
+    code_vars = generate_mode_code_in_template_vars(mode_with_midi)
+    mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
     print("Finished generating code.")
 
 
 if __name__ == '__main__':
-    root_dir = Path("tests_e2e")
-    generate_modes(root_dir / "ck_test_novation_xl.nt")
-    generate_modes(root_dir / "ck_test_novation_lc.nt")
-    generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
+    try:
+        root_dir = Path("tests_e2e")
+        # generate_modes(root_dir / "ck_test_novation_xl.nt")
+        # generate_modes(root_dir / "ck_test_novation_lc.nt")
+        generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
+    # except GenError as e:
+    #     print(f"Problem Generating: {e}")
+    #     exit(-1)
+    except Exception as e:
+        raise e
+        # print(f"Error: {e}")
+        # exit(-1)
+        # sys.exit(e.error_code)

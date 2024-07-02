@@ -36,7 +36,7 @@ def build_1_group_controller(midi_range='21-28'):
 def build_device_midi_mapping(midi_channel=2, midi_number=10, midi_type="CC", parameter=1,
                               encoder_type=EncoderType.knob):
     return DeviceMidiMapping(
-        midi_coords=MidiCoords(channel=midi_channel, type=midi_type, number=midi_number, encoder_type=encoder_type),
+        midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number, encoder_type=encoder_type)],
         parameter=parameter)
 
 

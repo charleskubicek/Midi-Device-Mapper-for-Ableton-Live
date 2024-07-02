@@ -62,14 +62,16 @@ class ControlGroupPartV2(BaseModel):
                 return list(map(int, values))
 
     def info_string(self):
-        return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, type:{self.type.value}"
+        return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
 
     def midi_coords_list(self):
+        info = self.info_string() +f", from {self.layout.value} {self.number}"
         return [MidiCoords(
             channel=self.midi_channel,
             type=self.midi_type,
             number=midi_number,
-            encoder_type=self.type) for midi_number in self._midi_list]
+            encoder_type=self.type,
+            source_info=info+f", position {i}") for i, midi_number in enumerate(self._midi_list)]
 
 
 class ControlGroupAggregateV2:
