@@ -9,8 +9,8 @@ from tests.builders import build_device_midi_mapping
 class TestDeviceModeTemplates(unittest.TestCase):
 
     def test_device_mode_templates(self):
-        device_with_midi = DeviceWithMidi.model_construct(track=TrackInfo.selected(), device="selected",
-                                                          midi_range_maps=[
+        device_with_midi = DeviceWithMidi(track=TrackInfo.selected(), device="selected",
+                                                          midi_maps=[
                                                               build_device_midi_mapping(midi_number=21,parameter=1),
                                                               build_device_midi_mapping(midi_number=22,parameter=2),
                                                               build_device_midi_mapping(midi_number=23,parameter=3),

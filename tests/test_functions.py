@@ -4,8 +4,7 @@ from ableton_control_suface_as_code.code import functions_mode_templates
 from ableton_control_suface_as_code.core_model import MidiCoords, EncoderType
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi, FunctionsMidiMapping
 from tests.builders import build_functions_with_midi
-from tests.test_mixer_template import CustomAssertions
-
+from tests.test_code_mixer_template import CustomAssertions
 
 
 class TestFunctionsTemplates(unittest.TestCase, CustomAssertions):

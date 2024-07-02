@@ -4,7 +4,7 @@ from ableton_control_suface_as_code.core_model import MidiCoords, EncoderType, M
 class TestMidiCoords(unittest.TestCase):
 
     def setUp(self):
-        self.midi_coords = MidiCoords(channel=1, number=21, type=MidiType.CC, encoder_type=EncoderType.knob)
+        self.midi_coords = MidiCoords(channel=1, number=21, type=MidiType.CC, encoder_type=EncoderType.knob, source_info="tests")
 
     def test_ableton_channel(self):
         self.assertEqual(self.midi_coords.ableton_channel(), 0)
