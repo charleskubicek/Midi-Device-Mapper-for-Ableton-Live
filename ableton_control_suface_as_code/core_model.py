@@ -270,7 +270,7 @@ class ButtonProviderBaseModel(ABC, BaseModel):
         return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
-def parse_coords(raw) -> EncoderCoords | None:
+def parse_coords(raw) -> Union[EncoderCoords, None]:
     if raw is None:
         return None
 

@@ -2,12 +2,12 @@
 
 - [x] Non-contiguous rows/columns
 - [ ] Button toggle
-- [ ] Modes
+- [x] Modes
 - [ ] Auto encoder min/max-
-- [ ] User functions
-- [ ] Transport functions
+- [x] User functions
+- [x] Transport functions
 - [ ] Clip view
-- [ ] Print ascii text of controller layout
+- [x] Print ascii text of controller layout
 - [ ] Device: go to named top-level device
 - [ ] Track: go to named track
 

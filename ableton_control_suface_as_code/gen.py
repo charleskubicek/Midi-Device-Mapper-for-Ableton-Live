@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 from string import Template
 
-from ableton_control_suface_as_code.code import class_function_body_code_block, \
+from ableton_control_suface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
     functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates, \
     transport_mode_templates
@@ -65,9 +65,10 @@ def mode_state_dict_template(mode:ModeData, listners_function):
 """
 
 def array_def_template(array_name, array_values):
+    end = ",\n" + tabs(3)
     return f"""
         self.{array_name} = [
-            {f",\n{tabs(3)}".join([f"self.{v.controller_variable_name()}" for v in array_values])}
+             {end.join([f"self.{v.controller_variable_name()}" for v in array_values])}
         ]
     """
 

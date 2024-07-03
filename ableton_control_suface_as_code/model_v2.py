@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, List, Self, Optional
+from typing import Union, List, Optional
 
 from pydantic import BaseModel, model_validator, Field
 
@@ -48,7 +48,7 @@ class RootV2(BaseModel):
     mode: Optional[ModeGroupV2] = None
 
     @model_validator(mode='after')
-    def mode_or_mapping(self) -> Self:
+    def mode_or_mapping(self):
         if self.mode is None and len(self.mappings) == 0:
             raise ValueError('no mappings or modes')
 

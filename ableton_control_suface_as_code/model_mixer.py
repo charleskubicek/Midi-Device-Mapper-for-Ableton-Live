@@ -1,4 +1,4 @@
-from typing import Optional, Literal, Self
+from typing import Optional, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -15,7 +15,7 @@ class MixerMappingsV2(BaseModel):
     sends_raw: Optional[str] = Field(default=None, alias="sends")
 
     @model_validator(mode='after')
-    def verify_correct_ranges(self) -> Self:
+    def verify_correct_ranges(self):
         single_controllers = ['volume', 'pan', 'mute', 'solo', 'arm']
 
         d = self.as_parsed_dict()
