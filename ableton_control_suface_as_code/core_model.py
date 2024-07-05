@@ -1,5 +1,6 @@
 import re
 from abc import ABC
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Optional, List, Union
 
@@ -24,8 +25,34 @@ class EncoderType(str, Enum):
                 return control_type
         raise ValueError(f"No ControlTypeEnum starts with {str[0]} from {str}")
 
-class EncoderRefinement(str, Enum):
-    toggle = 'toggle'
+
+class EncoderRefinement(ABC, BaseModel):
+    def name(self) -> str:
+        pass
+
+    def decorator(self, next):
+        pass
+
+
+class Toggle(EncoderRefinement, BaseModel):
+    def name(self): return "toggle"
+
+    def decorator(self, next):
+        pass
+
+    @staticmethod
+    def instance():
+        return Toggle()
+
+
+@dataclass
+class EncoderRefinements:
+    refs:List[EncoderRefinement]
+
+    def has_toggle(self):
+        return any(ref.name() == "toggle" for ref in self.refs)
+
+
 
 class LayoutAxis(str, Enum):
     row = 'row'
@@ -95,7 +122,6 @@ class EncoderCoords(BaseModel):
         super().__init__(row=row, col=col, row_range_end=row_range_end, encoder_refs=encoder_refs)
 
 
-
 class MidiType(str, Enum):
     note = 'note'
     CC = 'CC'
@@ -114,11 +140,12 @@ class MidiCoords(BaseModel):
     type: MidiType
     number: int
     encoder_type: EncoderType
-    source_info:Optional[str] = None
-    encoder_refs:List[EncoderRefinement] = list()
+    source_info: Optional[str] = None
+    encoder_refs: List[EncoderRefinement] = []
 
-    def with_encoder_refs(self, encoder_refs=list()):
-        return MidiCoords(channel=self.channel, type=self.type, number=self.number, encoder_type=self.encoder_type, source_info=self.source_info, encoder_refs=encoder_refs)
+    def with_encoder_refs(self, encoder_refs=None):
+        return MidiCoords(channel=self.channel, type=self.type, number=self.number, encoder_type=self.encoder_type,
+                          source_info=self.source_info, encoder_refs=encoder_refs)
 
     @property
     def ch_num(self):
@@ -134,9 +161,11 @@ class MidiCoords(BaseModel):
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
 
-    #TODO remove this
-    def __init__(self, channel, number, type, encoder_type, source_info, encoder_refs:List[EncoderRefinement] = list()):
-        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type, source_info=source_info, encoder_refs=encoder_refs)
+    # TODO remove this
+    def __init__(self, channel, number, type, encoder_type, source_info,
+                 encoder_refs: List[EncoderRefinement] = list()):
+        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type, source_info=source_info,
+                         encoder_refs=encoder_refs)
 
     def create_controller_element(self):
         if self.encoder_type.is_button():
@@ -274,21 +303,25 @@ def parse_coords(raw) -> Union[EncoderCoords, None]:
     if raw is None:
         return None
 
-    is_button_toggle = False
-
     try:
-        [row_raw, col] = raw.split(":")
-        row = int(row_raw.removeprefix("row_"))
+        from parse import parse
+        return parse(raw)
 
-        if ' toggle' in col:
-            is_button_toggle = True
-            col = col.removesuffix(' toggle')
-
-        if '-' in col:
-            [start, end] = col.split("-")
-            return EncoderCoords(row=row, col=int(start), row_range_end=int(end), encoder_refs=[])
-        else:
-            return EncoderCoords(row=row, col=int(col), row_range_end=int(col), encoder_refs=[])
+    # is_button_toggle = False
+    #
+    # try:
+    #     [row_raw, col] = raw.split(":")
+    #     row = int(row_raw.removeprefix("row_"))
+    #
+    #     if ' toggle' in col:
+    #         is_button_toggle = True
+    #         col = col.removesuffix(' toggle')
+    #
+    #     if '-' in col:
+    #         [start, end] = col.split("-")
+    #         return EncoderCoords(row=row, col=int(start), row_range_end=int(end), encoder_refs=[])
+    #     else:
+    #         return EncoderCoords(row=row, col=int(col), row_range_end=int(col), encoder_refs=[])
     except Exception as e:
         print(f"Failed to parse '{raw}' due to {e}")
         raise e

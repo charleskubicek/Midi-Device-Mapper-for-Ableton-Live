@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 from string import Template
 from typing import List
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
+from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords, \
+    EncoderRefinements
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
@@ -23,7 +24,7 @@ class GeneratedModeCode:
     @classmethod
     def merge_all(cls, codes: []):
         if len(codes) == 0:
-            return GeneratedModeCode([], [], [], [], [], [])
+            return GeneratedModeCode()
         if len(codes) == 1:
             return codes[0]
         else:
@@ -55,15 +56,21 @@ def ${fn_name}(self, value):
     """).substitute(parameter=parameter, lom=lom, fn_name=fn_name, comment=debug_st).split("\n")
 
 
-def generate_control_value_listener_function_action(fn_name, callee, debug_st) -> [str]:
+def generate_control_value_listener_function_action(fn_name, callee, toggle:bool, debug_st:str) -> [str]:
+    toggle_fn = "True"
+    if toggle:
+        toggle_fn = "self.value_is_127(value)"
+
+
     return Template("""
 # $comment   
 def ${fn_name}(self, value):
     if self.manager.debug:
         self.log_message(f"${fn_name} ($comment) callee = ${callee}, value is {value}")
 
-    $callee  
-    """).substitute(callee=callee, fn_name=fn_name, comment=debug_st).split("\n")
+    if ${toggle_fn}:
+        $callee  
+    """).substitute(callee=callee, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split("\n")
 
 
 def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> GeneratedModeCode:
@@ -110,6 +117,9 @@ def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
     button_name = midi_map.controller_variable_name()
     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
+    enc_refs = EncoderRefinements(midi_map.only_midi_coord.encoder_refs)
+
+    print(f"enc_refs = {enc_refs}")
 
     return GeneratedModeCode(
         control_defs=[midi_map.only_midi_coord],
@@ -117,6 +127,7 @@ def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseM
         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
         listener_fns=generate_control_value_listener_function_action(button_listener_name,
                                                                      midi_map.template_function_name(),
+                                                                     enc_refs.has_toggle(),
                                                                      midi_map.info_string())
     )
 

@@ -143,6 +143,8 @@ $code_setup_listeners
 
         self.current_mode = next_mode
 
+    def value_is_127(self, value):
+        return value == 127
 
     def mode_button_listener(self, value):
         self.log_message(f'mode_button_listener: {value}, current mode is {self.current_mode}')
