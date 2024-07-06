@@ -120,11 +120,14 @@ $code_setup_listeners
             self.log_message(f"{parameter_no} too large, max is {len(device.parameters)}")
             return
 
+        min = device.parameters[parameter_no].min
+        max = device.parameters[parameter_no].max
+
         if self.manager.debug:
             self.log_message(f"{fn_name}: selected_device:{device.name}, value:{value}")
-            self.log_message(f"Device param min:{device.parameters[parameter_no].min}, max: {device.parameters[parameter_no].max}")
+            self.log_message(f"Device param min:{min}, max: {max}")
 
-        device.parameters[parameter_no].value = value
+        device.parameters[parameter_no].value = self.normalise(value, min, max)
 
 
     $code_listener_fns
@@ -145,6 +148,28 @@ $code_setup_listeners
 
     def value_is_127(self, value):
         return value == 127
+
+    def normalise(self, midi_value, min_value, max_value):
+        """
+        Maps a MIDI value (0-127) to the given range [min_value, max_value].
+
+        :param midi_value: int, The input MIDI value (0-127)
+        :param min_value: int, The minimum value of the target range
+        :param max_value: int, The maximum value of the target range
+        :return: int, The mapped value within the range [min_value, max_value]
+        """
+        if min_value == max_value:
+            return min_value
+
+        # Normalize the MIDI value to a 0-1 range
+        normalized_value = midi_value / 127.0
+
+        # Map the normalized value to the target range
+        mapped_value = min_value + normalized_value * (max_value - min_value)
+
+        # Ensure the mapped value is within the target range
+        mapped_value = round(mapped_value)
+        return int(max(min_value, min(mapped_value, max_value)))
 
     def mode_button_listener(self, value):
         self.log_message(f'mode_button_listener: {value}, current mode is {self.current_mode}')

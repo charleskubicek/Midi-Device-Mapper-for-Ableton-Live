@@ -65,7 +65,7 @@ def build_device_model_v2_1(controller, device:DeviceV2_1) -> DeviceWithMidi:
         for mcs in rnge.multi_encoder_coords:
             midis, _ = controller.build_midi_coords(mcs)
 
-            ## Warn here if the lenght of the midis and parameters aren't the same size
+            ## TODO Warn here if the lenght of the midis and parameters aren't the same size
             for m, p in zip(midis, iterator):
                 midi_range_mappings.append(DeviceMidiMapping(
                     midi_coords=[m],

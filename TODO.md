@@ -3,10 +3,9 @@
 - [x] Non-contiguous rows/columns
 - [x] Button toggle
 - [x] Modes
-- [ ] Auto encoder min/max-
+- [x] Auto encoder min/max-
 - [x] User functions
 - [x] Transport functions
-- [ ] Clip view
 - [x] Print ascii text of controller layout
 - [ ] Device: go to named top-level device
 - [ ] Track: go to named track
@@ -16,6 +15,7 @@
 
 ### Next
 - [ ] Encoder value custom min/max
+- [ ] Clip view
 
 
 ## Transport
