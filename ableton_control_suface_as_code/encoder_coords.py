@@ -1,18 +1,61 @@
+from abc import ABC
 from dataclasses import dataclass
+from typing import Optional, List
 
-from lark import Lark, Transformer, Tree
+from lark import Lark
+from pydantic import BaseModel
 
-from ableton_control_suface_as_code.core_model import EncoderCoords, EncoderRefinement, Toggle
+class EncoderRefinement(ABC, BaseModel):
+    def name(self) -> str:
+        pass
+
+    def decorator(self, next):
+        pass
 
 
-parser = Lark('''
-    value : axis "_" axis_no ":" range all
+class Toggle(EncoderRefinement, BaseModel):
+    def name(self): return "toggle"
+
+    def decorator(self, next):
+        pass
+
+    @staticmethod
+    def instance():
+        return Toggle()
+
+
+@dataclass
+class EncoderRefinements:
+    refs:List[EncoderRefinement]
+
+    def has_toggle(self):
+        return any(ref.name() == "toggle" for ref in self.refs)
+
+
+class EncoderCoords(BaseModel):
+    row: int
+    col: int
+    row_range_end: int
+    encoder_refs_raw: Optional[List[EncoderRefinement]] = None
+    encoder_refs: List[EncoderRefinement] = list()
+
+    @property
+    def range_inclusive(self):
+        return range(self.col, self.row_range_end + 1)
+
+    def __init__(self, row, col=None, row_range_end=None, encoder_refs=None):
+        super().__init__(row=row, col=col, row_range_end=row_range_end, encoder_refs=encoder_refs)
+
+
+grammar = '''
+    value : coords+ all
     
     row : "row"
     col : "col"
     axis : row | col
     axis_no : NUMBER
     range: NUMBER | (NUMBER "-" NUMBER)
+    coords: axis "_" axis_no ":" range
     toggle : "toggle"
     min_max: "min_max(" NUMBER "," NUMBER ")"
     # all: (toggle | min_max)*
@@ -21,15 +64,19 @@ parser = Lark('''
     %import common.NUMBER
     %import common.WS
     %ignore WS
-''', start='value')
+'''
+full_parser = Lark(grammar, start='value')
+# small_parser = Lark(grammar, start='range')
 
 # # input_string = "row-3:4"
 # input_string = "row_3:1"
 input_string = "row_3:1-4 toggle"
+# input_string = "4"
 # # input_string = "row-3"
 #
 # # Parse the input string
-parsed_tree = parser.parse(input_string)
+# parsed_tree = small_parser.parse(input_string)
+parsed_tree = full_parser.parse(input_string)
 # # parser.parse(input_string_1)
 # # print( parsed_tree.pretty() )
 
@@ -60,22 +107,27 @@ class MyTransformer(Transformer):
         else:
             return int(k), int(v[0])
 
+    def coords(self, items):
+        return items
+
     def all(self, items):
         return items
 
     def min_max(self, v):
         return MinMax(int(v[0]), int(v[1]))
 
-    def value(self, v):
-        [axis, axis_no, range, *refs] = v
-        return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs[0])
+    def value(self, values):
+        val_1 = values[0]
+        [axis, axis_no, range, *refs] = val_1
+        return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs)
 
     col = lambda self, _: "col"
     row = lambda self, _: "row"
     toggle = lambda self, _: Toggle.instance()
 
+
 def parse(raw) -> EncoderCoords:
-    parsed_tree = parser.parse(raw)
+    parsed_tree = full_parser.parse(raw)
     return MyTransformer().transform(parsed_tree)
 
 # print(parser.parse(input_string))

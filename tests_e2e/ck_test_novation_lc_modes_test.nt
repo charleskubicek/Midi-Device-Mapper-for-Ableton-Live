@@ -6,6 +6,14 @@ mode:
     on_color: green_full
     on_off: red_low
     mode_1:
+#        -
+#            type: device
+#            track: selected
+#            device: selected
+#            ranges:
+#                -
+#                    range: row_1:1-8,row_2:1:8
+#                    parameters: 1-16
         -
             type: device
             track: selected
@@ -47,7 +55,7 @@ mode:
             mappings:
                 volume: row_1:8
                 pan: row_2:8
-                sends: row_1:5-7
+                sends: row_1:5-6
         -
             type: transport
             mappings:

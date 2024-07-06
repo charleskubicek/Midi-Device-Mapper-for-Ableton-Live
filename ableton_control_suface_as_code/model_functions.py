@@ -2,8 +2,8 @@ from typing import Literal, List, Dict
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import MidiCoords, parse_coords, EncoderCoords, \
-    ButtonProviderBaseModel
+from ableton_control_suface_as_code.core_model import MidiCoords, parse_coords, ButtonProviderBaseModel
+from ableton_control_suface_as_code.encoder_coords import EncoderCoords
 
 
 class Functions(BaseModel):

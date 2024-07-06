@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_suface_as_code.core_model import EncoderCoords
+from ableton_control_suface_as_code.encoder_coords import EncoderCoords
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part, build_control_group
 

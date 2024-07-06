@@ -5,7 +5,8 @@ from autopep8 import fix_code
 
 from ableton_control_suface_as_code.gen_code import generate_lom_listener_action, build_live_api_lookup_from_lom
 from ableton_control_suface_as_code.core_model import MidiType, MixerWithMidi, \
-    MidiCoords, MixerMidiMapping, EncoderType, EncoderCoords, TrackInfo
+    MidiCoords, MixerMidiMapping, EncoderType, TrackInfo
+from ableton_control_suface_as_code.encoder_coords import EncoderCoords
 from ableton_control_suface_as_code.model_device import DeviceMidiMapping, DeviceWithMidi
 # from ableton_control_suface_as_code import gen
 from ableton_control_suface_as_code.gen import device_mode_templates, generate_mode_code_in_template_vars

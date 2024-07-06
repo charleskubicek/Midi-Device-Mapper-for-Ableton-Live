@@ -1,5 +1,6 @@
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MixerMidiMapping, MidiCoords, EncoderType, \
-    EncoderCoords, TrackInfo, MidiType, Direction
+    TrackInfo, MidiType, Direction
+from ableton_control_suface_as_code.encoder_coords import EncoderCoords
 from ableton_control_suface_as_code.model_controller import ControllerV2, ControllerRawV2, ControlGroupPartV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceMidiMapping
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi, FunctionsMidiMapping

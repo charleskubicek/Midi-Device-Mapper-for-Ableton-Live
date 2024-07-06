@@ -3,8 +3,8 @@ from dataclasses import dataclass, field
 from string import Template
 from typing import List
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords, \
-    EncoderRefinements
+from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
+from ableton_control_suface_as_code.encoder_coords import EncoderRefinements
 from ableton_control_suface_as_code.model_device import DeviceWithMidi
 from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_suface_as_code.model_functions import FunctionsWithMidi

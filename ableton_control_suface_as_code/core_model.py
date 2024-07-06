@@ -1,10 +1,11 @@
 import re
 from abc import ABC
-from dataclasses import dataclass
 from enum import Enum
 from typing import Literal, Optional, List, Union
 
 from pydantic import BaseModel, Field
+
+from .encoder_coords import EncoderCoords, EncoderRefinement, parse
 
 
 class EncoderType(str, Enum):
@@ -24,34 +25,6 @@ class EncoderType(str, Enum):
             if control_type.value[0] == str[0]:
                 return control_type
         raise ValueError(f"No ControlTypeEnum starts with {str[0]} from {str}")
-
-
-class EncoderRefinement(ABC, BaseModel):
-    def name(self) -> str:
-        pass
-
-    def decorator(self, next):
-        pass
-
-
-class Toggle(EncoderRefinement, BaseModel):
-    def name(self): return "toggle"
-
-    def decorator(self, next):
-        pass
-
-    @staticmethod
-    def instance():
-        return Toggle()
-
-
-@dataclass
-class EncoderRefinements:
-    refs:List[EncoderRefinement]
-
-    def has_toggle(self):
-        return any(ref.name() == "toggle" for ref in self.refs)
-
 
 
 class LayoutAxis(str, Enum):
@@ -105,21 +78,6 @@ class TrackInfo(BaseModel):
 
     def is_multi(self):
         return self.list is not None
-
-
-class EncoderCoords(BaseModel):
-    row: int
-    col: int
-    row_range_end: int
-    encoder_refs_raw: Optional[List[EncoderRefinement]] = None
-    encoder_refs: List[EncoderRefinement] = list()
-
-    @property
-    def range_inclusive(self):
-        return range(self.col, self.row_range_end + 1)
-
-    def __init__(self, row, col=None, row_range_end=None, encoder_refs=None):
-        super().__init__(row=row, col=col, row_range_end=row_range_end, encoder_refs=encoder_refs)
 
 
 class MidiType(str, Enum):
@@ -299,29 +257,9 @@ class ButtonProviderBaseModel(ABC, BaseModel):
         return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
-def parse_coords(raw) -> Union[EncoderCoords, None]:
-    if raw is None:
-        return None
-
+def parse_coords(raw) -> EncoderCoords:
     try:
-        from parse import parse
         return parse(raw)
-
-    # is_button_toggle = False
-    #
-    # try:
-    #     [row_raw, col] = raw.split(":")
-    #     row = int(row_raw.removeprefix("row_"))
-    #
-    #     if ' toggle' in col:
-    #         is_button_toggle = True
-    #         col = col.removesuffix(' toggle')
-    #
-    #     if '-' in col:
-    #         [start, end] = col.split("-")
-    #         return EncoderCoords(row=row, col=int(start), row_range_end=int(end), encoder_refs=[])
-    #     else:
-    #         return EncoderCoords(row=row, col=int(col), row_range_end=int(col), encoder_refs=[])
     except Exception as e:
         print(f"Failed to parse '{raw}' due to {e}")
         raise e
