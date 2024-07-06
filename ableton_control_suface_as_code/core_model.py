@@ -185,6 +185,9 @@ class MixerMidiMapping(BaseModel):
             raise ValueError(f"Expected only one midi coord but got {len(self.midi_coords)}")
         return self.midi_coords[0]
 
+    def short_info_string(self):
+        return f"mix {self.api_function[:10]}"
+
     @property
     def first_midi_coord(self) -> MidiCoords:
         return self.midi_coords[0]

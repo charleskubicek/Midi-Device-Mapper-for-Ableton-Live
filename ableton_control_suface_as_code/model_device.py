@@ -18,8 +18,11 @@ class DeviceMidiMapping(BaseModel):
     def only_midi_coord(self) -> MidiCoords:
         return self.midi_coords[0]
 
+    def short_info_string(self):
+        return f"p {self.parameter}"
+
     def info_string(self):
-        return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__p{self.parameter}"
+        return f"ch{self.only_midi_coord.channel}_no{self.only_midi_coord.number}_{self.only_midi_coord.type.value}__{self.short_info_string()}"
 
     def controller_variable_name(self):
         return self.only_midi_coord.controller_variable_name()

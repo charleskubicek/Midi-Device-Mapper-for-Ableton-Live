@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import Union, List, Optional
 
 from nestedtext import nestedtext as nt
+from prettytable import PrettyTable
 from pydantic import BaseModel, model_validator
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords
+from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
 from ableton_control_suface_as_code.gen_error import GenError
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
 from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceV2_1, build_device_model_v2_1
@@ -15,9 +16,26 @@ from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWit
     build_track_nav_model_v2
 from ableton_control_suface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
 
+AllMappingTypes = List[Union[
+    MixerV2,
+    DeviceV2_1,
+    TrackNav,
+    DeviceNav,
+    Functions,
+    Transport
+]]
+
+AllMappingWithMidiTypes = List[Union[
+    DeviceWithMidi,
+    MixerWithMidi,
+    TrackNavWithMidi,
+    DeviceNavWithMidi,
+    FunctionsWithMidi,
+    TransportWithMidi
+]]
 
 class ModeMappingsV2(BaseModel):
-    mappings: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions]] = []
+    mappings: AllMappingTypes = []
 
 
 @dataclass
@@ -34,8 +52,8 @@ class ModeGroupV2(BaseModel):
     type: str = None
     on_color: Optional[str] = None
     off_color: Optional[str] = None
-    mode_1: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]]
-    mode_2: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]]
+    mode_1: AllMappingTypes
+    mode_2: AllMappingTypes
 
     @property
     def mappings(self):
@@ -44,7 +62,7 @@ class ModeGroupV2(BaseModel):
 
 class RootV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]] = []
+    mappings: AllMappingTypes = []
     mode: Optional[ModeGroupV2] = None
 
     @model_validator(mode='after')
@@ -70,8 +88,7 @@ class ModeMappingsV2(BaseModel):
 
 class ModeGroupWithMidi(BaseModel):
     mode_mappings: Optional[ModeMappingsV2] = None
-    mappings: dict[str, List[Union[
-        DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]]
+    mappings: dict[str, AllMappingWithMidiTypes]
 
     def has_modes(self):
         return self.mode_mappings is not None
@@ -99,20 +116,50 @@ class ModeGroupWithMidi(BaseModel):
         ]
 
 
-def validate_mappings(mappings: List[
-    Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]):
+def validate_mappings(mappings: AllMappingWithMidiTypes):
     seen = {}
     for withMidi in mappings:
         for midi_maps in withMidi.midi_maps:
             mcs = midi_maps.midi_coords
             for mc in mcs:
                 if mc.ch_num in seen:
-                    (pmc, previous)  = seen[mc.ch_num]
-                    raise GenError(f"Clashing mappings in {withMidi.type} and {previous.type} to chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
-                                    + f"\n from source 1: {mc.source_info}"
-                                    + f"\n from source 2: {pmc.source_info}", 1)
+                    (pmc, previous) = seen[mc.ch_num]
+                    raise GenError(
+                        f"Clashing mappings in {withMidi.type} and {previous.type} to chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
+                        + f"\n from source 1: {mc.source_info}"
+                        + f"\n from source 2: {pmc.source_info}", 1)
                 else:
                     seen[mc.ch_num] = (mc, withMidi)
+
+
+def print_model_with_mappings(model: ControllerV2, mappings):
+    def key(mc:MidiCoords):
+        return (mc.ch_num, mc.type.value, mc.channel)
+
+    actions = {}
+
+    for withMidi in mappings:
+        for midi_map in withMidi.midi_maps:
+            mcs = midi_map.midi_coords
+            for mc in mcs:
+                actions[key(mc)] = midi_map.short_info_string()
+
+    def padded(f: MidiType):
+        if f.is_note():
+            return f" {f.value} "
+        else:
+            return f"  {f.value}  "
+
+    for row in model.control_groups:
+        print(f"Row {row.number}")
+        table = PrettyTable(header=False)
+        table.add_row(['Col '] + [i for i, _ in enumerate(row.midi_coords)])
+        table.add_row(['Num '] + [col.number for col in row.midi_coords])
+        table.add_row(['Type'] + [padded(col.type) for col in row.midi_coords])
+        table.add_row(['Chan'] + [col.channel for col in row.midi_coords])
+        table.add_row(['Actn'] + [actions.get(key(col), "-")[:10] for col in row.midi_coords])
+
+        print(table)
 
 
 def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) -> ModeGroupWithMidi:
@@ -145,10 +192,7 @@ def read_root_v2(root: RootV2, controller: ControllerV2) -> Union[RootV2, ModeGr
         )
 
 
-def build_mappings_model_v2(mappings: List[Union[DeviceV2_1, MixerV2, TrackNav, DeviceNav, Functions, Transport]],
-                            controller: ControllerV2) -> (
-        List)[
-    Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]:
+def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2) -> AllMappingWithMidiTypes:
     """
     Returns a model of the mapping with midi info attached
 
@@ -174,6 +218,7 @@ def build_mappings_model_v2(mappings: List[Union[DeviceV2_1, MixerV2, TrackNav, 
         if mapping.type == "transport":
             mappings_with_midi.append(build_transport_model(controller, mapping))
 
+    print_model_with_mappings(controller, mappings_with_midi)
     validate_mappings(mappings_with_midi)
 
     return mappings_with_midi
@@ -201,128 +246,3 @@ def read_controller(controller_path):
         return ControllerV2.build_from(ControllerRawV2.model_validate(data))
     except nt.NestedTextError as e:
         e.terminate()
-#
-#
-# controller = {
-#     'on_led_midi': '77',
-#     'off_led_midi': '78',
-#     'control_groups': [
-#         {'layout': 'row',
-#          'number': 1,
-#          'type': 'knob',
-#          'midi_channel': 2,
-#          'midi_type': "CC",
-#          'midi_range': {'from': 21, 'to': 28}
-#          },
-#         {'layout': 'col',
-#          'number': 2,
-#          'type': 'button',
-#          'midi_channel': 2,
-#          'midi_type': "CC",
-#          'midi_range': {'from': 29, 'to': 37}
-#          },
-#         {'layout': 'col',
-#          'number': 3,
-#          'type': 'button',
-#          'midi_channel': 2,
-#          'midi_type': "CC",
-#          'midi_range': {'from': 38, 'to': 45}
-#          }
-#     ],
-#     'toggles': [
-#         'r2-4'
-#     ]
-# }
-# mode_mappings = {
-#     'mode_selector': 'r1-1',
-#     'shift': True,
-#     'modes': [
-#         {
-#             'name': 'device',
-#             'color': 'red',
-#             'mappings': []
-#         }
-#     ]
-# }
-# test_mappings = [
-#     {
-#         'type': 'mixer',
-#         'track': 'selected',
-#         'mappings': {
-#             'volume': "r2-3",
-#             'pan': "r2-4",
-#             'sends': [
-#                 {'1': "r2-4"},
-#                 {'2': "r3-4"},
-#                 {'3': "r2-5"},
-#                 {'4': "r3-5"},
-#             ]
-#         }
-#     },
-#     {
-#         'type': 'transport',
-#         'mappings': {
-#             'play/stop': "r2-3",
-#             'pan': "r2-4",
-#         }
-#     },
-#     {
-#         'type': 'function',
-#         'controller': "r2-3",
-#         'function': 'functions.volume',
-#         'value_mapper': {
-#             'max': 30,
-#             'min': 12
-#         }
-#     },
-#     {
-#         'type': 'nav-device',
-#         'left': "r2-3",
-#         'right': "r2-4"
-#     },
-#     {
-#         'type': 'nav-track',
-#         'left': "r2-3",
-#         'right': "r2-4"
-#     },
-#     {
-#         'type': 'lom',
-#         'controller': "r2-3",
-#         'function': 'track.master.device.utility',
-#         'value_mapper': {
-#             'max': 30,
-#             'min': 12
-#         }
-#     },
-#     {
-#         'type': 'device',
-#         'lom': 'tracks.master.device.Mono',
-#         'controller': 'r5-1',
-#         'parameter': 0,
-#         'toggle': False
-#     },
-#     {
-#         'type': 'device',
-#         'lom': 'tracks.master.device.#1',
-#         'controller': 'r5-1',
-#         'parameter': 0,
-#         'toggle': True
-#     }
-# ]
-#
-# device_mapping = {
-#     'type': 'device',
-#     'lom': 'tracks.selected.device.selected',
-#     'range_maps': [
-#         {
-#             "row": 2,
-#             "range": {'from': 1, 'to': 8},  # inclusive
-#             "parameters": {'from': 1, 'to': 8},
-#         },
-#         {
-#             "row": 3,
-#             "range": {'from': 1, 'to': 8},
-#             "parameters": {'from': 9, 'to': 16},
-#         }
-#     ]
-# }

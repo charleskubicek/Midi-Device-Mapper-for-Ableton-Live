@@ -23,6 +23,9 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     def info_string(self):
         return f"function_{self.function}_{self.only_midi_coord.info_string()}"
 
+    def short_info_string(self):
+        return f"f_{self.function[:10]}"
+
     def create_controller_element(self):
         return self.only_midi_coord.create_controller_element()
 

@@ -2,12 +2,13 @@ import hashlib
 from pathlib import Path
 from string import Template
 
+from prettytable import PrettyTable
+
+from ableton_control_suface_as_code.core_model import MidiType
 from ableton_control_suface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
     functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates, \
     transport_mode_templates
-from ableton_control_suface_as_code.core_model import MidiType
-from ableton_control_suface_as_code.gen_error import GenError
 from ableton_control_suface_as_code.model_controller import ControllerV2
 from ableton_control_suface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
@@ -162,28 +163,6 @@ def generate_5_digit_number(input_string):
     return 10000 + (five_digits % 55535)
 
 
-def print_model(model: ControllerV2):
-    from prettytable import PrettyTable
-
-    def padded(f: MidiType):
-        if f.is_note():
-            return f" {f.value} "
-        else:
-            return f"  {f.value}  "
-
-    for row in model.control_groups:
-        print(f"Row {row.number}")
-        table = PrettyTable(header=False)
-        table.add_row(['Col '] + [i for i, _ in enumerate(row.midi_coords)])
-        table.add_row(['Num '] + [col.number for col in row.midi_coords])
-        table.add_row(['Type'] + [padded(col.type) for col in row.midi_coords])
-        table.add_row(['Chan'] + [col.channel for col in row.midi_coords])
-
-        print(table)
-
-
-
-
 def generate_modes(mapping_file_path):
     functions_path = root_dir / "functions.py"
 
@@ -204,7 +183,6 @@ def generate_modes(mapping_file_path):
 
     controller_path = mapping_file_path.parent / mode_mappings.controller
     controller = read_controller(controller_path.read_text())
-    print_model(controller)
     mode_with_midi = read_root_v2(mode_mappings, controller)
 
     code_vars = generate_mode_code_in_template_vars(mode_with_midi)

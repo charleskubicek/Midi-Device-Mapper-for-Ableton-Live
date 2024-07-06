@@ -46,7 +46,7 @@ mode:
             mappings:
                 volume: row_1:8
                 pan: row_2:8
-                sends: row_1:5-6
+                sends: row_1:5-6,row_2:5-6
         -
             type: transport
             mappings:
