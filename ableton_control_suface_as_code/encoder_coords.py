@@ -117,8 +117,8 @@ class MyTransformer(Transformer):
         return MinMax(int(v[0]), int(v[1]))
 
     def value(self, values):
-        val_1 = values[0]
-        [axis, axis_no, range, *refs] = val_1
+        [main, refs] = values
+        [axis, axis_no, range] = main
         return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs)
 
     col = lambda self, _: "col"
