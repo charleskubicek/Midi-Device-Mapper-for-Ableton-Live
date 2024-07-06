@@ -41,6 +41,13 @@ class $surface_name(ControlSurface):
         self.$class_name_snake = $class_name_snake.$class_name_camel(self)
         self.$class_name_snake.setup_controls()
 
+    def dump_selected_device_parameter_names(self):
+        device = self.song().view.selected_track.view.selected_device
+        print("Dumping parameters for device: " + device.name)
+        for i, p in enumerate(device.parameters):
+            i = str(i).zfill(2)
+            self.log_message(f" - {i}, {p.name}:{p.value}")
+
     def tick(self):
         # self.log_message(f"Ticking..")
         try:
@@ -73,6 +80,10 @@ class $surface_name(ControlSurface):
                 self.debug = not self.debug
                 self.log_message(f"Debug set to {self.debug}")
                 response = b'Debug set to ' + str(self.debug).encode('utf-8')
+
+            elif data == b'dump':
+                self.dump_selected_device_parameter_names()
+                response = b'Dumped' + str(self.debug).encode('utf-8')
 
             if response is not None:
                 self._socket.sendto(response, addr)

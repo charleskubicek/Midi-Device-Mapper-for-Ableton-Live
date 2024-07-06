@@ -54,3 +54,18 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         self.assertEqual(res.midi_maps[7].midi_coords[0].number, 35)
         self.assertEqual(res.midi_maps[7].parameter, 8)
         self.assertEqual(res.midi_maps[3].parameter, 4)
+
+
+    def test_build_device_model_v2_with_named_Device(self):
+        controller = ControllerV2.build_from(build_raw_controller_v2())
+
+        dev = DeviceV2_1(
+            track='master',
+            device='MC',
+            ranges=[RowMapV2_1(range="row_1:1", parameters="6")]
+        )
+
+        res = build_device_model_v2_1(controller, dev)
+
+        self.assertEqual(res.midi_maps[0].midi_coords[0].number, 21)
+

@@ -45,15 +45,15 @@ def fn(self, value):
         self.assertEqual(generated, expected_output, diff(generated, expected_output))
 
 
-    def test_build_live_api_lookup_from_lom(self):
-        # expected_output = "self.manager.song().view.tracks[0].view.devices[1]"
-        # result = build_live_api_lookup_from_lom("1", "2")
-        # self.assertEqual(result, expected_output)
-
-        expected_output = "self.manager.song().view.selected_track.view.selected_device"
-        result = build_live_api_lookup_from_lom(TrackInfo.selected(), "selected")
-        self.assertEqual(result, expected_output)
-
+    # def test_build_live_api_lookup_from_lom(self):
+    #     # expected_output = "self.manager.song().view.tracks[0].view.devices[1]"
+    #     # result = build_live_api_lookup_from_lom("1", "2")
+    #     # self.assertEqual(result, expected_output)
+    #
+    #     expected_output = "self.manager.song().view.selected_track.view.selected_device"
+    #     result = build_live_api_lookup_from_lom(TrackInfo.selected(), "selected")
+    #     self.assertEqual(result, expected_output)
+    #
 
 if __name__ == '__main__':
     unittest.main()

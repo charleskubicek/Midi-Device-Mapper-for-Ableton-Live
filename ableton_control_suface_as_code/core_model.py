@@ -294,9 +294,8 @@ class RangeV2(BaseModel):
         if '-' in value:
             [a, b] = value.split("-")
             return RangeV2.model_validate({'from': int(a), 'to': int(b)})
-        # elif ',' in value:
-        #     values = value.split(",")
-        #     return RangeV2.model_validate({'from': int(a), 'to': int(b)})
+        else:
+            return RangeV2.model_validate({'from': int(value), 'to': int(value)})
 
     @property
     def first_index(self):

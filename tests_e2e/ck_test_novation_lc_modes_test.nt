@@ -54,8 +54,15 @@ mode:
                 record-session: row_3:5
                 record-arrangement: row_3:6
                 loop: row_3:7
-                midi-arrange-overdub: row_3:8
-#        -
-#            type: functions
-#            mappings:
-#                press_rack_random_button: row_3:8
+        -
+            type: device
+            track: master
+            device: Mono
+            ranges:
+                -
+                    range: row_3:2 toggle
+                    parameters: 0
+        -
+            type: functions
+            mappings:
+                press_rack_random_button: row_3:8

@@ -48,12 +48,17 @@ class GeneratedModeCode:
         )
 
 
-def generate_lom_listener_action(parameter, lom, fn_name, debug_st) -> [str]:
+def generate_lom_listener_action(parameter, track, device, fn_name, toggle:bool, debug_st) -> [str]:
     return Template("""
 def ${fn_name}(self, value):
-    device = $lom
-    self.device_parameter_action(device, $parameter, value, "$fn_name")    
-    """).substitute(parameter=parameter, lom=lom, fn_name=fn_name, comment=debug_st).split("\n")
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+        
+
+    self.device_parameter_action(device, $parameter, value, "$fn_name", toggle=$toggle)    
+    """).substitute(parameter=parameter, track=track, device=device, toggle=toggle, fn_name=fn_name, comment=debug_st).split("\n")
 
 
 def generate_control_value_listener_function_action(fn_name, callee, toggle:bool, debug_st:str) -> [str]:
@@ -98,17 +103,22 @@ def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> Gene
 def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
     codes = GeneratedModeCode()
 
-    lom = build_live_api_lookup_from_lom(device_with_midi.track, device_with_midi.device)
-
     for mm in device_with_midi.midi_maps:
         enc_name = mm.controller_variable_name()
         enc_listener_name = mm.controller_listener_fn_name(mode_name)
+        enc_refs = EncoderRefinements(mm.only_midi_coord.encoder_refs)
 
         codes = codes.merge(GeneratedModeCode(
             control_defs=mm.midi_coords,
             setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
-            listener_fns=generate_lom_listener_action(mm.parameter, lom, enc_listener_name, mm.info_string())
+            listener_fns=generate_lom_listener_action(
+                mm.parameter,
+                device_with_midi.track.name.value,
+                device_with_midi.device,
+                enc_listener_name,
+                enc_refs.has_toggle(),
+                mm.info_string())
         ))
 
     return codes
@@ -159,36 +169,6 @@ def is_valid_python(code):
     except SyntaxError:
         return False
     return True
-
-
-def build_live_api_lookup_from_lom(track: TrackInfo, device):
-    """"
-        tracks.selected.device.selected
-        tracks.1.device.1.
-
-
-        self.manager.song().view.tracks[0].view.devices[0]
-        self.manager.song().view.selected_track.view.selected_device
-    """
-
-    # if track.isnumeric():
-    #     track_st = f"tracks[{int(track)-1}]"
-    # elif track == 'selected':
-    #     track_st = 'selected_track'
-    # else:
-    #     print(f"can't parse track: {track}")
-    #     exit(1)
-    track_st = track.name.lom_name
-
-    if device.isnumeric():
-        device_st = f"devices[{int(device) - 1}]"
-    elif device == 'selected':
-        device_st = 'selected_device'
-    else:
-        print(f"can't parse device: {device}")
-        exit(1)
-
-    return f"self.manager.song().view.{track_st}.view.{device_st}"
 
 
 def snake_to_camel(snake_str):
