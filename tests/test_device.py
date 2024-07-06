@@ -18,10 +18,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             ranges=[RowMapV2_1(range="row_1:2-5", parameters="1-4")]
         )
 
-
         res = build_device_model_v2_1(controller, dev)
-
-        print(f"res = {res}")
 
         self.assertEqual(res.midi_maps[0].midi_coords[0].number, 22)
         self.assertEqual(res.midi_maps[0].parameter, 1)

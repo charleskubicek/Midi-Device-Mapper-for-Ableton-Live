@@ -60,7 +60,8 @@ class EncoderCoords(BaseModel):
 
 
 grammar = '''
-    value : coords_list+ refinements
+    multi : coords_list+ refinements
+    single : coords_list refinements
     
     row : "row"
     col : "col"
@@ -78,8 +79,8 @@ grammar = '''
     %import common.WS
     %ignore WS
 '''
-full_parser = Lark(grammar, start='value')
-# small_parser = Lark(grammar, start='range')
+full_parser = Lark(grammar, start='multi')
+small_parser = Lark(grammar, start='single')
 
 # # input_string = "row-3:4"
 # input_string = "row_3:1"
@@ -107,6 +108,10 @@ class MinMax:
 
 
 class MyTransformer(Transformer):
+
+    def __init__(self, full=False):
+        super().__init__()
+
     def axis_no(self, items):
         return int(items[0])
 
@@ -132,11 +137,21 @@ class MyTransformer(Transformer):
     def min_max(self, v):
         return MinMax(int(v[0]), int(v[1]))
 
-    def value(self, values):
+    def single(self, values):
         [mains, refs] = values
         for main in mains:
             [axis, axis_no, range] = main
             return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs)
+
+
+    def multi(self, values):
+        result = []
+        [mains, refs] = values
+        for main in mains:
+            [axis, axis_no, range] = main
+            result.append(EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs))
+
+        return result
 
     col = lambda self, _: "col"
     row = lambda self, _: "row"
@@ -144,8 +159,12 @@ class MyTransformer(Transformer):
 
 
 def parse(raw) -> EncoderCoords:
-    parsed_tree = full_parser.parse(raw)
+    parsed_tree = small_parser.parse(raw)
     return MyTransformer().transform(parsed_tree)
+
+def parse_multiple(raw) -> List[EncoderCoords]:
+    parsed_tree = full_parser.parse(raw)
+    return MyTransformer(full=True).transform(parsed_tree)
 
 # print(parser.parse(input_string))
 # print()

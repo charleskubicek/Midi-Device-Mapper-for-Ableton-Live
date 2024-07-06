@@ -5,7 +5,7 @@ from typing import Literal, Optional, List, Union
 
 from pydantic import BaseModel, Field
 
-from .encoder_coords import EncoderCoords, EncoderRefinement, parse, EncoderCoordsV2_1
+from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple
 
 
 class EncoderType(str, Enum):
@@ -268,6 +268,13 @@ def parse_coords(raw) -> EncoderCoords:
         print(f"Failed to parse '{raw}' due to {e}")
         raise e
 
+def parse_multiple_coords(raw) -> List[EncoderCoords]:
+    try:
+        return parse_multiple(raw)
+    except Exception as e:
+        print(f"Failed to parse '{raw}' due to {e}")
+        raise e
+
 
 class RangeV2(BaseModel):
     from_: int = Field(alias='from')
@@ -313,32 +320,10 @@ class RowMapV2_1(BaseModel):
     parameters_raw: str = Field(alias='parameters')
 
     @property
-    def range(self) -> EncoderCoords:
-        return parse(self.range_raw)
+    def multi_encoder_coords(self) -> list[EncoderCoords]:
+        return parse_multiple_coords(self.range_raw)
+
 
     @property
     def parameters(self) -> RangeV2:
         return RangeV2.parse(self.parameters_raw)
-
-class RowMapV2(BaseModel):
-    row: Union[int, None]
-    # col: int | None
-    range_raw: str = Field(alias='range')
-    parameters_raw: str = Field(alias='parameters')
-
-    @property
-    def range(self) -> RangeV2:
-        return RangeV2.parse(self.range_raw)
-
-    @property
-    def parameters(self) -> RangeV2:
-        return RangeV2.parse(self.parameters_raw)
-    #
-    # @model_validator(mode='after')
-    # def verify_square(self) -> Self:
-    #     # if self.row is None and self.col is None:
-    #     #     raise ValueError('row and col cannot both be None')
-    #     # if self.row is not None and self.col is not None:
-    #     #     raise ValueError('row and col cannot both be set')
-    #
-    #     return self

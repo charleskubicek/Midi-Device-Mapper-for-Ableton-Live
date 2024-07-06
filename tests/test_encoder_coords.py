@@ -1,5 +1,5 @@
 import unittest
-from ableton_control_suface_as_code.core_model import parse_coords
+from ableton_control_suface_as_code.core_model import parse_coords, parse_multiple_coords
 from ableton_control_suface_as_code.encoder_coords import EncoderCoords, Toggle
 
 
@@ -28,11 +28,15 @@ class TestEncoderCoords(unittest.TestCase):
 
         self.assertEqual(expected, parse_coords(input))
 
-    # def test_parse_tow_ranges(self):
-    #     input = "row_2:5-6,row_3:5-6"
-    #     expected = EncoderCoords(row=3, col=4, row_range_end=10, encoder_refs=[])
-    #
-    #     self.assertEqual(expected, parse_coords(input))
+    def test_parse_tow_ranges(self):
+        input = "row_2:5-6,row_3:5-6"
+        expected = [
+            EncoderCoords(row=2, col=5, row_range_end=6, encoder_refs=[]),
+            EncoderCoords(row=3, col=5, row_range_end=6, encoder_refs=[])]
+
+        result = parse_multiple_coords(input)
+
+        self.assertEqual(expected, result)
 
     def test_parse_toggle(self):
         input = "row_3:4 toggle"

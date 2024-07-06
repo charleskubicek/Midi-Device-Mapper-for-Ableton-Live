@@ -2,7 +2,7 @@ from typing import Literal, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2, RowMapV2_1
+from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2_1
 
 
 class DeviceMidiMapping(BaseModel):
@@ -35,24 +35,6 @@ class DeviceWithMidi(BaseModel):
     midi_maps: List[DeviceMidiMapping]
 
 
-def build_device_model_v2_1(controller, mapping):
-    midi_range_mappings = []
-
-    for rnge in mapping.ranges:
-        midis, _ = controller.build_midi_coords(rnge.range)
-
-        for m, p in zip(midis, rnge.parameters.as_inclusive_list()):
-            midi_range_mappings.append(DeviceMidiMapping(
-                midi_coords=[m],
-                parameter=p
-            ))
-
-    return DeviceWithMidi(
-        track=mapping.track_info,
-        device=mapping.device,
-        midi_maps=midi_range_mappings)
-
-
 class DeviceV2_1(BaseModel):
     type: Literal['device'] = 'device'
     track_raw: str = Field(alias='track')
@@ -67,3 +49,22 @@ class DeviceV2_1(BaseModel):
             return TrackInfo(name=NamedTrack.master)
         else:
             exit(1)
+
+
+def build_device_model_v2_1(controller, device:DeviceV2_1) -> DeviceWithMidi:
+    midi_range_mappings = []
+
+    for rnge in device.ranges:
+        for mcs in rnge.multi_encoder_coords:
+            midis, _ = controller.build_midi_coords(mcs)
+
+            for m, p in zip(midis, rnge.parameters.as_inclusive_list()):
+                midi_range_mappings.append(DeviceMidiMapping(
+                    midi_coords=[m],
+                    parameter=p
+                ))
+
+    return DeviceWithMidi(
+        track=device.track_info,
+        device=device.device,
+        midi_maps=midi_range_mappings)
