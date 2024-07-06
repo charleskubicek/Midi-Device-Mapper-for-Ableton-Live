@@ -4,6 +4,7 @@ from typing import Optional, List
 
 from lark import Lark
 from pydantic import BaseModel
+from lark import Transformer
 
 class EncoderRefinement(ABC, BaseModel):
     def name(self) -> str:
@@ -94,12 +95,6 @@ parsed_tree = full_parser.parse(input_string)
 # # parser.parse(input_string_1)
 # # print( parsed_tree.pretty() )
 
-from lark import Transformer
-
-@dataclass
-class Range:
-    from_:int
-    to:int
 
 @dataclass
 class MinMax:

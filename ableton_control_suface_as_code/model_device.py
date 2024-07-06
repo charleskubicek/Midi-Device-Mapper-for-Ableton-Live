@@ -1,3 +1,4 @@
+import itertools
 from typing import Literal, List
 
 from pydantic import BaseModel, Field
@@ -58,10 +59,14 @@ def build_device_model_v2_1(controller, device:DeviceV2_1) -> DeviceWithMidi:
     midi_range_mappings = []
 
     for rnge in device.ranges:
+        iterator = rnge.parameters.as_inclusive_list()
+        iterator, _ = itertools.tee(iterator)
+
         for mcs in rnge.multi_encoder_coords:
             midis, _ = controller.build_midi_coords(mcs)
 
-            for m, p in zip(midis, rnge.parameters.as_inclusive_list()):
+            ## Warn here if the lenght of the midis and parameters aren't the same size
+            for m, p in zip(midis, iterator):
                 midi_range_mappings.append(DeviceMidiMapping(
                     midi_coords=[m],
                     parameter=p

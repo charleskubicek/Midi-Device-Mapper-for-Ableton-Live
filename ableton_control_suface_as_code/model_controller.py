@@ -2,7 +2,7 @@ import itertools
 import sys
 from dataclasses import dataclass
 from itertools import groupby
-from typing import Optional, List
+from typing import Optional, List, Union
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -170,26 +170,37 @@ class ControllerV2:
             raise ValueError(f"Light color {name} not found in {self.light_colors}")
         return self.light_colors[name]
 
-    def build_midi_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
+    def build_midi_coords(self, coords: Union[EncoderCoords, List[EncoderCoords]]) -> ([MidiCoords], EncoderType):
         '''
         Given midi coordinate(s), return the midi values for the value/range
         :param coords:
         :return:
         '''
+
+        encoder_coors_list = [coords] if isinstance(coords, EncoderCoords) else coords
+        res_midi = []
+        res_type = None
+
         print(f"enc_str = {coords}")
-        for group in self.control_groups:
-            if group.number == int(coords.row):
-                res = []
-                print(f"  Looking in range {coords.range_inclusive}")
-                for col in coords.range_inclusive:
-                    midi_range_index = col - 1
-                    midi_coords = group.midi_item_at(midi_range_index)
-                    res.append(midi_coords.with_encoder_refs(coords.encoder_refs))
+        for coords in encoder_coors_list:
+            for group in self.control_groups:
+                if group.number == int(coords.row):
+                    print(f"  Looking in range {coords.range_inclusive}")
+                    for col in coords.range_inclusive:
+                        midi_range_index = col - 1
+                        midi_coords = group.midi_item_at(midi_range_index)
+                        res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
+                        res_type = group.type
 
-                return res, group.type
 
-        print(f"Didn't find any coords for {coords} in {self.control_groups}")
-        sys.exit(1)
+        if res_type is None:
+            print(f"Didn't find any coords for {coords} in {self.control_groups}")
+            sys.exit(1)
+        else:
+            return res_midi, res_type
+
+
+
 
 
 PITCH_DICTIONARY_C3 = {0: "C-2", 1: "CS-2", 2: "D-2", 3: "DS-2", 4: "E-2", 5: "F-2", 6: "FS-2", 7: "G-2", 8: "GS-2",

@@ -3,7 +3,9 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_suface_as_code.core_model import parse_coords, TrackInfo, NamedTrack, MixerMidiMapping, \
-    MixerWithMidi
+    MixerWithMidi, parse_multiple_coords
+from ableton_control_suface_as_code.encoder_coords import EncoderCoords
+from ableton_control_suface_as_code.model_controller import ControllerV2
 
 
 class MixerMappingsV2(BaseModel):
@@ -26,8 +28,10 @@ class MixerMappingsV2(BaseModel):
         return self
 
     def as_parsed_dict(self):
-        return {key.removesuffix('_raw'): parse_coords(value) for key, value in self.model_dump().items() if
-                value is not None}
+        single_controllers = ['volume', 'pan', 'mute', 'solo', 'arm']
+
+        return {key.removesuffix('_raw'): parse_multiple_coords(value)
+                for key, value in self.model_dump().items() if value is not None}
 
 
 class MixerV2(BaseModel):
@@ -48,17 +52,19 @@ class MixerV2(BaseModel):
             exit(1)
 
 
-def build_mixer_model_v2(controller, mapping: MixerV2):
+def build_mixer_model_v2(controller:ControllerV2, mapping: MixerV2):
     mixer_maps = []
     for api_name, enc_coords in mapping.mappings.as_parsed_dict().items():
         coords_list, type = controller.build_midi_coords(enc_coords)
+
+        encoder_coors_list = [enc_coords] if isinstance(enc_coords, EncoderCoords) else enc_coords
 
         mixer_maps.append(MixerMidiMapping(
             midi_coords=coords_list,
             controller_type=type,
             api_function=api_name,
             track_info=mapping.track_info,
-            encoder_coords=enc_coords))
+            encoder_coords=encoder_coors_list[0]))
 
     for m in mixer_maps:
         coords_ = [(x.channel, x.channel, x.type.name) for x in m.midi_coords]

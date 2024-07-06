@@ -1,7 +1,7 @@
 # TODO
 
 - [x] Non-contiguous rows/columns
-- [ ] Button toggle
+- [x] Button toggle
 - [x] Modes
 - [ ] Auto encoder min/max-
 - [x] User functions
@@ -10,6 +10,9 @@
 - [x] Print ascii text of controller layout
 - [ ] Device: go to named top-level device
 - [ ] Track: go to named track
+
+# TOIL
+- [] replace EncoderCoords with EncoderCoordsV2_1
 
 ### Next
 - [ ] Encoder value custom min/max
