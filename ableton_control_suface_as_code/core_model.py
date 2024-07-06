@@ -5,7 +5,7 @@ from typing import Literal, Optional, List, Union
 
 from pydantic import BaseModel, Field
 
-from .encoder_coords import EncoderCoords, EncoderRefinement, parse
+from .encoder_coords import EncoderCoords, EncoderRefinement, parse, EncoderCoordsV2_1
 
 
 class EncoderType(str, Enum):
@@ -307,6 +307,18 @@ class RangeV2(BaseModel):
     def _as_inclusive_range(self):
         return range(self.from_, self.to + 1)
 
+
+class RowMapV2_1(BaseModel):
+    range_raw: str = Field(alias='range')
+    parameters_raw: str = Field(alias='parameters')
+
+    @property
+    def range(self) -> EncoderCoords:
+        return parse(self.range_raw)
+
+    @property
+    def parameters(self) -> RangeV2:
+        return RangeV2.parse(self.parameters_raw)
 
 class RowMapV2(BaseModel):
     row: Union[int, None]

@@ -2,7 +2,7 @@ from typing import Literal, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2
+from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2, RowMapV2_1
 
 
 class DeviceMidiMapping(BaseModel):
@@ -35,16 +35,13 @@ class DeviceWithMidi(BaseModel):
     midi_maps: List[DeviceMidiMapping]
 
 
-def build_device_model_v2(controller, mapping):
+def build_device_model_v2_1(controller, mapping):
     midi_range_mappings = []
-    for rm in mapping.ranges:
-        group = controller.find_group(rm.row)
 
-        # Go back go the group to find the midi values. We have to switch to zero based
-        # because the group is 0 based
-        midis = group.midi_range_for(rm.range.as_inclusive_zero_based_range())
+    for rnge in mapping.ranges:
+        midis, _ = controller.build_midi_coords(rnge.range)
 
-        for m, p in zip(midis, rm.parameters.as_inclusive_list()):
+        for m, p in zip(midis, rnge.parameters.as_inclusive_list()):
             midi_range_mappings.append(DeviceMidiMapping(
                 midi_coords=[m],
                 parameter=p
@@ -56,11 +53,11 @@ def build_device_model_v2(controller, mapping):
         midi_maps=midi_range_mappings)
 
 
-class DeviceV2(BaseModel):
+class DeviceV2_1(BaseModel):
     type: Literal['device'] = 'device'
     track_raw: str = Field(alias='track')
     device: str
-    ranges: list[RowMapV2]
+    ranges: list[RowMapV2_1]
 
     @property
     def track_info(self) -> TrackInfo:

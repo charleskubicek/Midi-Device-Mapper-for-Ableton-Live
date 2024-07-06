@@ -1,5 +1,5 @@
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, List
 
 from lark import Lark
@@ -32,6 +32,18 @@ class EncoderRefinements:
         return any(ref.name() == "toggle" for ref in self.refs)
 
 
+@dataclass
+class EncoderCoordsV2_1:
+    row: int
+    range_: [int, int]
+    encoder_refs: List[EncoderRefinement] = field(default_factory=list)
+
+    @property
+    def range_inclusive(self):
+        return range(self.range_[0], self.range_[1] + 1)
+
+
+
 class EncoderCoords(BaseModel):
     row: int
     col: int
@@ -48,7 +60,7 @@ class EncoderCoords(BaseModel):
 
 
 grammar = '''
-    value : coords+ all
+    value : coords_list+ refinements
     
     row : "row"
     col : "col"
@@ -56,10 +68,11 @@ grammar = '''
     axis_no : NUMBER
     range: NUMBER | (NUMBER "-" NUMBER)
     coords: axis "_" axis_no ":" range
+    coords_list: coords  ("," coords)*
     toggle : "toggle"
     min_max: "min_max(" NUMBER "," NUMBER ")"
-    # all: (toggle | min_max)*
-    all: toggle*
+    # refinements: (toggle | min_max)*
+    refinements: toggle*
     
     %import common.NUMBER
     %import common.WS
@@ -107,19 +120,23 @@ class MyTransformer(Transformer):
         else:
             return int(k), int(v[0])
 
+    def coords_list(self, items):
+        return items
+
     def coords(self, items):
         return items
 
-    def all(self, items):
+    def refinements(self, items):
         return items
 
     def min_max(self, v):
         return MinMax(int(v[0]), int(v[1]))
 
     def value(self, values):
-        [main, refs] = values
-        [axis, axis_no, range] = main
-        return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs)
+        [mains, refs] = values
+        for main in mains:
+            [axis, axis_no, range] = main
+            return EncoderCoords(axis_no, range[0], range[1], encoder_refs=refs)
 
     col = lambda self, _: "col"
     row = lambda self, _: "row"

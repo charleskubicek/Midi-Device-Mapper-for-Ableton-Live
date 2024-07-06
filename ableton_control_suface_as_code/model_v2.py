@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import Union, List, Optional
 
-from pydantic import BaseModel, model_validator, Field
-
 from nestedtext import nestedtext as nt
+from pydantic import BaseModel, model_validator
+
 from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords
 from ableton_control_suface_as_code.gen_error import GenError
 from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
-from ableton_control_suface_as_code.model_device import DeviceWithMidi, build_device_model_v2, DeviceV2
+from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceV2_1, build_device_model_v2_1
 from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
 from ableton_control_suface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
 from ableton_control_suface_as_code.model_mixer import MixerV2, build_mixer_model_v2
@@ -17,7 +17,7 @@ from ableton_control_suface_as_code.model_transport import Transport, TransportW
 
 
 class ModeMappingsV2(BaseModel):
-    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions]] = []
+    mappings: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions]] = []
 
 
 @dataclass
@@ -34,8 +34,8 @@ class ModeGroupV2(BaseModel):
     type: str = None
     on_color: Optional[str] = None
     off_color: Optional[str] = None
-    mode_1: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]]
-    mode_2: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]]
+    mode_1: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]]
+    mode_2: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]]
 
     @property
     def mappings(self):
@@ -44,7 +44,7 @@ class ModeGroupV2(BaseModel):
 
 class RootV2(BaseModel):
     controller: str
-    mappings: List[Union[MixerV2, DeviceV2, TrackNav, DeviceNav, Functions, Transport]] = []
+    mappings: List[Union[MixerV2, DeviceV2_1, TrackNav, DeviceNav, Functions, Transport]] = []
     mode: Optional[ModeGroupV2] = None
 
     @model_validator(mode='after')
@@ -145,7 +145,7 @@ def read_root_v2(root: RootV2, controller: ControllerV2) -> Union[RootV2, ModeGr
         )
 
 
-def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, DeviceNav, Functions, Transport]],
+def build_mappings_model_v2(mappings: List[Union[DeviceV2_1, MixerV2, TrackNav, DeviceNav, Functions, Transport]],
                             controller: ControllerV2) -> (
         List)[
     Union[DeviceWithMidi, MixerWithMidi, TrackNavWithMidi, DeviceNavWithMidi, FunctionsWithMidi, TransportWithMidi]]:
@@ -162,7 +162,7 @@ def build_mappings_model_v2(mappings: List[Union[DeviceV2, MixerV2, TrackNav, De
     for mapping in mappings:
 
         if mapping.type == "device":
-            mappings_with_midi.append(build_device_model_v2(controller, mapping))
+            mappings_with_midi.append(build_device_model_v2_1(controller, mapping))
         if mapping.type == "mixer":
             mappings_with_midi.append(build_mixer_model_v2(controller, mapping))
         if mapping.type == "track-nav":

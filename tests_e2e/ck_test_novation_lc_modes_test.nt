@@ -6,32 +6,32 @@ mode:
     on_color: green_full
     on_off: red_low
     mode_1:
+        -
+            type: device
+            track: selected
+            device: selected
+            ranges:
+                -
+                    range: row_1:1-8
+                    parameters: 1-16
 #        -
 #            type: device
 #            track: selected
 #            device: selected
 #            ranges:
 #                -
-#                    range: row_1:1-8,row_2:1:8
-#                    parameters: 1-16
-        -
-            type: device
-            track: selected
-            device: selected
-            ranges:
-                -
-                    row: 1
-                    range: 1-8
-                    parameters: 1-8
-        -
-            type: device
-            track: selected
-            device: selected
-            ranges:
-                -
-                    row: 2
-                    range: 1-8
-                    parameters: 9-19
+#                    row: 1
+#                    range: 1-8
+#                    parameters: 1-8
+#        -
+#            type: device
+#            track: selected
+#            device: selected
+#            ranges:
+#                -
+#                    row: 2
+#                    range: 1-8
+#                    parameters: 9-19
         -
             type: mixer
             track: selected
