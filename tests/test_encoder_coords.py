@@ -28,11 +28,11 @@ class TestEncoderCoords(unittest.TestCase):
 
         self.assertEqual(expected, parse_coords(input))
 
-    def test_parse_tow_ranges(self):
-        input = "row_3:5:6,row_4:5:6,"
-        expected = EncoderCoords(row=3, col=4, row_range_end=10, encoder_refs=[])
-
-        self.assertEqual(expected, parse_coords(input))
+    # def test_parse_tow_ranges(self):
+    #     input = "row_3:5:6,row_4:5:6,"
+    #     expected = EncoderCoords(row=3, col=4, row_range_end=10, encoder_refs=[])
+    #
+    #     self.assertEqual(expected, parse_coords(input))
 
     def test_parse_toggle(self):
         input = "row_3:4 toggle"

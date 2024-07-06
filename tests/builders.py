@@ -52,8 +52,8 @@ def build_midi_device_mapping(midi_coords=midi_coords_ch2_cc_50_knob(), param=1)
     return DeviceWithMidi(
         track=TrackInfo.selected(),
         device="selected",
-        midi_range_maps=[DeviceMidiMapping(
-            midi_coords=midi_coords,
+        midi_maps=[DeviceMidiMapping(
+            midi_coords=[midi_coords],
             parameter=param
         )])
 

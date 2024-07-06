@@ -59,12 +59,12 @@ class NamedTrack(str, Enum):
 
 
 class TrackInfo(BaseModel):
-    name: Optional[NamedTrack]
-    list: Optional[List[int]]
+    name: Optional[NamedTrack] = None
+    list: Optional[List[int]] = None
 
-    @classmethod
-    def selected(cls):
-        return cls(name=NamedTrack.selected)
+    @staticmethod
+    def selected():
+        return TrackInfo(name=NamedTrack.selected)
 
     @classmethod
     def master(cls):
@@ -122,7 +122,11 @@ class MidiCoords(BaseModel):
     # TODO remove this
     def __init__(self, channel, number, type, encoder_type, source_info,
                  encoder_refs: List[EncoderRefinement] = list()):
-        super().__init__(channel=channel, type=type, number=number, encoder_type=encoder_type, source_info=source_info,
+        super().__init__(channel=channel,
+                         type=type,
+                         number=number,
+                         encoder_type=encoder_type,
+                         source_info=source_info,
                          encoder_refs=encoder_refs)
 
     def create_controller_element(self):

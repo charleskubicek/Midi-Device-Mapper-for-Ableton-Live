@@ -57,7 +57,7 @@ def build_device_model_v2(controller, mapping):
 
 
 class DeviceV2(BaseModel):
-    type: Literal['device']
+    type: Literal['device'] = 'device'
     track_raw: str = Field(alias='track')
     device: str
     ranges: list[RowMapV2]
