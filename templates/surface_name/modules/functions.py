@@ -10,8 +10,8 @@ class Functions(ControlSurface):
     def __init__(self, c_instance=None, publish_self=True, *a, **k):
         super().__init__(c_instance=c_instance)
 
-        self.perc_pattern_cycler = PatternCycler(self, Patterns.perc_patterns)
-        self.midi_pattern_cycler = PatternCycler(self, Patterns.basic_midi_cycles)
+        self.perc_pattern_cycler = PatternCycler(c_instance, Patterns.perc_patterns)
+        self.midi_pattern_cycler = PatternCycler(c_instance, Patterns.basic_midi_cycles)
 
     def selected_device(self):
         return self.song().view.selected_track.view.selected_device

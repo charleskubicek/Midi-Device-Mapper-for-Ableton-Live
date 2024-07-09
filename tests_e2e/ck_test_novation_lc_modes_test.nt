@@ -30,6 +30,11 @@ mode:
                 mute: row_3:2
                 solo: row_3:3
         -
+            type: functions
+            mappings:
+                iterate_midi_pattern: row_3:5
+                iterate_perc_pattern: row_3:6
+        -
             type: device-nav
             mappings:
                 left: row_4:1

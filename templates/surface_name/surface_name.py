@@ -65,7 +65,7 @@ class $surface_name(ControlSurface):
                         self.log_message(traceback.format_exc())
 
                     importlib.reload(modules.$class_name_snake)
-                    importlib.reload(modules.helpers.py)
+                    importlib.reload(modules.helpers)
 
                     if self.functions_file_exsits():
                         importlib.reload(modules.functions.py)
@@ -84,7 +84,7 @@ class $surface_name(ControlSurface):
 
             elif data == b'dump':
                 self.dump_selected_device_parameter_names()
-                response = b'Dumped' + str(self.debug).encode('utf-8')
+                response = b'Dumped to logs'
 
             if response is not None:
                 self._socket.sendto(response, addr)

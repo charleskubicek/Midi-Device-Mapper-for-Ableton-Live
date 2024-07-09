@@ -134,9 +134,12 @@ def write_templates(template_path: Path, target: Path, vars: dict, functions_pat
 
     if functions_path is not None:
         functions_target = target / vars['surface_name'] / "modules" / "functions.py"
-        functions_target.parent.mkdir(exist_ok=True)
-        functions_target.touch()
-        functions_target.write_text(functions_path.read_text())
+        if not functions_target.exists():
+            functions_target.parent.mkdir(exist_ok=True)
+            functions_target.touch()
+            functions_target.write_text(functions_path.read_text())
+        else:
+            print(f"functions.py already exists in {functions_target}")
 
 
 def template_file(root_dir, template_path, vars: dict, source_file_name, target_file_name, verify_python=False):
