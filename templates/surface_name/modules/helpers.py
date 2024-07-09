@@ -1,6 +1,4 @@
 
-
-
 class Helpers:
     def __init__(self, manager):
         self._manager = manager
@@ -28,8 +26,10 @@ class Helpers:
             next_value = self.normalise(value, min, max)
 
         if self._manager.debug:
-            self.log_message(f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
-            self.log_message(f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[parameter_no].value}")
+            self.log_message \
+                (f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
+            self.log_message \
+                (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[parameter_no].value}")
 
         if will_fire:
             self.log_message(f"Setting to = {float(next_value)}")
@@ -59,28 +59,48 @@ class Helpers:
         return max(min_value, min(mapped_value, max_value))
 
     def find_device(self, song, track_name, device_name):
+        if self._manager.debug:
+            self.log_message(f"Looking for device {device_name} on track {track_name}")
+
         track = self.find_track(song, track_name)
         if track is not None:
             return self.find_device_on_track(track, device_name)
+        else:
+            self.log_message(f"Track {track_name} not found")
+            return None
 
     def find_track(self, song, track_name):
+        if self._manager.debug:
+            self.log_message(f"Looking for track {track_name}")
+
         if track_name == "selected":
             return song.view.selected_track
         elif track_name == "master":
             return song.master_track
         elif track_name.isnumeric():
-            return song.tracks[int(track_name)-1]
+            return song.tracks[int(track_name ) -1]
 
+
+        if self._manager.debug:
+            self.log_message(f"Track {track_name} not selected, manager or a number")
 
         for track in self._manager.song().tracks:
             if track is not None and track.name == track_name:
                 return track
 
+        if self._manager.debug:
+            self.log_message(f"Track {track_name} not found")
+
         return None
 
     def find_device_on_track(self,  track, device_name):
-        if device_name.isnumeric():
-            return track.devices[int(device_name)-1]
+        if self._manager.debug:
+            self.log_message(f"find_device_on_track Looking for device {device_name} on track {track.name}")
+
+        if device_name == "selected":
+            return track.view.selected_device
+        elif device_name.isnumeric():
+            return track.devices[int(device_name ) -1]
 
         for device in track.devices:
             if device is not None and device.name == device_name:
