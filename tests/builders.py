@@ -1,10 +1,10 @@
-from ableton_control_suface_as_code.core_model import MixerWithMidi, MixerMidiMapping, MidiCoords, EncoderType, \
+from ableton_control_surface_as_code.core_model import MixerWithMidi, MixerMidiMapping, MidiCoords, EncoderType, \
     TrackInfo, MidiType, Direction
-from ableton_control_suface_as_code.encoder_coords import EncoderCoords
-from ableton_control_suface_as_code.model_controller import ControllerV2, ControllerRawV2, ControlGroupPartV2
-from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceMidiMapping
-from ableton_control_suface_as_code.model_functions import FunctionsWithMidi, FunctionsMidiMapping
-from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi, TrackNavMidiMapping
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords
+from ableton_control_surface_as_code.model_controller import ControllerV2, ControllerRawV2, ControlGroupPartV2
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceMidiMapping
+from ableton_control_surface_as_code.model_functions import FunctionsWithMidi, FunctionsMidiMapping
+from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi, TrackNavMidiMapping
 
 
 def midi_coords_ch2_cc_50_knob(encoder_override=EncoderType.knob):

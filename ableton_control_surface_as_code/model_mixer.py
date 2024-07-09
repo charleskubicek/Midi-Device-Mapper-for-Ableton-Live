@@ -2,10 +2,10 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from ableton_control_suface_as_code.core_model import parse_coords, TrackInfo, NamedTrack, MixerMidiMapping, \
+from ableton_control_surface_as_code.core_model import parse_coords, TrackInfo, NamedTrack, MixerMidiMapping, \
     MixerWithMidi, parse_multiple_coords
-from ableton_control_suface_as_code.encoder_coords import EncoderCoords
-from ableton_control_suface_as_code.model_controller import ControllerV2
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords
+from ableton_control_surface_as_code.model_controller import ControllerV2
 
 
 class MixerMappingsV2(BaseModel):

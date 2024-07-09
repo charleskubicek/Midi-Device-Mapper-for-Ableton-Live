@@ -7,8 +7,8 @@
 - [x] User functions
 - [x] Transport functions
 - [x] Print ascii text of controller layout
-- [ ] Device: go to named top-level device
-- [ ] Track: go to named track
+- [x] Device: go to named top-level device
+- [x] Track: go to named track
 
 # TOIL
 - [] replace EncoderCoords with EncoderCoordsV2_1

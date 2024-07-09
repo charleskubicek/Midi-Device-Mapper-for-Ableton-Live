@@ -3,13 +3,13 @@ from dataclasses import dataclass, field
 from string import Template
 from typing import List
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
-from ableton_control_suface_as_code.encoder_coords import EncoderRefinements
-from ableton_control_suface_as_code.model_device import DeviceWithMidi
-from ableton_control_suface_as_code.model_device_nav import DeviceNavWithMidi
-from ableton_control_suface_as_code.model_functions import FunctionsWithMidi
-from ableton_control_suface_as_code.model_track_nav import TrackNavWithMidi
-from ableton_control_suface_as_code.model_transport import TransportWithMidi
+from ableton_control_surface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
+from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
+from ableton_control_surface_as_code.model_device import DeviceWithMidi
+from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi
+from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
+from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi
+from ableton_control_surface_as_code.model_transport import TransportWithMidi
 
 
 @dataclass

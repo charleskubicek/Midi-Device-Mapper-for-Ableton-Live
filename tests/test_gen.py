@@ -3,11 +3,11 @@ from difflib import Differ
 
 from autopep8 import fix_code
 
-from ableton_control_suface_as_code.core_model import TrackInfo
-# from ableton_control_suface_as_code import gen
-from ableton_control_suface_as_code.gen import generate_mode_code_in_template_vars
-from ableton_control_suface_as_code.gen_code import generate_lom_listener_action, build_live_api_lookup_from_lom
-from ableton_control_suface_as_code.model_v2 import ModeGroupWithMidi
+from ableton_control_surface_as_code.core_model import TrackInfo
+# from ableton_control_surface_as_code import gen
+from ableton_control_surface_as_code.gen import generate_mode_code_in_template_vars
+from ableton_control_surface_as_code.gen_code import generate_lom_listener_action, build_live_api_lookup_from_lom
+from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi
 from builders import build_mixer_with_midi
 
 differ = Differ()

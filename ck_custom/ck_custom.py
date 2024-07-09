@@ -10,8 +10,8 @@ import importlib
 import socket
 import traceback
 
-from . import ableton_control_suface_as_code
-from .ableton_control_suface_as_code import custom_ops
+from . import ableton_control_surface_as_code
+from .ableton_control_surface_as_code import custom_ops
 
 class ck_custom(ControlSurface):
     def __init__(self, c_instance):
@@ -51,7 +51,7 @@ class ck_custom(ControlSurface):
                         self.log_message(f'Error removing listeners: {e}')
                         self.log_message(traceback.format_exc())
 
-                    importlib.reload(ableton_control_suface_as_code.custom_ops)
+                    importlib.reload(ableton_control_surface_as_code.custom_ops)
 
                     self.init_modules()
                 except Exception as e:

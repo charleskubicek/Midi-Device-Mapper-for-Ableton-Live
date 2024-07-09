@@ -5,16 +5,16 @@ from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
 from pydantic import BaseModel, model_validator
 
-from ableton_control_suface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
-from ableton_control_suface_as_code.gen_error import GenError
-from ableton_control_suface_as_code.model_controller import ControllerRawV2, ControllerV2
-from ableton_control_suface_as_code.model_device import DeviceWithMidi, DeviceV2_1, build_device_model_v2_1
-from ableton_control_suface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
-from ableton_control_suface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
-from ableton_control_suface_as_code.model_mixer import MixerV2, build_mixer_model_v2
-from ableton_control_suface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
+from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
+from ableton_control_surface_as_code.gen_error import GenError
+from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV2_1, build_device_model_v2_1
+from ableton_control_surface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
+from ableton_control_surface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
+from ableton_control_surface_as_code.model_mixer import MixerV2, build_mixer_model_v2
+from ableton_control_surface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
     build_track_nav_model_v2
-from ableton_control_suface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
+from ableton_control_surface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
 
 AllMappingTypes = List[Union[
     MixerV2,

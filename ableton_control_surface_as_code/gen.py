@@ -2,15 +2,11 @@ import hashlib
 from pathlib import Path
 from string import Template
 
-from prettytable import PrettyTable
-
-from ableton_control_suface_as_code.core_model import MidiType
-from ableton_control_suface_as_code.gen_code import class_function_body_code_block, \
+from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
     functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates, \
     transport_mode_templates
-from ableton_control_suface_as_code.model_controller import ControllerV2
-from ableton_control_suface_as_code.model_v2 import read_controller, \
+from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
 
 mode_template_to_code = {

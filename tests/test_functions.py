@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_suface_as_code.gen_code import functions_mode_templates
+from ableton_control_surface_as_code.gen_code import functions_mode_templates
 from tests.builders import build_functions_with_midi
 from tests.test_code_mixer_template import CustomAssertions
 

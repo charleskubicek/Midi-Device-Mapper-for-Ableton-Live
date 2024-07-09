@@ -1,5 +1,5 @@
-from ableton_control_suface_as_code.core_model import LayoutAxis
-from ableton_control_suface_as_code.model_controller import ControlGroupPartV2, ControllerRawV2
+from ableton_control_surface_as_code.core_model import LayoutAxis
+from ableton_control_surface_as_code.model_controller import ControlGroupPartV2, ControllerRawV2
 
 
 def build_control_group(midi_range='21-28', number=1, layout=LayoutAxis.row, midi_type='CC'):

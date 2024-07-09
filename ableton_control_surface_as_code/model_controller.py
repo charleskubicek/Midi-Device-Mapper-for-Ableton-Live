@@ -6,8 +6,8 @@ from typing import Optional, List, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-from ableton_control_suface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords
-from ableton_control_suface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
+from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
 
 
 class ControlGroupPartV2(BaseModel):

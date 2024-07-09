@@ -1,6 +1,6 @@
 import unittest
-from ableton_control_suface_as_code.core_model import parse_coords, parse_multiple_coords
-from ableton_control_suface_as_code.encoder_coords import EncoderCoords, Toggle
+from ableton_control_surface_as_code.core_model import parse_coords, parse_multiple_coords
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords, Toggle
 
 
 class TestEncoderCoords(unittest.TestCase):

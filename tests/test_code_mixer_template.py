@@ -1,7 +1,7 @@
 import unittest
 
-from ableton_control_suface_as_code.gen_code import mixer_mode_templates, track_nav_mode_templates
-from ableton_control_suface_as_code.core_model import EncoderType, \
+from ableton_control_surface_as_code.gen_code import mixer_mode_templates, track_nav_mode_templates
+from ableton_control_surface_as_code.core_model import EncoderType, \
     TrackInfo
 from tests.builders import build_mixer_with_multiple_mappings, build_track_nav_with_midi_button
 

@@ -3,7 +3,7 @@ from typing import Literal, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_suface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2_1
+from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2_1
 
 
 class DeviceMidiMapping(BaseModel):

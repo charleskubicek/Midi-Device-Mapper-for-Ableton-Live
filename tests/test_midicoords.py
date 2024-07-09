@@ -1,5 +1,5 @@
 import unittest
-from ableton_control_suface_as_code.core_model import MidiCoords, EncoderType, MidiType
+from ableton_control_surface_as_code.core_model import MidiCoords, EncoderType, MidiType
 
 class TestMidiCoords(unittest.TestCase):
 
