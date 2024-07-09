@@ -33,4 +33,4 @@ class TestDeviceModeTemplates(unittest.TestCase):
         self.assertEqual(len(result.remove_listeners), 4)
         self.assertEqual(len(result.control_defs), 4)
         self.assertEqual(len(result.setup_listeners), 4)
-        self.assertEqual(len(result.listener_fns), 20)
+        self.assertEqual(len(result.listener_fns), 40)

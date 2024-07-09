@@ -2,7 +2,7 @@ import unittest
 
 from ableton_control_surface_as_code.gen_code import functions_mode_templates
 from tests.builders import build_functions_with_midi
-from tests.test_code_mixer_template import CustomAssertions
+from tests.custom_assertions import CustomAssertions
 
 
 class TestFunctionsTemplates(unittest.TestCase, CustomAssertions):
@@ -11,5 +11,5 @@ class TestFunctionsTemplates(unittest.TestCase, CustomAssertions):
 
         result = functions_mode_templates(midi, "mode_1")
 
-        self.assertStringInOne('def button_ch1_51_CC__mode_mode_1_fn_togglevalue(self, value):', result.listener_fns)
+        self.assert_string_in_one('def button_ch1_51_CC__mode_mode_1_fn_togglevalue(self, value):', result.listener_fns)
 

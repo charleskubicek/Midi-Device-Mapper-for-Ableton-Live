@@ -64,7 +64,7 @@ def ${fn_name}(self, value):
 def generate_control_value_listener_function_action(fn_name, callee, toggle:bool, debug_st:str) -> [str]:
     toggle_fn = "True"
     if toggle:
-        toggle_fn = "self.value_is_127(value)"
+        toggle_fn = "self._helpers.value_is_max(value, 127)"
 
 
     return Template("""

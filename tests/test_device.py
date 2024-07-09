@@ -4,7 +4,7 @@ from ableton_control_surface_as_code.core_model import RowMapV2_1
 from ableton_control_surface_as_code.model_controller import ControllerV2
 from ableton_control_surface_as_code.model_device import DeviceV2_1, \
     build_device_model_v2_1
-from tests.test_code_mixer_template import CustomAssertions
+from tests.custom_assertions import CustomAssertions
 from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part
 
 

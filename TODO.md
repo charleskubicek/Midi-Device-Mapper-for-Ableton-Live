@@ -40,5 +40,7 @@ G8 (MIDI note 127): This is the highest note in the MIDI range.
 ## Button toggle
 https://help.ableton.com/hc/en-us/articles/209774945-Toggle-and-Momentary-MIDI-functions
 
+Momentary - Button down sends 127, button up sends 0
+Toggle - On sends 127, next on sends 127
 
 https://nickfever.com/music/midi-cc-list
