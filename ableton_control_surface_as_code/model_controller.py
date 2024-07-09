@@ -21,9 +21,6 @@ class ControlGroupPartV2(BaseModel):
 
     @model_validator(mode='after')
     def validate_midi_range(self):
-        # if '-' in self.midi_range_raw and ',' in self.midi_range_raw:
-        #     raise ValueError(f"Range {self.midi_range_raw} can't have both '-' and ','")
-
         if self.layout == LayoutAxis.row and self.row_parts_raw is not None:
             raise ValueError(f"Row layout must not have row_parts")
 
@@ -54,7 +51,7 @@ class ControlGroupPartV2(BaseModel):
         else:
             values = [v.strip() for v in self.midi_range_raw.split(",")]
             if self.midi_type.is_note():
-                missing = list(filter(lambda x:x not in note_values, values))
+                missing = list(filter(lambda x: x not in note_values, values))
                 if len(missing) > 0:
                     raise ValueError(f"Note values are invalid: {missing}")
                 return list(map(note_values.get, values))
@@ -65,13 +62,13 @@ class ControlGroupPartV2(BaseModel):
         return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
 
     def build_midi_coords(self):
-        info = self.info_string() +f", from {self.layout.value} {self.number}"
+        info = self.info_string() + f", from {self.layout.value} {self.number}"
         return [MidiCoords(
             channel=self.midi_channel,
             type=self.midi_type,
             number=midi_number,
             encoder_type=self.type,
-            source_info=info+f", position {i}",
+            source_info=info + f", position {i}",
             encoder_refs=list()
         ) for i, midi_number in enumerate(self._midi_list)]
 
@@ -82,11 +79,6 @@ class ControlGroupAggregateV2:
         # TODO verify parts haven't been used with range arrays
         self.parts = self._sort_parts(parts)
         self.midi_coords = self.build_midi_coords(parts)
-
-        self.validate_model()
-
-    def validate_model(self):
-        pass
 
     @property
     def type(self):
@@ -115,6 +107,7 @@ class ControlGroupAggregateV2:
         list_of_lists = [part.build_midi_coords() for part in parts]
         return list(itertools.chain.from_iterable(list_of_lists))
 
+
 class ControlGroupV2(BaseModel):
     layout: LayoutAxis
     number: int
@@ -123,7 +116,7 @@ class ControlGroupV2(BaseModel):
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
 
-    #TODO not used?
+    # TODO not used?
     @property
     def midi_range(self):
         try:
@@ -181,26 +174,20 @@ class ControllerV2:
         res_midi = []
         res_type = None
 
-        print(f"enc_str = {coords}")
         for coords in encoder_coors_list:
             for group in self.control_groups:
                 if group.number == int(coords.row):
-                    print(f"  Looking in range {coords.range_inclusive}")
                     for col in coords.range_inclusive:
                         midi_range_index = col - 1
                         midi_coords = group.midi_item_at(midi_range_index)
                         res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
                         res_type = group.type
 
-
         if res_type is None:
             print(f"Didn't find any coords for {coords} in {self.control_groups}")
             sys.exit(1)
         else:
             return res_midi, res_type
-
-
-
 
 
 PITCH_DICTIONARY_C3 = {0: "C-2", 1: "CS-2", 2: "D-2", 3: "DS-2", 4: "E-2", 5: "F-2", 6: "FS-2", 7: "G-2", 8: "GS-2",

@@ -3,19 +3,19 @@ from pathlib import Path
 from string import Template
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
-    class_function_code_block, is_valid_python, device_mode_templates, GeneratedModeCode, \
-    functions_mode_templates, mixer_mode_templates, track_nav_mode_templates, device_nav_mode_templates, \
-    transport_mode_templates
+    class_function_code_block, is_valid_python, device_templates, GeneratedCode, \
+    functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
+    transport_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
 
-mode_template_to_code = {
-    'device': device_mode_templates,
-    'mixer': mixer_mode_templates,
-    'track-nav': track_nav_mode_templates,
-    'device-nav': device_nav_mode_templates,
-    'functions': functions_mode_templates,
-    'transport': transport_mode_templates
+template_to_code = {
+    'device': device_templates,
+    'mixer': mixer_templates,
+    'track-nav': track_nav_templates,
+    'device-nav': device_nav_templates,
+    'functions': functions_templates,
+    'transport': transport_templates
 }
 
 tab = " " * 4
@@ -25,32 +25,32 @@ def tabs(n):
     return tab * n
 
 
-def mode_setup_template(mode_name):
+def setup_template(mode_name):
     return f"""
         self.current_mode = None
         self._first_mode = '{mode_name}'
         self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)    
     """
 
-def mode_creation_template(mode_name):
+def creation_template(mode_name):
     return f"""
         self.current_mode = self._modes['{mode_name}']
         self.goto_mode(self._first_mode)
         """
 
-def mode_add_listeners_template(mode_name):
+def add_listeners_template(mode_name):
     return f"""
     def mode_{mode_name}_add_listeners(self):
         self.log_message(f'Adding listeners for mode {mode_name}')
     """
 
-def mode_remove_listeners_template():
+def remove_listeners_template():
     return f"""
         if not modes_only:
             self.mode_button.remove_value_listener(self.mode_button_listener)
     """
 
-def mode_state_dict_template(mode:ModeData, listners_function):
+def state_dict_template(mode:ModeData, listners_function):
     return f"""
         self._modes['{mode.name}'] = {{
             'name': '{mode.name}',
@@ -69,45 +69,37 @@ def array_def_template(array_name, array_values):
         ]
     """
 
-def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     first_mode_name = "mode_1"
-    mode_codes = {}
 
-    for name, mode_mappings in modes.mappings.items():
-        mode_code = GeneratedModeCode()
-        for mapping in mode_mappings:
-            code_templates = mode_template_to_code[mapping.type](mapping, name)
-            mode_code = mode_code.merge(code_templates)
-
-        mode_codes[name] = mode_code
+    mode_codes = {name: build_mode_code(maps, name)
+                  for name, maps in modes.mappings.items()}
 
     array_defs = []
-    codes = GeneratedModeCode()
+    codes = GeneratedCode()
 
     creation = [creation.variable_initialisation()
-                for creation in GeneratedModeCode.merge_all(list(mode_codes.values())).control_defs]
+                for creation in GeneratedCode.merge_all(list(mode_codes.values())).control_defs]
 
     creation.append(f"self.mode_mode_1_add_listeners()")
 
+    for name, code_model in mode_codes.items():
+        codes.remove_listeners.append(class_function_body_code_block(code_model.remove_listeners))
+        codes.setup_listeners.append(add_listeners_template(name))
+        codes.setup_listeners.append(class_function_body_code_block(code_model.setup_listeners))
+        codes.listener_fns.append(class_function_code_block(code_model.listener_fns))
 
-    for name, mode_code in mode_codes.items():
-        codes.remove_listeners.append(class_function_body_code_block(mode_code.remove_listeners))
-
-        codes.setup_listeners.append(mode_add_listeners_template(name))
-        codes.setup_listeners.append(class_function_body_code_block(mode_code.setup_listeners))
-        codes.listener_fns.append(class_function_code_block(mode_code.listener_fns))
-
-        for (name, values) in mode_code.array_defs:
+        for (name, values) in code_model.array_defs:
             array_defs.append(array_def_template(name, values))
 
     if modes.has_modes():
-        creation.append(mode_creation_template(first_mode_name))
-        codes.remove_listeners.append(mode_remove_listeners_template())
-        codes.init.append(mode_setup_template(first_mode_name))
+        creation.append(creation_template(first_mode_name))
+        codes.remove_listeners.append(remove_listeners_template())
+        codes.init.append(setup_template(first_mode_name))
 
         for mode in modes.fsm():
-            codes.init.append(mode_state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
+            codes.init.append(state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
 
         codes.init.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
@@ -119,6 +111,12 @@ def generate_mode_code_in_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
 
+
+def build_mode_code(mode_mappings, name):
+    codes = [template_to_code[mapping.type](mapping, name)
+             for mapping in mode_mappings]
+
+    return GeneratedCode.merge_all(codes)
 
 
 def write_templates(template_path: Path, target: Path, vars: dict, functions_path: Path):
@@ -182,7 +180,7 @@ def generate_modes(mapping_file_path):
     controller = read_controller(controller_path.read_text())
     mode_with_midi = read_root_v2(mode_mappings, controller)
 
-    code_vars = generate_mode_code_in_template_vars(mode_with_midi)
+    code_vars = generate_code_as_template_vars(mode_with_midi)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 

@@ -2,7 +2,7 @@ from typing import Optional, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from ableton_control_surface_as_code.core_model import parse_coords, TrackInfo, NamedTrack, MixerMidiMapping, \
+from ableton_control_surface_as_code.core_model import TrackInfo, NamedTrack, MixerMidiMapping, \
     MixerWithMidi, parse_multiple_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.model_controller import ControllerV2
@@ -38,9 +38,6 @@ class MixerV2(BaseModel):
     type: Literal['mixer'] = "mixer"
     track_raw: str = Field(alias='track')
     mappings: MixerMappingsV2
-
-    # def __init__(self, track:str, mappings: MixerMappingsV2):
-    #     super().__init__(track_raw=track, mappings=mappings)
 
     @property
     def track_info(self) -> TrackInfo:

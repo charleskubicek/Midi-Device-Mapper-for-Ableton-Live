@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_surface_as_code.gen_code import device_mode_templates
+from ableton_control_surface_as_code.gen_code import device_templates
 from ableton_control_surface_as_code.core_model import TrackInfo
 from ableton_control_surface_as_code.model_device import DeviceWithMidi
 from tests.builders import build_device_midi_mapping
@@ -16,7 +16,7 @@ class TestDeviceModeTemplates(unittest.TestCase):
                                                               build_device_midi_mapping(midi_number=23,parameter=3),
                                                               build_device_midi_mapping(midi_number=24,parameter=4),
                                                           ])
-        result = device_mode_templates(device_with_midi, 'mode_1')
+        result = device_templates(device_with_midi, 'mode_1')
         all_functions = "\n".join(result.listener_fns)
 
         self.assertEqual(result.remove_listeners[0],

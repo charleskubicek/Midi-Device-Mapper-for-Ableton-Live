@@ -53,10 +53,10 @@ mode:
                 play-stop: row_3:4 toggle
                 record-session: row_3:5
                 record-arrangement: row_3:6
-                loop: row_3:7
+                back-1: row_3:7
         -
             type: device
-            track: master
+            track: selected
             device: Mono
             ranges:
                 -

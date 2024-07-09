@@ -13,7 +13,7 @@ from ableton_control_surface_as_code.model_transport import TransportWithMidi
 
 
 @dataclass
-class GeneratedModeCode:
+class GeneratedCode:
     array_defs: [(str, [MidiCoords])] = field(default_factory=list)
     init: [str] = field(default_factory=list)
     control_defs: [MidiCoords] = field(default_factory=list)
@@ -24,9 +24,7 @@ class GeneratedModeCode:
     @classmethod
     def merge_all(cls, codes: []):
         if len(codes) == 0:
-            return GeneratedModeCode()
-        if len(codes) == 1:
-            return codes[0]
+            return GeneratedCode()
         else:
             first = codes[0]
             for c in codes[1:]:
@@ -34,11 +32,10 @@ class GeneratedModeCode:
             return first
 
     def merge(self, other):
-        # check other is a GeneratedModeCode
-        if not isinstance(other, GeneratedModeCode):
+        if not isinstance(other, GeneratedCode):
             raise ValueError(f"Can't merge with {other}")
 
-        return GeneratedModeCode(
+        return GeneratedCode(
             self.array_defs + other.array_defs,
             self.init + other.init,
             self.control_defs + other.control_defs,
@@ -78,20 +75,20 @@ def ${fn_name}(self, value):
     """).substitute(callee=callee, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split("\n")
 
 
-def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> GeneratedModeCode:
-    codes = GeneratedModeCode()
+def mixer_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> GeneratedCode:
+    codes = GeneratedCode()
 
     for midi_map in mixer_with_midi.midi_maps:
         if midi_map.api_function == "sends":
             var_name = f"{midi_map.midi_coords[0].controller_variable_name()}_{mode_name}_sends"
 
-            codes = codes.merge(GeneratedModeCode(
+            codes = codes.merge(GeneratedCode(
                 array_defs=[(var_name, midi_map.midi_coords)],
                 setup_listeners=[midi_map.listener_setup_code(var_name)],
                 remove_listeners=[midi_map.listener_remove_code()]
             ))
         else:
-            codes = codes.merge(GeneratedModeCode(
+            codes = codes.merge(GeneratedCode(
                 control_defs=[midi_map.only_midi_coord],
                 setup_listeners=[midi_map.listener_setup_code()],
                 remove_listeners=[midi_map.listener_remove_code()]
@@ -100,15 +97,15 @@ def mixer_mode_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> Gene
     return codes
 
 
-def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
-    codes = GeneratedModeCode()
+def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
+    codes = GeneratedCode()
 
     for mm in device_with_midi.midi_maps:
         enc_name = mm.controller_variable_name()
         enc_listener_name = mm.controller_listener_fn_name(mode_name)
         enc_refs = EncoderRefinements(mm.only_midi_coord.encoder_refs)
 
-        codes = codes.merge(GeneratedModeCode(
+        codes = codes.merge(GeneratedCode(
             control_defs=mm.midi_coords,
             setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
@@ -124,14 +121,14 @@ def device_mode_templates(device_with_midi: DeviceWithMidi, mode_name: str):
     return codes
 
 
-def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
+def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
     button_name = midi_map.controller_variable_name()
     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
     enc_refs = EncoderRefinements(midi_map.only_midi_coord.encoder_refs)
 
     print(f"enc_refs = {enc_refs}")
 
-    return GeneratedModeCode(
+    return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],
         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
@@ -143,23 +140,23 @@ def button_listener_function_caller_mode_templates(midi_map: ButtonProviderBaseM
 
 
 def map_controllers(mode_name, midi_maps: List[ButtonProviderBaseModel]):
-    codes = [button_listener_function_caller_mode_templates(m, mode_name) for m in midi_maps]
-    return GeneratedModeCode.merge_all(codes)
+    codes = [button_listener_function_caller_templates(m, mode_name) for m in midi_maps]
+    return GeneratedCode.merge_all(codes)
 
 
-def track_nav_mode_templates(track_nav_with_midi: TrackNavWithMidi, mode_name) -> GeneratedModeCode:
+def track_nav_templates(track_nav_with_midi: TrackNavWithMidi, mode_name) -> GeneratedCode:
     return map_controllers(mode_name, track_nav_with_midi.midi_maps)
 
 
-def device_nav_mode_templates(deivce_nav_with_midi: DeviceNavWithMidi, mode_name) -> GeneratedModeCode:
+def device_nav_templates(deivce_nav_with_midi: DeviceNavWithMidi, mode_name) -> GeneratedCode:
     return map_controllers(mode_name, deivce_nav_with_midi.midi_maps)
 
 
-def transport_mode_templates(transport_with_midi: TransportWithMidi, mode_name) -> GeneratedModeCode:
+def transport_templates(transport_with_midi: TransportWithMidi, mode_name) -> GeneratedCode:
     return map_controllers(mode_name, transport_with_midi.midi_maps)
 
 
-def functions_mode_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> GeneratedModeCode:
+def functions_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> GeneratedCode:
     return map_controllers(mode_name, functions_with_midi.midi_maps)
 
 

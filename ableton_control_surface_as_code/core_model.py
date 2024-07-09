@@ -38,22 +38,8 @@ class NamedTrack(str, Enum):
     selected = 'selected'
 
     @property
-    def is_master(self):
-        return self == NamedTrack.master
-
-    @property
-    def is_selected(self):
-        return self == NamedTrack.selected
-
-    @property
-    def lom_name(self):
-        if self.is_master:
-            return None
-        return 'selected_track'
-
-    @property
     def mixer_strip_name(self):
-        if self.is_master:
+        if self == NamedTrack.master:
             return 'master'
         return 'selected'
 
@@ -72,12 +58,6 @@ class TrackInfo(BaseModel):
 
     def __init__(self, name=None, list=None):
         super().__init__(name=name, list=list)
-
-    def is_selected(self):
-        return self.name is not None and self.name.is_selected
-
-    def is_multi(self):
-        return self.list is not None
 
 
 class MidiType(str, Enum):
@@ -113,21 +93,10 @@ class MidiCoords(BaseModel):
         return self.channel - 1
 
     def create_button_element(self):
-        print(f"self.type = {self.type}")
         return f"ConfigurableButtonElement(True, {self.type.ableton_name()}, {self.ableton_channel()}, {self.number})"
 
     def create_encoder_element(self):
         return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
-
-    # TODO remove this
-    def __init__(self, channel, number, type, encoder_type, source_info,
-                 encoder_refs: List[EncoderRefinement] = list()):
-        super().__init__(channel=channel,
-                         type=type,
-                         number=number,
-                         encoder_type=encoder_type,
-                         source_info=source_info,
-                         encoder_refs=encoder_refs)
 
     def create_controller_element(self):
         if self.encoder_type.is_button():
