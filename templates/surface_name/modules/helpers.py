@@ -27,7 +27,7 @@ class Helpers:
         else:
             next_value = self.normalise(value, min, max)
 
-        if self._manager.debug():
+        if self._manager.debug:
             self.log_message(f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
             self.log_message(f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[parameter_no].value}")
 
