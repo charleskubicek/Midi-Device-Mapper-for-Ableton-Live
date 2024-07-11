@@ -8,7 +8,7 @@ from tests.custom_assertions import CustomAssertions
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
     def test_mixer_pan(self):
-        mixer = MixerV2(track='selected', mappings=MixerMappingsV2(pan="row_1:2"))
+        mixer = MixerV2(track='selected', mappings=MixerMappingsV2(pan="row-1:2"))
         result = build_mixer_model_v2(build_1_group_controller(), mixer)
 
         self.assertEqual(result.midi_maps[0].midi_type, "CC")
@@ -21,7 +21,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
 
     def test_mixer_sends(self):
-        mixer = MixerV2(track='selected', mappings=MixerMappingsV2(sends="row_1:5-8"))
+        mixer = MixerV2(track='selected', mappings=MixerMappingsV2(sends="row-1:5-8"))
         result = build_mixer_model_v2(build_1_group_controller(midi_range='21-28'), mixer)
 
         map_1 = result.midi_maps[0]
@@ -36,7 +36,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
 
 
     def test_master_volume(self):
-        mixer = MixerV2(track='master', mappings=MixerMappingsV2(volume="row_1:1"))
+        mixer = MixerV2(track='master', mappings=MixerMappingsV2(volume="row-1:1"))
         result = build_mixer_model_v2(build_1_group_controller(midi_range='1-1'), mixer)
 
         map_1 = result.midi_maps[0]

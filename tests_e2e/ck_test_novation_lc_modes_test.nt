@@ -1,7 +1,7 @@
 controller: controller_lc.nt
 mode:
     name: main
-    button: row_3:1
+    button: row-3:1
     type: shift
     on_color: green_full
     on_off: red_low
@@ -12,7 +12,7 @@ mode:
             device: selected
             ranges:
                 -
-                    range: row_1:1-8,row_2:1-8
+                    range: row-1:1-8,row-2:1-8
                     parameters: 1-16
 #        -
 #            type: device
@@ -27,47 +27,47 @@ mode:
             type: mixer
             track: selected
             mappings:
-                mute: row_3:2
-                solo: row_3:3
+                mute: row-3:2
+                solo: row-3:3
         -
             type: functions
             mappings:
-                iterate_midi_pattern: row_3:5
-                iterate_perc_pattern: row_3:6
+                iterate_midi_pattern: row-3:5
+                iterate_perc_pattern: row-3:6
         -
             type: device-nav
             mappings:
-                left: row_4:1
-                right: row_4:2
+                left: row-4:1
+                right: row-4:2
         -
             type: track-nav
             mappings:
-                left: row_5:1
-                right: row_5:2
+                left: row-5:1
+                right: row-5:2
     mode_2:
         -
             type: mixer
             track: selected
             mappings:
-                volume: row_1:8
-                pan: row_2:8
-                sends: row_1:5-6,row_2:5-6
+                volume: row-1:8
+                pan: row-2:8
+                sends: row-1:5-6,row-2:5-6
         -
             type: transport
             mappings:
-                play-stop: row_3:4 toggle
-                record-session: row_3:5
-                record-arrangement: row_3:6
-                back-1: row_3:7
+                play-stop: row-3:4 toggle
+                record-session: row-3:5
+                record-arrangement: row-3:6
+                back-1: row-3:7
         -
             type: device
             track: selected
             device: Mono
             ranges:
                 -
-                    range: row_3:2 toggle
+                    range: row-3:2 toggle
                     parameters: 0
         -
             type: functions
             mappings:
-                press_rack_random_button: row_3:8
+                press_rack_random_button: row-3:8

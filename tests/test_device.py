@@ -15,7 +15,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2_1(
             track='selected',
             device='selected',
-            ranges=[RowMapV2_1(range="row_1:2-5", parameters="1-4")]
+            ranges=[RowMapV2_1(range="row-1:2-5", parameters="1-4")]
         )
 
         res = build_device_model_v2_1(controller, dev)
@@ -35,7 +35,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2_1(
             track='selected',
             device='selected',
-            ranges=[RowMapV2_1(range="row_1:2-5,row_2:2-5", parameters="1-8")]
+            ranges=[RowMapV2_1(range="row-1:2-5,row-2:2-5", parameters="1-8")]
         )
 
         res = build_device_model_v2_1(controller, dev)
@@ -62,7 +62,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2_1(
             track='master',
             device='MC',
-            ranges=[RowMapV2_1(range="row_1:1", parameters="6")]
+            ranges=[RowMapV2_1(range="row-1:1", parameters="6")]
         )
 
         res = build_device_model_v2_1(controller, dev)

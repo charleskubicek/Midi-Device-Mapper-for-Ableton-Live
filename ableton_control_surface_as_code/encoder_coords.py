@@ -69,7 +69,7 @@ grammar = '''
     axis : row | col
     axis_no : NUMBER
     range: NUMBER | (NUMBER "-" NUMBER)
-    coords: axis "_" axis_no ":" range
+    coords: axis "-" axis_no ":" range
     coords_list: coords  ("," coords)*
     toggle : "toggle"
     min_max: "min_max(" NUMBER "," NUMBER ")"
@@ -82,19 +82,6 @@ grammar = '''
 '''
 full_parser = Lark(grammar, start='multi')
 small_parser = Lark(grammar, start='single')
-
-# # input_string = "row-3:4"
-# input_string = "row_3:1"
-input_string = "row_3:1-4 toggle"
-# input_string = "4"
-# # input_string = "row-3"
-#
-# # Parse the input string
-# parsed_tree = small_parser.parse(input_string)
-parsed_tree = full_parser.parse(input_string)
-# # parser.parse(input_string_1)
-# # print( parsed_tree.pretty() )
-
 
 @dataclass
 class MinMax:
@@ -161,25 +148,3 @@ def parse_multiple(raw) -> List[EncoderCoords]:
     parsed_tree = full_parser.parse(raw)
     return MyTransformer(full=True).transform(parsed_tree)
 
-# print(parser.parse(input_string))
-# print()
-print(MyTransformer().transform(parsed_tree))
-# EncoderCoords()
-
-# print(f"parsed_tree = {parsed_tree}")
-#
-# # Convert the parse tree into data classes
-# value_object = parse_tree(parsed_tree)
-#
-# print(value_object)
-# # Transform the parse tree into data classes
-# # value_object = transformer.transform(parse_tree)
-#
-# # print(value_object.definition)
-#
-# # print( l.parse("row_3") )
-# # print( l.parse("row_3:10") )
-# # print( l.parse(" row_3:4 toggle") )
-# # print( l.parse(" row_3:4 min_max(12, 15)") )
-# tree = l.parse(" row-3:4 toggle min_max(12, 15)")
-# print(tree)

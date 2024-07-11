@@ -126,8 +126,6 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
     enc_refs = EncoderRefinements(midi_map.only_midi_coord.encoder_refs)
 
-    print(f"enc_refs = {enc_refs}")
-
     return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],
         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
