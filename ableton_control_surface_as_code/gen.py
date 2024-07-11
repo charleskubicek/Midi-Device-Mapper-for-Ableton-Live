@@ -193,8 +193,8 @@ def generate_modes(mapping_file_path):
 if __name__ == '__main__':
     try:
         root_dir = Path("tests_e2e")
-        # generate_modes(root_dir / "ck_test_novation_xl.nt")
-        # generate_modes(root_dir / "ck_test_novation_lc.nt")
+        generate_modes(root_dir / "ck_test_novation_xl.nt")
+        generate_modes(root_dir / "ck_test_novation_lc.nt")
         generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
     # except GenError as e:
     #     print(f"Problem Generating: {e}")

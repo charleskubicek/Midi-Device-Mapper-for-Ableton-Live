@@ -15,8 +15,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assertEqual(result.midi_maps[0].midi_channel, 2)
         self.assertEqual(result.midi_maps[0].midi_number, 22)
         self.assertEqual(result.midi_maps[0].encoder_coords.row, 1)
-        self.assertEqual(result.midi_maps[0].encoder_coords.col, 2)
-        self.assertEqual(result.midi_maps[0].encoder_coords.row_range_end, 2)
+        self.assertEqual(result.midi_maps[0].encoder_coords.range_, (2, 2))
         self.assertEqual(result.midi_maps[0].api_function, "pan")
 
 
@@ -30,8 +29,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assertEqual(2, map_1_coords.channel)
         self.assertEqual(25, map_1_coords.number)
         self.assertEqual(map_1.encoder_coords.row, 1)
-        self.assertEqual(map_1.encoder_coords.col, 5)
-        self.assertEqual(map_1.encoder_coords.row_range_end, 8)
+        self.assertEqual(map_1.encoder_coords.range_, (5, 8))
         self.assertEqual(map_1.api_function, "sends")
 
 
@@ -44,8 +42,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assertEqual(2, map_1.midi_channel)
         self.assertEqual(1, map_1.midi_number)
         self.assertEqual(map_1.encoder_coords.row, 1)
-        self.assertEqual(map_1.encoder_coords.col, 1)
-        self.assertEqual(map_1.encoder_coords.row_range_end, 1)
+        self.assertEqual(map_1.encoder_coords.range_, (1, 1))
         self.assertEqual(map_1.api_function, "volume")
 
 

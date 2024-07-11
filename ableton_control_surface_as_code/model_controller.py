@@ -68,7 +68,7 @@ class ControlGroupPartV2(BaseModel):
             type=self.midi_type,
             number=midi_number,
             encoder_type=self.type,
-            source_info=info + f", position {i}",
+            source_info=info + f", position {i-1}",
             encoder_refs=list()
         ) for i, midi_number in enumerate(self._midi_list)]
 

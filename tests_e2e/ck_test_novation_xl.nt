@@ -8,40 +8,36 @@ mappings:
         device: selected
         ranges:
             - 
-                row: 2
-                range: 1-8
+                range: row-2:1-8
                 parameters: 1-8
             -
-                row: 3
-                range: 1-8
+                range: row-3:1-8
                 parameters: 9-16
     -
         type: mixer
         track: selected
         mappings:
-            volume: row_4:8
-            pan: row_1:4
-            mute: row_5:1
-            solo: row_5:2
-            sends: row_1:5-8
+            volume: row-4:8
+            pan: row-1:4
+            mute: row-5:1
+            solo: row-5:2
+            sends: row-1:5-8
     -
         type: mixer
         track: master
         mappings:
-            volume: row_4:7
+            volume: row-4:7
     -
         type: track-nav
         mappings:
-            left: row_4:2
-            right: row_4:4
+            left: row-4:2
+            right: row-4:4
     -
         type: device-nav
-        #skip_nested: true
-
         mappings:
-            left: row_4:2
-            right: row_4:4
-            first: row_4:1
-            last: row_4:6
-         #   instrument: row_4:3
-         #   CK_MIXER: row_4:5
+#            left: row-4:2
+#            right: row-4:4
+            first: row-4:1
+            last: row-4:6
+         #   instrument: row-4:3
+         #   CK_MIXER: row-4:5

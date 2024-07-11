@@ -11,11 +11,10 @@
 - [x] Track: go to named track
 
 # TOIL
-- [] replace EncoderCoords with EncoderCoordsV2_1
+- [x] replace EncoderCoords with EncoderCoordsV2_1
 
 ### Next
-- [ ] Use dashes in row names and mode names (row_2 -> row-2)
-- [ ] Encoder value custom min/max
+- [x] Use dashes in row names and mode names (row_2 -> row-2)
 - [ ] Deploy from github
 - [ ] Test numbered track
 - [ ] Test nav buttons on LC
@@ -23,6 +22,7 @@
 - [ ] Spike auto-device mode
 - [ ] Spike Continuous controllers
 - [ ] Spike Grids
+- [ ] Encoder value custom min/max
 
 
 ## Transport

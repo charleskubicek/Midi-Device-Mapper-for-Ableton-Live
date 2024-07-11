@@ -19,7 +19,7 @@ def midi_coords_ch2_cc_50_knob(encoder_override=EncoderType.knob):
 
 
 def encoder_coords_1_2():
-    return EncoderCoords(row=1, col=2, row_range_end=2, encoder_refs=[])
+    return EncoderCoords(row=1, range_=(2, 2), encoder_refs=[])
 
 
 def build_track_nav_with_midi_button(midi_coords=midi_coords_ch2_cc_50_knob(EncoderType.button)):
@@ -82,7 +82,7 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
             midi_coords=[MidiCoords(channel=chan, type=type, number=no, encoder_type=EncoderType.knob, source_info="tests", encoder_refs=[]) for no in nos],
             api_function=api_fn,
             track_info=track_info,
-            encoder_coords=EncoderCoords(row=1, col=col, row_range_end=(col + 1 + len(nos) - 1), encoder_refs=[]),
+            encoder_coords=EncoderCoords(row=1, range_=(col ,(col + 1 + len(nos) - 1)), encoder_refs=[]),
 
         )])
 
