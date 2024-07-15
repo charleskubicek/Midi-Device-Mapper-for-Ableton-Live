@@ -1,5 +1,5 @@
 controller: controller_lc.nt
-mode:
+modes:
     name: main
     button: row-3:1
     type: shift

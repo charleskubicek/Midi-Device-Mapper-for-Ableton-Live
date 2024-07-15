@@ -60,17 +60,19 @@ class ModeGroupV2(BaseModel):
         return self.mode_1 + self.mode_2
 
 
+
+
 class RootV2(BaseModel):
     controller: str
     mappings: AllMappingTypes = []
-    mode: Optional[ModeGroupV2] = None
+    modes: Optional[ModeGroupV2] = None
 
     @model_validator(mode='after')
     def mode_or_mapping(self):
-        if self.mode is None and len(self.mappings) == 0:
+        if self.modes is None and len(self.mappings) == 0:
             raise ValueError('no mappings or modes')
 
-        if self.mode is not None and len(self.mappings) > 0:
+        if self.modes is not None and len(self.mappings) > 0:
             raise ValueError('cannot have both mappings and modes')
 
         return self
@@ -79,8 +81,8 @@ class RootV2(BaseModel):
 class ModeMappingsV2(BaseModel):
     mode: ModeGroupV2
     button: MidiCoords
-    on_color: Optional[int] = None
-    off_color: Optional[int] = None
+    on_color: Optional[int] = 0
+    off_color: Optional[int] = 0
 
     def is_shift(self):
         return self.mode.type is not None and self.mode.type == 'shift'
@@ -181,8 +183,8 @@ def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) 
 
 
 def read_root_v2(root: RootV2, controller: ControllerV2) -> Union[RootV2, ModeGroupWithMidi]:
-    if root.mode is not None:
-        return build_mappings_model_with_mode(root.mode, controller)
+    if root.modes is not None:
+        return build_mappings_model_with_mode(root.modes, controller)
     else:
         return ModeGroupWithMidi(
             mode_mappings=None,
@@ -226,23 +228,15 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2)
 
 def read_root(mapping_path):
     try:
-
-        def normalize_key(key, parent_keys):
-            return '_'.join(key.lower().split())
-
-        data = nt.loads(mapping_path, normalize_key=normalize_key)
-        return RootV2.model_validate(data)
+        data = nt.loads(mapping_path)
+        return RootV2.model_validate(data, strict=True)
     except nt.NestedTextError as e:
         e.terminate()
 
 
 def read_controller(controller_path):
     try:
-
-        def normalize_key(key, parent_keys):
-            return '_'.join(key.lower().split())
-
-        data = nt.loads(controller_path, normalize_key=normalize_key)
+        data = nt.loads(controller_path)
         return ControllerV2.build_from(ControllerRawV2.model_validate(data))
     except nt.NestedTextError as e:
         e.terminate()

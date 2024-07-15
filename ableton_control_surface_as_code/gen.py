@@ -161,7 +161,7 @@ def generate_5_digit_number(input_string):
     return 10000 + (five_digits % 55535)
 
 
-def generate_modes(mapping_file_path):
+def generate(mapping_file_path):
     functions_path = root_dir / "functions.py"
 
     if not functions_path.exists():
@@ -193,9 +193,9 @@ def generate_modes(mapping_file_path):
 if __name__ == '__main__':
     try:
         root_dir = Path("tests_e2e")
-        generate_modes(root_dir / "ck_test_novation_xl.nt")
-        generate_modes(root_dir / "ck_test_novation_lc.nt")
-        generate_modes(root_dir / "ck_test_novation_lc_modes_test.nt")
+        generate(root_dir / "ck_test_novation_xl.nt")
+        generate(root_dir / "ck_test_novation_lc.nt")
+        generate(root_dir / "ck_test_novation_lc_modes_test.nt")
     # except GenError as e:
     #     print(f"Problem Generating: {e}")
     #     exit(-1)

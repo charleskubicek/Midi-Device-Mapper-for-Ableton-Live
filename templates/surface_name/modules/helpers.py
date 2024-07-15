@@ -83,6 +83,7 @@ class Helpers:
 
         if self._manager.debug:
             self.log_message(f"Track {track_name} not selected, manager or a number")
+            from pprint import pprint; pprint(vars(song))
 
         for track in self._manager.song().tracks:
             if track is not None and track.name == track_name:

@@ -23,6 +23,8 @@
 - [ ] Spike Continuous controllers
 - [ ] Spike Grids
 - [ ] Encoder value custom min/max
+- [ ] More than 2 modes
+- [ ] Extract mode to separate class
 
 
 ## Transport
