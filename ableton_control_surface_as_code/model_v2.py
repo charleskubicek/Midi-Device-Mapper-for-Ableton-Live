@@ -3,7 +3,7 @@ from typing import Union, List, Optional
 
 from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Extra
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
 from ableton_control_surface_as_code.gen_error import GenError
@@ -34,6 +34,7 @@ AllMappingWithMidiTypes = List[Union[
     TransportWithMidi
 ]]
 
+
 class ModeMappingsV2(BaseModel):
     mappings: AllMappingTypes = []
 
@@ -47,19 +48,15 @@ class ModeData:
 
 
 class ModeGroupV2(BaseModel):
-    name: str
-    button: str = None
-    type: str = None
+    button: str
+    type: Optional[str] = "toggle"
     on_color: Optional[str] = None
     off_color: Optional[str] = None
     mode_1: AllMappingTypes
     mode_2: AllMappingTypes
 
-    @property
-    def mappings(self):
-        return self.mode_1 + self.mode_2
-
-
+    class Config:
+        extra = 'forbid'  #
 
 
 class RootV2(BaseModel):
@@ -76,6 +73,9 @@ class RootV2(BaseModel):
             raise ValueError('cannot have both mappings and modes')
 
         return self
+
+    class Config:
+        extra = 'forbid'
 
 
 class ModeMappingsV2(BaseModel):
@@ -113,7 +113,7 @@ class ModeGroupWithMidi(BaseModel):
                 name="mode_2",
                 next="mode_1",
                 is_shift=self.mode_mappings.is_shift(),
-                color=self.mode_mappings.on_color
+                color=self.mode_mappings.off_color
             )
         ]
 
@@ -135,7 +135,7 @@ def validate_mappings(mappings: AllMappingWithMidiTypes):
 
 
 def print_model_with_mappings(model: ControllerV2, mappings):
-    def key(mc:MidiCoords):
+    def key(mc: MidiCoords):
         return (mc.ch_num, mc.type.value, mc.channel)
 
     actions = {}

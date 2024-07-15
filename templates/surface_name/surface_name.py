@@ -73,8 +73,10 @@ class $surface_name(ControlSurface):
                     self.log_message('Re-initialising modules')
                     self.init_modules()
                     response = b'reload complete'
+                    self.show_message("Reload complete")
                 except Exception as e:
                     self.log_message(f'Error reloading module: {e}')
+                    self.show_message("Reload Failed, check logs")
                     self.log_message(traceback.format_exc())
                     response = b'reload failed, check logs'
             elif data == b'debug':

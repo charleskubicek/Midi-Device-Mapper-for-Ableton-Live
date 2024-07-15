@@ -193,8 +193,8 @@ def generate(mapping_file_path):
 if __name__ == '__main__':
     try:
         root_dir = Path("tests_e2e")
-        generate(root_dir / "ck_test_novation_xl.nt")
-        generate(root_dir / "ck_test_novation_lc.nt")
+        # generate(root_dir / "ck_test_novation_xl.nt")
+        # generate(root_dir / "ck_test_novation_lc.nt")
         generate(root_dir / "ck_test_novation_lc_modes_test.nt")
     # except GenError as e:
     #     print(f"Problem Generating: {e}")

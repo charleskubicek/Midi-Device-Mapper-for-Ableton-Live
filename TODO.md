@@ -25,6 +25,7 @@
 - [ ] Encoder value custom min/max
 - [ ] More than 2 modes
 - [ ] Extract mode to separate class
+- [ ] Nicer error messages on validation fail
 
 
 ## Transport

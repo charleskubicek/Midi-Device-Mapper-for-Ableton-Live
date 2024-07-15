@@ -1,10 +1,9 @@
 controller: controller_lc.nt
 modes:
-    name: main
     button: row-3:1
     type: shift
     on_color: green_full
-    on_off: red_low
+    off_color: red_low
     mode_1:
         -
             type: device
