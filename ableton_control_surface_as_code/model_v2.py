@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Union, List, Optional
 
 from nestedtext import nestedtext as nt
@@ -47,9 +48,14 @@ class ModeData:
     color: Optional[str]
 
 
+class ModeType(str, Enum):
+    Toggle = 'toggle'
+    Switch = 'switch'
+
+
 class ModeGroupV2(BaseModel):
     button: str
-    type: Optional[str] = "toggle"
+    type: Optional[ModeType] = ModeType.Switch
     on_color: Optional[str] = None
     off_color: Optional[str] = None
     mode_1: AllMappingTypes
@@ -229,7 +235,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2)
 def read_root(mapping_path):
     try:
         data = nt.loads(mapping_path)
-        return RootV2.model_validate(data, strict=True)
+        return RootV2(**data)
     except nt.NestedTextError as e:
         e.terminate()
 

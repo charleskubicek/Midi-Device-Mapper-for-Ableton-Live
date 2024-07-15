@@ -24,7 +24,6 @@ class TestModes(unittest.TestCase):
         mode_group = ModeGroupWithMidi(
             mode_mappings=mode_mappings, mappings={})
 
-        # Execute
         expected_output = mode_group.fsm()
 
         self.assertEqual(expected_output[0].next, 'mode_2')
