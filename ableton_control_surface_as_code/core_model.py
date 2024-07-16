@@ -1,11 +1,22 @@
 import re
 from abc import ABC
 from enum import Enum
-from typing import Literal, Optional, List, Union
+from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
 from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple
+
+
+class EncoderMode(str, Enum):
+    Absolute = 'absolute'
+    Relative = 'relative'
+
+    @property
+    def ableton_midi_map_mode(self):
+        if self == EncoderMode.Absolute:
+            return 'absolute'
+        return 'relative_smooth_two_compliment'
 
 
 class EncoderType(str, Enum):
@@ -18,13 +29,6 @@ class EncoderType(str, Enum):
 
     def is_encoder(self):
         return self != EncoderType.button
-
-    @classmethod
-    def create_from_first_char(cls, str):
-        for control_type in cls:
-            if control_type.value[0] == str[0]:
-                return control_type
-        raise ValueError(f"No ControlTypeEnum starts with {str[0]} from {str}")
 
 
 class LayoutAxis(str, Enum):
@@ -78,12 +82,13 @@ class MidiCoords(BaseModel):
     type: MidiType
     number: int
     encoder_type: EncoderType
+    encoder_mode: EncoderMode
     source_info: Optional[str] = None
     encoder_refs: List[EncoderRefinement] = []
 
     def with_encoder_refs(self, encoder_refs=None):
         return MidiCoords(channel=self.channel, type=self.type, number=self.number, encoder_type=self.encoder_type,
-                          source_info=self.source_info, encoder_refs=encoder_refs)
+                          encoder_mode=self.encoder_mode, source_info=self.source_info, encoder_refs=encoder_refs)
 
     @property
     def ch_num(self):
@@ -96,7 +101,7 @@ class MidiCoords(BaseModel):
         return f"ConfigurableButtonElement(True, {self.type.ableton_name()}, {self.ableton_channel()}, {self.number})"
 
     def create_encoder_element(self):
-        return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.absolute)"
+        return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.{self.encoder_mode.ableton_midi_map_mode})"
 
     def create_controller_element(self):
         if self.encoder_type.is_button():
@@ -240,6 +245,7 @@ def parse_coords(raw) -> EncoderCoords:
         print(f"Failed to parse '{raw}' due to {e}")
         raise e
 
+
 def parse_multiple_coords(raw) -> List[EncoderCoords]:
     try:
         return parse_multiple(raw)
@@ -293,7 +299,6 @@ class RowMapV2_1(BaseModel):
     @property
     def multi_encoder_coords(self) -> list[EncoderCoords]:
         return parse_multiple_coords(self.range_raw)
-
 
     @property
     def parameters(self) -> RangeV2:

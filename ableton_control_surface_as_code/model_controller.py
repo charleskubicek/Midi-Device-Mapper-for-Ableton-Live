@@ -1,14 +1,15 @@
 import itertools
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from itertools import groupby
 from typing import Optional, List, Union
 
 from pydantic import BaseModel, Field, model_validator
 
-from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords
+from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords, \
+    EncoderMode
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
-
 
 class ControlGroupPartV2(BaseModel):
     layout: LayoutAxis
@@ -61,30 +62,30 @@ class ControlGroupPartV2(BaseModel):
     def info_string(self):
         return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
 
-    def build_midi_coords(self):
+    def build_midi_coords(self, encoder_mode: EncoderMode) -> List[MidiCoords]:
         info = self.info_string() + f", from {self.layout.value} {self.number}"
         return [MidiCoords(
             channel=self.midi_channel,
             type=self.midi_type,
             number=midi_number,
             encoder_type=self.type,
+            encoder_mode=encoder_mode,
             source_info=info + f", position {i-1}",
             encoder_refs=list()
         ) for i, midi_number in enumerate(self._midi_list)]
 
 
 class ControlGroupAggregateV2:
-    def __init__(self, parts: List[ControlGroupPartV2]):
+    def __init__(self, parts: List[ControlGroupPartV2], encoder_mode: EncoderMode):
         # TODO verify parts are the same row
         # TODO verify parts haven't been used with range arrays
         self.parts = self._sort_parts(parts)
-        self.midi_coords = self.build_midi_coords(parts)
+        self.midi_coords = self.build_midi_coords(parts, encoder_mode)
 
     @property
     def type(self):
         return self.parts[0].type
 
-    ## assert numbers are the same
     @property
     def number(self):
         return self.parts[0].number
@@ -94,20 +95,17 @@ class ControlGroupAggregateV2:
             raise ValueError(f"Index {index} out of range for {len(self.midi_coords)}")
         return self.midi_coords[index]
 
-    def midi_range_for(self, r: range):
-        return self.midi_coords[r.start:r.stop]
-
     def _sort_parts(self, parts):
         if len(parts) == 1:
             return parts
         else:
             return sorted(parts, key=lambda x: x.row_parts.first_index)
 
-    def build_midi_coords(self, parts: List[ControlGroupPartV2]) -> List[MidiCoords]:
-        list_of_lists = [part.build_midi_coords() for part in parts]
+    def build_midi_coords(self, parts: List[ControlGroupPartV2], encoder_mode: EncoderMode) -> List[MidiCoords]:
+        list_of_lists = [part.build_midi_coords(encoder_mode) for part in parts]
         return list(itertools.chain.from_iterable(list_of_lists))
 
-
+# TODO not used?
 class ControlGroupV2(BaseModel):
     layout: LayoutAxis
     number: int
@@ -130,20 +128,22 @@ class ControlGroupV2(BaseModel):
 class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
     light_colors: dict[str, int]
+    encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Relative)
 
 
 @dataclass
 class ControllerV2:
     control_groups: List[ControlGroupAggregateV2]
     light_colors: dict[str, int]
+    encoder_mode: EncoderMode
 
     @staticmethod
     def build_from(c: ControllerRawV2):
         c.control_groups.sort(key=lambda x: x.number)
-        control_groups = [ControlGroupAggregateV2(list(group)) for key, group in
+        control_groups = [ControlGroupAggregateV2(list(group), c.encoder_mode) for key, group in
                           groupby(c.control_groups, lambda x: x.number)]
 
-        return ControllerV2(control_groups, c.light_colors)
+        return ControllerV2(control_groups, c.light_colors, c.encoder_mode)
 
     def find_group(self, row_col: int):
         for group in self.control_groups:
@@ -177,11 +177,14 @@ class ControllerV2:
         for coords in encoder_coors_list:
             for group in self.control_groups:
                 if group.number == int(coords.row):
+                    res_type = group.type
+
                     for col in coords.range_inclusive:
                         midi_range_index = col - 1
                         midi_coords = group.midi_item_at(midi_range_index)
                         res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
-                        res_type = group.type
+
+
 
         if res_type is None:
             print(f"Didn't find any coords for {coords} in {self.control_groups}")

@@ -3,8 +3,7 @@ light_colors:
     red_low: 13
     green_full: 60
 
-
-
+encoder-mode: relative
 # Control groups are rows of controllers,
 
 control_groups:
@@ -14,34 +13,41 @@ control_groups:
         layout: row
         number: 1
         type: knob
-        midi_channel: 3
+        midi_channel: 1
         midi_type: CC
-        midi_range: 21-28
+        midi_range: 10, 74, 71, 76, 77, 93, 73, 75
     -
         layout: row
         number: 2
         type: knob
-        midi_channel: 3
+        midi_channel: 1
         midi_type: CC
-        midi_range: 29, 42, 43, 44, 45, 46, 47, 48
+        midi_range: 114, 18, 19, 16, 17, 91, 79, 72
     -
         layout: row
         number: 3
         type: button
-        midi_channel: 9
+        midi_channel: 1
         midi_type: note
-        midi_range: A-2, C-1, CS1, D1, C1, C3, F1, G1
+        midi_range: GS1, A0, AS0, B0, C1, CS1, D1, DS1
     -
         layout: row
         number: 4
         type: button
-        midi_channel: 3
-        midi_type: CC
-        midi_range: 114, 115
+        midi_channel: 1
+        midi_type: note
+        midi_range: C0, CS0, D0, DS0, E0, F0, FS0, G0
     -
         layout: row
         number: 5
         type: button
-        midi_channel: 3
+        midi_channel: 1
         midi_type: CC
-        midi_range: 116, 117
+        midi_range: 7
+    -
+        layout: row
+        number: 6
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: CS-2, D-2

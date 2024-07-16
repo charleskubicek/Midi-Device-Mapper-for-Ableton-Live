@@ -1,0 +1,75 @@
+controller: controller_arturia_beatstep.nt
+
+#modes:
+#    button: row-4:1
+#    type: toggle
+#    on_color: green_full
+#    off_color: red_low
+#    mode_1:
+#        -
+mappings:
+    -
+        type: device
+        track: selected
+        device: selected
+        ranges:
+            -
+                range: row-1:1-8,row-2:1-8
+                parameters: 1-16
+#        -
+#            type: device
+#            track: selected
+#            device: selected
+#            ranges:
+#                -
+#                    row: 1
+#                    range: 1-8
+#                    parameters: 1-8
+#        -
+#            type: mixer
+#            track: selected
+#            mappings:
+#                mute: row-3:2
+#                solo: row-3:3
+#        -
+#            type: functions
+#            mappings:
+#                iterate_midi_pattern: row-3:5
+#                iterate_perc_pattern: row-3:6
+#        -
+#            type: device-nav
+#            mappings:
+#                left: row-4:1
+#                right: row-4:2
+#        -
+#            type: track-nav
+#            mappings:
+#                left: row-5:1
+#                right: row-5:2
+#    mode_2:
+#        -
+#            type: mixer
+#            track: selected
+#            mappings:
+#                volume: row-1:8
+#                pan: row-2:8
+#                sends: row-1:5-6,row-2:5-6
+#        -
+#            type: transport
+#            mappings:
+#                play-stop: row-3:4 toggle
+#                record-session: row-3:5
+#                record-arrangement: row-3:6
+#                back-1: row-3:7
+#        -
+#            type: device
+#            track: selected
+#            device: Mono
+#            ranges:
+#                -
+#                    range: row-3:2 toggle
+#                    parameters: 0
+#        -
+#            type: functions
+#            mappings:
+#                press_rack_random_button: row-3:8

@@ -18,7 +18,7 @@
 - [ ] Deploy from github
 - [ ] Test numbered track
 - [ ] Test nav buttons on LC
-- [ ] Switch modes
+- [x] Switch modes
 - [ ] Spike auto-device mode
 - [ ] Spike Continuous controllers
 - [ ] Spike Grids
