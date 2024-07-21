@@ -1,15 +1,16 @@
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Tuple
 
 from pydantic import BaseModel, Field
 
 from ableton_control_surface_as_code.core_model import Direction, MidiCoords, parse_coords, ButtonProviderBaseModel
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
 class TrackNavMappings(BaseModel):
     left_raw: Optional[str] = Field(alias='left')
     right_raw: Optional[str] = Field(alias='right')
 
-    def as_list(self):
+    def as_list(self) -> List[Tuple[Direction, EncoderCoords]]:
         res = []
         if self.right_raw is not None:
             res.append((Direction.inc, parse_coords(self.right_raw)))

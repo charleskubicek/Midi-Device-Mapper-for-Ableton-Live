@@ -9,7 +9,7 @@ from pydantic import BaseModel, model_validator, Extra
 from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
 from ableton_control_surface_as_code.gen_error import GenError
 from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2
-from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV2_1, build_device_model_v2_1
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV2, build_device_model_v2_1
 from ableton_control_surface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
 from ableton_control_surface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
 from ableton_control_surface_as_code.model_mixer import MixerV2, build_mixer_model_v2
@@ -19,7 +19,7 @@ from ableton_control_surface_as_code.model_transport import Transport, Transport
 
 AllMappingTypes = List[Union[
     MixerV2,
-    DeviceV2_1,
+    DeviceV2,
     TrackNav,
     DeviceNav,
     Functions,
@@ -69,6 +69,7 @@ class RootV2(BaseModel):
     controller: str
     mappings: AllMappingTypes = []
     modes: Optional[ModeGroupV2] = None
+    ableton_dir:str
 
     @model_validator(mode='after')
     def mode_or_mapping(self):
@@ -188,7 +189,7 @@ def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) 
     )
 
 
-def read_root_v2(root: RootV2, controller: ControllerV2) -> Union[RootV2, ModeGroupWithMidi]:
+def read_root_v2(root: RootV2, controller: ControllerV2) -> ModeGroupWithMidi:
     if root.modes is not None:
         return build_mappings_model_with_mode(root.modes, controller)
     else:

@@ -1,4 +1,6 @@
 controller: controller_lc.nt
+#ableton_dir: /Applications/Ableton Live 12 Suite.app
+ableton_dir: /Applications/Ableton Live 12 Beta.app
 modes:
     button: row-3:1
     type: toggle
@@ -9,19 +11,11 @@ modes:
             type: device
             track: selected
             device: selected
-            ranges:
-                -
+            mappings:
+                encoders:
                     range: row-1:1-8,row-2:1-8
                     parameters: 1-16
-#        -
-#            type: device
-#            track: selected
-#            device: selected
-#            ranges:
-#                -
-#                    row: 1
-#                    range: 1-8
-#                    parameters: 1-8
+                on-off: row-3:4 toggle
         -
             type: mixer
             track: selected
@@ -43,6 +37,7 @@ modes:
             mappings:
                 left: row-5:1
                 right: row-5:2
+                first-lastx: row-3:8
     mode_2:
         -
             type: mixer
@@ -51,6 +46,7 @@ modes:
                 volume: row-1:8
                 pan: row-2:8
                 sends: row-1:5-6,row-2:5-6
+                arm: row-3:3
         -
             type: transport
             mappings:
@@ -58,14 +54,15 @@ modes:
                 record-session: row-3:5
                 record-arrangement: row-3:6
                 back-1: row-3:7
-        -
-            type: device
-            track: selected
-            device: Mono
-            ranges:
-                -
-                    range: row-3:2 toggle
-                    parameters: 0
+
+#        -
+#            type: device
+#            track: master
+#            device: Mono
+#            ranges:
+#                -
+#                    range: row-3:2 toggle
+#                    parameters: 0
         -
             type: functions
             mappings:

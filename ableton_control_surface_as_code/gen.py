@@ -167,21 +167,22 @@ def generate(mapping_file_path):
     if not functions_path.exists():
         functions_path = None
 
-    mode_mappings = read_root(mapping_file_path.read_text())
+    mappings = read_root(mapping_file_path.read_text())
     surface_name = mapping_file_path.stem
+
+    target_dir = Path('out')
+
+    controller_path = mapping_file_path.parent / mappings.controller
+    controller = read_controller(controller_path.read_text())
+    mode_with_midi = read_root_v2(mappings, controller)
 
     vars = {
         'surface_name': surface_name,
         'udp_port': generate_5_digit_number(surface_name) + 1,
         'class_name_snake': 'control_mappings',
-        'class_name_camel': 'ControlMappings'
+        'class_name_camel': 'ControlMappings',
+        'ableton_dir': mappings.ableton_dir
     }
-
-    target_dir = Path('out')
-
-    controller_path = mapping_file_path.parent / mode_mappings.controller
-    controller = read_controller(controller_path.read_text())
-    mode_with_midi = read_root_v2(mode_mappings, controller)
 
     code_vars = generate_code_as_template_vars(mode_with_midi)
     mode_vars = vars | code_vars
@@ -195,8 +196,8 @@ if __name__ == '__main__':
         root_dir = Path("tests_e2e")
         # generate(root_dir / "ck_test_novation_xl.nt")
         # generate(root_dir / "ck_test_novation_lc.nt")
-        # generate(root_dir / "ck_test_novation_lc_modes_test.nt")
-        generate(root_dir / "ck_test_beatstep.nt")
+        generate(root_dir / "ck_test_novation_lc_modes_test.nt")
+        # generate(root_dir / "ck_test_beatstep.nt")
     # except GenError as e:
     #     print(f"Problem Generating: {e}")
     #     exit(-1)

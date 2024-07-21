@@ -82,7 +82,7 @@ class Helpers:
 
 
         if self._manager.debug:
-            self.log_message(f"Track {track_name} not selected, manager or a number")
+            self.log_message(f"Track {track_name} must be one of: selected, manager or number")
             from pprint import pprint; pprint(vars(song))
 
         for track in self._manager.song().tracks:
@@ -106,5 +106,8 @@ class Helpers:
         for device in track.devices:
             if device is not None and device.name == device_name:
                 return device
+
+        if self._manager.debug:
+            self.log_message(f"Device {device_name} not found")
 
         return None

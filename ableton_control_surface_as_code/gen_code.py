@@ -45,7 +45,7 @@ class GeneratedCode:
         )
 
 
-def generate_lom_listener_action(parameter, track, device, fn_name, toggle:bool, debug_st) -> [str]:
+def generate_parameter_listener_action(parameter, track, device, fn_name, toggle:bool, debug_st) -> [str]:
     return Template("""
 def ${fn_name}(self, value):
     device = self.find_device("${track}", "${device}")
@@ -109,7 +109,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
             control_defs=mm.midi_coords,
             setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
-            listener_fns=generate_lom_listener_action(
+            listener_fns=generate_parameter_listener_action(
                 mm.parameter,
                 device_with_midi.track.name.value,
                 device_with_midi.device,

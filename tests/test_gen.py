@@ -5,7 +5,7 @@ from autopep8 import fix_code
 
 # from ableton_control_surface_as_code import gen
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars
-from ableton_control_surface_as_code.gen_code import generate_lom_listener_action
+from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
 from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi
 from builders import build_mixer_with_midi
 from tests.custom_assertions import CustomAssertions
@@ -38,7 +38,7 @@ def fn(self, value):
     """
 
         expected_output = fix_code(expected_output)
-        generated = fix_code("\n".join(generate_lom_listener_action(
+        generated = fix_code("\n".join(generate_parameter_listener_action(
             parameter, "lom_value", 'selected',  'fn',False, "dbg")))
 
         print(generated)
