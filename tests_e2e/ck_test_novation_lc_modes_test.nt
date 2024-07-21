@@ -1,7 +1,7 @@
 controller: controller_lc.nt
 modes:
     button: row-3:1
-#    type: switch
+    type: toggle
     on_color: green_full
     off_color: red_low
     mode_1:

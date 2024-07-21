@@ -1,21 +1,19 @@
 controller: controller_arturia_beatstep.nt
 
-#modes:
-#    button: row-4:1
-#    type: toggle
-#    on_color: green_full
-#    off_color: red_low
-#    mode_1:
-#        -
-mappings:
-    -
-        type: device
-        track: selected
-        device: selected
-        ranges:
-            -
-                range: row-1:1-8,row-2:1-8
-                parameters: 1-16
+modes:
+    button: row-4:1
+    type: switch
+    on_color: green_full
+    off_color: red_low
+    mode_1:
+        -
+            type: device
+            track: selected
+            device: selected
+            ranges:
+                -
+                    range: row-1:1-8,row-2:1-8
+                    parameters: 1-16
 #        -
 #            type: device
 #            track: selected
@@ -46,14 +44,14 @@ mappings:
 #            mappings:
 #                left: row-5:1
 #                right: row-5:2
-#    mode_2:
-#        -
-#            type: mixer
-#            track: selected
-#            mappings:
-#                volume: row-1:8
-#                pan: row-2:8
-#                sends: row-1:5-6,row-2:5-6
+    mode_2:
+        -
+            type: mixer
+            track: selected
+            mappings:
+                volume: row-1:8
+                pan: row-2:8
+                sends: row-1:5-6,row-2:5-6
 #        -
 #            type: transport
 #            mappings:

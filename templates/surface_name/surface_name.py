@@ -64,8 +64,8 @@ class $surface_name(ControlSurface):
                         self.log_message(f'Error removing listeners: {e}')
                         self.log_message(traceback.format_exc())
 
-                    importlib.reload(modules.$class_name_snake)
                     importlib.reload(modules.helpers)
+                    importlib.reload(modules.$class_name_snake)
 
                     if self.functions_file_exsits():
                         importlib.reload(modules.functions.py)
