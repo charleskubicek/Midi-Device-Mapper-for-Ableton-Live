@@ -16,6 +16,8 @@
 ### Next
 - [x] Use dashes in row names and mode names (row_2 -> row-2)
 - [ ] Deploy from github
+- [ ] first/last device toggle
+- [ ] inst/last device toggle
 - [ ] Test numbered track
 - [ ] Test nav buttons on LC
 - [x] Switch modes

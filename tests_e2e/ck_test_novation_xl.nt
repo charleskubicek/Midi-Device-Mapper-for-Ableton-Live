@@ -1,18 +1,14 @@
 controller: controller_xl.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
 mappings:
     -
         type: device
-        
-        # selected, master, or a number 
         track: selected
         device: selected
-        ranges:
-            - 
-                range: row-2:1-8
-                parameters: 1-8
-            -
-                range: row-3:1-8
-                parameters: 9-16
+        mappings:
+            encoders:
+                range: row-2:1-8,row-3:1-8
+                parameters: 1-16
     -
         type: mixer
         track: selected

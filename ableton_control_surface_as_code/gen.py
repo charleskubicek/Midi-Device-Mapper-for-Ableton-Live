@@ -160,6 +160,11 @@ def generate_5_digit_number(input_string):
     five_digits = int(hex_digest[:5], 16)
     return 10000 + (five_digits % 55535)
 
+def validate_path(string):
+    if not Path(string).exists():
+        raise ValueError(f"File {string} does not exist")
+    else:
+        return string
 
 def generate(mapping_file_path):
     functions_path = root_dir / "functions.py"
@@ -181,7 +186,7 @@ def generate(mapping_file_path):
         'udp_port': generate_5_digit_number(surface_name) + 1,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings',
-        'ableton_dir': mappings.ableton_dir
+        'ableton_dir': validate_path(mappings.ableton_dir)
     }
 
     code_vars = generate_code_as_template_vars(mode_with_midi)
@@ -194,9 +199,9 @@ def generate(mapping_file_path):
 if __name__ == '__main__':
     try:
         root_dir = Path("tests_e2e")
-        # generate(root_dir / "ck_test_novation_xl.nt")
-        # generate(root_dir / "ck_test_novation_lc.nt")
+        generate(root_dir / "ck_test_novation_xl.nt")
         generate(root_dir / "ck_test_novation_lc_modes_test.nt")
+        # generate(root_dir / "ck_test_novation_lc.nt")
         # generate(root_dir / "ck_test_beatstep.nt")
     # except GenError as e:
     #     print(f"Problem Generating: {e}")

@@ -3,7 +3,7 @@ import unittest
 from ableton_control_surface_as_code.core_model import RowMapV2_1
 from ableton_control_surface_as_code.model_controller import ControllerV2
 from ableton_control_surface_as_code.model_device import DeviceV2, \
-    build_device_model_v2_1
+    build_device_model_v2_1, DeviceEncoderMappings
 from tests.custom_assertions import CustomAssertions
 from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part
 
@@ -15,7 +15,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2(
             track='selected',
             device='selected',
-            ranges=[RowMapV2_1(range="row-1:2-5", parameters="1-4")]
+            mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:2-5", parameters="1-4"))
         )
 
         res = build_device_model_v2_1(controller, dev)
@@ -35,7 +35,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2(
             track='selected',
             device='selected',
-            ranges=[RowMapV2_1(range="row-1:2-5,row-2:2-5", parameters="1-8")]
+            mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:2-5,row-2:2-5", parameters="1-8"))
         )
 
         res = build_device_model_v2_1(controller, dev)
@@ -62,7 +62,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
         dev = DeviceV2(
             track='master',
             device='MC',
-            ranges=[RowMapV2_1(range="row-1:1", parameters="6")]
+            mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:1", parameters="6"))
         )
 
         res = build_device_model_v2_1(controller, dev)

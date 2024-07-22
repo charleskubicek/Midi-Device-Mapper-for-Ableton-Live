@@ -42,7 +42,7 @@ class DeviceWithMidi(BaseModel):
 class DeviceEncoderMappings(BaseModel):
     type: Literal['device'] = 'device'
     encoders: RowMapV2_1
-    on_off_raw: Optional[str] = Field(alias='on-off')
+    on_off_raw: Optional[str] = Field(None, alias='on-off')
 
     @property
     def on_off(self) -> Optional[EncoderCoords]:

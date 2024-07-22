@@ -11,6 +11,7 @@ from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, 
     EncoderMode
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
 
+
 class ControlGroupPartV2(BaseModel):
     layout: LayoutAxis
     number: int
@@ -29,16 +30,6 @@ class ControlGroupPartV2(BaseModel):
             raise ValueError(f"Row-part layout must have row_parts")
 
         return self
-
-    def has_multiple_parts(self):
-        return self.row_parts_raw is not None
-
-    def is_range_a_list(self):
-        return ',' in self.midi_range_raw
-
-    @property
-    def row_parts(self) -> RangeV2:
-        return RangeV2.parse(self.row_parts_raw)
 
     @property
     def _midi_list(self):
@@ -70,59 +61,9 @@ class ControlGroupPartV2(BaseModel):
             number=midi_number,
             encoder_type=self.type,
             encoder_mode=encoder_mode,
-            source_info=info + f", position {i-1}",
+            source_info=info + f", position {i - 1}",
             encoder_refs=list()
         ) for i, midi_number in enumerate(self._midi_list)]
-
-
-class ControlGroupAggregateV2:
-    def __init__(self, parts: List[ControlGroupPartV2], encoder_mode: EncoderMode):
-        # TODO verify parts are the same row
-        # TODO verify parts haven't been used with range arrays
-        self.parts = self._sort_parts(parts)
-        self.midi_coords = self.build_midi_coords(parts, encoder_mode)
-
-    @property
-    def type(self):
-        return self.parts[0].type
-
-    @property
-    def number(self):
-        return self.parts[0].number
-
-    def midi_item_at(self, index: int) -> MidiCoords:
-        if index < 0 or index >= len(self.midi_coords):
-            raise ValueError(f"Index {index} out of range for {len(self.midi_coords)}")
-        return self.midi_coords[index]
-
-    def _sort_parts(self, parts):
-        if len(parts) == 1:
-            return parts
-        else:
-            return sorted(parts, key=lambda x: x.row_parts.first_index)
-
-    def build_midi_coords(self, parts: List[ControlGroupPartV2], encoder_mode: EncoderMode) -> List[MidiCoords]:
-        list_of_lists = [part.build_midi_coords(encoder_mode) for part in parts]
-        return list(itertools.chain.from_iterable(list_of_lists))
-
-# TODO not used?
-class ControlGroupV2(BaseModel):
-    layout: LayoutAxis
-    number: int
-    type: EncoderType
-    midi_channel: int
-    midi_type: MidiType
-    midi_range_raw: str = Field(alias='midi_range')
-
-    # TODO not used?
-    @property
-    def midi_range(self):
-        try:
-            [s, e] = self.midi_range_raw.split("-")
-            return RangeV2.model_validate({'from': int(s), 'to': int(e)})
-        except ValueError as e:
-            print(f"Error parsing {self.midi_range_raw}")
-            exit(-1)
 
 
 class ControllerRawV2(BaseModel):
@@ -131,16 +72,44 @@ class ControllerRawV2(BaseModel):
     encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Relative)
 
 
+class ControlGroup:
+    def __init__(self, midi_coords, number, type):
+        self.midi_coords = midi_coords
+        self._number = number
+        self._type = type
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def number(self):
+        return self._number
+
+    def midi_item_at(self, index: int) -> MidiCoords:
+        if index < 0 or index >= len(self.midi_coords):
+            raise ValueError(f"Index {index} out of range for {len(self.midi_coords)}")
+        return self.midi_coords[index]
+
+
+def flatten(nested_list): return [item for sublist in nested_list for item in sublist]
+
+
 @dataclass
 class ControllerV2:
-    control_groups: List[ControlGroupAggregateV2]
+    control_groups: List[ControlGroup]
     light_colors: dict[str, int]
     encoder_mode: EncoderMode
 
     @staticmethod
     def build_from(c: ControllerRawV2):
+
+        def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode) -> ControlGroup:
+            midi_coords = flatten([g.build_midi_coords(encoder_mode) for g in groups])
+            return ControlGroup(midi_coords, groups[0].number, groups[0].type)
+
         c.control_groups.sort(key=lambda x: x.number)
-        control_groups = [ControlGroupAggregateV2(list(group), c.encoder_mode) for key, group in
+        control_groups = [merge_groups(list(group), c.encoder_mode) for key, group in
                           groupby(c.control_groups, lambda x: x.number)]
 
         return ControllerV2(control_groups, c.light_colors, c.encoder_mode)
@@ -183,8 +152,6 @@ class ControllerV2:
                         midi_range_index = col - 1
                         midi_coords = group.midi_item_at(midi_range_index)
                         res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
-
-
 
         if res_type is None:
             print(f"Didn't find any coords for {coords} in {self.control_groups}")
