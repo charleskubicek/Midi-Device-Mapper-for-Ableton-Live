@@ -79,9 +79,4 @@ def build_transport_model(controller, mapping: Transport):
             midi_coords=coords_list,
             api_call=api_call))
 
-    # for m in mixer_maps:
-    #     coords_ = [(x.channel, x.channel, x.type.name) for x in m.midi_coords]
-    #     row_info = f"row:{m.encoder_coords.row}-{m.encoder_coords.row_range_end}"
-    #     print("mixer: ", coords_, m.api_function, row_info, f"col:{m.encoder_coords.col}")
-
     return TransportWithMidi(midi_maps=mixer_maps)

@@ -1,7 +1,7 @@
 import itertools
 from typing import Literal, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator, field_validator
 
 from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2_1, parse_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
@@ -14,7 +14,8 @@ class DeviceMidiMapping(BaseModel):
 
     @classmethod
     def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
-        return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)], parameter=parameter)
+        return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)],
+                   parameter=parameter)
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -39,35 +40,30 @@ class DeviceWithMidi(BaseModel):
     device: str
     midi_maps: List[DeviceMidiMapping]
 
+
 class DeviceEncoderMappings(BaseModel):
     type: Literal['device'] = 'device'
     encoders: RowMapV2_1
-    on_off_raw: Optional[str] = Field(None, alias='on-off')
+    on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
 
-    @property
-    def on_off(self) -> Optional[EncoderCoords]:
-        if self.on_off_raw is None:
-            return None
-        return parse_coords(self.on_off_raw)
+    @field_validator('on_off', mode='before')
+    @classmethod
+    def parse_on_off(cls, value):
+        return parse_coords(value) if value is not None else None
 
 
 class DeviceV2(BaseModel):
     type: Literal['device'] = 'device'
-    track_raw: str = Field(alias='track')
+    track: TrackInfo
     device: str
     mappings: DeviceEncoderMappings
 
-    @property
-    def track_info(self) -> TrackInfo:
-        if self.track_raw == "selected":
-            return TrackInfo(name=NamedTrack.selected)
-        if self.track_raw == "master":
-            return TrackInfo(name=NamedTrack.master)
-        else:
-            exit(1)
+    @field_validator("track", mode='before')
+    @classmethod
+    def parse_track(cls, value):
+        return TrackInfo.parse_track(value)
 
-
-def build_device_model_v2_1(controller, device:DeviceV2) -> DeviceWithMidi:
+def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
     midi_maps = []
 
     iterator = device.mappings.encoders.parameters.as_inclusive_list()
@@ -90,6 +86,6 @@ def build_device_model_v2_1(controller, device:DeviceV2) -> DeviceWithMidi:
         ))
 
     return DeviceWithMidi(
-        track=device.track_info,
+        track=device.track,
         device=device.device,
         midi_maps=midi_maps)

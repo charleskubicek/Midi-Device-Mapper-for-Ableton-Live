@@ -1,6 +1,6 @@
 from typing import Optional, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 from ableton_control_surface_as_code.core_model import TrackInfo, NamedTrack, MixerMidiMapping, \
     MixerWithMidi, parse_multiple_coords
@@ -36,17 +36,13 @@ class MixerMappingsV2(BaseModel):
 
 class MixerV2(BaseModel):
     type: Literal['mixer'] = "mixer"
-    track_raw: str = Field(alias='track')
+    track:TrackInfo = Field(alias='track')
     mappings: MixerMappingsV2
 
-    @property
-    def track_info(self) -> TrackInfo:
-        if self.track_raw == "selected":
-            return TrackInfo(name=NamedTrack.selected)
-        if self.track_raw == "master":
-            return TrackInfo(name=NamedTrack.master)
-        else:
-            exit(1)
+    @field_validator("track", mode='before')
+    @classmethod
+    def parse_track(cls, value):
+        return TrackInfo.parse_track(value)
 
 
 def build_mixer_model_v2(controller:ControllerV2, mapping: MixerV2):
@@ -60,7 +56,7 @@ def build_mixer_model_v2(controller:ControllerV2, mapping: MixerV2):
             midi_coords=coords_list,
             controller_type=type,
             api_function=api_name,
-            track_info=mapping.track_info,
+            track_info=mapping.track,
             encoder_coords=encoder_coors_list[0]))
 
     return MixerWithMidi(midi_maps=mixer_maps)

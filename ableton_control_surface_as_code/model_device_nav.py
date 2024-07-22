@@ -2,7 +2,8 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction, ButtonProviderBaseModel
+from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction, \
+    ButtonProviderBaseModel
 from ableton_control_surface_as_code.model_controller import ControllerV2
 
 
@@ -70,7 +71,7 @@ class DeviceNavWithMidi(BaseModel):
     midi_maps: list[DeviceNavMidiMapping]
 
 
-def build_device_nav_model_v2(controller:ControllerV2, mapping: DeviceNav) -> DeviceNavWithMidi:
+def build_device_nav_model_v2(controller: ControllerV2, mapping: DeviceNav) -> DeviceNavWithMidi:
     midi_maps = []
     for action, enc in mapping.mappings.as_list():
         midi_coords, _ = controller.build_midi_coords(enc)

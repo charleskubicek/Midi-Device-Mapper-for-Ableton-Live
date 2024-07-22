@@ -50,18 +50,23 @@ class NamedTrack(str, Enum):
 
 class TrackInfo(BaseModel):
     name: Optional[NamedTrack] = None
-    list: Optional[List[int]] = None
 
     @staticmethod
     def selected():
         return TrackInfo(name=NamedTrack.selected)
 
-    @classmethod
-    def master(cls):
-        return cls(name=NamedTrack.master)
+    @staticmethod
+    def master():
+        return TrackInfo(name=NamedTrack.master)
 
-    def __init__(self, name=None, list=None):
-        super().__init__(name=name, list=list)
+    @staticmethod
+    def parse_track(value):
+        if value == "selected":
+            return TrackInfo(name=NamedTrack.selected)
+        if value == "master":
+            return TrackInfo(name=NamedTrack.master)
+        else:
+            raise ValueError(f"Invalid track value: '{value}'")
 
 
 class MidiType(str, Enum):
