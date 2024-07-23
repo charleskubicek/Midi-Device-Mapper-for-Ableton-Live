@@ -55,6 +55,9 @@ $code_setup_listeners
     def log_message(self, message):
         self.manager.log_message(message)
 
+    def selected_device(self):
+        return self._song.view.selected_track.view.selected_device
+
     def device_nav_left(self):
         NavDirection = Live.Application.Application.View.NavDirection
         self._scroll_device_chain(NavDirection.left)
@@ -97,6 +100,17 @@ $code_setup_listeners
         if next_index >= 0:
             self._song.view.selected_track = self._song.tracks[next_index]
 
+
+    def device_nav_first_last(self):
+        devices = self._song.view.selected_track.devices
+
+        if len(devices) == 0:
+            return
+
+        if self.selected_device() != devices[0]:
+            self.device_nav_first()
+        else:
+            self.device_nav_last()
 
     def device_nav_first(self):
         NavDirection = Live.Application.Application.View.NavDirection

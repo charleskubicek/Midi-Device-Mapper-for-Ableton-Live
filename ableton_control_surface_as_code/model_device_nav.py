@@ -1,6 +1,6 @@
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction, \
     ButtonProviderBaseModel
@@ -12,6 +12,7 @@ class DeviceNavMappings(BaseModel):
     right_raw: Optional[str] = Field(default=None, alias='right')
     first_raw: Optional[str] = Field(default=None, alias='first')
     last_raw: Optional[str] = Field(default=None, alias='last')
+    first_last_raw: Optional[str] = Field(default=None, alias='first-last')
 
     def as_list(self):
         res = []
@@ -26,6 +27,9 @@ class DeviceNavMappings(BaseModel):
 
         if self.last_raw is not None:
             res.append((DeviceNavAction.last, parse_coords(self.last_raw)))
+
+        if self.first_last_raw is not None:
+            res.append((DeviceNavAction.first_last, parse_coords(self.first_last_raw)))
 
         return res
 

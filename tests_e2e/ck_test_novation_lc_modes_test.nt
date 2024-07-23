@@ -27,17 +27,18 @@ modes:
             mappings:
                 iterate_midi_pattern: row-3:5
                 iterate_perc_pattern: row-3:6
+                update_colors: row-3:7
         -
             type: device-nav
             mappings:
-                left: row-4:1
-                right: row-4:2
+                left: row-5:1
+                right: row-5:2
+                first-last: row-3:8
         -
             type: track-nav
             mappings:
-                left: row-5:1
-                right: row-5:2
-                first-lastx: row-3:8
+                left: row-4:1
+                right: row-4:2
     mode_2:
         -
             type: mixer

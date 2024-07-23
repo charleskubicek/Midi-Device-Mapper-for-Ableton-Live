@@ -3,7 +3,7 @@ from pathlib import Path
 from string import Template
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
-    class_function_code_block, is_valid_python, device_templates, GeneratedCode, \
+    class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
     transport_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
@@ -148,9 +148,11 @@ def template_file(root_dir, template_path, vars: dict, source_file_name, target_
     new_text = Template((template_path / source_file_name).read_text()).substitute(
         vars)
 
-    if verify_python and not is_valid_python(new_text):
-        print(f"Code failed validation for file {target_file}")
-        # sys.exit(1)
+    if verify_python:
+        err = get_python_code_error(new_text)
+        if err is not None:
+            error_text = f"Code failed validation for file {target_file}: error {err}"
+            print("\033[31m" + error_text + ".\033[0m")
 
     target_file.write_text(new_text)
 
@@ -199,7 +201,7 @@ def generate(mapping_file_path):
 if __name__ == '__main__':
     try:
         root_dir = Path("tests_e2e")
-        generate(root_dir / "ck_test_novation_xl.nt")
+        # generate(root_dir / "ck_test_novation_xl.nt")
         generate(root_dir / "ck_test_novation_lc_modes_test.nt")
         # generate(root_dir / "ck_test_novation_lc.nt")
         # generate(root_dir / "ck_test_beatstep.nt")

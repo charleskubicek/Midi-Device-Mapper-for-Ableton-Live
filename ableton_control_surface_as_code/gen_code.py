@@ -1,4 +1,5 @@
 import ast
+import keyword
 from dataclasses import dataclass, field
 from string import Template
 from typing import List
@@ -44,8 +45,22 @@ class GeneratedCode:
             self.remove_listeners + other.remove_listeners
         )
 
+def is_valid_function_name(name):
+    # Check if the string is a valid identifier
+    if not name.isidentifier():
+        return False
+
+    # Check if the string is a reserved keyword
+    if keyword.iskeyword(name):
+        return False
+
+    return True
 
 def generate_parameter_listener_action(parameter, track, device, fn_name, toggle:bool, debug_st) -> [str]:
+
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
     return Template("""
 def ${fn_name}(self, value):
     device = self.find_device("${track}", "${device}")
@@ -59,6 +74,10 @@ def ${fn_name}(self, value):
 
 
 def generate_control_value_listener_function_action(fn_name, callee, toggle:bool, debug_st:str) -> [str]:
+
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
     toggle_fn = "True"
     if toggle:
         toggle_fn = "self._helpers.value_is_max(value, 127)"
@@ -158,12 +177,13 @@ def functions_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> Ge
     return map_controllers(mode_name, functions_with_midi.midi_maps)
 
 
-def is_valid_python(code):
+def get_python_code_error(code):
     try:
         ast.parse(code)
-    except SyntaxError:
-        return False
-    return True
+    except SyntaxError as e:
+        return e
+    else:
+        return None
 
 
 def snake_to_camel(snake_str):

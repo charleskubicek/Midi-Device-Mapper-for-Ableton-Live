@@ -12,6 +12,7 @@ class TrackNavMappings(BaseModel):
 
     def as_list(self) -> List[Tuple[Direction, EncoderCoords]]:
         res = []
+
         if self.right_raw is not None:
             res.append((Direction.inc, parse_coords(self.right_raw)))
 

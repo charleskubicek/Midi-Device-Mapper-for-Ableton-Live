@@ -1,3 +1,4 @@
+import keyword
 import re
 from abc import ABC
 from enum import Enum
@@ -7,6 +8,27 @@ from pydantic import BaseModel, Field
 
 from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple
 
+def make_valid_identifier(name):
+    # Step 1: Replace invalid characters with underscores
+    valid_chars = []
+    for char in name:
+        if char.isalnum() or char == '_':
+            valid_chars.append(char)
+        else:
+            valid_chars.append('_')
+
+    # Step 2: Ensure the identifier does not start with a digit
+    if valid_chars[0].isdigit():
+        valid_chars.insert(0, '_')
+
+    # Create the valid identifier string
+    identifier = ''.join(valid_chars)
+
+    # Step 3: Ensure the identifier is not a reserved keyword
+    if keyword.iskeyword(identifier):
+        identifier = f'{identifier}_'
+
+    return identifier
 
 class EncoderMode(str, Enum):
     Absolute = 'absolute'
@@ -118,7 +140,7 @@ class MidiCoords(BaseModel):
         return f"{self.encoder_type.value}_{self.info_string()}"
 
     def controller_listener_fn_name(self, suffix):
-        return f"{self.encoder_type.value}_{self.info_string()}_{suffix}value"
+        return make_valid_identifier(f"{self.encoder_type.value}_{self.info_string()}_{suffix}value")
 
     def info_string(self):
         return f"ch{self.channel}_{self.number}_{self.type.value}"
@@ -137,15 +159,13 @@ class DeviceNavAction(Enum):
     right = 'right', 'self.device_nav_right()'
     first = 'first', 'self.device_nav_first()'
     last = 'last', 'self.device_nav_last()'
+    first_last = 'first-last', 'self.device_nav_first_last()'
 
     def __new__(cls, *args, **kwargs):
         obj = object.__new__(cls)
         obj._value_ = args[0]
         obj.template_call = args[1]
         return obj
-
-    # def tmplate_call(self):
-    #     return self.template_call
 
 
 #
