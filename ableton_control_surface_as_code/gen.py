@@ -124,8 +124,8 @@ def write_templates(template_path: Path, target: Path, vars: dict, functions_pat
     root_dir.mkdir(exist_ok=True)
 
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
-    template_file(root_dir, template_path / 'surface_name', vars, f'modules/class_name_snake.py',
-                  f"modules/{vars['class_name_snake']}.py", verify_python=True)
+    template_file(root_dir, template_path / 'surface_name', vars, f'modules/main_component.py',
+                  f"modules/main_component.py", verify_python=True)
     template_file(root_dir, template_path / 'surface_name', vars, "modules/helpers.py", "modules/helpers.py")
     template_file(root_dir, template_path / 'surface_name', vars, 'surface_name.py', f"{vars['surface_name']}.py")
     template_file(root_dir, template_path, vars, 'deploy.sh', 'deploy.sh')

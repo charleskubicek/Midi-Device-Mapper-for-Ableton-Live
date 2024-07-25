@@ -12,7 +12,7 @@ import socket
 import traceback
 
 from . import modules
-from .modules import $class_name_snake
+from .modules import main_component
 
 
 class $surface_name(ControlSurface):
@@ -38,8 +38,8 @@ class $surface_name(ControlSurface):
 
     def init_modules(self):
 
-        self.$class_name_snake = $class_name_snake.$class_name_camel(self)
-        self.$class_name_snake.setup_controls()
+        self.main_component = main_component.MainComponent(self)
+        self.main_component.setup_controls()
 
     def dump_selected_device_parameter_names(self):
         device = self.song().view.selected_track.view.selected_device
@@ -59,13 +59,13 @@ class $surface_name(ControlSurface):
                 try:
                     self.log_message('Reloading modules')
                     try:
-                        self.$class_name_snake.remove_all_listeners()
+                        self.main_component.remove_all_listeners()
                     except Exception as e:
                         self.log_message(f'Error removing listeners: {e}')
                         self.log_message(traceback.format_exc())
 
                     importlib.reload(modules.helpers)
-                    importlib.reload(modules.$class_name_snake)
+                    importlib.reload(modules.main_component)
 
                     if self.functions_file_exsits():
                         importlib.reload(modules.functions.py)

@@ -15,10 +15,10 @@ try:
 except Exception as e:
     functions_loaded_error = e
 
-class $class_name_camel(ControlSurfaceComponent):
+class MainComponent(ControlSurfaceComponent):
     def __init__(self, manager):
         super().__init__(manager)
-        self.class_identifier = "$class_name_snake"
+        self.class_identifier = "main_component"
 
         self.manager = manager
 
@@ -37,7 +37,7 @@ class $class_name_camel(ControlSurfaceComponent):
         $code_setup
 
         self._helpers = Helpers(self.manager)
-        self.log_message(f"$class_name_snake finish init.")
+        self.log_message(f"main_component finish init.")
 
 
     def remove_all_listeners(self, modes_only=False):
