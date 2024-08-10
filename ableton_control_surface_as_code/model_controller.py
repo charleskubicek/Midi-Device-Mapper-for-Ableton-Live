@@ -69,7 +69,7 @@ class ControlGroupPartV2(BaseModel):
 class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
     light_colors: dict[str, int]
-    encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Relative)
+    encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Absolute)
 
 
 class ControlGroup:

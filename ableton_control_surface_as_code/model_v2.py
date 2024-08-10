@@ -49,7 +49,7 @@ class ModeData:
 
 
 class ModeType(str, Enum):
-    Toggle = 'toggle'
+    Shift = 'shift'
     Switch = 'switch'
 
 
@@ -92,7 +92,7 @@ class ModeMappingsV2(BaseModel):
     off_color: Optional[int] = 0
 
     def is_shift(self):
-        return self.mode.type is not None and self.mode.type == 'shift'
+        return self.mode.type is not None and self.mode.type == ModeType.Shift
 
 
 class ModeGroupWithMidi(BaseModel):

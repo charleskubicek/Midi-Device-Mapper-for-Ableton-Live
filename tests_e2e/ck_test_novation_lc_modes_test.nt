@@ -1,9 +1,9 @@
 controller: controller_lc.nt
-ableton_dir: /Applications/Ableton Live 12 Suite.app
-#ableton_dir: /Applications/Ableton Live 12 Beta.app
+#ableton_dir: /Applications/Ableton Live 12 Suite.app
+ableton_dir: /Applications/Ableton Live 12 Beta.app
 modes:
     button: row-3:1
-    type: toggle
+    type: shift
     on_color: green_full
     off_color: red_low
     mode_1:
