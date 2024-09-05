@@ -192,11 +192,6 @@ def generate(mapping_file_path):
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
-    # get all python files in the directory and copy them to the target directory
-    # for f in mapping_file_path.parent.iterdir():
-    #     if f.suffix == ".py":
-    #         shutil.copy(f, target_dir / f.name)
-
     # # copy all .py files into the modules folder
     for file in mapping_file_path.parent.glob('*.py'):
         shutil.copy(file, target_dir / vars['surface_name'] / "modules" /  file.name)
@@ -204,28 +199,12 @@ def generate(mapping_file_path):
 
     print("Finished generating code.")
 
-def run(script_path:Path):
-    try:
-        generate(script_path)
-    # except GenError as e:
-    #     print(f"Problem Generating: {e}")
-    #     exit(-1)        
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(-1)
-
 if __name__ == '__main__':
     # try:
-    #     root_dir = Path("tests_e2e")
-    #     # generate(root_dir / "ck_test_novation_xl.nt")
-    #     # generate(root_dir / "ck_test_novation_lc_modes_test.nt")
-    #     # generate(root_dir / "ck_test_novation_lc.nt")
-    #     # generate(root_dir / "ck_test_beatstep.nt")
 
     script_file = Path(sys.argv[1])
     generate(script_file)
 
-    # generate(Path.cwd() / "live_surfaces" /  "behringer_mini" / "ck_behringer_touch_mini.nt")
     # # except GenError as e:
     # #     print(f"Problem Generating: {e}")
     # #     exit(-1)

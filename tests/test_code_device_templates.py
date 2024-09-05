@@ -20,7 +20,7 @@ class TestDeviceModeTemplates(unittest.TestCase):
         all_functions = "\n".join(result.listener_fns)
 
         self.assertEqual(result.remove_listeners[0],
-                         "self.knob_ch2_21_CC.remove_value_listener(self.knob_ch2_21_CC__mode_mode_1_p1value)")
+                         "self.knob_ch2_21_CC.remove_value_listener(self.knob_ch2_21_CC__mode_mode_1_p1_listener)")
         self.assertEqual(result.control_defs[0].number, 21)
         self.assertEqual(result.control_defs[1].number, 22)
         self.assertEqual(len(result.control_defs), 4)
@@ -32,5 +32,5 @@ class TestDeviceModeTemplates(unittest.TestCase):
 
         self.assertEqual(len(result.remove_listeners), 4)
         self.assertEqual(len(result.control_defs), 4)
-        self.assertEqual(len(result.setup_listeners), 4)
+        self.assertEqual(len(result.setup_listeners), 8)
         self.assertEqual(len(result.listener_fns), 40)

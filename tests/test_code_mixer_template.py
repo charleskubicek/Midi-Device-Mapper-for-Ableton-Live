@@ -15,8 +15,8 @@ class TestTrackNavTemplates(unittest.TestCase, CustomAssertions):
 
         print(result.listener_fns[2])
 
-        self.assertEqual(result.setup_listeners[0], "self.button_ch2_50_CC.add_value_listener(self.button_ch2_50_CC__mode_1_incvalue)")
-        self.assertTrue("def button_ch2_50_CC__mode_1_incvalue(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
+        self.assertEqual(result.setup_listeners[0], "self.button_ch2_50_CC.add_value_listener(self.button_ch2_50_CC__mode_1_inc_listener)")
+        self.assertTrue("def button_ch2_50_CC__mode_1_inc_listener(self, value)" in result.listener_fns[2], f"code was {result.listener_fns[2]}")
 
 
 class TestMixerTemplates(unittest.TestCase, CustomAssertions):

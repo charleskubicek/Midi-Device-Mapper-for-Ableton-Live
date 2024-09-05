@@ -24,7 +24,7 @@ class TestMidiCoords(unittest.TestCase):
         self.assertEqual(self.midi_coords.controller_variable_name(), "knob_ch1_21_CC")
 
     def test_controller_listener_fn_name(self):
-        self.assertEqual(self.midi_coords.controller_listener_fn_name("mode1"), "knob_ch1_21_CC_mode1value")
+        self.assertEqual(self.midi_coords.controller_listener_fn_name("mode1"), "knob_ch1_21_CC_mode1_listener")
 
     def test_info_string(self):
         self.assertEqual(self.midi_coords.info_string(), "ch1_21_CC")

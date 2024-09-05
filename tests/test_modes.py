@@ -9,7 +9,7 @@ class TestModes(unittest.TestCase):
     def test_fsm_function(self):
         mg = ModeGroupV2(
             button="row-3:1",
-            type="toggle",
+            type="switch",
             on_color="ignored",
             off_color="ignored",
             mode_1=[],

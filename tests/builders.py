@@ -81,8 +81,13 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
     col = 2
     return MixerWithMidi(
         midi_maps=[MixerMidiMapping(
-            midi_coords=[MidiCoords(channel=chan, type=type, number=no, encoder_type=EncoderType.knob,
-                                    encoder_mode=EncoderMode.Absolute, source_info="tests", encoder_refs=[]) for no in nos],
+            midi_coords=[MidiCoords(channel=chan,
+                                    type=type,
+                                    number=no,
+                                    encoder_type=EncoderType.knob,
+                                    encoder_mode=EncoderMode.Absolute,
+                                    source_info="tests",
+                                    encoder_refs=[]) for no in nos],
             api_function=api_fn,
             track_info=track_info,
             encoder_coords=EncoderCoords(row=1, range_=(col ,(col + 1 + len(nos) - 1)), encoder_refs=[]),
@@ -93,8 +98,14 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
 def build_functions_with_midi(channel=1, number=51, type="CC", function="toggle") -> FunctionsWithMidi:
     return FunctionsWithMidi(midi_maps=[
         FunctionsMidiMapping(
-            midi_coords=[MidiCoords(channel=channel, type=type, number=number, encoder_type=EncoderType.button,
-                                    encoder_mode=EncoderMode.Absolute, source_info="tests",encoder_refs=[])],
-            function=function
+            midi_coords=[MidiCoords(channel=channel,
+                                    type=type,
+                                    number=number,
+                                    encoder_type=EncoderType.button,
+                                    encoder_mode=EncoderMode.Absolute,
+                                    source_info="tests",
+                                    encoder_refs=[])],
+            function_name=function,
+            parameter_len=0
         )
     ])
