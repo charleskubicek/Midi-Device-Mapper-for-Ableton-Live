@@ -15,6 +15,14 @@ modes:
                 encoders:
                     range: row-1:1-8,row-2:1-8
                     parameters: 1-16
+#                encoders:
+#                    -   condition: default
+#                        range: row-1:1-8,row-2:1-8
+#                        parameters: 1-16
+#                    -
+#                        condition: rack, first_8_or_less_mapped
+#                        range: row-1:1-4,row-2:1-4
+#                        parameters: 1-8
                 on-off: row-3:4 toggle
         -
             type: mixer
@@ -26,7 +34,7 @@ modes:
             type: functions
             mappings:
                 iterate_midi_pattern: row-3:5
-                iterate_perc_pattern: row-3:6
+                back8: row-3:6
                 update_colors: row-3:7
         -
             type: device-nav
@@ -51,10 +59,8 @@ modes:
         -
             type: transport
             mappings:
-                play-stop: row-3:4 toggle
                 record-session: row-3:5
                 record-arrangement: row-3:6
-                back-1: row-3:7
 
 #        -
 #            type: device
@@ -67,4 +73,7 @@ modes:
         -
             type: functions
             mappings:
-                press_rack_random_button: row-3:8
+                record_midi_from_track_to_new_track: row-3:2 toggle
+                selected_audio_to_simpler_in_new_track: row-3:4
+                press_rack_random_button: row-3:7
+                arrange: row-3:8

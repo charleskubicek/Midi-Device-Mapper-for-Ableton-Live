@@ -1,17 +1,18 @@
 controller: controller_arturia_beatstep.nt
-
+ableton_dir: /Applications/Ableton Live 12 Beta.app
 modes:
     button: row-4:1
-    type: switch
+    type: shift
     on_color: green_full
     off_color: red_low
+
     mode_1:
         -
             type: device
             track: selected
             device: selected
-            ranges:
-                -
+            mappings:
+                encoders:
                     range: row-1:1-8,row-2:1-8
                     parameters: 1-16
 #        -

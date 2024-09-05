@@ -1,5 +1,7 @@
 import hashlib
+import sys
 from pathlib import Path
+import shutil
 from string import Template
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
@@ -132,15 +134,6 @@ def write_templates(template_path: Path, target: Path, vars: dict, functions_pat
     template_file(root_dir, template_path, vars, 'tail_logs.sh', 'tail_logs.sh')
     template_file(root_dir, template_path, vars, 'update.py', 'update.py')
 
-    if functions_path is not None:
-        functions_target = target / vars['surface_name'] / "modules" / "functions.py"
-        if not functions_target.exists():
-            functions_target.parent.mkdir(exist_ok=True)
-            functions_target.touch()
-            functions_target.write_text(functions_path.read_text())
-        else:
-            print(f"functions.py already exists in {functions_target}")
-
 
 def template_file(root_dir, template_path, vars: dict, source_file_name, target_file_name, verify_python=False):
     target_file = root_dir / target_file_name
@@ -169,7 +162,8 @@ def validate_path(string):
         return string
 
 def generate(mapping_file_path):
-    functions_path = root_dir / "functions.py"
+    functions_path = mapping_file_path.parent / "functions.py"    
+    
 
     if not functions_path.exists():
         functions_path = None
@@ -177,11 +171,14 @@ def generate(mapping_file_path):
     mappings = read_root(mapping_file_path.read_text())
     surface_name = mapping_file_path.stem
 
-    target_dir = Path('out')
+    if mapping_file_path == Path.cwd():
+        target_dir = Path('out')
+    else:
+        target_dir = mapping_file_path.parent
 
     controller_path = mapping_file_path.parent / mappings.controller
     controller = read_controller(controller_path.read_text())
-    mode_with_midi = read_root_v2(mappings, controller)
+    mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
 
     vars = {
         'surface_name': surface_name,
@@ -195,21 +192,46 @@ def generate(mapping_file_path):
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
+    # get all python files in the directory and copy them to the target directory
+    # for f in mapping_file_path.parent.iterdir():
+    #     if f.suffix == ".py":
+    #         shutil.copy(f, target_dir / f.name)
+
+    # # copy all .py files into the modules folder
+    for file in mapping_file_path.parent.glob('*.py'):
+        shutil.copy(file, target_dir / vars['surface_name'] / "modules" /  file.name)
+
+
     print("Finished generating code.")
 
-
-if __name__ == '__main__':
+def run(script_path:Path):
     try:
-        root_dir = Path("tests_e2e")
-        # generate(root_dir / "ck_test_novation_xl.nt")
-        generate(root_dir / "ck_test_novation_lc_modes_test.nt")
-        # generate(root_dir / "ck_test_novation_lc.nt")
-        # generate(root_dir / "ck_test_beatstep.nt")
+        generate(script_path)
     # except GenError as e:
     #     print(f"Problem Generating: {e}")
-    #     exit(-1)
+    #     exit(-1)        
     except Exception as e:
-        raise e
-        # print(f"Error: {e}")
-        # exit(-1)
-        # sys.exit(e.error_code)
+        print(f"Error: {e}")
+        sys.exit(-1)
+
+if __name__ == '__main__':
+    # try:
+    #     root_dir = Path("tests_e2e")
+    #     # generate(root_dir / "ck_test_novation_xl.nt")
+    #     # generate(root_dir / "ck_test_novation_lc_modes_test.nt")
+    #     # generate(root_dir / "ck_test_novation_lc.nt")
+    #     # generate(root_dir / "ck_test_beatstep.nt")
+
+    script_file = Path(sys.argv[1])
+    generate(script_file)
+
+    # generate(Path.cwd() / "live_surfaces" /  "behringer_mini" / "ck_behringer_touch_mini.nt")
+    # # except GenError as e:
+    # #     print(f"Problem Generating: {e}")
+    # #     exit(-1)
+    # except Exception as e:
+    #     raise e
+    #     # print(f"Error: {e}")
+    #     # exit(-1)
+    #     # sys.exit(e.error_code)
+

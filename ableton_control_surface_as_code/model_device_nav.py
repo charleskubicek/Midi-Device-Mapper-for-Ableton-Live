@@ -60,7 +60,7 @@ class DeviceNavMidiMapping(ButtonProviderBaseModel):
     def create_controller_element(self):
         return self.only_midi_coord.create_controller_element()
 
-    def template_function_name(self):
+    def template_function_call(self):
         return self.action.template_call
 
     def controller_variable_name(self):

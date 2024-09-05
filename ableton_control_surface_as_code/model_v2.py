@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Union, List, Optional
 
 from nestedtext import nestedtext as nt
@@ -171,9 +172,9 @@ def print_model_with_mappings(model: ControllerV2, mappings):
         print(table)
 
 
-def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) -> ModeGroupWithMidi:
-    mapping_1 = build_mappings_model_v2(mode.mode_1, controller)
-    mapping_2 = build_mappings_model_v2(mode.mode_2, controller)
+def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2, root_dir:Path) -> ModeGroupWithMidi:
+    mapping_1 = build_mappings_model_v2(mode.mode_1, controller, root_dir)
+    mapping_2 = build_mappings_model_v2(mode.mode_2, controller, root_dir)
 
     return ModeGroupWithMidi(
         mode_mappings=ModeMappingsV2(
@@ -189,19 +190,19 @@ def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2) 
     )
 
 
-def read_root_v2(root: RootV2, controller: ControllerV2) -> ModeGroupWithMidi:
+def read_root_v2(root: RootV2, controller: ControllerV2, root_dir:Path) -> ModeGroupWithMidi:
     if root.modes is not None:
-        return build_mappings_model_with_mode(root.modes, controller)
+        return build_mappings_model_with_mode(root.modes, controller, root_dir)
     else:
         return ModeGroupWithMidi(
             mode_mappings=None,
             mappings={
-                'mode_1': build_mappings_model_v2(root.mappings, controller)
+                'mode_1': build_mappings_model_v2(root.mappings, controller, root_dir)
             }
         )
 
 
-def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2) -> AllMappingWithMidiTypes:
+def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2, root_dir:Path) -> AllMappingWithMidiTypes:
     """
     Returns a model of the mapping with midi info attached
 
@@ -223,7 +224,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2)
         if mapping.type == "device-nav":
             mappings_with_midi.append(build_device_nav_model_v2(controller, mapping))
         if mapping.type == "functions":
-            mappings_with_midi.append(build_functions_model_v2(controller, mapping))
+            mappings_with_midi.append(build_functions_model_v2(controller, mapping, root_dir))
         if mapping.type == "transport":
             mappings_with_midi.append(build_transport_model(controller, mapping))
 

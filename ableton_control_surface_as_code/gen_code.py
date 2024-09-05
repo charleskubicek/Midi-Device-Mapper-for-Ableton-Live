@@ -73,7 +73,7 @@ def ${fn_name}(self, value):
     """).substitute(parameter=parameter, track=track, device=device, toggle=toggle, fn_name=fn_name, comment=debug_st).split("\n")
 
 
-def generate_control_value_listener_function_action(fn_name, callee, toggle:bool, debug_st:str) -> [str]:
+def generate_control_value_listener_function_action(fn_name, var_name, callee, toggle:bool, debug_st:str) -> [str]:
 
     if not is_valid_function_name(fn_name):
         raise ValueError(f"Invalid function name: {fn_name}")
@@ -88,10 +88,13 @@ def generate_control_value_listener_function_action(fn_name, callee, toggle:bool
 def ${fn_name}(self, value):
     if self.manager.debug:
         self.log_message(f"${fn_name} ($comment) callee = ${callee}, value is {value}")
+        
+    previous_value = self._previous_values['$fn_name']
+    self._previous_values['$fn_name'] = value
 
     if ${toggle_fn}:
-        $callee  
-    """).substitute(callee=callee, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split("\n")
+        $callee
+    """).substitute(callee=callee, var_name=var_name, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split("\n")
 
 
 def mixer_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> GeneratedCode:
@@ -126,7 +129,8 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
         codes = codes.merge(GeneratedCode(
             control_defs=mm.midi_coords,
-            setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
+            # setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})"],
+            setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})", f"self._previous_values['{enc_listener_name}'] = 0"],
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
             listener_fns=generate_parameter_listener_action(
                 mm.parameter,
@@ -147,10 +151,11 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
 
     return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],
-        setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})"],
+        setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})", f"self._previous_values['{button_listener_name}'] = 0"],
         remove_listeners=[f"self.{button_name}.remove_value_listener(self.{button_listener_name})"],
         listener_fns=generate_control_value_listener_function_action(button_listener_name,
-                                                                     midi_map.template_function_name(),
+                                                                     midi_map.controller_variable_name(),
+                                                                     midi_map.template_function_call(),
                                                                      enc_refs.has_toggle(),
                                                                      midi_map.info_string())
     )

@@ -38,6 +38,7 @@ class MainComponent(ControlSurfaceComponent):
 
         self._helpers = Helpers(self.manager)
         self.log_message(f"main_component finish init.")
+        self._previous_values = {}
 
 
     def remove_all_listeners(self, modes_only=False):

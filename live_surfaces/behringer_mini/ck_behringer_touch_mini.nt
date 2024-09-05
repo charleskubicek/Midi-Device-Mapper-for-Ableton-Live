@@ -1,0 +1,13 @@
+controller: ck_behringer_touch_mini_controller.nt
+ableton_dir: /Applications/Ableton Live 12 Beta.app
+#functions_file: beh_functions.py
+mappings:
+    -
+        type: functions
+        mappings:
+            encoder_track_nav: row-1:1
+    -
+        type: mixer
+        track: selected
+        mappings:
+            volume: row-3:1

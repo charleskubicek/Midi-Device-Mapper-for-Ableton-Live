@@ -4,6 +4,7 @@ light_colors:
     green_full: 60
 
 #encoder-mode: relative-synthesized
+encoder-mode: relative
 # Control groups are rows of controllers,
 
 control_groups:

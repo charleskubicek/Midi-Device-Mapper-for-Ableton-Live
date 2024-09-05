@@ -13,7 +13,12 @@ import traceback
 
 from . import modules
 from .modules import main_component
+from .modules import helpers
 
+try:
+    from .modules import functions
+except ImportError:
+    pass
 
 class $surface_name(ControlSurface):
     def __init__(self, c_instance):
@@ -68,7 +73,7 @@ class $surface_name(ControlSurface):
                     importlib.reload(modules.main_component)
 
                     if self.functions_file_exsits():
-                        importlib.reload(modules.functions.py)
+                        importlib.reload(modules.functions)
 
                     self.log_message('Re-initialising modules')
                     self.init_modules()

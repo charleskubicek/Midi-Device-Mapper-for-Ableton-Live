@@ -140,7 +140,7 @@ class MidiCoords(BaseModel):
         return f"{self.encoder_type.value}_{self.info_string()}"
 
     def controller_listener_fn_name(self, suffix):
-        return make_valid_identifier(f"{self.encoder_type.value}_{self.info_string()}_{suffix}value")
+        return make_valid_identifier(f"{self.encoder_type.value}_{self.info_string()}_{suffix}_listener")
 
     def info_string(self):
         return f"ch{self.channel}_{self.number}_{self.type.value}"
@@ -253,7 +253,7 @@ class ButtonProviderBaseModel(ABC, BaseModel):
     def controller_listener_fn_name(self, mode_name):
         pass
 
-    def template_function_name(self):
+    def template_function_call(self):
         pass
 
     def only_midi_coord(self) -> MidiCoords:

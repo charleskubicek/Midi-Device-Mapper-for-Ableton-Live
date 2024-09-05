@@ -1,0 +1,39 @@
+light_colors:
+    off: 12
+    on: 13
+
+
+encoder-mode: relative
+# Control groups are rows of controllers,
+
+control_groups:
+
+  # Each group contains one row or column of controllers and a range of MIDI CC numbers,
+    -
+        layout: row
+        number: 1
+        type: knob
+        midi_channel: 11
+        midi_type: CC
+        midi_range: 1-8
+#    -
+#        layout: row
+#        number: 2
+#        type: button
+#        midi_channel: 11
+#        midi_type: Note
+#        midi_range: 1-8
+#    -
+#        layout: row
+#        number: 3
+#        type: button
+#        midi_channel: 11
+#        midi_type: Note
+#        midi_range: 9-16
+    -
+        layout: row
+        number: 3
+        type: slider
+        midi_channel: 11
+        midi_type: CC
+        midi_range: 9

@@ -49,7 +49,7 @@ class TrackNavMidiMapping(ButtonProviderBaseModel):
     def create_controller_element(self):
         return self.only_midi_coord.create_controller_element()
 
-    def template_function_name(self):
+    def template_function_call(self):
         if self.direction == Direction.inc:
             return 'self.track_nav_inc()'
         else:

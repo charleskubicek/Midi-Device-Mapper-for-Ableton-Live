@@ -55,7 +55,7 @@ class TransportMidiMapping(ButtonProviderBaseModel):
     def create_controller_element(self):
         return self.only_midi_coord.create_controller_element()
 
-    def template_function_name(self):
+    def template_function_call(self):
         return f"{self.function_call_for(self.api_call)} = not {self.function_call_for(self.api_call)}"
 
     def controller_variable_name(self):
