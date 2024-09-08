@@ -14,7 +14,7 @@ from . import synth_categories
 class Functions(ControlSurface):
     def __init__(self, c_instance=None, publish_self=True, *a, **k):
         super().__init__(c_instance=c_instance)
-        # self._manager = c_instance
+        self._manager = c_instance
 
         self.clip_ops = ClipOps(self)
         self.perc_pattern_cycler = PatternCycler(self, Patterns.perc_patterns, self.clip_ops)
@@ -24,8 +24,8 @@ class Functions(ControlSurface):
         self.bounce = Bounce(self, self.clip_ops)
         self.record_midi = MidiRecord(self, self.song())
 
-    # def log_message(self, message):
-    #     self._manager.log_message(message)
+    def show_message(self, message):
+        self._manager.manager.show_message(message)
 
     def selected_device(self):
         return self.song().view.selected_track.view.selected_device
@@ -56,6 +56,18 @@ class Functions(ControlSurface):
 
     def record_midi_from_track_to_new_track(self):
         self.record_midi.record_midi_from_track_to_new_track(self.song().view.selected_track)
+
+    def clip_extend(self):
+        self.clip_ops.smart_clip_extend()
+
+    def clip_delete_end(self):
+        self.clip_ops.smart_clip_cut()
+
+    def shift_clip_notes_left(self):
+        self.clip_ops.shift_clip_notes_left()
+
+    def shift_clip_notes_right(self):
+        self.clip_ops.shift_clip_notes_right()
 
 class MidiRecord(ControlSurfaceComponent):
 
@@ -140,15 +152,103 @@ class MidiRecord(ControlSurfaceComponent):
         # destination_track.current_monitoring_state = Live.Track.Track.monitoring_states.AUTO
 
 
+
 class ClipOps(ControlSurfaceComponent):
 
     def __init__(self, ins):
         ControlSurfaceComponent.__init__(self)
         self._manager = ins
 
+        ## TODO implement tripples as well as bars
+        self._note_shift_quantization = 0.25
+    #
+    # def dump_object_info(self, obj):
+    #     attributes = dir(obj)
+    #     self.log_message(f"Object type: {type(obj)}")
+    #     self.log_message("Attributes and methods:")
+    #     for attr in attributes:
+    #         try:
+    #             value = getattr(obj, attr)
+    #             self.log_message(f"{attr}: {value}")
+    #         except Exception as e:
+    #             self.log_message(f"{attr}: Unable to retrieve value ({e})")
+    #
 
     def log_message(self, message):
         self._manager.log_message(message)
+
+
+    def shift_clip_notes_right(self):
+        clip = self.get_or_create_selected_clip(-1, create=False, remove_existing=False)
+        if clip is not None:
+            notes = clip.get_all_notes_extended()
+            for note in notes:
+                note.start_time = note.start_time + self._note_shift_quantization
+
+            clip.apply_note_modifications(notes)
+
+    def shift_clip_notes_left(self):
+        clip = self.get_or_create_selected_clip(-1, create=False, remove_existing=False)
+        if clip is not None:
+            notes = clip.get_all_notes_extended()
+            for note in notes:
+                note.start_time = note.start_time - self._note_shift_quantization
+
+            clip.apply_note_modifications(notes)
+
+    def smart_clip_extend(self):
+        clip = self.get_or_create_selected_clip(-1, create=False, remove_existing=False)
+        if clip is not None:
+            ## TODO implement tripples as well as bars
+
+            self.duplicate_last_bar(clip, beats_per_bar=4)
+            clip.loop_end = clip.loop_end + 4
+            clip.end_marker = clip.end_marker + 4
+
+
+    def smart_clip_cut(self):
+        clip = self.get_or_create_selected_clip(-1, create=False, remove_existing=False)
+        if clip is not None and clip.end_marker >= 4:
+            ## TODO implement tripples as well as bars
+
+            self.delete_last_bar(clip, beats_per_bar=4)
+            clip.loop_end = clip.loop_end - 4
+            clip.end_marker = clip.end_marker - 4
+
+
+    def delete_last_bar(self, clip, beats_per_bar=4):
+
+        last_bar_start = clip.length - beats_per_bar
+
+        clip.remove_notes_extended(from_time=last_bar_start,
+                                   from_pitch=0,
+                                   time_span=(beats_per_bar),
+                                   pitch_span=128)
+
+        self._manager.show_message("Removed last bar")
+
+
+    def duplicate_last_bar(self, clip, beats_per_bar=4):
+
+        notes = clip.get_all_notes_extended()
+        clip_length = clip.length
+
+        # Find the start of the last bar
+        last_bar_start = clip_length - beats_per_bar
+        last_bar_end = clip_length
+
+        # Filter notes from the last bar
+        last_bar_notes = [note for note in notes if last_bar_start <= note.start_time < last_bar_end]
+
+        notes = tuple((Live.Clip.MidiNoteSpecification(
+            pitch=note.pitch,
+            start_time=(note.start_time + beats_per_bar),
+            duration=note.duration,
+            velocity=note.velocity,
+            mute=note.mute) for note in last_bar_notes))
+        clip.add_new_notes(notes)
+
+        self._manager.show_message("Added notes from last bar")
 
     def create_clip_and_notes(self, notes, title, length=4):
         '''
@@ -576,8 +676,7 @@ class NameGuesser(ControlSurfaceComponent):
                 guess = self.guess_from_midi_effect(d)
                 if guess is not None:
                     return guess
-
-            if str(d.type) == 'instrument':
+            elif str(d.type) == 'instrument':
 
                 for name, fn in [
                     ('instrument name', parsers.guess_cat_from_instrument_name),
@@ -588,9 +687,29 @@ class NameGuesser(ControlSurfaceComponent):
                     self.log_message(f"[{track_name}] {name} guess for {d.name} was: {guess}")
                     if guess is not None:
                         return guess
-
             else:
                 return None
+
+
+    def guess_from_midi_effect(self, d):
+        self.log_message("d.can_have_chains: " + str(d.can_have_chains))
+        self.log_message("d.name.lower(): " + str(d.name.lower()))
+        for rd in self.find_rack_chain_names(d):
+            if 'arp' in rd:
+                return sample_categories.sample_category_maps('Arp')
+
+        if 'arp' in d.name.lower():
+            return sample_categories.sample_category_maps('Arp')
+
+
+    def find_rack_chain_names(self, d):
+        if d.can_have_chains:  # it's a rack #) == 'MidiEffectGroupDevice':
+            self.log_message("d.chanins len: " + str(len(d.chains)))
+            for chain in d.chains:
+                for c_d in chain.devices:
+                    yield c_d.name.lower()
+
+        return []
 
     def update_selected_track_colour_index(self, knob_value):
 
