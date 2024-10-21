@@ -36,4 +36,4 @@ jobs:
       - name: Install the project dependencies
         run: poetry install
       - name: Run the automated tests (for example)
-        run: poetry run pytest -v        
+        run: PYTHONPATH=. poetry run pytest -v
