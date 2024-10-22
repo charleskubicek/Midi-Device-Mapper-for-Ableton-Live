@@ -1,5 +1,7 @@
 # MIDI Device Mapper for Ableton
 
+[![Build Status](https://github.com/charleskubicek/Midi-Device-Mapper-for-Ableton/actions/workflows/python-app.yml/badge.svg)](https://github.com/charleskubicek/Midi-Device-Mapper-for-Ableton/actions/workflows/python-app.yml)
+
 This repository contains a MIDI mapping tool designed for Ableton Live, allowing for customised MIDI device mappings to Ableton live.
 
 Mappings are made in a file between MIDI controls (buttons, sliders and controllers) and many Ableton functions.
