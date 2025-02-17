@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-and-release:  # Renamed the job for clarity
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,15 +35,15 @@ jobs:
       - name: Run the automated tests
         run: cd tests && PYTHONPATH=. poetry run pytest -v
 
-      # --- ZIP File Creation (Option A - Recommended) ---
+      # --- ZIP File Creation ---
       - name: Create ZIP Archive (Source Code)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        id: create_zip  # Give this step an ID!
+        id: create_zip  # Keep the ID for potential future use
         run: |
           mkdir -p release_artifacts
           zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
           # Check if the ZIP file was created:
-          ls -l release_artifacts  # List the contents of the directory
+          ls -l release_artifacts
           # Explanation:
           #   - mkdir -p release_artifacts: Creates a directory to store the ZIP.
           #   - zip -r ...: Creates the ZIP recursively.
@@ -55,23 +55,7 @@ jobs:
           #       - "dist/*":  Existing build artifacts (wheels, sdists).
           #       - "*.pyc":  Compiled Python files.
           #       - "__pycache__/*":  Cache directories.
-          #   -  You can add more -x patterns to exclude other files.
-
-      # --- Option B (Specific Files/Directories) ---
-      # - name: Create ZIP Archive (Specific Files)
-      #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      #   run: |
-      #     mkdir -p release_artifacts
-      #     zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip my_module/ src/ docs/ README.md pyproject.toml
-      #     #  Replace with the actual files/directories you want.
-
-      # --- Option C (Everything - NOT RECOMMENDED) ---
-      # - name: Create ZIP Archive (Everything)
-      #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-      #   run: |
-      #     mkdir -p release_artifacts
-      #     zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip .
-
+          #   -  You can add more -x patterns to exclude other files.          
 
       - name: Create Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -87,7 +71,7 @@ jobs:
           body: |
             ## Changelog
             - Add detailed changes here.
-        needs: create_zip # Explicitly wait for the create_zip step
+          # Removed 'needs' - steps within a job run sequentially
 
       - name: Upload Release Asset (ZIP)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -96,13 +80,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip  # Use the explicit filename
+          asset_path: release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip
           asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
           asset_content_type: application/zip
-        needs: create_release # and depends on create_release
+          # Removed 'needs' - steps within a job run sequentially
 
       # Optional: Keep the wheel and sdist uploads if you want them too
-      - name: Build Project (for wheel and sdist)  # Keep this if you want both
+      - name: Build Project (for wheel and sdist)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         run: poetry build
 
