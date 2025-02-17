@@ -10,6 +10,7 @@ from . import parsers
 from . import sample_categories
 from . import synth_categories
 
+primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
 
 class Functions(ControlSurface):
     def __init__(self, c_instance=None, publish_self=True, *a, **k):
@@ -99,8 +100,12 @@ class MidiRecord(ControlSurfaceComponent):
         destination_track_index = source_track_index + 1
 
         # Ensure the track indices are valid
-        if source_track_index < 0 or source_track_index >= len(song.tracks) or destination_track_index < 0 or destination_track_index >= len(song.tracks):
-            raise ValueError("Invalid track index")
+        if source_track_index < 0 or source_track_index >= len(song.tracks):
+            raise ValueError(f"Invalid track index:{source_track_index}")
+
+        # Ensure the track indices are valid
+        if  destination_track_index < 0 or destination_track_index >= len(song.tracks)+1:
+            raise ValueError(f"Invalid desintation track index: {destination_track_index}")
 
 
         song.create_midi_track(destination_track_index)
@@ -150,8 +155,6 @@ class MidiRecord(ControlSurfaceComponent):
         #
         # # Optionally, set the monitoring state back to auto
         # destination_track.current_monitoring_state = Live.Track.Track.monitoring_states.AUTO
-
-
 
 class ClipOps(ControlSurfaceComponent):
 
@@ -329,7 +332,6 @@ class ClipOps(ControlSurfaceComponent):
 
         return None
 
-
 class Bounce(ControlSurfaceComponent):
 
     def __init__(self, ins, clip_ops):
@@ -386,8 +388,6 @@ class Bounce(ControlSurfaceComponent):
         self.log_message(f"     new track naame: {new_track.name}")
         new_track.name = original_track_name + " (Rec)"
         return new_track
-
-
 
 class PatternCycler(ControlSurfaceComponent):
     def __init__(self, ins, patterns, clip_ops):
@@ -661,11 +661,27 @@ class NameGuesser(ControlSurfaceComponent):
 
                     self.log_message(f"[{track.name}] \U00002705")
                 else:
+                    instrument_guess = self.get_name_of_instrument_or_sample(track)
+
+                    if instrument_guess is not None:
+                        track.name = instrument_guess
+
                     self.log_message(f"[{track.name}] \U0000274C")
                     not_updating.append(track.name)
             except Exception as e:
                 self.log_message(f'[{track.name}] error while guessing type: ' + str(e) + str(traceback.format_exc()))
 
+    def get_name_of_instrument_or_sample(self, track):
+        # if track.
+        for d in track.devices:
+            if str(d.type) == 'instrument':
+                full_name = d.name
+
+                return (full_name
+                        .removeprefix("CK")
+                        .removeprefix("AYNIL"))
+
+        return None
 
     def guess_track_type_from_devices(self, track_name, devices):  # -> Union[None, str]:
 
@@ -677,7 +693,6 @@ class NameGuesser(ControlSurfaceComponent):
                 if guess is not None:
                     return guess
             elif str(d.type) == 'instrument':
-
                 for name, fn in [
                     ('instrument name', parsers.guess_cat_from_instrument_name),
                     ('sample name', sample_categories.lookup_sample_category),
@@ -737,10 +752,7 @@ class NameGuesser(ControlSurfaceComponent):
     def set_grouping_track_colour_from_others(self, the_group_track):
         track_colors = [t.color_index for t in self.song().tracks if
                         t.group_track is not None and t.group_track.name == the_group_track.name]
-        track_colours_set = set(track_colors)
-
-        if len(track_colours_set) == 1:
-            the_group_track.color_index = track_colours_set.pop()
+        the_group_track.color_index = sorted(list(set(track_colors)))[0]
 
     def track_has_already_been_updated(self, the_track):
         return the_track.color_index != self.default_track_colour_index
@@ -770,9 +782,12 @@ class Arranger(ControlSurfaceComponent):
             if clip_slot.clip is not None:
                 clip_lengths.add(clip_slot.clip.length)
 
+        self.log_message("clip_lengths = " + str(clip_lengths))
+
         target_len = 1
-        for l in clip_lengths:
-            target_len = target_len * l
+        for l in sorted(list(clip_lengths)):
+            if l in primes:
+                target_len = target_len * l
 
         self.log_message("target_len = " + str(target_len))
 

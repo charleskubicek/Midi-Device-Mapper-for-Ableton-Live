@@ -30,7 +30,7 @@ sample_categories = [
     Category("Text", ['text'], noise),
     Category("Rumble", ['rumble'], kick_blue),
     Category('Shaker', ['shaker'], hats),
-    Category('Synth', ['synth', 'lead', 'melodic'], synth),
+    Category('Synth', ['synth', 'syn',  'lead', 'melodic'], synth),
     Category('Stab', ['stab'], synth),
     Category('Vocal', ['vocal', 'vox'], vox),
 ]
