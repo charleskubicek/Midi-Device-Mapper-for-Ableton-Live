@@ -6,7 +6,8 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
-from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple
+from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple, EncoderRefinements
+
 
 def make_valid_identifier(name):
     # Step 1: Replace invalid characters with underscores
@@ -128,7 +129,12 @@ class MidiCoords(BaseModel):
         return f"ConfigurableButtonElement(True, {self.type.ableton_name()}, {self.ableton_channel()}, {self.number})"
 
     def create_encoder_element(self):
-        return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.{self.encoder_mode.ableton_midi_map_mode})"
+        midi_map_mode = self.encoder_mode.ableton_midi_map_mode
+
+        if EncoderRefinements(self.encoder_refs).has_map_mode_absolute():
+            midi_map_mode = 'absolute'
+
+        return f"EncoderElement({self.type.ableton_name()}, {self.ableton_channel()}, {self.number}, Live.MidiMap.MapMode.{midi_map_mode})"
 
     def create_controller_element(self):
         if self.encoder_type.is_button():
