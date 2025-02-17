@@ -1,0 +1,122 @@
+name: Python Application - Build and Release (ZIP)
+
+on:
+  push:
+    branches: [ "master" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: "1.7.1"
+      - name: View poetry --help
+        run: poetry --help
+      - uses: actions/cache@v3
+        name: Define a cache for the virtual environment
+        with:
+          path: ./.venv
+          key: venv-${{ hashFiles('poetry.lock') }}
+      - name: Install the project dependencies
+        run: poetry install
+      - name: Run the automated tests
+        run: cd tests && PYTHONPATH=. poetry run pytest -v
+
+      # --- ZIP File Creation (Option A - Recommended) ---
+      - name: Create ZIP Archive (Source Code)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          mkdir -p release_artifacts
+          zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
+          # Explanation:
+          #   - mkdir -p release_artifacts: Creates a directory to store the ZIP.
+          #   - zip -r ...: Creates the ZIP recursively.
+          #   - . :  Specifies the current directory as the source.
+          #   - -x ... : Excludes specific files/directories:
+          #       - ".git/*":  Git repository data.
+          #       - ".venv/*": Virtual environment.
+          #       - "tests/*":  Test files (usually not needed in a release).
+          #       - "dist/*":  Existing build artifacts (wheels, sdists).
+          #       - "*.pyc":  Compiled Python files.
+          #       - "__pycache__/*":  Cache directories.
+          #   -  You can add more -x patterns to exclude other files.
+
+      # --- Option B (Specific Files/Directories) ---
+      # - name: Create ZIP Archive (Specific Files)
+      #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     mkdir -p release_artifacts
+      #     zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip my_module/ src/ docs/ README.md pyproject.toml
+      #     #  Replace with the actual files/directories you want.
+
+      # --- Option C (Everything - NOT RECOMMENDED) ---
+      # - name: Create ZIP Archive (Everything)
+      #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+      #   run: |
+      #     mkdir -p release_artifacts
+      #     zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip .
+
+      - name: Create Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changelog
+            - Add detailed changes here.
+
+      - name: Upload Release Asset (ZIP)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release_artifacts/*.zip  # Path to the ZIP file
+          asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+      # Optional: Keep the wheel and sdist uploads if you want them too
+      - name: Build Project (for wheel and sdist)  # Keep this if you want both
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: poetry build
+
+      - name: Upload Release Asset (Wheel)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/*.whl
+          asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}.whl
+          asset_content_type: application/zip
+
+      - name: Upload Release Asset (Source Distribution)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/*.tar.gz
+          asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}.tar.gz
+          asset_content_type: application/gzip
