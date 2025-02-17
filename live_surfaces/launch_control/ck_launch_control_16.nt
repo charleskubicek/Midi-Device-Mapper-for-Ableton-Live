@@ -1,6 +1,6 @@
 controller: controller_lc.nt
-#ableton_dir: /Applications/Ableton Live 12 Suite.app
-ableton_dir: /Applications/Ableton Live 12 Beta.app
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+# ableton_dir: /Applications/Ableton Live 12 Beta.app
 modes:
     button: row-3:1
     type: shift
