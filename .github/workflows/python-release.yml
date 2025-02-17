@@ -39,8 +39,8 @@ jobs:
       - name: Get Project Metadata
         id: project_metadata
         run: |
-          PROJECT_NAME=$(poetry version | cut -d' ' -f1)
-          PROJECT_VERSION=$(poetry version | cut -d' ' -f2)
+          PROJECT_NAME=$(poetry version -s | cut -d' ' -f1)
+          PROJECT_VERSION=$(poetry version -s | cut -d' ' -f2)
           echo "name=$PROJECT_NAME" >> $GITHUB_ENV
           echo "version=$PROJECT_VERSION" >> $GITHUB_ENV
 
@@ -51,9 +51,10 @@ jobs:
         # Use shell variable expansion WITHIN the run block:
         run: |
           mkdir -p release_artifacts
-          PROJECT_NAME=$(poetry version -s | cut -d' ' -f1)
-          PROJECT_VERSION=$(poetry version -s | cut -d' ' -f2)
-          zip -r release_artifacts/$PROJECT_NAME-$PROJECT_VERSION.zip . -x ".git/*" ".venv/*" "tests/*" "tests_e2e/*" "dist/*" "live_surfaces" "release_artefacts" "*.pyc" "__pycache__/*"
+          PROJECT_NAME=$(poetry version -s | cut -d' ' -f1) # Get name AGAIN here
+          PROJECT_VERSION=$(poetry version -s | cut -d' ' -f2) # Get version AGAIN here
+          zip -r release_artifacts/$PROJECT_NAME-$PROJECT_VERSION.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
+          ls -l release_artifacts
 
       - name: Create Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -77,8 +78,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: release_artifacts/${{ env.name }}-${{ env.version }}.zip
-          asset_name: ${{ env.name }}-${{ env.version }}.zip
+          asset_path: release_artifacts/${{ env.name }}-${{ env.version }}.zip  # Corrected!
+          asset_name: ${{ env.name }}-${{ env.version }}.zip  # Corrected!
           asset_content_type: application/zip
 
 #      # --- Wheel and sdist Creation and Upload ---
