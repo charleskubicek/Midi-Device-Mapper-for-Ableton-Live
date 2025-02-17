@@ -48,9 +48,12 @@ jobs:
       - name: Create ZIP Archive (Source Code)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         id: create_zip
+        # Use shell variable expansion WITHIN the run block:
         run: |
           mkdir -p release_artifacts
-          zip -r release_artifacts/${{ env.name }}-${{ env.version }}.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
+          PROJECT_NAME=$(poetry version -s | cut -d' ' -f1) # Get name AGAIN here
+          PROJECT_VERSION=$(poetry version -s | cut -d' ' -f2) # Get version AGAIN here
+          zip -r release_artifacts/$PROJECT_NAME-$PROJECT_VERSION.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
           ls -l release_artifacts
 
       - name: Create Release
