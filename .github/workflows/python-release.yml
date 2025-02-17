@@ -81,9 +81,8 @@ jobs:
       - name: Build Project (for wheel and sdist)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         id: build_artifacts
-        run: |
-          poetry build
-          ls -l dist
+        run: poetry build
+
 
       - name: Upload Release Asset (Wheel)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -93,7 +92,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: dist/${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}-py3-none-any.whl  # Dynamic and correct!
-          asset_name: ${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}-py3-none-any.whl  # Dynamic and correct!
+          asset_name: ${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}-py3-none-any.whl
           asset_content_type: application/zip
 
       - name: Upload Release Asset (Source Distribution)
@@ -103,6 +102,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}.tar.gz  # Dynamic and correct!
-          asset_name: ${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}.tar.gz  # Dynamic and correct!
+          asset_path: dist/${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}.tar.gz
+          asset_name: ${{ steps.project_metadata.outputs.name }}-${{ steps.project_metadata.outputs.version }}.tar.gz
           asset_content_type: application/gzip
