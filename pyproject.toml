@@ -16,6 +16,7 @@ lark = "^1.1.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
+genbadge = "^1.1.1"
 
 [build-system]
 requires = ["poetry-core"]
