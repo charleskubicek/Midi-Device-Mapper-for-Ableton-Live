@@ -38,9 +38,12 @@ jobs:
       # --- ZIP File Creation (Option A - Recommended) ---
       - name: Create ZIP Archive (Source Code)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        id: create_zip  # Give this step an ID!
         run: |
           mkdir -p release_artifacts
           zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip . -x ".git/*" ".venv/*" "tests/*" "dist/*" "*.pyc" "__pycache__/*"
+          # Check if the ZIP file was created:
+          ls -l release_artifacts  # List the contents of the directory
           # Explanation:
           #   - mkdir -p release_artifacts: Creates a directory to store the ZIP.
           #   - zip -r ...: Creates the ZIP recursively.
@@ -69,9 +72,10 @@ jobs:
       #     mkdir -p release_artifacts
       #     zip -r release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip .
 
+
       - name: Create Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        id: create_release  # <--- ADD THIS ID
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,6 +87,7 @@ jobs:
           body: |
             ## Changelog
             - Add detailed changes here.
+        needs: create_zip # Explicitly wait for the create_zip step
 
       - name: Upload Release Asset (ZIP)
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -91,9 +96,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release_artifacts/*.zip
+          asset_path: release_artifacts/${{ github.event.repository.name }}-${{ github.ref_name }}.zip  # Use the explicit filename
           asset_name: ${{ github.event.repository.name }}-${{ github.ref_name }}.zip
           asset_content_type: application/zip
+        needs: create_release # and depends on create_release
 
       # Optional: Keep the wheel and sdist uploads if you want them too
       - name: Build Project (for wheel and sdist)  # Keep this if you want both
