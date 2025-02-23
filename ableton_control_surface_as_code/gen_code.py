@@ -21,6 +21,7 @@ class GeneratedCode:
     listener_fns: [str] = field(default_factory=list)
     setup_listeners: [str] = field(default_factory=list)
     remove_listeners: [str] = field(default_factory=list)
+    custom_parameter_mappings: [str] = field(default_factory=list)
 
     @classmethod
     def merge_all(cls, codes: []):
@@ -42,7 +43,8 @@ class GeneratedCode:
             self.control_defs + other.control_defs,
             self.listener_fns + other.listener_fns,
             self.setup_listeners + other.setup_listeners,
-            self.remove_listeners + other.remove_listeners
+            self.remove_listeners + other.remove_listeners,
+            self.custom_parameter_mappings + other.custom_parameter_mappings
         )
 
 def is_valid_function_name(name):
@@ -56,7 +58,7 @@ def is_valid_function_name(name):
 
     return True
 
-def generate_parameter_listener_action(parameter, track, device, fn_name, toggle:bool, debug_st) -> [str]:
+def generate_parameter_listener_action(parameter, midi_no, track, device, fn_name, toggle:bool, debug_st) -> [str]:
 
     if not is_valid_function_name(fn_name):
         raise ValueError(f"Invalid function name: {fn_name}")
@@ -69,8 +71,8 @@ def ${fn_name}(self, value):
         return
         
 
-    self.device_parameter_action(device, $parameter, value, "$fn_name", toggle=$toggle)    
-    """).substitute(parameter=parameter, track=track, device=device, toggle=toggle, fn_name=fn_name, comment=debug_st).split("\n")
+    self.device_parameter_action(device, $parameter, $midi_no, value, "$fn_name", toggle=$toggle)    
+    """).substitute(parameter=parameter, midi_no=midi_no, track=track, device=device, toggle=toggle, fn_name=fn_name, comment=debug_st).split("\n")
 
 
 def generate_control_value_listener_function_action(fn_name, var_name, callee, toggle:bool, debug_st:str) -> [str]:
@@ -134,12 +136,17 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
             remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
             listener_fns=generate_parameter_listener_action(
                 mm.parameter,
+                mm.only_midi_coord.number,
                 device_with_midi.track.name.value,
                 device_with_midi.device,
                 enc_listener_name,
                 enc_refs.has_toggle(),
                 mm.info_string())
         ))
+
+    for name, encoder_map in device_with_midi.custom_device_mappings.items():
+        code = f"'{name}': " + str({p_name:p.number for p_name, p in encoder_map.items()})
+        codes = codes.merge(GeneratedCode(custom_parameter_mappings=[code]))
 
     return codes
 
@@ -202,6 +209,14 @@ def class_function_code_block(lines: [str]):
 
     tab_block = "    "
     return f"\n{tab_block}".join(lines) + "\n"
+
+def dict_variable_decleration_block(lines: [str]):
+    tab_block = "    "
+
+    if lines is None or lines == []:
+        return ""
+    else:
+        return f"{tab_block}{tab_block}".join(lines) + "\n"
 
 
 def class_function_body_code_block(lines: [str]):

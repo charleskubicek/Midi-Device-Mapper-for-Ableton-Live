@@ -7,7 +7,7 @@ from string import Template
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
-    transport_templates
+    transport_templates, dict_variable_decleration_block
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData
 
@@ -79,6 +79,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
                   for name, maps in modes.mappings.items()}
 
     array_defs = []
+    custom_parameter_mappings = []
     codes = GeneratedCode()
 
     creation = [creation.variable_initialisation()
@@ -91,6 +92,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
         codes.setup_listeners.append(add_listeners_template(name))
         codes.setup_listeners.append(class_function_body_code_block(code_model.setup_listeners))
         codes.listener_fns.append(class_function_code_block(code_model.listener_fns))
+        codes.custom_parameter_mappings.append("\n".join(code_model.custom_parameter_mappings))
 
         for (name, values) in code_model.array_defs:
             array_defs.append(array_def_template(name, values))
@@ -107,6 +109,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
 
     return {
         'code_setup': "\n".join(codes.init),
+        'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
         'code_creation': class_function_body_code_block(creation+array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),

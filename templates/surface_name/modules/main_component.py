@@ -36,7 +36,16 @@ class MainComponent(ControlSurfaceComponent):
 
         $code_setup
 
-        self._helpers = Helpers(self.manager)
+        code_custom_parameter_mappings = { 
+            $code_custom_parameter_mappings
+        }
+
+        self._helpers = Helpers(self.manager, code_custom_parameter_mappings
+                                )
+
+        self._song.add_appointed_device_listener(self.on_device_selected)
+
+
         self.log_message(f"main_component finish init.")
         self._previous_values = {}
 
@@ -62,10 +71,12 @@ $code_setup_listeners
     def device_nav_left(self):
         NavDirection = Live.Application.Application.View.NavDirection
         self._scroll_device_chain(NavDirection.left)
+        self._helpers.selected_device_changed(self.selected_device())
 
     def device_nav_right(self):
         NavDirection = Live.Application.Application.View.NavDirection
         self._scroll_device_chain(NavDirection.right)
+        self._helpers.selected_device_changed(self.selected_device())
 
     def _scroll_device_chain(self, direction):
         view = self.manager.application().view
@@ -90,6 +101,8 @@ $code_setup_listeners
         if next_index < all_tracks:
             self._song.view.selected_track = self._song.tracks[next_index]
 
+        self._helpers.selected_device_changed(self.selected_device())
+
     def track_nav_dec(self):
         selected_track = self._song.view.selected_track  # Get the currently selected track
 
@@ -100,6 +113,8 @@ $code_setup_listeners
 
         if next_index >= 0:
             self._song.view.selected_track = self._song.tracks[next_index]
+
+        self._helpers.selected_device_changed(self.selected_device())
 
 
     def device_nav_first_last(self):
@@ -120,6 +135,8 @@ $code_setup_listeners
         for i in range(0, len(devices) + 3):
             self._scroll_device_chain(NavDirection.left)
 
+        self._helpers.selected_device_changed(self.selected_device())
+
     def device_nav_last(self):
         NavDirection = Live.Application.Application.View.NavDirection
         devices = self._song.view.selected_track.devices
@@ -128,6 +145,8 @@ $code_setup_listeners
             self._scroll_device_chain(NavDirection.right)
 
         self._scroll_device_chain(NavDirection.left)
+
+        self._helpers.selected_device_changed(self.selected_device())
 
     $code_listener_fns
 
@@ -145,8 +164,8 @@ $code_setup_listeners
 
         self.current_mode = next_mode
 
-    def device_parameter_action(self, device, parameter_no, value, fn_name, toggle=False):
-        self._helpers.device_parameter_action(device, parameter_no, value, fn_name, toggle)
+    def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
+        self._helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
 
     def find_device(self, track_name, device_name):
         return self._helpers.find_device(self._song, track_name, device_name)
@@ -159,3 +178,10 @@ $code_setup_listeners
             self.goto_mode(self.current_mode['next_mode_name'])
         elif value == 0 and self.current_mode['is_shift']:
             self.goto_mode(self.current_mode['next_mode_name'])
+
+    def on_device_selected(self):
+        self._helpers.selected_device_changed(self.selected_device())
+
+    def on_selected_track_changed(self):
+        ### This is called when the selected track changes
+        self._helpers.selected_device_changed(self.selected_device())

@@ -33,12 +33,19 @@ class DeviceMidiMapping(BaseModel):
     def controller_listener_fn_name(self, mode_name):
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
 
+# class DeviceCustomParameterMapping(BaseModel):
+#     type: Literal['device'] = 'device'
+#     midi_coord: MidiCoords
+#     device_param_name: str
+
+
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
     device: str
     midi_maps: List[DeviceMidiMapping]
+    custom_device_mappings: dict[str, dict[str, MidiCoords]]
 
 
 class DeviceEncoderMappings(BaseModel):
@@ -51,12 +58,17 @@ class DeviceEncoderMappings(BaseModel):
     def parse_on_off(cls, value):
         return parse_coords(value) if value is not None else None
 
+class CustomParameterMapping(BaseModel):
+    type: Literal['device'] = 'device'
+    device_name:str = Field(alias='device-name')
+    parameter_mappings_raw :dict[str, str] = Field(alias='parameter-mappings')
 
 class DeviceV2(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
     device: str
     mappings: DeviceEncoderMappings
+    custom_parameter_mappings: Optional[list[CustomParameterMapping]] = Field(None, alias='custom-parameter-mappings')
 
     @field_validator("track", mode='before')
     @classmethod
@@ -65,6 +77,7 @@ class DeviceV2(BaseModel):
 
 def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
     midi_maps = []
+    custom_param_maps = {}
 
     iterator = device.mappings.encoders.parameters.as_inclusive_list()
     iterator, _ = itertools.tee(iterator)
@@ -85,7 +98,17 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
             parameter=0
         ))
 
+    for mapping in device.custom_parameter_mappings:
+        device_name = mapping.device_name
+
+        parsed_coords = { p_name: controller.build_midi_coords(parse_coords(encoder))[0][0]
+         for p_name, encoder in mapping.parameter_mappings_raw.items()}
+
+
+        custom_param_maps[device_name] = parsed_coords
+
     return DeviceWithMidi(
         track=device.track,
         device=device.device,
-        midi_maps=midi_maps)
+        midi_maps=midi_maps,
+        custom_device_mappings=custom_param_maps)

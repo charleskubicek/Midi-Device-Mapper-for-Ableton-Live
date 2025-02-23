@@ -48,10 +48,17 @@ class $surface_name(ControlSurface):
 
     def dump_selected_device_parameter_names(self):
         device = self.song().view.selected_track.view.selected_device
-        print("Dumping parameters for device: " + device.name)
+        self.log_message("Dumping parameters for device; name:" + device.name+", class_name: " + device.class_name)
         for i, p in enumerate(device.parameters):
             i = str(i).zfill(2)
-            self.log_message(f" - {i}, {p.name}:{p.value}")
+            msg = {
+                'no': i,
+                'name': p.name,
+                'value': p.value,
+                'min': p.min,
+                'max': p.max
+            }
+            self.log_message(str(msg)+", ")
 
     def tick(self):
         # self.log_message(f"Ticking..")
