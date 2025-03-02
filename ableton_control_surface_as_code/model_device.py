@@ -1,5 +1,5 @@
 import itertools
-from typing import Literal, List, Optional
+from typing import Literal, List, Optional, Dict
 
 from pydantic import BaseModel, Field, validator, field_validator
 
@@ -7,15 +7,15 @@ from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, Na
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
-class DeviceMidiMapping(BaseModel):
+class DeviceParameterMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
     midi_coords: List[MidiCoords]
     parameter: int
 
-    @classmethod
-    def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
-        return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)],
-                   parameter=parameter)
+    # @classmethod
+    # def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
+    #     return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)],
+    #                parameter=parameter)
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -33,19 +33,19 @@ class DeviceMidiMapping(BaseModel):
     def controller_listener_fn_name(self, mode_name):
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
 
-# class DeviceCustomParameterMapping(BaseModel):
-#     type: Literal['device'] = 'device'
-#     midi_coord: MidiCoords
-#     device_param_name: str
 
+class DeviceCustomParameterMidiMapping(BaseModel):
+    type: Literal['device'] = 'device'
+    midi_mapping:DeviceParameterMidiMapping
+    device_parameter_name: str
 
 
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
     device: str
-    midi_maps: List[DeviceMidiMapping]
-    custom_device_mappings: dict[str, dict[str, MidiCoords]]
+    midi_maps: List[DeviceParameterMidiMapping]
+    custom_device_mappings: Dict[str, List[DeviceCustomParameterMidiMapping]]
 
 
 class DeviceEncoderMappings(BaseModel):
@@ -58,10 +58,12 @@ class DeviceEncoderMappings(BaseModel):
     def parse_on_off(cls, value):
         return parse_coords(value) if value is not None else None
 
+
 class CustomParameterMapping(BaseModel):
     type: Literal['device'] = 'device'
-    device_name:str = Field(alias='device-name')
-    parameter_mappings_raw :dict[str, str] = Field(alias='parameter-mappings')
+    device_name: str = Field(alias='device-name')
+    parameter_mappings_raw: dict[str, str] = Field(alias='parameter-mappings')
+
 
 class DeviceV2(BaseModel):
     type: Literal['device'] = 'device'
@@ -75,6 +77,7 @@ class DeviceV2(BaseModel):
     def parse_track(cls, value):
         return TrackInfo.parse_track(value)
 
+
 def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
     midi_maps = []
     custom_param_maps = {}
@@ -87,13 +90,13 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
 
         ## TODO Warn here if the lenght of the midis and parameters aren't the same size
         for m, p in zip(midis, iterator):
-            midi_maps.append(DeviceMidiMapping(
+            midi_maps.append(DeviceParameterMidiMapping(
                 midi_coords=[m],
                 parameter=p
             ))
 
     if device.mappings.on_off:
-        midi_maps.append(DeviceMidiMapping(
+        midi_maps.append(DeviceParameterMidiMapping(
             midi_coords=controller.build_midi_coords(device.mappings.on_off)[0],
             parameter=0
         ))
@@ -101,9 +104,12 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
     for mapping in device.custom_parameter_mappings:
         device_name = mapping.device_name
 
-        parsed_coords = { p_name: controller.build_midi_coords(parse_coords(encoder))[0][0]
-         for p_name, encoder in mapping.parameter_mappings_raw.items()}
-
+        parsed_coords = [DeviceCustomParameterMidiMapping(
+            midi_mapping=DeviceParameterMidiMapping(
+                midi_coords=controller.build_midi_coords(parse_coords(encoder))[0],
+                parameter=p_no),
+            device_parameter_name=p_name)
+            for p_no, (p_name, encoder) in enumerate(mapping.parameter_mappings_raw.items())]
 
         custom_param_maps[device_name] = parsed_coords
 

@@ -4,76 +4,56 @@ from unittest.mock import Mock
 from pathlib import Path
 import shutil
 
-
-helpers_file = Path(__file__).resolve().parent.parent / 'templates' / 'surface_name' / 'modules' / 'helpers.py'
-helpers_tmp_file = Path(__file__).resolve().parent / 'helpers_cp.py'
-shutil.copy(helpers_file, helpers_tmp_file)
-
-from .helpers_cp import CustomMappings
+from source_modules.helpers import CustomMappings
 
 
 class TestCustomMappings(unittest.TestCase):
 
     def setUp(self):
         self.mappings = {
-            "OriginalSimpler": {"Transpose": 3, "Volume": 30}
+            "OriginalSimpler": [(21, 3), (22, 4)]
         }
-        self.custom_mappings = CustomMappings(self.mappings)
+        self.custom_mappings = CustomMappings(Mock(), self.mappings)
 
     def test_has_user_defined_parameters_true(self):
-        device = Mock(spec=Device)
+        device = Mock()
         device.class_name = "OriginalSimpler"
         result = self.custom_mappings.has_user_defined_parameters(device)
         self.assertTrue(result)
 
     def test_has_user_defined_parameters_false(self):
-        device = Mock(spec=Device)
+        device = Mock()
         device.class_name = "UnknownDevice"
         result = self.custom_mappings.has_user_defined_parameters(device)
         self.assertFalse(result)
 
-    def test_find_user_defined_parameters_or_defaults_with_mappings(self):
-        device = Mock(spec=Device)
+    # https://remotify.io/device-parameters/device_params_live11.html
+    def test_find_user_defined_parameters_including_param_zero_for_on_off(self):
+        device = Mock()
         device.class_name = "OriginalSimpler"
-        device.parameters = []
-        result = self.custom_mappings.find_user_defined_parameters_or_defaults(device)
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0].name, "Transpose")
-        self.assertEqual(result[1].name, "Volume")
-
-    def test_find_user_defined_parameters_or_defaults_without_mappings(self):
-        device = Mock(spec=Device)
-        device.class_name = "UnknownDevice"
-        default_parameters = [Parameter(name="DefaultParam")]
+        default_parameters = self.params()
         device.parameters = default_parameters
         result = self.custom_mappings.find_user_defined_parameters_or_defaults(device)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].name, "DefaultParam")
+        self.assertEqual(len(result), 3)
+        self.assertEqual(result[0].name, "p1")
+        self.assertEqual(result[1].name, "p4")
+        self.assertEqual(result[2].name, "p5")
 
-    def test_find_parameter_with_mappings(self):
-        device = Mock(spec=Device)
-        device.class_name = "OriginalSimpler"
-        parameters = [
-            Parameter(name="Param0"),
-            Parameter(name="Param1"),
-            Parameter(name="Param2"),
-            Parameter(name="Transpose"),
-            Parameter(name="Param4")
-        ]
-        device.parameters = parameters
-        result = self.custom_mappings.find_parameter(device, 0, 3)
-        self.assertEqual(result.name, "Transpose")
+    def mock_param(self, name):
+        param = Mock()
+        param.name = name
+        return param
+
+    def params(self):
+        return [self.mock_param(p) for p in ['p1', 'p2', 'p3', 'p4', 'p5']]
 
     def test_find_parameter_without_mappings(self):
-        device = Mock(spec=Device)
+        device = Mock()
         device.class_name = "UnknownDevice"
-        parameters = [
-            Parameter(name="Param0"),
-            Parameter(name="Param1")
-        ]
-        device.parameters = parameters
+        device.parameters = self.params()
         result = self.custom_mappings.find_parameter(device, 1, 0)
         self.assertEqual(result.name, "Param1")
+
 
 if __name__ == '__main__':
     unittest.main()

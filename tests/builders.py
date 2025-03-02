@@ -2,7 +2,7 @@ from ableton_control_surface_as_code.core_model import MixerWithMidi, MixerMidiM
     TrackInfo, MidiType, Direction, EncoderMode
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.model_controller import ControllerV2, ControllerRawV2, ControlGroupPartV2
-from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceMidiMapping
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceParameterMidiMapping
 from ableton_control_surface_as_code.model_functions import FunctionsWithMidi, FunctionsMidiMapping
 from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi, TrackNavMidiMapping
 
@@ -44,7 +44,7 @@ def build_1_group_controller(midi_range='21-28'):
 
 def build_device_midi_mapping(midi_channel=2, midi_number=10, midi_type="CC", parameter=1,
                               encoder_type=EncoderType.knob):
-    return DeviceMidiMapping(
+    return DeviceParameterMidiMapping(
         midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number, encoder_type=encoder_type,
                                 encoder_mode=EncoderMode.Absolute, source_info="tests")],
         parameter=parameter)
@@ -54,7 +54,7 @@ def build_midi_device_mapping(midi_coords=midi_coords_ch2_cc_50_knob(), param=1)
     return DeviceWithMidi(
         track=TrackInfo.selected(),
         device="selected",
-        midi_maps=[DeviceMidiMapping(
+        midi_maps=[DeviceParameterMidiMapping(
             midi_coords=[midi_coords],
             parameter=param
         )])

@@ -131,7 +131,8 @@ def write_templates(template_path: Path, target: Path, vars: dict, functions_pat
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
     template_file(root_dir, template_path / 'surface_name', vars, f'modules/main_component.py',
                   f"modules/main_component.py", verify_python=True)
-    template_file(root_dir, template_path / 'surface_name', vars, "modules/helpers.py", "modules/helpers.py")
+    # template_file(root_dir, template_path / 'surface_name', vars, "modules/helpers.py", "modules/helpers.py")
+    # template_file(root_dir, template_path / 'surface_name', vars, "modules/nav.py", "modules/nav.py")
     template_file(root_dir, template_path / 'surface_name', vars, 'surface_name.py', f"{vars['surface_name']}.py")
     template_file(root_dir, template_path, vars, 'deploy.sh', 'deploy.sh')
     template_file(root_dir, template_path, vars, 'tail_logs.sh', 'tail_logs.sh')
@@ -199,6 +200,12 @@ def generate(mapping_file_path):
     for file in mapping_file_path.parent.glob('*.py'):
         shutil.copy(file, target_dir / vars['surface_name'] / "modules" /  file.name)
 
+    # copy all files and folders in the source_modules folder to target_dir
+    for file in Path('source_modules').glob('*'):
+        if file.is_file():
+            shutil.copy(file, target_dir / vars['surface_name'] / "modules")
+        else:
+            shutil.copytree(file, target_dir / vars['surface_name'] / "modules" / file.name, dirs_exist_ok=True)
 
     print("Finished generating code.")
 

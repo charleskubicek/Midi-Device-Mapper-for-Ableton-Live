@@ -2,67 +2,34 @@ from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
 import logging
 
+
 class Helpers:
-    def __init__(self, manager, custom_mappings={}):
+    def __init__(self, manager, remote, custom_mappings={}):
         self._manager = manager
+        # self._raw_custom_mappings = custom_mappings
         self._custom_mappings = CustomMappings(manager, custom_mappings)
         self._last_device_message_about = None
         self._last_selected_device = None
         self._send_upd = True
 
-        self._osc_client = OSCMultiClient([
-            OSCClient(host='127.0.0.1'),
-            OSCClient(host='192.168.68.84', port=5015)
-        ])
-
-        self._remote = Remote(self._osc_client)
-
+        self._remote = remote
 
     def show_message(self, message):
         self._manager.show_message(message)
 
     def log_message(self, message):
         self._manager.log_message(message)
-        
+
     def selected_device_changed(self, device):
-        if device == self._last_selected_device:
+        if device == self._last_selected_device or device is None:
             return
         else:
             self._last_selected_device = device
             self._last_device_message_about = None
 
             parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
+            self.log_message(f"Selected device changed to {device.name} with {len(parameters)} parameters")
             self._remote.new_device_selected(device, parameters)
-            # if self._send_upd:
-            #     self._osc_client.send_message(f"/device-selected/name", [device.name])
-            #     for i, param in enumerate(device.parameters):
-            #         if i < 17 and i > 0:
-            #             self._osc_client.send_message(f"/selected-device/parameter-update", [i, str(param.value), param.name, param.min, param.max])
-
-    def find_custom_native_device_parameter_mapping(self, device, parameter_no, midi_no):
-        found_name = None
-        found_parameter_no = None
-
-        for name, p in self._custom_mappings[device.class_name].items():
-            if p == midi_no:
-                found_name = name
-                break
-
-        all_device_mappings = device_parameter_names[device.class_name]
-        for param_map in all_device_mappings:
-            if param_map['name'] == found_name:
-                found_parameter_no = int(param_map['no'])
-                break
-
-        if found_parameter_no is None:
-            self.log_message(f"Parameter {found_name} not found in mappings")
-            return (None, None)
-        else:
-            self.log_message(f"Updating passed parameter_no {parameter_no} to mapped parameter {found_parameter_no} for {found_name}")
-            return (found_parameter_no, found_name)
-            # if self._last_device_message_about != device.name:
-            #     self.show_message(f"Device {device.name} has custom mappings")
-            #     self._last_device_message_about = device.name
 
     def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
@@ -78,6 +45,8 @@ class Helpers:
 
         parameter = self._custom_mappings.find_parameter(device, parameter_no, midi_no)
 
+        if self._custom_mappings.has_user_defined_parameters(device):
+            self.log_message(f"Found custom mapping for encoder {parameter_no} is {parameter.name}")
 
         min = parameter.min
         max = parameter.max
@@ -97,12 +66,12 @@ class Helpers:
                 (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[parameter_no].value}")
 
         if will_fire:
-            self.log_message(f"Setting to = {float(next_value)}")
+            # self.log_message(f"Setting to = {float(next_value)}")
             parameter.value = next_value
 
             self._remote.parameter_updated(parameter, parameter_no, next_value)
 
-        self.log_message(f"Value is {parameter.value}")
+        # self.log_message(f"Value is {parameter.value}")
 
     def value_is_max(self, value, max):
         return value == max
@@ -179,10 +148,18 @@ class Helpers:
 
         return None
 
+
+"""
+CustomMappings
+
+This class is responsible for managing custom mappings for devices. It is used to find user defined parameters or defaults
+for a given device. It also provides a method to find a parameter for a given device, parameter number and midi number.
+
+"""
 class CustomMappings:
-    def __init__(self, manager, custom_mappings):
+    def __init__(self, manager, custom_mappings: dict[str, [(int, int)]]):
         self._manager = manager
-        self._custom_mappings = custom_mappings
+        self._custom_mappings: dict[str, [(int, int)]] = custom_mappings
 
     def log_message(self, message):
         self._manager.log_message(message)
@@ -193,59 +170,41 @@ class CustomMappings:
     def has_user_defined_parameters(self, device):
         return device.class_name in self._custom_mappings
 
-    ## parameters sorted by midi number
-    def find_user_defined_parameters_or_defaults(self, device, max_parameters=16):
-        if self.has_user_defined_parameters(device) and device.class_name in device_parameter_names:
-            arr = [
-                ( midi_no, [c for c in device_parameter_names[device.class_name] if c['name'] == name][0]['no'])
-                for (name, midi_no) in self._custom_mappings[device.class_name].items()]
-
-
-            return [device.parameters[0]] + [device.parameters[int(p_no)] for (_, p_no) in sorted(arr, key=lambda x: x[0])]
-        else:
+    def find_user_defined_parameters_or_defaults(self, device, max_parameters=17):
+        if not self.has_user_defined_parameters(device) or len(self._custom_mappings[device.class_name]) == 0:
             return device.parameters[:max_parameters]
+        else:
+            return [device.parameters[0]] + [device.parameters[p_no] for m, p_no in self._custom_mappings[device.class_name]]
 
     def find_parameter(self, device, parameter_no, midi_no):
         if not self.has_user_defined_parameters(device):
             return device.parameters[parameter_no]
-
-        found_name = None
-        found_parameter_no = None
-
-        for name, p in self._custom_mappings[device.class_name].items():
-            if p == midi_no:
-                found_name = name
-                break
-
-        all_device_mappings = device_parameter_names[device.class_name]
-        for param_map in all_device_mappings:
-            if param_map['name'] == found_name:
-                found_parameter_no = int(param_map['no'])
-                break
-
-        if found_parameter_no is None:
-            self.log_message(f"Parameter {found_name} not found in mappings")
-            return device.parameters[parameter_no]
         else:
-            self.log_message(f"Updating passed parameter_no {parameter_no} to mapped parameter {found_parameter_no} for {found_name}")
-            return device.parameters[found_parameter_no]
+            return self.find_user_defined_parameters_or_defaults(device)[parameter_no]
+
 
 class Remote:
     def __init__(self, osc_client):
         self._osc_client = osc_client
 
     def parameter_updated(self, param, parameter_no, next_value):
-        self._osc_client.send_message(f"/selected-device/parameter-update", [parameter_no, str(next_value), param.name, param.min, param.max])
+        self._osc_client.send_message(f"/selected-device/parameter-update",
+                                      [parameter_no, str(next_value), param.name, param.min, param.max])
 
     def new_device_selected(self, device, parameters):
-        self._osc_client.send_message(f"/device-selected/name", [device.name])
+        self._osc_client.send_message(f"/selected-device/name", [device.name])
 
-        for i, param in enumerate(parameters[0:16]):
-            self._osc_client.send_message(f"/selected-device/parameter-update", [i, str(param.value), param.name, param.min, param.max])
+        for i, param in enumerate(parameters[0:17]):
+            self._osc_client.send_message(f"/selected-device/parameter-update",
+                                          [i, str(param.value), param.name, param.min, param.max])
+
+        self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(parameters), 16)])
+
 
 class NullOSCClient:
     def send_message(self, address: str, value: ArgValue) -> None:
         pass
+
 
 class OSCClient:
 
@@ -258,6 +217,7 @@ class OSCClient:
     def send_message(self, address: str, value: ArgValue) -> None:
         # self.logger.info(f"Sending message {address} {value}")
         self.client.send_message(address, value)
+
 
 class OSCMultiClient:
 

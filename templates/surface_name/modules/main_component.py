@@ -5,7 +5,8 @@ from _Framework.InputControlElement import *
 from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
-from .helpers import Helpers
+from .helpers import Helpers, OSCMultiClient, OSCClient, Remote
+from .nav import Nav
 # from _Framework.EncoderElement import *
 
 functions_loaded_error = None
@@ -33,6 +34,14 @@ class MainComponent(ControlSurfaceComponent):
 
         self._modes = {}
         self._song = self.manager.song()
+        self._nav = Nav(self.manager)
+
+        self._osc_client = OSCMultiClient([
+            OSCClient(host='127.0.0.1'),
+            OSCClient(host='192.168.68.84', port=5015)
+        ])
+
+        self._remote = Remote(self._osc_client)
 
         $code_setup
 
@@ -40,8 +49,7 @@ class MainComponent(ControlSurfaceComponent):
             $code_custom_parameter_mappings
         }
 
-        self._helpers = Helpers(self.manager, code_custom_parameter_mappings
-                                )
+        self._helpers = Helpers(self.manager, self._remote, code_custom_parameter_mappings)
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 
@@ -69,83 +77,30 @@ $code_setup_listeners
         return self._song.view.selected_track.view.selected_device
 
     def device_nav_left(self):
-        NavDirection = Live.Application.Application.View.NavDirection
-        self._scroll_device_chain(NavDirection.left)
+        self._nav.device_nav_left()
         self._helpers.selected_device_changed(self.selected_device())
 
     def device_nav_right(self):
-        NavDirection = Live.Application.Application.View.NavDirection
-        self._scroll_device_chain(NavDirection.right)
+        self._nav.device_nav_right()
         self._helpers.selected_device_changed(self.selected_device())
 
-    def _scroll_device_chain(self, direction):
-        view = self.manager.application().view
-        if not view.is_view_visible('Detail') or not view.is_view_visible('Detail/DeviceChain'):
-            view.show_view('Detail')
-            view.show_view('Detail/DeviceChain')
-        else:
-            view.scroll_view(direction, 'Detail/DeviceChain', False)
-
-
     def track_nav_inc(self):
-        all_tracks = len(self._song.tracks)
-        selected_track = self._song.view.selected_track  # Get the currently selected track
-
-        self.manager.log_message(f"Selected track name is {selected_track.name}")
-
-        if selected_track.name == "Master":
-            self.manager.log_message("Can't increment from Master")
-
-        next_index = list(self._song.tracks).index(selected_track) + 1  # Get the index of the selected track
-
-        if next_index < all_tracks:
-            self._song.view.selected_track = self._song.tracks[next_index]
-
+        self._nav.track_nav_inc()
         self._helpers.selected_device_changed(self.selected_device())
 
     def track_nav_dec(self):
-        selected_track = self._song.view.selected_track  # Get the currently selected track
-
-        if selected_track.name == "Master":
-            next_index = len(list(self._song.tracks)) - 1
-        else:
-            next_index = list(self._song.tracks).index(selected_track) - 1  # Get the index of the selected track
-
-        if next_index >= 0:
-            self._song.view.selected_track = self._song.tracks[next_index]
-
+        self._nav.track_nav_dec()
         self._helpers.selected_device_changed(self.selected_device())
 
-
     def device_nav_first_last(self):
-        devices = self._song.view.selected_track.devices
-
-        if len(devices) == 0:
-            return
-
-        if self.selected_device() != devices[0]:
-            self.device_nav_first()
-        else:
-            self.device_nav_last()
+        self._nav.device_nav_first_last()
 
     def device_nav_first(self):
-        NavDirection = Live.Application.Application.View.NavDirection
-        devices = self._song.view.selected_track.devices
-
-        for i in range(0, len(devices) + 3):
-            self._scroll_device_chain(NavDirection.left)
-
+        self._nav.device_nav_first()
         self._helpers.selected_device_changed(self.selected_device())
 
     def device_nav_last(self):
-        NavDirection = Live.Application.Application.View.NavDirection
-        devices = self._song.view.selected_track.devices
-
-        for i in range(0, len(devices) + 3):
-            self._scroll_device_chain(NavDirection.right)
-
-        self._scroll_device_chain(NavDirection.left)
-
+        self._nav.device_nav_last()
         self._helpers.selected_device_changed(self.selected_device())
 
     $code_listener_fns
