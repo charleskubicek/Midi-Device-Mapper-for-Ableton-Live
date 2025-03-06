@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_surface_as_code.gen_code import mixer_templates, track_nav_templates
+from ableton_control_surface_as_code.gen_code import mixer_templates, track_nav_templates, GeneratedCodes
 from ableton_control_surface_as_code.core_model import EncoderType, \
     TrackInfo
 from tests.builders import build_mixer_with_multiple_mappings, build_track_nav_with_midi_button
@@ -11,7 +11,7 @@ class TestTrackNavTemplates(unittest.TestCase, CustomAssertions):
     def test_track_nav(self):
         track_nav = build_track_nav_with_midi_button()
 
-        result = track_nav_templates(track_nav, "1")
+        result = GeneratedCodes.merge_all(track_nav_templates(track_nav, "1"))
 
         print(result.listener_fns[2])
 
@@ -23,7 +23,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def test_mixer_with_buttons(self):
         mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='solo', enocder_type=EncoderType.button)
 
-        result = mixer_templates(mixer_with_midi, "1")
+        result = GeneratedCodes.merge_all(mixer_templates(mixer_with_midi, "1"))
 
         self.assertEqual(result.control_defs[0].channel, 2)
 
@@ -34,7 +34,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def test_mixer_with_knob(self):
         mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='volume', enocder_type=EncoderType.slider)
 
-        result = mixer_templates(mixer_with_midi, "1")
+        result = GeneratedCodes.merge_all(mixer_templates(mixer_with_midi, "1"))
 
         self.assertEqual(result.control_defs[0].number, 50)
         self.assert_string_in_one('self.mixer.selected_strip().set_volume_control(self.', result.setup_listeners)
@@ -46,7 +46,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         mixer_with_midi = self.build_mixer_with_one_mapping(2, 50, 'CC', api_fn='volume',
                                                             enocder_type=EncoderType.slider, track_info=TrackInfo.master())
 
-        result = mixer_templates(mixer_with_midi, "1")
+        result = GeneratedCodes.merge_all(mixer_templates(mixer_with_midi, "1"))
 
         self.assertEqual(result.control_defs[0].number, 50)
         self.assert_string_in_one('self.mixer.master_strip().set_volume_control(self.', result.setup_listeners)
@@ -56,7 +56,7 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
     def test_mixer_sends(self):
         mixer_with_midi = build_mixer_with_multiple_mappings(2, [50, 51, 52], 'CC', api_fn='sends', enocder_type=EncoderType.knob)
 
-        result = mixer_templates(mixer_with_midi, "1")
+        result = result = GeneratedCodes.merge_all(mixer_templates(mixer_with_midi, "1"))
 
         self.assertEqual(len(result.array_defs), 1)
         self.assertEqual(len(result.array_defs[0][1]), 3)

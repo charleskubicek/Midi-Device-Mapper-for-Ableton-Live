@@ -22,12 +22,12 @@
 - [ ] Test nav buttons on LC
 - [x] Switch modes
 - [ ] Spike auto-device mode
-- [ ] Spike Continuous controllers
 - [ ] Spike Grids
 - [ ] Encoder value custom min/max
 - [ ] More than 2 modes
 - [ ] Extract mode to separate class
 - [ ] Nicer error messages on validation fail
+- [ ] Parameter pages
 
 
 ## Transport
@@ -56,3 +56,8 @@ Momentary - Button down sends 127, button up sends 0
 Toggle - On sends 127, next on sends 127
 
 https://nickfever.com/music/midi-cc-list
+
+
+## Parameter pages
+
+What if the page buttons are part of another mode? If it's shift toggle ode automatically switch the page to the target mode's device. Assume we can only have one device per mode.

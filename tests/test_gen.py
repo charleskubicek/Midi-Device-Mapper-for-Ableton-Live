@@ -7,7 +7,7 @@ from autopep8 import fix_code
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars
 from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
 from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi
-from builders import build_mixer_with_midi
+from tests.builders import build_mixer_with_midi
 from tests.custom_assertions import CustomAssertions
 
 differ = Differ()
@@ -34,16 +34,16 @@ class TestGen(unittest.TestCase, CustomAssertions):
         expected_output = """
 def fn(self, value):
     device = lom_value
-    self.device_parameter_action(device, 2, value, "fn")
+    self.device_parameter_action(device, 2, 22, value, "fn")
     """
 
         expected_output = fix_code(expected_output)
         generated = fix_code("\n".join(generate_parameter_listener_action(
-            parameter, "lom_value", 'selected',  'fn',False, "dbg")))
+            parameter, 22, "lom_value", 'selected',  'fn',False, "dbg")))
 
         print(generated)
 
-        expected_call = 'self.device_parameter_action(device, 2, value, "fn", toggle=False'
+        expected_call = 'self.device_parameter_action(device, 2, 22, value, "fn", toggle=False'
         self.assert_string_in(expected_call, generated)
 
         expected_device = 'device = self.find_device("lom_value", "selected")'

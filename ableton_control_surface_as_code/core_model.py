@@ -118,6 +118,9 @@ class MidiCoords(BaseModel):
         return MidiCoords(channel=self.channel, type=self.type, number=self.number, encoder_type=self.encoder_type,
                           encoder_mode=self.encoder_mode, source_info=self.source_info, encoder_refs=encoder_refs)
 
+    def midi_equals(self, other):
+        return self.channel == other.channel and self.number == other.number and self.type == other.type
+
     @property
     def ch_num(self):
         return f"{self.channel}_{self.number}"
@@ -153,6 +156,9 @@ class MidiCoords(BaseModel):
 
     def variable_initialisation(self):
         return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
+
+    def has_mode(self):
+        return len([x for x in self.encoder_refs if x.name() == "mode"]) > 0
 
 
 class Direction(Enum):

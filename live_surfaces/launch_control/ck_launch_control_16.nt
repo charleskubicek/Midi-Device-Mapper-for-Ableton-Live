@@ -44,6 +44,10 @@ modes:
 #                        range: row-1:1-4,row-2:1-4
 #                        parameters: 1-8
                 on-off: row-3:4 toggle
+                parameter-paging:
+                    inc: row-4:1
+                    dec: row-4:2
+                    export-to-mode: mode_2
         -
             type: mixer
             track: selected
@@ -82,6 +86,8 @@ modes:
                 record-session: row-3:5
                 record-arrangement: row-3:6
 
+#            type: device
+#                parameter-page: row-4:1
 #        -
 #            type: device
 #            track: master
@@ -97,7 +103,7 @@ modes:
                 selected_audio_to_simpler_in_new_track: row-3:4
                 press_rack_random_button: row-3:7
                 arrange: row-3:8
-                shift_clip_notes_left: row-4:1
-                shift_clip_notes_right: row-4:2
+#                shift_clip_notes_left: row-4:1
+#                shift_clip_notes_right: row-4:2
                 clip_extend: row-5:2
                 clip_delete_end: row-5:1

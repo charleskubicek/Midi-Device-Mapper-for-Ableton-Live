@@ -26,6 +26,17 @@ class Toggle(EncoderRefinement, BaseModel):
         return Toggle()
 
 
+class Mode(EncoderRefinement, BaseModel):
+    def name(self): return "mode"
+
+    def decorator(self, next):
+        pass
+
+    @staticmethod
+    def instance():
+        return Mode()
+
+
 
 class MapModeAbsolute(EncoderRefinement, BaseModel):
     def name(self): return "map_mode_absolute"
@@ -71,10 +82,11 @@ grammar = '''
     coords: axis "-" axis_no ":" range
     coords_list: coords  ("," coords)*
     toggle : "toggle"
+    mode: "mode-2"
     map_mode_absolute : "map_mode_absolute"
     min_max: "min_max(" NUMBER "," NUMBER ")"
     # refinements: (toggle | min_max)*
-    refinements: (toggle|map_mode_absolute)*
+    refinements: (toggle|map_mode_absolute|mode)*
     
     %import common.NUMBER
     %import common.WS
@@ -139,6 +151,7 @@ class MyTransformer(Transformer):
     col = lambda self, _: "col"
     row = lambda self, _: "row"
     toggle = lambda self, _: Toggle.instance()
+    mode = lambda self, _: Mode.instance()
     map_mode_absolute = lambda self, _: MapModeAbsolute.instance()
 
 

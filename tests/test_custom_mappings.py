@@ -35,9 +35,9 @@ class TestCustomMappings(unittest.TestCase):
         device.parameters = default_parameters
         result = self.custom_mappings.find_user_defined_parameters_or_defaults(device)
         self.assertEqual(len(result), 3)
-        self.assertEqual(result[0].name, "p1")
-        self.assertEqual(result[1].name, "p4")
-        self.assertEqual(result[2].name, "p5")
+        self.assertEqual(result[0].name, "p0")
+        self.assertEqual(result[1].name, "p3")
+        self.assertEqual(result[2].name, "p4")
 
     def mock_param(self, name):
         param = Mock()
@@ -45,14 +45,14 @@ class TestCustomMappings(unittest.TestCase):
         return param
 
     def params(self):
-        return [self.mock_param(p) for p in ['p1', 'p2', 'p3', 'p4', 'p5']]
+        return [self.mock_param(p) for p in ['p0', 'p1', 'p2', 'p3', 'p4', 'p5']]
 
     def test_find_parameter_without_mappings(self):
         device = Mock()
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
         result = self.custom_mappings.find_parameter(device, 1, 0)
-        self.assertEqual(result.name, "Param1")
+        self.assertEqual(result.name, "p1")
 
 
 if __name__ == '__main__':

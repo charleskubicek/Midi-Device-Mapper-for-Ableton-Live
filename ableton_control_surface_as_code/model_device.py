@@ -33,6 +33,28 @@ class DeviceParameterMidiMapping(BaseModel):
     def controller_listener_fn_name(self, mode_name):
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
 
+class DeviceParameterPageNav(BaseModel):
+    type: Literal['device'] = 'device'
+    inc: EncoderCoords
+    dec: EncoderCoords
+    export_to_mode:str = Field(alias='export-to-mode')
+
+
+    @field_validator('dec', mode='before')
+    @classmethod
+    def parameter_pagingd(cls, value):
+        return parse_coords(value) if value is not None else None
+
+    @field_validator('inc', mode='before')
+    @classmethod
+    def parameter_pagingi(cls, value):
+        return parse_coords(value) if value is not None else None
+
+class DeviceParameterPageNavMidi(BaseModel):
+    type: Literal['device'] = 'device'
+    inc: MidiCoords
+    dec: MidiCoords
+    export_to_mode:str = Optional[str]
 
 class DeviceCustomParameterMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
@@ -46,17 +68,21 @@ class DeviceWithMidi(BaseModel):
     device: str
     midi_maps: List[DeviceParameterMidiMapping]
     custom_device_mappings: Dict[str, List[DeviceCustomParameterMidiMapping]]
+    parameter_page_nav: Optional[DeviceParameterPageNavMidi]
 
 
 class DeviceEncoderMappings(BaseModel):
     type: Literal['device'] = 'device'
     encoders: RowMapV2_1
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
+    parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
+    # parameter_page_dec: Optional[EncoderCoords] = Field(None, alias='parameter-page-dec')
 
     @field_validator('on_off', mode='before')
     @classmethod
     def parse_on_off(cls, value):
         return parse_coords(value) if value is not None else None
+
 
 
 class CustomParameterMapping(BaseModel):
@@ -70,7 +96,7 @@ class DeviceV2(BaseModel):
     track: TrackInfo
     device: str
     mappings: DeviceEncoderMappings
-    custom_parameter_mappings: Optional[list[CustomParameterMapping]] = Field(None, alias='custom-parameter-mappings')
+    custom_parameter_mappings: Optional[list[CustomParameterMapping]] = Field([], alias='custom-parameter-mappings')
 
     @field_validator("track", mode='before')
     @classmethod
@@ -81,6 +107,7 @@ class DeviceV2(BaseModel):
 def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
     midi_maps = []
     custom_param_maps = {}
+    parameter_page_nav = None
 
     iterator = device.mappings.encoders.parameters.as_inclusive_list()
     iterator, _ = itertools.tee(iterator)
@@ -101,6 +128,12 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
             parameter=0
         ))
 
+    if device.mappings.parameter_paging is not None:
+        parameter_page_nav = DeviceParameterPageNavMidi(
+            inc=controller.build_midi_coords(device.mappings.parameter_paging.inc)[0][0],
+            dec=controller.build_midi_coords(device.mappings.parameter_paging.dec)[0][0],
+            export_to_mode=device.mappings.parameter_paging.export_to_mode)
+
     for mapping in device.custom_parameter_mappings:
         device_name = mapping.device_name
 
@@ -117,4 +150,5 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
         track=device.track,
         device=device.device,
         midi_maps=midi_maps,
-        custom_device_mappings=custom_param_maps)
+        custom_device_mappings=custom_param_maps,
+        parameter_page_nav=parameter_page_nav)

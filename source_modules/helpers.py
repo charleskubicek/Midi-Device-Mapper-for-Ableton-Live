@@ -11,6 +11,7 @@ class Helpers:
         self._last_device_message_about = None
         self._last_selected_device = None
         self._send_upd = True
+        self._device_parameter_page = 1
 
         self._remote = remote
 
@@ -19,6 +20,14 @@ class Helpers:
 
     def log_message(self, message):
         self._manager.log_message(message)
+
+    def device_parameter_page_inc(self):
+        ## TODO don't go over the number of pages; selected deivce params / mapped device params
+        self._device_parameter_page += 1
+
+    def device_parameter_page_dec(self):
+        if self._device_parameter_page > 1:
+            self._device_parameter_page -= 1
 
     def selected_device_changed(self, device):
         if device == self._last_selected_device or device is None:
@@ -30,6 +39,7 @@ class Helpers:
             parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
             self.log_message(f"Selected device changed to {device.name} with {len(parameters)} parameters")
             self._remote.new_device_selected(device, parameters)
+            self._device_parameter_page = 1
 
     def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:

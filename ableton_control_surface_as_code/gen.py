@@ -3,22 +3,14 @@ import sys
 from pathlib import Path
 import shutil
 from string import Template
+from collections import defaultdict
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
-    transport_templates, dict_variable_decleration_block
+    transport_templates, dict_variable_decleration_block, GeneratedCodes, code_for_parameter_paging
 from ableton_control_surface_as_code.model_v2 import read_controller, \
-    read_root, ModeGroupWithMidi, read_root_v2, ModeData
-
-template_to_code = {
-    'device': device_templates,
-    'mixer': mixer_templates,
-    'track-nav': track_nav_templates,
-    'device-nav': device_nav_templates,
-    'functions': functions_templates,
-    'transport': transport_templates
-}
+    read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes
 
 tab = " " * 4
 
@@ -34,11 +26,13 @@ def setup_template(mode_name):
         self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)    
     """
 
+
 def creation_template(mode_name):
     return f"""
         self.current_mode = self._modes['{mode_name}']
         self.goto_mode(self._first_mode)
         """
+
 
 def add_listeners_template(mode_name):
     return f"""
@@ -46,13 +40,15 @@ def add_listeners_template(mode_name):
         self.log_message(f'Adding listeners for mode {mode_name}')
     """
 
+
 def remove_listeners_template():
     return f"""
         if not modes_only:
             self.mode_button.remove_value_listener(self.mode_button_listener)
     """
 
-def state_dict_template(mode:ModeData, listners_function):
+
+def state_dict_template(mode: ModeData, listners_function):
     return f"""
         self._modes['{mode.name}'] = {{
             'name': '{mode.name}',
@@ -63,6 +59,7 @@ def state_dict_template(mode:ModeData, listners_function):
         }}
 """
 
+
 def array_def_template(array_name, array_values):
     end = ",\n" + tabs(3)
     return f"""
@@ -71,30 +68,53 @@ def array_def_template(array_name, array_values):
         ]
     """
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
 
+def all_control_defs(mode_codes):
+    res = []
+
+    for mode_code in mode_codes.values():
+        for device in mode_code:
+            for cf in device.control_defs:
+                res.append(cf)
+
+    return res
+
+
+def validate_exports(exports, mode_codes):
+    for export_mode, export_codes in exports.items():
+        for cm_mode, code_mode in mode_codes.items():
+            commmon = GeneratedCodes.common_midi_coords_in_control_defs(export_codes, code_mode)
+            if len(commmon) > 0:
+                raise ValueError(f"export from {export_mode} to {cm_mode} has overlapping midi coords: {[ys.info_string() for ys in commmon]}")
+
+def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
     first_mode_name = "mode_1"
 
-    mode_codes = {name: build_mode_code(maps, name)
-                  for name, maps in modes.mappings.items()}
+    exports = find_device_parameter_paging_mode_exports(modes.mappings)
+
+    mode_codes = {mode_name: build_mode_code(maps, mode_name)
+                  for mode_name, maps in modes.mappings.items()}
+
+    validate_exports(exports, mode_codes)
+
+    for export_mode, export_code in exports.items():
+        mode_codes[export_mode].extend(export_code)
 
     array_defs = []
-    custom_parameter_mappings = []
     codes = GeneratedCode()
-
-    creation = [creation.variable_initialisation()
-                for creation in GeneratedCode.merge_all(list(mode_codes.values())).control_defs]
+    creation = [c.variable_initialisation() for c in all_control_defs(mode_codes)]
 
     creation.append(f"self.mode_mode_1_add_listeners()")
 
     for name, code_model in mode_codes.items():
-        codes.remove_listeners.append(class_function_body_code_block(code_model.remove_listeners))
+        merge = GeneratedCodes.merge_all(code_model)
+        codes.remove_listeners.append(class_function_body_code_block(merge.remove_listeners))
         codes.setup_listeners.append(add_listeners_template(name))
-        codes.setup_listeners.append(class_function_body_code_block(code_model.setup_listeners))
-        codes.listener_fns.append(class_function_code_block(code_model.listener_fns))
-        codes.custom_parameter_mappings.append("\n".join(code_model.custom_parameter_mappings))
+        codes.setup_listeners.append(class_function_body_code_block(merge.setup_listeners))
+        codes.listener_fns.append(class_function_code_block(merge.listener_fns))
+        codes.custom_parameter_mappings.append("\n".join(merge.custom_parameter_mappings))
 
-        for (name, values) in code_model.array_defs:
+        for (name, values) in merge.array_defs:
             array_defs.append(array_def_template(name, values))
 
     if modes.has_modes():
@@ -110,18 +130,49 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
     return {
         'code_setup': "\n".join(codes.init),
         'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
-        'code_creation': class_function_body_code_block(creation+array_defs),
+        'code_creation': class_function_body_code_block(creation + array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
 
+template_to_code = {
+    'device': device_templates,
+    'mixer': mixer_templates,
+    'track-nav': track_nav_templates,
+    'device-nav': device_nav_templates,
+    'functions': functions_templates,
+    'transport': transport_templates
+}
 
-def build_mode_code(mode_mappings, name):
-    codes = [template_to_code[mapping.type](mapping, name)
-             for mapping in mode_mappings]
+def find_device_parameter_paging_mode_exports(mode_mappings:dict[str, AllMappingWithMidiTypes]):
+    '''
+    Given a list of mode mappings, find the device parameter paging mappings that export to another mode,
+    generate the GenerateCode for the parameter paging and return a dictionary of the mode to the generated code,
+    or an empty dictionary if no exports are found.
 
-    return GeneratedCode.merge_all(codes)
+    :param mode_mappings:
+    :return:
+    '''
+    for mode, mode_mapping in mode_mappings.items():
+        for mapping in mode_mapping:
+            if mapping.type == 'device' and mapping.parameter_page_nav.export_to_mode is not None:
+                #TODO: only parameter_page_nav can export to another mode
+
+                export_target = mapping.parameter_page_nav.export_to_mode
+                gen_code = code_for_parameter_paging(mapping.parameter_page_nav, export_target)
+
+                print(f"export_target = {export_target}")
+                return {export_target: gen_code}
+
+    return {}
+
+def build_mode_code(mode_mappings, name) -> list[GeneratedCode]:
+    res = []
+    for mapping in mode_mappings:
+        res.extend(template_to_code[mapping.type](mapping, name))
+
+    return res
 
 
 def write_templates(template_path: Path, target: Path, vars: dict, functions_path: Path):
@@ -159,15 +210,16 @@ def generate_5_digit_number(input_string):
     five_digits = int(hex_digest[:5], 16)
     return 10000 + (five_digits % 55535)
 
+
 def validate_path(string):
     if not Path(string).exists():
         raise ValueError(f"File {string} does not exist")
     else:
         return string
 
+
 def generate(mapping_file_path):
-    functions_path = mapping_file_path.parent / "functions.py"    
-    
+    functions_path = mapping_file_path.parent / "functions.py"
 
     if not functions_path.exists():
         functions_path = None
@@ -198,7 +250,7 @@ def generate(mapping_file_path):
 
     # # copy all .py files into the modules folder
     for file in mapping_file_path.parent.glob('*.py'):
-        shutil.copy(file, target_dir / vars['surface_name'] / "modules" /  file.name)
+        shutil.copy(file, target_dir / vars['surface_name'] / "modules" / file.name)
 
     # copy all files and folders in the source_modules folder to target_dir
     for file in Path('source_modules').glob('*'):
@@ -208,6 +260,7 @@ def generate(mapping_file_path):
             shutil.copytree(file, target_dir / vars['surface_name'] / "modules" / file.name, dirs_exist_ok=True)
 
     print("Finished generating code.")
+
 
 if __name__ == '__main__':
     # try:
@@ -223,4 +276,3 @@ if __name__ == '__main__':
     #     # print(f"Error: {e}")
     #     # exit(-1)
     #     # sys.exit(e.error_code)
-
