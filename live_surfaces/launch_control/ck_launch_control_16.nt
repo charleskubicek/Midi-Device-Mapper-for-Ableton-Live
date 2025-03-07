@@ -103,7 +103,7 @@ modes:
                 selected_audio_to_simpler_in_new_track: row-3:4
                 press_rack_random_button: row-3:7
                 arrange: row-3:8
-#                shift_clip_notes_left: row-4:1
-#                shift_clip_notes_right: row-4:2
+                shift_clip_notes_left: row-4:1
+                shift_clip_notes_right: row-4:2
                 clip_extend: row-5:2
                 clip_delete_end: row-5:1

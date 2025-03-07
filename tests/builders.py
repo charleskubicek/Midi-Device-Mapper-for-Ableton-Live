@@ -57,7 +57,10 @@ def build_midi_device_mapping(midi_coords=midi_coords_ch2_cc_50_knob(), param=1)
         midi_maps=[DeviceParameterMidiMapping(
             midi_coords=[midi_coords],
             parameter=param
-        )])
+        )],
+        custom_device_mappings={},
+        parameter_page_nav=None
+    )
 
 
 def build_mixer_with_midi(

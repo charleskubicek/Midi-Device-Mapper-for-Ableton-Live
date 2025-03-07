@@ -35,6 +35,7 @@ class GeneratedCode:
     def common_midi_coords_in_any_control_defs(self, other:['GeneratedCode']) -> [MidiCoords]:
         return [c for c in self.control_defs if any([o.midi_coords_exists_in_control_defs(c) for o in other])]
 
+
 def one_non_empty_array_or_none(one, other):
     if len(one) > 0 and len(other) > 0:
         print("both arrays are non-empty, using first")

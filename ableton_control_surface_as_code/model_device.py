@@ -70,6 +70,10 @@ class DeviceWithMidi(BaseModel):
     custom_device_mappings: Dict[str, List[DeviceCustomParameterMidiMapping]]
     parameter_page_nav: Optional[DeviceParameterPageNavMidi]
 
+    @property
+    def has_paging_export(self):
+        return self.parameter_page_nav is not None and self.parameter_page_nav.export_to_mode is not None
+
 
 class DeviceEncoderMappings(BaseModel):
     type: Literal['device'] = 'device'

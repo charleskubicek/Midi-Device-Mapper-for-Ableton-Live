@@ -80,25 +80,18 @@ def all_control_defs(mode_codes):
     return res
 
 
-def validate_exports(exports, mode_codes):
-    for export_mode, export_codes in exports.items():
+def validate_exports(export_targets, mode_codes):
+    for export_target_mode, export_codes in export_targets.items():
         for cm_mode, code_mode in mode_codes.items():
-            commmon = GeneratedCodes.common_midi_coords_in_control_defs(export_codes, code_mode)
-            if len(commmon) > 0:
-                raise ValueError(f"export from {export_mode} to {cm_mode} has overlapping midi coords: {[ys.info_string() for ys in commmon]}")
+            if export_target_mode == cm_mode:
+                commmon = GeneratedCodes.common_midi_coords_in_control_defs(export_codes, code_mode)
+                if len(commmon) > 0:
+                    raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
 
 def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
     first_mode_name = "mode_1"
 
-    exports = find_device_parameter_paging_mode_exports(modes.mappings)
-
-    mode_codes = {mode_name: build_mode_code(maps, mode_name)
-                  for mode_name, maps in modes.mappings.items()}
-
-    validate_exports(exports, mode_codes)
-
-    for export_mode, export_code in exports.items():
-        mode_codes[export_mode].extend(export_code)
+    mode_codes = create_code_model(modes)
 
     array_defs = []
     codes = GeneratedCode()
@@ -136,6 +129,21 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_listener_fns': "\n".join(codes.listener_fns)
     }
 
+
+def create_code_model(modes):
+    exports = find_device_parameter_paging_mode_exports(modes.mappings)
+
+    mode_codes = {mode_name: build_mode_code(maps, mode_name)
+                  for mode_name, maps in modes.mappings.items()}
+
+    validate_exports(exports, mode_codes)
+
+    for export_mode, export_code in exports.items():
+        mode_codes[export_mode].extend(export_code)
+
+    return mode_codes
+
+
 template_to_code = {
     'device': device_templates,
     'mixer': mixer_templates,
@@ -156,13 +164,12 @@ def find_device_parameter_paging_mode_exports(mode_mappings:dict[str, AllMapping
     '''
     for mode, mode_mapping in mode_mappings.items():
         for mapping in mode_mapping:
-            if mapping.type == 'device' and mapping.parameter_page_nav.export_to_mode is not None:
+            if mapping.type == 'device' and mapping.has_paging_export:
                 #TODO: only parameter_page_nav can export to another mode
 
                 export_target = mapping.parameter_page_nav.export_to_mode
                 gen_code = code_for_parameter_paging(mapping.parameter_page_nav, export_target)
 
-                print(f"export_target = {export_target}")
                 return {export_target: gen_code}
 
     return {}
