@@ -38,6 +38,13 @@ class $surface_name(ControlSurface):
             self.show_message("Connected to $surface_name")
             self.debug = False
 
+            self.schedule_message(5, self.update_main_component_with_selected_device)
+
+    def update_main_component_with_selected_device(self):
+        self.main_component.update_selected_device()
+        one_and_a_half_seconds = 15
+        self.schedule_message(one_and_a_half_seconds, self.update_main_component_with_selected_device)
+
     def functions_file_exsits(self):
         return (Path(__file__).resolve().parent / 'functions.py').exists()
 

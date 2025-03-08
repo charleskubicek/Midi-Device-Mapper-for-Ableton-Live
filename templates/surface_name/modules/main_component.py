@@ -64,6 +64,9 @@ class MainComponent(ControlSurfaceComponent):
     def debug(self):
         return self.manager.debug
 
+    def update_selected_device(self):
+        self._helpers.selected_device_changed(self.selected_device())
+
     def setup_controls(self):
         $code_creation
 

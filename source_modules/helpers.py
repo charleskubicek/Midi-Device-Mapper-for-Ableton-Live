@@ -22,7 +22,7 @@ class SelectedDeviceParameterPaging:
             self._manager.show_message("Page number must be greater than 0")
             return False
         elif page > self.page_count_of(device_parameter_count):
-            self._manager.show_message(f"Page number {page} is greater than the number of pages {self.page_count_of(device)}")
+            self._manager.show_message(f"Page number {page} is greater than the number of pages {self.page_count_of(device_parameter_count)}")
             return False
 
         return True
@@ -67,7 +67,11 @@ class Helpers:
         self._device_parameter_paging.device_parameter_page_dec(self._last_device_parameter_count)
 
     def selected_device_changed(self, device):
-        if device == self._last_selected_device or device is None:
+        if device is None:
+            self.log_message("Selected device is None")
+            return
+        if device == self._last_selected_device:
+            self.log_message("Selected device is the same as last time")
             return
         else:
             self._last_selected_device = device
@@ -75,9 +79,12 @@ class Helpers:
             self._last_device_parameter_count = len(self._custom_mappings.find_user_defined_parameters_or_defaults(device))
 
             parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
-            self.log_message(f"Selected device changed to {device.name} with {len(parameters)} parameters")
+            self.log_message(f"Selected device changed to {device.class_name} with {len(parameters)} parameters")
             self._remote.new_device_selected(device, parameters)
             self._device_parameter_paging.reset()
+
+            if self._custom_mappings.has_user_defined_parameters(device):
+                self.show_message(f"{device.class_name} has {len(parameters)} custom parameters")
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
