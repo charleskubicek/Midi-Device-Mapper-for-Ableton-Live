@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 from string import Template
 from collections import defaultdict
+from typing import Tuple
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
@@ -81,6 +82,10 @@ def all_control_defs(mode_codes):
 
 
 def validate_exports(export_targets, mode_codes):
+    for et in export_targets:
+        if et not in mode_codes:
+            raise ValueError(f"Export target {et} not found in mode codes")
+
     for export_target_mode, export_codes in export_targets.items():
         for cm_mode, code_mode in mode_codes.items():
             if export_target_mode == cm_mode:
@@ -89,7 +94,7 @@ def validate_exports(export_targets, mode_codes):
                     raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
 
 def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
-    first_mode_name = "mode_1"
+    first_mode_name = modes.first_mode_name()
 
     mode_codes = create_code_model(modes)
 
@@ -97,7 +102,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
     codes = GeneratedCode()
     creation = [c.variable_initialisation() for c in all_control_defs(mode_codes)]
 
-    creation.append(f"self.mode_mode_1_add_listeners()")
+    creation.append(f"self.mode_{first_mode_name}_add_listeners()")
 
     for name, code_model in mode_codes.items():
         merge = GeneratedCodes.merge_all(code_model)
@@ -134,7 +139,7 @@ def create_code_model(modes):
     exports = find_device_parameter_paging_mode_exports(modes.mappings)
 
     mode_codes = {mode_name: build_mode_code(maps, mode_name)
-                  for mode_name, maps in modes.mappings.items()}
+                  for mode_name, maps in modes.mappings}
 
     validate_exports(exports, mode_codes)
 
@@ -153,7 +158,7 @@ template_to_code = {
     'transport': transport_templates
 }
 
-def find_device_parameter_paging_mode_exports(mode_mappings:dict[str, AllMappingWithMidiTypes]):
+def find_device_parameter_paging_mode_exports(mode_mappings:list[Tuple[str, AllMappingWithMidiTypes]]):
     '''
     Given a list of mode mappings, find the device parameter paging mappings that export to another mode,
     generate the GenerateCode for the parameter paging and return a dictionary of the mode to the generated code,
@@ -162,7 +167,7 @@ def find_device_parameter_paging_mode_exports(mode_mappings:dict[str, AllMapping
     :param mode_mappings:
     :return:
     '''
-    for mode, mode_mapping in mode_mappings.items():
+    for mode, mode_mapping in mode_mappings:
         for mapping in mode_mapping:
             if mapping.type == 'device' and mapping.has_paging_export:
                 #TODO: only parameter_page_nav can export to another mode

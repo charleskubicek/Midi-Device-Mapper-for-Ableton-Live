@@ -122,6 +122,8 @@ $code_setup_listeners
 
         self.current_mode = next_mode
 
+        self.manager.show_message(f'Switched to {next_mode_name}')
+
     def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
         self._helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
 

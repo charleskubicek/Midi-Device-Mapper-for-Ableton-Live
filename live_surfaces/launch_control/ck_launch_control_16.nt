@@ -6,105 +6,110 @@ modes:
     type: shift
     on_color: green_full
     off_color: red_low
-    mode_1:
+    modes:
         -
-            type: device
-            track: selected
-            device: selected
-            custom-parameter-mappings:
+            name: main_mode
+            mappings:
                 -
-                    device-name: OriginalSimpler
-                    parameter-mappings:
-                        - S Start
-                        - S Length
-                        - Transpose
-                        - Trigger Mode
-                        - Ve Attack
-                        - Ve Decay
-                        - Ve Sustain
-                        - Volume
-                        - Filter Type
-                        - Filter Circuit - LP/HP
-                        - Filter Freq
-                        - Filter Res
-                        - Fade In
-                        - Fade Out
-                        - Vol < Vel
-                        - Detune
-                        - Filt < Key
-            mappings:
-                encoders:
-                    range: row-1:1-8,row-2:1-8
-                    parameters: 1-16
-#                encoders:
-#                    -   condition: default
-#                        range: row-1:1-8,row-2:1-8
-#                        parameters: 1-16
-#                    -
-#                        condition: rack, first_8_or_less_mapped
-#                        range: row-1:1-4,row-2:1-4
-#                        parameters: 1-8
-                on-off: row-3:4 toggle
-                parameter-paging:
-                    dec: row-4:1
-                    inc: row-4:2
-                    export-to-mode: mode_2
+                    type: device
+                    track: selected
+                    device: selected
+                    custom-parameter-mappings:
+                        -
+                            device-name: OriginalSimpler
+                            parameter-mappings:
+                                - S Start
+                                - S Length
+                                - Transpose
+                                - Trigger Mode
+                                - Ve Attack
+                                - Ve Decay
+                                - Ve Sustain
+                                - Volume
+                                - Filter Type
+                                - Filter Circuit - LP/HP
+                                - Filter Freq
+                                - Filter Res
+                                - Fade In
+                                - Fade Out
+                                - Vol < Vel
+                                - Detune
+                                - Filt < Key
+                    mappings:
+                        encoders:
+                            range: row-1:1-8,row-2:1-8
+                            parameters: 1-16
+        #                encoders:
+        #                    -   condition: default
+        #                        range: row-1:1-8,row-2:1-8
+        #                        parameters: 1-16
+        #                    -
+        #                        condition: rack, first_8_or_less_mapped
+        #                        range: row-1:1-4,row-2:1-4
+        #                        parameters: 1-8
+                        on-off: row-3:4 toggle
+                        parameter-paging:
+                            dec: row-4:1
+                            inc: row-4:2
+                            export-to-mode: shift_mode
+                -
+                    type: mixer
+                    track: selected
+                    mappings:
+                        mute: row-3:2
+                        solo: row-3:3
+                -
+                    type: functions
+                    mappings:
+                        iterate_midi_pattern: row-3:5
+                        back8: row-3:6
+                        update_colors: row-3:7
+                -
+                    type: device-nav
+                    mappings:
+                        left: row-5:1
+                        right: row-5:2
+                        first-last: row-3:8
+                -
+                    type: track-nav
+                    mappings:
+                        left: row-4:1
+                        right: row-4:2
         -
-            type: mixer
-            track: selected
+            name: shift_mode
             mappings:
-                mute: row-3:2
-                solo: row-3:3
-        -
-            type: functions
-            mappings:
-                iterate_midi_pattern: row-3:5
-                back8: row-3:6
-                update_colors: row-3:7
-        -
-            type: device-nav
-            mappings:
-                left: row-5:1
-                right: row-5:2
-                first-last: row-3:8
-        -
-            type: track-nav
-            mappings:
-                left: row-4:1
-                right: row-4:2
-    mode_2:
-        -
-            type: mixer
-            track: selected
-            mappings:
-                volume: row-1:8
-                pan: row-2:8
-                sends: row-1:5-6,row-2:5-6
-                arm: row-3:3
-        -
-            type: transport
-            mappings:
-                record-session: row-3:5
-                record-arrangement: row-3:6
+                -
+                    type: mixer
+                    track: selected
+                    mappings:
+                        volume: row-1:8
+                        pan: row-2:8
+                        sends: row-1:5-6,row-2:5-6
+                        arm: row-3:3
+                -
+                    type: transport
+                    mappings:
+                        record-session: row-3:5
+                        record-arrangement: row-3:6
 
-#            type: device
-#                parameter-page: row-4:1
-#        -
-#            type: device
-#            track: master
-#            device: Mono
-#            ranges:
-#                -
-#                    range: row-3:2 toggle
-#                    parameters: 0
-        -
-            type: functions
-            mappings:
-                record_midi_from_track_to_new_track: row-3:2 toggle
-                selected_audio_to_simpler_in_new_track: row-3:4
-                press_rack_random_button: row-3:7
-                arrange: row-3:8
-#                shift_clip_notes_left: row-4:1
-#                shift_clip_notes_right: row-4:2
-                clip_extend: row-5:2
-                clip_delete_end: row-5:1
+        #            type: device
+        #                parameter-page: row-4:1
+        #        -
+        #            type: device
+        #            track: master
+        #            device: Mono
+        #            ranges:
+        #                -
+        #                    range: row-3:2 toggle
+        #                    parameters: 0
+                -
+                    type: functions
+                    mappings:
+                        record_midi_from_track_to_new_track: row-3:2 toggle
+                        selected_audio_to_simpler_in_new_track: row-3:4
+                        press_rack_random_button: row-3:7
+                        arrange: row-3:8
+        #                shift_clip_notes_left: row-4:1
+        #                shift_clip_notes_right: row-4:2
+                        clip_extend: row-5:2
+                        clip_delete_end: row-5:1
