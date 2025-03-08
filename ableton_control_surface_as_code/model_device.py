@@ -12,11 +12,6 @@ class DeviceParameterMidiMapping(BaseModel):
     midi_coords: List[MidiCoords]
     parameter: int
 
-    # @classmethod
-    # def from_coords(cls, midi_channel, midi_number, midi_type, parameter):
-    #     return cls(midi_coords=[MidiCoords(channel=midi_channel, type=midi_type, number=midi_number)],
-    #                parameter=parameter)
-
     @property
     def only_midi_coord(self) -> MidiCoords:
         return self.midi_coords[0]
@@ -58,7 +53,7 @@ class DeviceParameterPageNavMidi(BaseModel):
 
 class DeviceCustomParameterMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
-    midi_mapping:DeviceParameterMidiMapping
+    index: int
     device_parameter_name: str
 
 
@@ -80,7 +75,6 @@ class DeviceEncoderMappings(BaseModel):
     encoders: RowMapV2_1
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
     parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
-    # parameter_page_dec: Optional[EncoderCoords] = Field(None, alias='parameter-page-dec')
 
     @field_validator('on_off', mode='before')
     @classmethod
@@ -92,7 +86,7 @@ class DeviceEncoderMappings(BaseModel):
 class CustomParameterMapping(BaseModel):
     type: Literal['device'] = 'device'
     device_name: str = Field(alias='device-name')
-    parameter_mappings_raw: dict[str, str] = Field(alias='parameter-mappings')
+    parameter_mappings_raw: list[str] = Field(alias='parameter-mappings')
 
 
 class DeviceV2(BaseModel):
@@ -142,11 +136,9 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
         device_name = mapping.device_name
 
         parsed_coords = [DeviceCustomParameterMidiMapping(
-            midi_mapping=DeviceParameterMidiMapping(
-                midi_coords=controller.build_midi_coords(parse_coords(encoder))[0],
-                parameter=p_no),
+            index=p_no,
             device_parameter_name=p_name)
-            for p_no, (p_name, encoder) in enumerate(mapping.parameter_mappings_raw.items())]
+            for p_no, p_name in enumerate(mapping.parameter_mappings_raw)]
 
         custom_param_maps[device_name] = parsed_coords
 

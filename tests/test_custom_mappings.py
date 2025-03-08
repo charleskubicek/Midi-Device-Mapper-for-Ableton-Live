@@ -51,7 +51,7 @@ class TestCustomMappings(unittest.TestCase):
         device = Mock()
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
-        result = self.custom_mappings.find_parameter(device, 1, 0)
+        result = self.custom_mappings.find_parameter(device, 1)
         self.assertEqual(result.name, "p1")
 
 

@@ -192,7 +192,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
     print("Custom mappings")
     for dev_name, encoder_map in device_with_midi.custom_device_mappings.items():
         print("  ", dev_name)
-        d = [(em.midi_mapping.only_midi_coord.number,
+        d = [(em.index,
               find_device_parameter_number_for_given_name(dev_name, em.device_parameter_name))
              for em in encoder_map]
 
@@ -202,7 +202,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                 if int(p_values['no']) == int(p_no):
                     name = p_values['name']
 
-            print(f"     {m_no} : {p_no} ({name})")
+            print(f"     {m_no+1} / {p_no}: ({name})")
 
         code = f"'{dev_name}': " + str(d)
         codes.append(GeneratedCode(custom_parameter_mappings=[code]))

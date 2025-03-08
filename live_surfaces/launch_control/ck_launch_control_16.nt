@@ -15,22 +15,23 @@ modes:
                 -
                     device-name: OriginalSimpler
                     parameter-mappings:
-                        S Start: row-1:1
-                        S Length: row-1:2
-                        Transpose: row-1:3
-                        Trigger Mode: row-1:4
-                        Ve Attack: row-1:5
-                        Ve Decay: row-1:6
-                        Ve Sustain: row-1:7
-                        Volume: row-1:8
-                        Filter Type: row-2:1
-                        Filter Circuit - LP/HP: row-2:2
-                        Filter Freq: row-2:3
-                        Filter Res: row-2:4
-                        Fade In: row-2:5
-                        Fade Out: row-2:6
-                        Vol < Vel: row-2:7
-                        Detune: row-2:8
+                        - S Start
+                        - S Length
+                        - Transpose
+                        - Trigger Mode
+                        - Ve Attack
+                        - Ve Decay
+                        - Ve Sustain
+                        - Volume
+                        - Filter Type
+                        - Filter Circuit - LP/HP
+                        - Filter Freq
+                        - Filter Res
+                        - Fade In
+                        - Fade Out
+                        - Vol < Vel
+                        - Detune
+                        - Filt < Key
             mappings:
                 encoders:
                     range: row-1:1-8,row-2:1-8
@@ -45,8 +46,8 @@ modes:
 #                        parameters: 1-8
                 on-off: row-3:4 toggle
                 parameter-paging:
-                    inc: row-4:1
-                    dec: row-4:2
+                    dec: row-4:1
+                    inc: row-4:2
                     export-to-mode: mode_2
         -
             type: mixer
@@ -103,7 +104,7 @@ modes:
                 selected_audio_to_simpler_in_new_track: row-3:4
                 press_rack_random_button: row-3:7
                 arrange: row-3:8
-                shift_clip_notes_left: row-4:1
-                shift_clip_notes_right: row-4:2
+#                shift_clip_notes_left: row-4:1
+#                shift_clip_notes_right: row-4:2
                 clip_extend: row-5:2
                 clip_delete_end: row-5:1

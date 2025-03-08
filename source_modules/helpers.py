@@ -2,16 +2,55 @@ from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
 import logging
 
+class SelectedDeviceParameterPaging:
+    def __init__(self, manager, page_size = 16):
+        self._manager = manager
+        self._page_size = page_size
+        self._device_parameter_page = 1
+
+    def paged_parameter_number(self, original_parameter):
+        if self._device_parameter_page == 1:
+            return 1, original_parameter
+        else:
+            return self._device_parameter_page, ((self._device_parameter_page - 1) * self._page_size) + original_parameter
+
+    def reset(self):
+        self._device_parameter_page = 1
+
+    def validate_and_report_device_page(self, device_parameter_count, page):
+        if page < 1:
+            self._manager.show_message("Page number must be greater than 0")
+            return False
+        elif page > self.page_count_of(device_parameter_count):
+            self._manager.show_message(f"Page number {page} is greater than the number of pages {self.page_count_of(device)}")
+            return False
+
+        return True
+
+    def device_parameter_page_inc(self, device_parameter_count):
+        if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page + 1):
+            self._device_parameter_page += 1
+            self._manager.show_message(f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
+
+    def device_parameter_page_dec(self, device_parameter_count):
+        if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page - 1):
+            self._device_parameter_page -= 1
+            self._manager.show_message(f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
+
+    def page_count_of(self, device_parameter_count):
+        return int(device_parameter_count / self._page_size) + 1
+
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings={}):
+    def __init__(self, manager, remote, custom_mappings={}, page_size=16):
         self._manager = manager
         # self._raw_custom_mappings = custom_mappings
         self._custom_mappings = CustomMappings(manager, custom_mappings)
+        self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
         self._last_selected_device = None
+        self._last_device_parameter_count = -1
         self._send_upd = True
-        self._device_parameter_page = 1
 
         self._remote = remote
 
@@ -22,12 +61,10 @@ class Helpers:
         self._manager.log_message(message)
 
     def device_parameter_page_inc(self):
-        ## TODO don't go over the number of pages; selected deivce params / mapped device params
-        self._device_parameter_page += 1
+        self._device_parameter_paging.device_parameter_page_inc(self._last_device_parameter_count)
 
     def device_parameter_page_dec(self):
-        if self._device_parameter_page > 1:
-            self._device_parameter_page -= 1
+        self._device_parameter_paging.device_parameter_page_dec(self._last_device_parameter_count)
 
     def selected_device_changed(self, device):
         if device == self._last_selected_device or device is None:
@@ -35,28 +72,33 @@ class Helpers:
         else:
             self._last_selected_device = device
             self._last_device_message_about = None
+            self._last_device_parameter_count = len(self._custom_mappings.find_user_defined_parameters_or_defaults(device))
 
             parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
             self.log_message(f"Selected device changed to {device.name} with {len(parameters)} parameters")
             self._remote.new_device_selected(device, parameters)
-            self._device_parameter_page = 1
+            self._device_parameter_paging.reset()
 
-    def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
+    def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
             return
         else:
-            if self._last_selected_device != device:
-                self.selected_device_changed(device)
+            self.selected_device_changed(device)
 
-            self._last_selected_device = device
+        page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
 
         self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), {parameter_no}, midi:{midi_no}, {value}, {fn_name}, {toggle}")
+            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), param:{raw_parameter_no}, param_page:{page}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
 
-        parameter = self._custom_mappings.find_parameter(device, parameter_no, midi_no)
+        parameter = self._custom_mappings.find_parameter(device, paged_parameter_no)
+
+        if parameter is None:
+            self.log_message(f"Parameter {paged_parameter_no} not found on device {device.name}")
+            self.show_message(f"Parameter {paged_parameter_no} not found on device {device.name}, page {page}")
+            return
 
         if self._custom_mappings.has_user_defined_parameters(device):
-            self.log_message(f"Found custom mapping for encoder {parameter_no} is {parameter.name}")
+            self.log_message(f"Found custom mapping for encoder {raw_parameter_no}/page {paged_parameter_no} is {parameter.name}")
 
         min = parameter.min
         max = parameter.max
@@ -73,13 +115,13 @@ class Helpers:
             self.log_message \
                 (f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
             self.log_message \
-                (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[parameter_no].value}")
+                (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[paged_parameter_no].value}")
 
         if will_fire:
             # self.log_message(f"Setting to = {float(next_value)}")
             parameter.value = next_value
 
-            self._remote.parameter_updated(parameter, parameter_no, next_value)
+            self._remote.parameter_updated(parameter, paged_parameter_no, next_value)
 
         # self.log_message(f"Value is {parameter.value}")
 
@@ -180,17 +222,21 @@ class CustomMappings:
     def has_user_defined_parameters(self, device):
         return device.class_name in self._custom_mappings
 
-    def find_user_defined_parameters_or_defaults(self, device, max_parameters=17):
+    def find_user_defined_parameters_or_defaults(self, device):
         if not self.has_user_defined_parameters(device) or len(self._custom_mappings[device.class_name]) == 0:
-            return device.parameters[:max_parameters]
+            return device.parameters
         else:
             return [device.parameters[0]] + [device.parameters[p_no] for m, p_no in self._custom_mappings[device.class_name]]
 
-    def find_parameter(self, device, parameter_no, midi_no):
+    def find_parameter(self, device, parameter_no):
         if not self.has_user_defined_parameters(device):
             return device.parameters[parameter_no]
         else:
-            return self.find_user_defined_parameters_or_defaults(device)[parameter_no]
+            params = self.find_user_defined_parameters_or_defaults(device)
+            if parameter_no < len(params):
+                return params[parameter_no]
+            else:
+                return None
 
 
 class Remote:
@@ -225,8 +271,10 @@ class OSCClient:
         self.logger.info(f"OSCClient created with host {host} and port {port}")
 
     def send_message(self, address: str, value: ArgValue) -> None:
-        # self.logger.info(f"Sending message {address} {value}")
-        self.client.send_message(address, value)
+        try:
+            self.client.send_message(address, value)
+        except Exception as e:
+            self.logger.error(f"Error sending OSC message {address} {value} {e}")
 
 
 class OSCMultiClient:
