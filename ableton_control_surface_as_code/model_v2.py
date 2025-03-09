@@ -81,8 +81,7 @@ class RootV2(BaseModel):
         extra = 'forbid'
 
 
-# TODO create rootv2Modeless|RootV2Modes and map the modess to a single mode
-class RootV2Raw(BaseModel):
+class RootV2ModesOrModeless(BaseModel):
     controller: str
     mappings: AllMappingTypes = []
     mode_button: Optional[ModeButton] = Field(default=None, alias='mode-button')
@@ -172,20 +171,16 @@ def print_model_with_mappings(model: ControllerV2, mappings):
         print(table)
 
 
-def build_mappings_model_with_mode(mode: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
+
+def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
     mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir))
-                for mode_dev in mode.modes]
+                for mode_dev in root.modes]
 
     return ModeGroupWithMidi(
         mappings=mappings,
-        button=controller.build_midi_coords(parse_coords(mode.mode_button.button))[0][0],
-        on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in mode.modes],
-        type=mode.mode_button.type
-    )
-
-
-def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
-    return build_mappings_model_with_mode(root, controller, root_dir)
+        button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
+        on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in root.modes],
+        type=root.mode_button.type)
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
@@ -224,7 +219,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
 def read_root(mapping_path) -> RootV2:
     try:
         data = nt.loads(mapping_path)
-        return RootV2Raw(**data).buildRootV2()
+        return RootV2ModesOrModeless(**data).buildRootV2()
     except nt.NestedTextError as e:
         e.terminate()
 
