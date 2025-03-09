@@ -9,9 +9,8 @@ from autopep8 import fix_code
 import builders
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars, create_code_model
 from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
-from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, AllMappingWithMidiTypes, ModeMappingsV2, \
+from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeMappingsV2, \
     ModeGroupV2
-from model_device import DeviceWithMidi
 from tests.builders import build_mixer_with_midi, build_midi_device_mapping
 from tests.custom_assertions import CustomAssertions
 

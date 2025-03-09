@@ -5,7 +5,7 @@ from typing import Union, List, Optional, Tuple
 
 from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
-from pydantic import BaseModel, model_validator, Extra
+from pydantic import BaseModel, model_validator, Extra, Field
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
 from ableton_control_surface_as_code.gen_error import GenError
@@ -54,43 +54,28 @@ class ModeType(str, Enum):
     Switch = 'switch'
 
 
+class ModeButton(BaseModel):
+    button: str
+    type: ModeType = ModeType.Switch
+    on_color: Optional[str] = None
+
+
 class ModeDef(BaseModel, frozen=True):
     name: str
+    on_color: Optional[str] = None
     mappings: AllMappingTypes
     is_fake_wrapper_mode: bool = False
 
-    class Config:
-        extra = 'forbid'  #
-        # arbitrary_types_allowed=True
-
-
-class ModeGroupV2(BaseModel):
-    button: str
-    type: Optional[ModeType] = ModeType.Switch
-    on_color: Optional[str] = None
-    off_color: Optional[str] = None
-    modes: List[ModeDef]
-
     @classmethod
     def empty_with_one_mode(cls, mappings: AllMappingTypes):
-        return cls(button='0', modes=[ModeDef(name="only_mode", mappings=mappings, is_fake_wrapper_mode=True)])
+        return cls(name="fake_mode", on_color=0, mappings=mappings, is_fake_wrapper_mode=True)
 
 
 class RootV2(BaseModel):
     controller: str
-    modes: ModeGroupV2
+    mode_button: Optional[ModeButton]
+    modes: List[ModeDef]
     ableton_dir: str
-
-    #
-    # @model_validator(mode='after')
-    # def mode_or_mapping(self):
-    #     if self.modes is None and len(self.mappings) == 0:
-    #         raise ValueError('no mappings or modes')
-    #
-    #     if self.modes is not None and len(self.mappings) > 0:
-    #         raise ValueError('cannot have both mappings and modes')
-    #
-    #     return self
 
     class Config:
         extra = 'forbid'
@@ -100,55 +85,45 @@ class RootV2(BaseModel):
 class RootV2Raw(BaseModel):
     controller: str
     mappings: AllMappingTypes = []
-    modes: Optional[ModeGroupV2] = None
+    mode_button: Optional[ModeButton] = Field(default=None, alias='mode-button')
+    modes: Optional[List[ModeDef]] = None
     ableton_dir: str
 
-    def wrapper_mode(self):
-        return ModeDef(name="pseudo_mode", mappings=self.mappings, is_fake_wrapper_mode=True)
-
     def buildRootV2(self):
-        if self.modes is not None:
-            return RootV2(controller=self.controller, modes=self.modes, ableton_dir=self.ableton_dir)
-        else:
-            return RootV2(controller=self.controller, modes=ModeGroupV2.empty_with_one_mode(mappings),
-                          ableton_dir=self.ableton_dir)
+        model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
 
-
-class ModeMappingsV2(BaseModel):
-    mode_group: ModeGroupV2
-    button: MidiCoords
-    on_color: Optional[int] = 0
-    off_color: Optional[int] = 0
-
-    def frist_mode_name(self):
-        return self.mode_group.modes[0].name
-
-    def is_shift(self):
-        return self.mode_group.type is not None and self.mode_group.type == ModeType.Shift
+        return RootV2(
+            controller=self.controller,
+            modes=model_modes,
+            mode_button=self.mode_button,
+            ableton_dir=self.ableton_dir)
 
 
 class ModeGroupWithMidi(BaseModel):
-    mode_mappings: ModeMappingsV2
     mappings: List[Tuple[str, AllMappingWithMidiTypes]]
-
-    def has_modes(self):
-        return self.mode_mappings is not None
-
-    def is_shift(self):
-        return self.mode_mappings.is_shift()
+    on_colors: List[Tuple[str,int]]
+    button: MidiCoords
+    type: Optional[ModeType] = ModeType.Switch
 
     def first_mode_name(self):
-        return self.mode_mappings.frist_mode_name()
+        return self.mappings[0][0]
+
+    def is_shift(self):
+        return self.type is not None and self.type == ModeType.Shift
+
+    def has_modes(self):
+        return len(self.mappings) > 1
 
     def fsm(self):
-        mode_names = [mm[0] for mm in self.mappings]
+        mode_names = [clr[0] for clr in self.on_colors]
         return [ModeData(
             name=name,
             next=mode_names[i + 1] if i + 1 < len(mode_names) else mode_names[0],
-            is_shift=self.mode_mappings.is_shift(),
-            color=self.mode_mappings.on_color
+            is_shift=self.is_shift(),
+            color=str(clr)
         )
-        for i, (name, mm) in enumerate(self.mappings)]
+            for i, (name, clr) in enumerate(self.on_colors)]
+
 
 
 def validate_mappings(mappings: AllMappingWithMidiTypes):
@@ -197,24 +172,20 @@ def print_model_with_mappings(model: ControllerV2, mappings):
         print(table)
 
 
-def build_mappings_model_with_mode(mode: ModeGroupV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
+def build_mappings_model_with_mode(mode: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
     mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir))
-                     for mode_dev in mode.modes]
-
-    mode_mappings = ModeMappingsV2(
-        mode_group=mode,
-        button=controller.build_midi_coords(parse_coords(mode.button))[0][0],
-        on_color=controller.light_color_for(mode.on_color),
-        off_color=controller.light_color_for(mode.off_color))
+                for mode_dev in mode.modes]
 
     return ModeGroupWithMidi(
-        mode_mappings=mode_mappings,
-        mappings=mappings
+        mappings=mappings,
+        button=controller.build_midi_coords(parse_coords(mode.mode_button.button))[0][0],
+        on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in mode.modes],
+        type=mode.mode_button.type
     )
 
 
-def read_root_v2(root: RootV2Raw, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
-    return build_mappings_model_with_mode(root.modes, controller, root_dir)
+def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
+    return build_mappings_model_with_mode(root, controller, root_dir)
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
@@ -245,7 +216,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
             mappings_with_midi.append(build_transport_model(controller, mapping))
 
     print_model_with_mappings(controller, mappings_with_midi)
-    # validate_mappings(mappings_with_midi)
+    validate_mappings(mappings_with_midi)
 
     return mappings_with_midi
 
