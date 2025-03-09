@@ -37,10 +37,6 @@ AllMappingWithMidiTypes = List[Union[
 ]]
 
 
-# class ModeMappingsV2(BaseModel):
-#     mappings: AllMappingTypes = []
-
-
 @dataclass
 class ModeData:
     name: str

@@ -1,3 +1,6 @@
+from dataclasses import dataclass
+from typing import Any
+
 from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
 import logging
@@ -13,6 +16,11 @@ class SelectedDeviceParameterPaging:
             return 1, original_parameter
         else:
             return self._device_parameter_page, ((self._device_parameter_page - 1) * self._page_size) + original_parameter
+
+    def parameters_numbers_for_selected_page(self, parameters):
+        start = (self._device_parameter_page - 1) * self._page_size
+        end = self._device_parameter_page * self._page_size
+        return list(range(start, min(end, len(parameters))))
 
     def reset(self):
         self._device_parameter_page = 1
@@ -31,15 +39,28 @@ class SelectedDeviceParameterPaging:
         if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page + 1):
             self._device_parameter_page += 1
             self._manager.show_message(f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
+            return True
+        else:
+            return False
 
     def device_parameter_page_dec(self, device_parameter_count):
         if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page - 1):
             self._device_parameter_page -= 1
             self._manager.show_message(f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
+            return True
+        else:
+            return False
 
     def page_count_of(self, device_parameter_count):
         return int(device_parameter_count / self._page_size) + 1
 
+@dataclass
+class ParameterGroup:
+    on_off:Any
+    parameters:list
+
+    def list_of_all_parameters(self):
+        return [self.on_off] + self.parameters
 
 class Helpers:
     def __init__(self, manager, remote, custom_mappings={}, page_size=16):
@@ -51,6 +72,7 @@ class Helpers:
         self._last_selected_device = None
         self._last_device_parameter_count = -1
         self._send_upd = True
+        self.page_size = page_size
 
         self._remote = remote
 
@@ -61,17 +83,28 @@ class Helpers:
         self._manager.log_message(message)
 
     def device_parameter_page_inc(self):
-        self._device_parameter_paging.device_parameter_page_inc(self._last_device_parameter_count)
+        if self._device_parameter_paging.device_parameter_page_inc(self._last_device_parameter_count):
+            self.update_remote_parameters()
 
     def device_parameter_page_dec(self):
-        self._device_parameter_paging.device_parameter_page_dec(self._last_device_parameter_count)
+        if self._device_parameter_paging.device_parameter_page_dec(self._last_device_parameter_count):
+            self.update_remote_parameters()
+
+    def update_remote_parameters(self):
+        parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(self._last_selected_device)
+        parameter_numbers = self._device_parameter_paging.parameters_numbers_for_selected_page(parameters)
+        params_to_update = [p for i, p in enumerate(parameters) if i in parameter_numbers]
+        params = ParameterGroup(parameters[0], params_to_update)
+
+        self._remote.device_update(self._last_selected_device.name, params,
+                                   f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}")
 
     def selected_device_changed(self, device):
         if device is None:
-            self.log_message("Selected device is None")
+            # self.log_message("Selected device is None")
             return
         if device == self._last_selected_device:
-            self.log_message("Selected device is the same as last time")
+            # self.log_message("Selected device is the same as last time")
             return
         else:
             self._last_selected_device = device
@@ -80,11 +113,11 @@ class Helpers:
 
             parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
             self.log_message(f"Selected device changed to {device.class_name} with {len(parameters)} parameters")
-            self._remote.new_device_selected(device, parameters)
+            self._remote.device_update(device.name, ParameterGroup(parameters[0], parameters[0:self.page_size]))
             self._device_parameter_paging.reset()
 
             if self._custom_mappings.has_user_defined_parameters(device):
-                self.show_message(f"{device.class_name} has {len(parameters)} custom parameters")
+                self.show_message(f"{device.class_name}  ({len(parameters)} custom parameters)")
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
@@ -233,7 +266,7 @@ class CustomMappings:
         if not self.has_user_defined_parameters(device) or len(self._custom_mappings[device.class_name]) == 0:
             return device.parameters
         else:
-            return [device.parameters[0]] + [device.parameters[p_no] for m, p_no in self._custom_mappings[device.class_name]]
+            return [device.parameters[p_no] for m, p_no in self._custom_mappings[device.class_name]]
 
     def find_parameter(self, device, parameter_no):
         if not self.has_user_defined_parameters(device):
@@ -254,14 +287,15 @@ class Remote:
         self._osc_client.send_message(f"/selected-device/parameter-update",
                                       [parameter_no, str(next_value), param.name, param.min, param.max])
 
-    def new_device_selected(self, device, parameters):
-        self._osc_client.send_message(f"/selected-device/name", [device.name])
+    def device_update(self, device_name, parameters:ParameterGroup, info_text=""):
+        self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        for i, param in enumerate(parameters[0:17]):
+        all_parameters = parameters.list_of_all_parameters()[0:17]
+        for i, param in enumerate(all_parameters):
             self._osc_client.send_message(f"/selected-device/parameter-update",
                                           [i, str(param.value), param.name, param.min, param.max])
 
-        self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(parameters), 16)])
+        self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(all_parameters), 16)])
 
 
 class NullOSCClient:
