@@ -19,16 +19,16 @@ modes:
                     -
                         device-name: OriginalSimpler
                         parameter-mappings:
-                            - S Start
-                            - S Length
+                            - S Start; alias=Start;
+                            - S Length; alias=Length;
                             - Transpose
-                            - Trigger Mode
-                            - Ve Attack
-                            - Ve Decay
-                            - Ve Sustain
                             - Volume
+                            - Ve Attack; alias=Attack;
+                            - Ve Decay; alias=Decay;
+                            - Ve Sustain; alias=Sustain;
+                            - Ve Release; alias=Release;
                             - Filter Type
-                            - Filter Circuit - LP/HP
+                            - Filter Circuit - LP/HP; alias=Filter Circuit;
                             - Filter Freq
                             - Filter Res
                             - Fade In

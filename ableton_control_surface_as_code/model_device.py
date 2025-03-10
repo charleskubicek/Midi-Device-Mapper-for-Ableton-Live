@@ -1,4 +1,6 @@
 import itertools
+import re
+from dataclasses import dataclass
 from typing import Literal, List, Optional, Dict
 
 from pydantic import BaseModel, Field, validator, field_validator
@@ -51,10 +53,38 @@ class DeviceParameterPageNavMidi(BaseModel):
     dec: MidiCoords
     export_to_mode:str = Optional[str]
 
+@dataclass
+class CustomDeviceParameter:
+    name:str
+    alias:Optional[str]
+
+    def alias_str(self):
+        return self.name if self.alias is None else self.alias
+
+    @classmethod
+    def parse(cls, raw_str):
+        '''
+        parse name and alias from a string in the form Ve Attack; alias=Attack;
+        :param raw_str:
+        :return:
+        '''
+        if ';' not in raw_str:
+            return cls(raw_str, None)
+        else:
+            # Extract name (before the semicolon)
+            name_part, *rest = raw_str.split(";", 1)
+            name = name_part.strip()
+
+            # Extract alias using regex
+            alias_match = re.search(r"alias=([^;]+)", raw_str)
+            alias = alias_match.group(1).strip() if alias_match else None
+
+            return cls(name=name, alias=alias)
+
 class DeviceCustomParameterMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
     index: int
-    device_parameter_name: str
+    device_parameter: CustomDeviceParameter
 
 
 class DeviceWithMidi(BaseModel):
@@ -137,7 +167,7 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
 
         parsed_coords = [DeviceCustomParameterMidiMapping(
             index=p_no,
-            device_parameter_name=p_name)
+            device_parameter=CustomDeviceParameter.parse(p_name))
             for p_no, p_name in enumerate(mapping.parameter_mappings_raw)]
 
         custom_param_maps[device_name] = parsed_coords

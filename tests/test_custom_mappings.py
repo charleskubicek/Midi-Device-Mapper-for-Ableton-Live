@@ -36,7 +36,7 @@ class TestCustomMappings(unittest.TestCase):
         self.assertEqual(result.on_off, 0)
         self.assertEqual(result.parameters, [2, 5, 4])
 
-        actual_parameters = result.parameters_from_device_params(device.parameters, include_on_off=True)
+        actual_parameters = result.parameters_and_aliasses_from_device_params(device.parameters, include_on_off=True)
         self.assertEqual(len(actual_parameters), 4)
 
         self.assertEqual(actual_parameters[0].name, "p0")
