@@ -167,11 +167,10 @@ class Helpers:
             self.selected_device_changed(device)
 
         page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
+        parameter, alias = self._custom_mappings.find_parameter(device, paged_parameter_no)
 
         self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device.class_name)}), param:{raw_parameter_no}, param_page:{page}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
-
-        parameter, alias = self._custom_mappings.find_parameter(device, paged_parameter_no)
+            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device.class_name)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
 
         if parameter is None:
             self.log_message(f"Parameter {paged_parameter_no} not found on device {device.name}")
@@ -196,12 +195,8 @@ class Helpers:
                 (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[paged_parameter_no].value}")
 
         if will_fire:
-            # self.log_message(f"Setting to = {float(next_value)}")
             parameter.value = next_value
-
             self._remote.parameter_updated(parameter, alias, raw_parameter_no, next_value)
-
-        # self.log_message(f"Value is {parameter.value}")
 
     def value_is_max(self, value, max):
         return value == max
@@ -319,8 +314,14 @@ class CustomMappings:
             return ParameterNumberGroup.from_user_defined_parameters(self._custom_mappings[device.class_name])
 
     def find_parameter(self, device, parameter_no):
+        '''
+
+        :param device:
+        :param parameter_no:
+        :return parameter, alias tuple:
+        '''
         if not self.has_user_defined_parameters(device.class_name):
-            return device.parameters[parameter_no]
+            return device.parameters[parameter_no], None
         else:
             param_group = self.user_defined_parameters_or_defaults(device)
             return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)

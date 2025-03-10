@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from unittest.mock import Mock
 
 
-from source_modules.helpers import Helpers, Remote, NullOSCClient
+from source_modules.helpers import Helpers, Remote, NullOSCClient, CustomMappings
 
 
 @dataclass
@@ -34,15 +34,23 @@ class TestHelpers(unittest.TestCase):
     def setUp(self):
         self.manager = Mock()
         self.manager.debug = True
-        self.helpers = Helpers(self.manager, Remote(Mock(), NullOSCClient()))
+        self.manager.log_message.side_effect = lambda x:print(x)
+        self.remote_mock = Mock()
+        self.mappings = {
+            # 3 values for the first 3 encoders on the midi device, Each maps to
+            # controller on the ableton device and an alias is applied to each.
+            "OriginalSimpler": [(0, (2, 'a')), (1, (5, 'b')), (2, (4, 'c'))]
+        }
+
+        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
 
     def test_device_parameter_action(self):
         device = Mock()
         device.name = "Test Device"
         device.class_name = "OriginalSimpler"
-        device.parameters = [Mock(min=0.0, max=1.0, value=0.1) for _ in range(50)]
+        device.parameters = [Mock(min=0.0, max=1.0, value=0.1, name=f"param {i}") for i in range(50)]
 
-        parameter_no = 3 # transpose
+        parameter_no = 3 # mapped to parameter 4
         value = 64.0
         midi_no = 23
         fn_name = "test_fn"
@@ -50,9 +58,13 @@ class TestHelpers(unittest.TestCase):
 
         self.helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
 
-        self.manager.log_message.assert_called()
-        self.assertAlmostEqual(device.parameters[parameter_no].value, 0.5, places=1)
+        self.assertAlmostEqual(device.parameters[4].value, 0.5, places=1)
+        result = self.remote_mock.parameter_updated.call_args[0]
 
+        self.assertEqual(result[0], device.parameters[4])
+        self.assertEqual(result[1], 'c')
+        self.assertEqual(result[2], 3)
+        self.assertAlmostEqual(result[3], 0.5, places=1)
 
     def test_sets_correct_parameter_between_0_and_1(self):
         device = FakeDevice([FakeParameter(), FakeParameter(min=0.0, max=1.0, value=0.0)])
