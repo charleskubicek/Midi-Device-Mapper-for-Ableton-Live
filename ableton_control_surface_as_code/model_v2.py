@@ -97,7 +97,7 @@ class RootV2ModesOrModeless(BaseModel):
 class ModeGroupWithMidi(BaseModel):
     mappings: List[Tuple[str, AllMappingWithMidiTypes]]
     on_colors: List[Tuple[str,int]]
-    button: MidiCoords
+    button: Optional[MidiCoords]
     type: Optional[ModeType] = ModeType.Switch
 
     def first_mode_name(self):

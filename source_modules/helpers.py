@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace, field
 from typing import Any
 
 from .pythonosc.udp_client import SimpleUDPClient
@@ -17,10 +17,10 @@ class SelectedDeviceParameterPaging:
         else:
             return self._device_parameter_page, ((self._device_parameter_page - 1) * self._page_size) + original_parameter
 
-    def parameters_numbers_for_selected_page(self, parameters):
+    def parameters_indexes_for_selected_page(self, parameters_len):
         start = (self._device_parameter_page - 1) * self._page_size
         end = self._device_parameter_page * self._page_size
-        return list(range(start, min(end, len(parameters))))
+        return list(range(start, min(end, parameters_len)))
 
     def reset(self):
         self._device_parameter_page = 1
@@ -55,17 +55,33 @@ class SelectedDeviceParameterPaging:
         return int(device_parameter_count / self._page_size) + 1
 
 @dataclass
-class ParameterGroup:
-    on_off:Any
-    parameters:list
+class ParameterNumberGroup:
+    on_off:int = field(default=0)
+    parameters:list[int] = field(default_factory=list)
+
+    def filter_parameter_indexes(self, parameter_indexes):
+        return replace(self, parameters=[p for i, p in enumerate(self.parameters) if i in parameter_indexes])
+
+    @classmethod
+    def from_raw_device_parameters(cls, device_parameter_count):
+        return cls(0, list(range(1, device_parameter_count)))
 
     def list_of_all_parameters(self):
         return [self.on_off] + self.parameters
 
+    def parameters_from_device_params(self, device_parameters, include_on_off=True):
+        real_params = [device_parameters[p] for p in self.parameters]
+        if include_on_off:
+            return [device_parameters[0]] + real_params
+        else:
+            return real_params
+
+    def parameter_from_device_params(self, device_parameters, param_no, include_on_off=True):
+        return self.parameters_from_device_params(device_parameters, include_on_off)[param_no]
+
 class Helpers:
     def __init__(self, manager, remote, custom_mappings={}, page_size=16):
         self._manager = manager
-        # self._raw_custom_mappings = custom_mappings
         self._custom_mappings = CustomMappings(manager, custom_mappings)
         self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
@@ -91,13 +107,29 @@ class Helpers:
             self.update_remote_parameters()
 
     def update_remote_parameters(self):
-        parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(self._last_selected_device)
-        parameter_numbers = self._device_parameter_paging.parameters_numbers_for_selected_page(parameters)
-        params_to_update = [p for i, p in enumerate(parameters) if i in parameter_numbers]
-        params = ParameterGroup(parameters[0], params_to_update)
+        real_params = Helpers.get_actual_parameters_from_device(
+            self._manager,
+            self._custom_mappings,
+            self._device_parameter_paging,
+            self._last_selected_device)
 
-        self._remote.device_update(self._last_selected_device.name, params,
-                                   f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}")
+
+        info = f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}"
+        self._remote.device_update(self._last_selected_device.name, real_params, info)
+
+    @staticmethod
+    def get_actual_parameters_from_device(manager, custom_mappings, paging, device):
+        p_group = custom_mappings.user_defined_parameters_or_defaults(device)
+        parameter_indexes = paging.parameters_indexes_for_selected_page(len(p_group.parameters))
+        filtered = p_group.filter_parameter_indexes(parameter_indexes)
+        real_params = filtered.parameters_from_device_params(device.parameters)
+
+        manager.log_message(f"update_remote_parameters: p_group      : {str(p_group.parameters)}")
+        manager.log_message(f"update_remote_parameters: param numbers: {(str(parameter_indexes))}")
+        manager.log_message(f"update_remote_parameters: filtered     : {str(filtered.parameters)}")
+        manager.log_message(f"update_remote_parameters: real_params: : {[r.name[0:5] for r in real_params]}")
+
+        return real_params
 
     def selected_device_changed(self, device):
         if device is None:
@@ -109,15 +141,26 @@ class Helpers:
         else:
             self._last_selected_device = device
             self._last_device_message_about = None
-            self._last_device_parameter_count = len(self._custom_mappings.find_user_defined_parameters_or_defaults(device))
-
-            parameters = self._custom_mappings.find_user_defined_parameters_or_defaults(device)
-            self.log_message(f"Selected device changed to {device.class_name} with {len(parameters)} parameters")
-            self._remote.device_update(device.name, ParameterGroup(parameters[0], parameters[0:self.page_size]))
+            real_params = self.filter_actual_parameters(device)
+            self._remote.device_update(device.name, real_params)
             self._device_parameter_paging.reset()
 
-            if self._custom_mappings.has_user_defined_parameters(device):
-                self.show_message(f"{device.class_name}  ({len(parameters)} custom parameters)")
+            if self._custom_mappings.has_user_defined_parameters(device.class_name):
+                self.show_message(f"{device.class_name}")
+
+    def filter_actual_parameters(self, device, page=0):
+        '''
+        Returns the actual parameters for a device, filtering out any that are not in the custom mappings, if they are defined,
+        and also taking into account the selected page of parameters
+        :param device:
+        :return:
+        '''
+        param_group = self._custom_mappings.user_defined_parameters_or_defaults(device)
+        self._last_device_parameter_count = len(param_group.parameters)
+        self.log_message(
+            f"Selected device changed to {device.class_name} with {len(param_group.parameters)} param_group")
+        real_params = param_group.parameters_from_device_params(device.parameters)
+        return real_params
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
@@ -128,7 +171,7 @@ class Helpers:
         page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
 
         self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), param:{raw_parameter_no}, param_page:{page}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
+            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device.class_name)}), param:{raw_parameter_no}, param_page:{page}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
 
         parameter = self._custom_mappings.find_parameter(device, paged_parameter_no)
 
@@ -137,7 +180,7 @@ class Helpers:
             self.show_message(f"Parameter {paged_parameter_no} not found on device {device.name}, page {page}")
             return
 
-        if self._custom_mappings.has_user_defined_parameters(device):
+        if self._custom_mappings.has_user_defined_parameters(device.class_name):
             self.log_message(f"Found custom mapping for encoder {raw_parameter_no}/page {paged_parameter_no} is {parameter.name}")
 
         min = parameter.min
@@ -247,6 +290,8 @@ CustomMappings
 This class is responsible for managing custom mappings for devices. It is used to find user defined parameters or defaults
 for a given device. It also provides a method to find a parameter for a given device, parameter number and midi number.
 
+The custom_mappings maps encoder indexes to device parameter indexes
+
 """
 class CustomMappings:
     def __init__(self, manager, custom_mappings: dict[str, [(int, int)]]):
@@ -259,43 +304,50 @@ class CustomMappings:
     def show_message(self, message):
         self._manager.show_message(message)
 
-    def has_user_defined_parameters(self, device):
-        return device.class_name in self._custom_mappings
+    def has_user_defined_parameters(self, device_class_name):
+        return device_class_name in self._custom_mappings
 
-    def find_user_defined_parameters_or_defaults(self, device):
-        if not self.has_user_defined_parameters(device) or len(self._custom_mappings[device.class_name]) == 0:
-            return device.parameters
+    def user_defined_parameters_or_defaults(self, device) -> ParameterNumberGroup:
+        '''
+        Returns the user defined parameters for a device if they exist, otherwise returns the default parameters
+
+        Will NOT send the on/off parameter, use ParameterGroup to send the on/off parameter
+        :param device:
+        :return:
+        '''
+        if not self.has_user_defined_parameters(device.class_name) or len(self._custom_mappings[device.class_name]) == 0:
+            return ParameterNumberGroup.from_raw_device_parameters(len(device.parameters))
         else:
-            return [device.parameters[p_no] for m, p_no in self._custom_mappings[device.class_name]]
+            return ParameterNumberGroup(0, [p for i, p in self._custom_mappings[device.class_name]])
 
     def find_parameter(self, device, parameter_no):
-        if not self.has_user_defined_parameters(device):
+        if not self.has_user_defined_parameters(device.class_name):
             return device.parameters[parameter_no]
         else:
-            params = self.find_user_defined_parameters_or_defaults(device)
-            if parameter_no < len(params):
-                return params[parameter_no]
-            else:
-                return None
+            param_group = self.user_defined_parameters_or_defaults(device)
+            return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)
 
 
 class Remote:
-    def __init__(self, osc_client):
+    def __init__(self, manager, osc_client):
+        self._manager = manager
         self._osc_client = osc_client
 
     def parameter_updated(self, param, parameter_no, next_value):
         self._osc_client.send_message(f"/selected-device/parameter-update",
                                       [parameter_no, str(next_value), param.name, param.min, param.max])
 
-    def device_update(self, device_name, parameters:ParameterGroup, info_text=""):
+    def device_update(self, device_name, real_parameters, info_text=""):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        all_parameters = parameters.list_of_all_parameters()[0:17]
-        for i, param in enumerate(all_parameters):
+        # self._manager.log_message("first param      : " + str(parameters.parameters[0]))
+        # self._manager.log_message("rest  param value: " + str(parameters.parameters))
+        # all_parameters = parameters.list_of_all_parameters()[0:17]
+        for i, param in enumerate(real_parameters):
             self._osc_client.send_message(f"/selected-device/parameter-update",
                                           [i, str(param.value), param.name, param.min, param.max])
 
-        self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(all_parameters), 16)])
+        self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 
 
 class NullOSCClient:

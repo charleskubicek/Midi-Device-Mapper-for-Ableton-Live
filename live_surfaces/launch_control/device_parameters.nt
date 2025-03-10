@@ -1,0 +1,21 @@
+custom-parameter-mappings:
+    -
+        device-name: OriginalSimpler
+        parameter-mappings:
+            - S Start
+            - S Length
+            - Transpose
+            - Trigger Mode
+            - Ve Attack
+            - Ve Decay
+            - Ve Sustain
+            - Volume
+            - Filter Type
+            - Filter Circuit - LP/HP
+            - Filter Freq
+            - Filter Res
+            - Filt < Key
+            - Fade In
+            - Fade Out
+            - Vol < Vel
+            - Detune

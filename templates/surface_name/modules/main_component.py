@@ -41,7 +41,7 @@ class MainComponent(ControlSurfaceComponent):
             OSCClient(host='192.168.68.84', port=5015)
         ])
 
-        self._remote = Remote(self._osc_client)
+        self._remote = Remote(self.manager, self._osc_client)
 
         $code_setup
 

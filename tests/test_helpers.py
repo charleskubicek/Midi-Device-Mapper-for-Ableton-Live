@@ -34,7 +34,7 @@ class TestHelpers(unittest.TestCase):
     def setUp(self):
         self.manager = Mock()
         self.manager.debug = True
-        self.helpers = Helpers(self.manager, Remote(NullOSCClient()))
+        self.helpers = Helpers(self.manager, Remote(Mock(), NullOSCClient()))
 
     def test_device_parameter_action(self):
         device = Mock()

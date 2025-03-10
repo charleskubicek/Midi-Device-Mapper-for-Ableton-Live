@@ -14,6 +14,7 @@ modes:
                 type: device
                 track: selected
                 device: selected
+                parameter-mappings-file: device_parameters.nt
                 custom-parameter-mappings:
                     -
                         device-name: OriginalSimpler
