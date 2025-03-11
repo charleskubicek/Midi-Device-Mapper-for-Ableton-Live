@@ -1,6 +1,8 @@
 import ast
+import json
 import keyword
 from dataclasses import dataclass, field
+from pathlib import Path
 from string import Template
 from typing import List
 
@@ -198,7 +200,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
         for m_no, (p_no, _) in d:
             name = "Unknown"
-            for p_values in device_parameter_names[dev_name]:
+            for p_values in device_parameter_names[dev_name]['parameters']:
                 if int(p_values['no']) == int(p_no):
                     name = p_values['name']
 
@@ -238,7 +240,7 @@ def find_device_parameter_number_for_given_name(device_name, device_parameter):
     if device_name not in device_parameter_names:
         print("Device not found, no mappings created: ", device_name)
 
-    for param in device_parameter_names[device_name]:
+    for param in device_parameter_names[device_name]['parameters']:
         if param['name'] == device_parameter.name:
             return int(param['no']), device_parameter.alias_str()
     return None
@@ -321,90 +323,5 @@ def class_function_body_code_block(lines: [str]):
     return f"\n{tab_block}{tab_block}" + f"\n{tab_block}{tab_block}".join(lines) + "\n"
 
 
-device_parameter_names = {
-    'OriginalSimpler': [
-        {'no': '00', 'name': 'Device On', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '01', 'name': 'Snap', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '02', 'name': 'Sample Selector', 'value': 0.0, 'min': 0.0, 'max': 127.0},
-        {'no': '03', 'name': 'S Start', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '04', 'name': 'S Length', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '05', 'name': 'S Loop On', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '06', 'name': 'S Loop Length', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '07', 'name': 'S Loop Fade', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '08', 'name': 'Spread', 'value': 0.0, 'min': 0.0, 'max': 100.0},
-        {'no': '09', 'name': 'Glide Mode', 'value': 0.0, 'min': 0.0, 'max': 2.0},
-        {'no': '10', 'name': 'Glide Time', 'value': 0.5397940278053284, 'min': 0.0, 'max': 1.0},
-        {'no': '11', 'name': 'Transpose', 'value': 0.0, 'min': -48.0, 'max': 48.0},
-        {'no': '12', 'name': 'Detune', 'value': 0.0, 'min': -50.0, 'max': 50.0},
-        {'no': '13', 'name': 'Pitch < LFO', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '14', 'name': 'Pe On', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '15', 'name': 'Pe < Env', 'value': 0.0, 'min': -48.0, 'max': 48.0},
-        {'no': '16', 'name': 'Pe Attack', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '17', 'name': 'Pe Init', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '18', 'name': 'Pe A Slope', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '19', 'name': 'Pe Decay', 'value': 0.581428050994873, 'min': 0.0, 'max': 1.0},
-        {'no': '20', 'name': 'Pe Peak', 'value': 1.0, 'min': -1.0, 'max': 1.0},
-        {'no': '21', 'name': 'Pe D Slope', 'value': 1.0, 'min': -1.0, 'max': 1.0},
-        {'no': '22', 'name': 'Pe Sustain', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '23', 'name': 'Pe Release', 'value': 0.35557058453559875, 'min': 0.0, 'max': 1.0},
-        {'no': '24', 'name': 'Pe End', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '25', 'name': 'Pe R Slope', 'value': 1.0, 'min': -1.0, 'max': 1.0},
-        {'no': '26', 'name': 'Pe Mode', 'value': 0.0, 'min': 0.0, 'max': 4.0},
-        {'no': '27', 'name': 'Pe Loop', 'value': 0.5397940278053284, 'min': 0.0, 'max': 1.0},
-        {'no': '28', 'name': 'Pe Retrig', 'value': 3.0, 'min': 0.0, 'max': 14.0},
-        {'no': '29', 'name': 'Pe R < Vel', 'value': 0.0, 'min': -100.0, 'max': 100.0},
-        {'no': '30', 'name': 'Volume', 'value': -12.0, 'min': -36.0, 'max': 36.0},
-        {'no': '31', 'name': 'Vol < Vel', 'value': 0.3499999940395355, 'min': 0.0, 'max': 1.0},
-        {'no': '32', 'name': 'Vol < LFO', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '33', 'name': 'Pan', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '34', 'name': 'Pan < Rnd', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '35', 'name': 'Pan < LFO', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '36', 'name': 'Ve Attack', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '37', 'name': 'Ve Decay', 'value': 0.581428050994873, 'min': 0.0, 'max': 1.0},
-        {'no': '38', 'name': 'Ve Sustain', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '39', 'name': 'Ve Release', 'value': 0.35557058453559875, 'min': 0.0, 'max': 1.0},
-        {'no': '40', 'name': 'Ve Mode', 'value': 0.0, 'min': 0.0, 'max': 4.0},
-        {'no': '41', 'name': 'Ve Loop', 'value': 0.5397940278053284, 'min': 0.0, 'max': 1.0},
-        {'no': '42', 'name': 'Ve Retrig', 'value': 3.0, 'min': 0.0, 'max': 14.0},
-        {'no': '43', 'name': 'Fade In', 'value': 0.03684031590819359, 'min': 0.0, 'max': 1.0},
-        {'no': '44', 'name': 'Trigger Mode', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '45', 'name': 'Fade Out', 'value': 0.03684031590819359, 'min': 0.0, 'max': 1.0},
-        {'no': '46', 'name': 'F On', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '47', 'name': 'Filter Type', 'value': 0.0, 'min': 0.0, 'max': 4.0},
-        {'no': '48', 'name': 'Filter Circuit - LP/HP', 'value': 0.0, 'min': 0.0, 'max': 4.0},
-        {'no': '49', 'name': 'Filter Circuit - BP/NO/Morph', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '50', 'name': 'Filter Slope', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '51', 'name': 'Filter Freq', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '52', 'name': 'Filter Res', 'value': 0.0, 'min': 0.0, 'max': 1.25},
-        {'no': '53', 'name': 'Filter Morph', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '54', 'name': 'Filter Drive', 'value': 0.0, 'min': 0.0, 'max': 24.0},
-        {'no': '55', 'name': 'Fe On', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '56', 'name': 'Fe < Env', 'value': 0.0, 'min': -72.0, 'max': 72.0},
-        {'no': '57', 'name': 'Fe Attack', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '58', 'name': 'Fe Init', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '59', 'name': 'Fe A Slope', 'value': 0.0, 'min': -1.0, 'max': 1.0},
-        {'no': '60', 'name': 'Fe Decay', 'value': 0.581428050994873, 'min': 0.0, 'max': 1.0},
-        {'no': '61', 'name': 'Fe Peak', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '62', 'name': 'Fe D Slope', 'value': 1.0, 'min': -1.0, 'max': 1.0},
-        {'no': '63', 'name': 'Fe Sustain', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '64', 'name': 'Fe Release', 'value': 0.35557058453559875, 'min': 0.0, 'max': 1.0},
-        {'no': '65', 'name': 'Fe End', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '66', 'name': 'Fe R Slope', 'value': 1.0, 'min': -1.0, 'max': 1.0},
-        {'no': '67', 'name': 'Fe Mode', 'value': 0.0, 'min': 0.0, 'max': 4.0},
-        {'no': '68', 'name': 'Fe Loop', 'value': 0.5397940278053284, 'min': 0.0, 'max': 1.0},
-        {'no': '69', 'name': 'Fe Retrig', 'value': 3.0, 'min': 0.0, 'max': 14.0},
-        {'no': '70', 'name': 'Fe R < Vel', 'value': 0.0, 'min': -100.0, 'max': 100.0},
-        {'no': '71', 'name': 'Filt < Key', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '72', 'name': 'Filt < Vel', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '73', 'name': 'Filt < LFO', 'value': 0.0, 'min': 0.0, 'max': 24.0},
-        {'no': '74', 'name': 'L On', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '75', 'name': 'L Wave', 'value': 0.0, 'min': 0.0, 'max': 5.0},
-        {'no': '76', 'name': 'L Sync', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '77', 'name': 'L Rate', 'value': 0.5751884579658508, 'min': 0.0, 'max': 1.0},
-        {'no': '78', 'name': 'L Sync Rate', 'value': 4.0, 'min': 0.0, 'max': 21.0},
-        {'no': '79', 'name': 'L R < Key', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '80', 'name': 'L Attack', 'value': 0.0, 'min': 0.0, 'max': 1.0},
-        {'no': '81', 'name': 'L Retrig', 'value': 1.0, 'min': 0.0, 'max': 1.0},
-        {'no': '82', 'name': 'L Offset', 'value': 0.0, 'min': 0.0, 'max': 360.0}
-    ]
-}
+file = Path("data/devices_12.json").read_text()
+device_parameter_names = json.loads(file)

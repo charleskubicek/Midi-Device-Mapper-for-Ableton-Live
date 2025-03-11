@@ -194,7 +194,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
     for mapping in mappings:
 
         if mapping.type == "device":
-            mappings_with_midi.append(build_device_model_v2_1(controller, mapping))
+            mappings_with_midi.append(build_device_model_v2_1(controller, mapping, root_dir))
         if mapping.type == "mixer":
             mappings_with_midi.append(build_mixer_model_v2(controller, mapping))
         if mapping.type == "track-nav":

@@ -19,7 +19,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             custom_parameter_mappings=None
         )
 
-        res = build_device_model_v2_1(controller, dev)
+        res = build_device_model_v2_1(controller, dev, root_dir="")
 
         self.assertEqual(res.midi_maps[0].midi_coords[0].number, 22)
         self.assertEqual(res.midi_maps[0].parameter, 1)
@@ -40,7 +40,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             custom_parameter_mappings=None
         )
 
-        res = build_device_model_v2_1(controller, dev)
+        res = build_device_model_v2_1(controller, dev, root_dir="")
 
         self.assertEqual(len(res.midi_maps), 8)
 
@@ -68,7 +68,7 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             custom_parameter_mappings=None
         )
 
-        res = build_device_model_v2_1(controller, dev)
+        res = build_device_model_v2_1(controller, dev, root_dir="")
 
         self.assertEqual(res.midi_maps[0].midi_coords[0].number, 21)
 

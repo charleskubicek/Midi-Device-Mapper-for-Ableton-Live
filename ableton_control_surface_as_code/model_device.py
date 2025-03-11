@@ -1,9 +1,12 @@
 import itertools
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal, List, Optional, Dict
 
 from pydantic import BaseModel, Field, validator, field_validator
+from nestedtext import nestedtext as nt
 
 from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, NamedTrack, RowMapV2_1, parse_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
@@ -30,12 +33,12 @@ class DeviceParameterMidiMapping(BaseModel):
     def controller_listener_fn_name(self, mode_name):
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_p{self.parameter}")
 
+
 class DeviceParameterPageNav(BaseModel):
     type: Literal['device'] = 'device'
     inc: EncoderCoords
     dec: EncoderCoords
-    export_to_mode:str = Field(alias='export-to-mode')
-
+    export_to_mode: str = Field(alias='export-to-mode')
 
     @field_validator('dec', mode='before')
     @classmethod
@@ -47,16 +50,18 @@ class DeviceParameterPageNav(BaseModel):
     def parameter_pagingi(cls, value):
         return parse_coords(value) if value is not None else None
 
+
 class DeviceParameterPageNavMidi(BaseModel):
     type: Literal['device'] = 'device'
     inc: MidiCoords
     dec: MidiCoords
-    export_to_mode:str = Optional[str]
+    export_to_mode: str = Optional[str]
+
 
 @dataclass
 class CustomDeviceParameter:
-    name:str
-    alias:Optional[str]
+    name: str
+    alias: Optional[str]
 
     def alias_str(self):
         return self.name if self.alias is None else self.alias
@@ -80,6 +85,7 @@ class CustomDeviceParameter:
             alias = alias_match.group(1).strip() if alias_match else None
 
             return cls(name=name, alias=alias)
+
 
 class DeviceCustomParameterMidiMapping(BaseModel):
     type: Literal['device'] = 'device'
@@ -112,11 +118,14 @@ class DeviceEncoderMappings(BaseModel):
         return parse_coords(value) if value is not None else None
 
 
-
 class CustomParameterMapping(BaseModel):
-    type: Literal['device'] = 'device'
+    # type: Literal['device'] = 'device'
     device_name: str = Field(alias='device-name')
-    parameter_mappings_raw: list[str] = Field(alias='parameter-mappings')
+    parameter_mappings_raw: Optional[list[str]] = Field(alias='parameters')
+
+
+class CustomParameterMappings(BaseModel):
+    custom_parameter_mappings: list[CustomParameterMapping] = Field(alias='custom-parameter-mappings')
 
 
 class DeviceV2(BaseModel):
@@ -125,6 +134,7 @@ class DeviceV2(BaseModel):
     device: str
     mappings: DeviceEncoderMappings
     custom_parameter_mappings: Optional[list[CustomParameterMapping]] = Field([], alias='custom-parameter-mappings')
+    custom_parameter_mappings_file: Optional[str] = Field(None, alias='parameter-mappings-file')
 
     @field_validator("track", mode='before')
     @classmethod
@@ -132,7 +142,7 @@ class DeviceV2(BaseModel):
         return TrackInfo.parse_track(value)
 
 
-def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
+def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWithMidi:
     midi_maps = []
     custom_param_maps = {}
     parameter_page_nav = None
@@ -162,7 +172,13 @@ def build_device_model_v2_1(controller, device: DeviceV2) -> DeviceWithMidi:
             dec=controller.build_midi_coords(device.mappings.parameter_paging.dec)[0][0],
             export_to_mode=device.mappings.parameter_paging.export_to_mode)
 
-    for mapping in device.custom_parameter_mappings:
+    if device.custom_parameter_mappings_file is not None:
+        data = nt.load(Path(root_dir) / device.custom_parameter_mappings_file)
+        custom_mappings = CustomParameterMappings(**data).custom_parameter_mappings
+    else:
+        custom_mappings = device.custom_parameter_mappings if device.custom_parameter_mappings is not None else []
+
+    for mapping in custom_mappings:
         device_name = mapping.device_name
 
         parsed_coords = [DeviceCustomParameterMidiMapping(

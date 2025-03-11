@@ -1,7 +1,7 @@
 {
   "Simpler": {
     "class_name": "OriginalSimpler",
-    "name": "atonal 10",
+    "name": "Simpler",
     "parameters": [
       {"no": "00","name": "Device On","value": 1.0,"min": 0.0,"max": 1.0},
       {"no": "01","name": "Snap","value": 1.0,"min": 0.0,"max": 1.0},

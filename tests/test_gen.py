@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from autopep8 import fix_code
 
-import builders
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars, create_code_model
 from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
 from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeType
