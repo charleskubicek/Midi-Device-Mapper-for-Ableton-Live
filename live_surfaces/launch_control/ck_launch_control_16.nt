@@ -15,36 +15,6 @@ modes:
                 track: selected
                 device: selected
                 parameter-mappings-file: device_parameters.nt
-#                custom-parameter-mappings:
-#                    -
-#                        device-name: Utility
-#                        parameters:
-#                            - Gain
-#                            - Stereo Width
-#                            - Mono
-#                            - Bass Mono
-#                            - Bass Freq
-#                            - Balance
-#                    -
-#                        device-name: Simpler
-#                        parameters:
-#                            - S Start; alias=Start;
-#                            - S Length; alias=Length;
-#                            - Transpose
-#                            - Volume
-#                            - Ve Attack; alias=Attack;
-#                            - Ve Decay; alias=Decay;
-#                            - Ve Sustain; alias=Sustain;
-#                            - Ve Release; alias=Release;
-#                            - Filter Type
-#                            - Filter Circuit - LP/HP; alias=Filter Circuit;
-#                            - Filter Freq
-#                            - Filter Res
-#                            - Fade In
-#                            - Fade Out
-#                            - Vol < Vel
-#                            - Detune
-#                            - Filt < Key
                 mappings:
                     encoders:
                         range: row-1:1-8,row-2:1-8

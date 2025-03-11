@@ -13,7 +13,6 @@ from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
 class DeviceParameterMidiMapping(BaseModel):
-    type: Literal['device'] = 'device'
     midi_coords: List[MidiCoords]
     parameter: int
 
@@ -35,24 +34,22 @@ class DeviceParameterMidiMapping(BaseModel):
 
 
 class DeviceParameterPageNav(BaseModel):
-    type: Literal['device'] = 'device'
     inc: EncoderCoords
     dec: EncoderCoords
     export_to_mode: str = Field(alias='export-to-mode')
 
     @field_validator('dec', mode='before')
     @classmethod
-    def parameter_pagingd(cls, value):
+    def parameter_paging_dec(cls, value):
         return parse_coords(value) if value is not None else None
 
     @field_validator('inc', mode='before')
     @classmethod
-    def parameter_pagingi(cls, value):
+    def parameter_paging_inc(cls, value):
         return parse_coords(value) if value is not None else None
 
 
 class DeviceParameterPageNavMidi(BaseModel):
-    type: Literal['device'] = 'device'
     inc: MidiCoords
     dec: MidiCoords
     export_to_mode: str = Optional[str]
@@ -88,7 +85,6 @@ class CustomDeviceParameter:
 
 
 class DeviceCustomParameterMidiMapping(BaseModel):
-    type: Literal['device'] = 'device'
     index: int
     device_parameter: CustomDeviceParameter
 
@@ -107,7 +103,6 @@ class DeviceWithMidi(BaseModel):
 
 
 class DeviceEncoderMappings(BaseModel):
-    type: Literal['device'] = 'device'
     encoders: RowMapV2_1
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
     parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
@@ -119,7 +114,6 @@ class DeviceEncoderMappings(BaseModel):
 
 
 class CustomParameterMapping(BaseModel):
-    # type: Literal['device'] = 'device'
     device_name: str = Field(alias='device-name')
     parameter_mappings_raw: Optional[list[str]] = Field(alias='parameters')
 
