@@ -2,9 +2,9 @@ import ast
 import keyword
 from dataclasses import dataclass, field
 from string import Template
-from typing import List, Optional, Callable
+from typing import List
 
-from ableton_control_surface_as_code.core_model import MixerWithMidi, TrackInfo, ButtonProviderBaseModel, MidiCoords
+from ableton_control_surface_as_code.core_model import MixerWithMidi, ButtonProviderBaseModel, MidiCoords
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
 from ableton_control_surface_as_code.model_device import DeviceWithMidi
 from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi

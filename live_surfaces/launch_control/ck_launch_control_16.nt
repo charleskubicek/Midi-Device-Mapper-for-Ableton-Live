@@ -16,6 +16,16 @@ modes:
                 device: selected
                 parameter-mappings-file: device_parameters.nt
                 custom-parameter-mappings:
+#                    -
+#                        device-name: Utility
+#                        parameter-mappings:
+#                            - Gain
+#                            - Stereo Width
+#                            - Mono
+#                            - Bass Mono
+#                            - Bass Freq
+#                            - Balance
+
                     -
                         device-name: OriginalSimpler
                         parameter-mappings:
