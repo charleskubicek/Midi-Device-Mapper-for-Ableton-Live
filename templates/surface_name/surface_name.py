@@ -14,6 +14,7 @@ import traceback
 from . import modules
 from .modules import main_component
 from .modules import helpers
+from .modules.listener import OSCListener
 
 try:
     from .modules import functions
@@ -25,6 +26,8 @@ class $surface_name(ControlSurface):
         super($surface_name, self).__init__(c_instance)
         self.ops = None
         self.log_message("$surface_name custom script loaded")
+
+
         with self.component_guard():
 
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

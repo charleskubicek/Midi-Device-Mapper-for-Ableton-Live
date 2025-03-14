@@ -6,6 +6,7 @@ from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
 from .helpers import Helpers, OSCMultiClient, OSCClient, Remote
+from .listener import OSCListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
 
@@ -41,6 +42,8 @@ class MainComponent(ControlSurfaceComponent):
             OSCClient(host='192.168.68.84', port=5015)
         ])
 
+
+
         self._remote = Remote(self.manager, self._osc_client)
 
         $code_setup
@@ -57,6 +60,12 @@ class MainComponent(ControlSurfaceComponent):
         self.log_message(f"main_component finish init.")
         self._previous_values = {}
 
+        self._lisetenr = OSCListener(self.manager, self.button_handler)
+
+    def button_handler(self, button, send_value):
+        value = 127 if send_value > 0.0 else 0
+
+        self._helpers.device_parameter_action(self.selected_device(), button, -1, value, '<OSC Button Press>')
 
     def remove_all_listeners(self, modes_only=False):
         $code_remove_listeners
