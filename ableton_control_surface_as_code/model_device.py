@@ -58,7 +58,8 @@ class DeviceParameterPageNavMidi(BaseModel):
 @dataclass
 class CustomDeviceParameter:
     name: str
-    alias: Optional[str]
+    alias: Optional[str] = None
+    button: Optional[str] = None
 
     def alias_str(self):
         return self.name if self.alias is None else self.alias
@@ -80,8 +81,13 @@ class CustomDeviceParameter:
             # Extract alias using regex
             alias_match = re.search(r"alias=([^;]+)", raw_str)
             alias = alias_match.group(1).strip() if alias_match else None
+            
+            # Extract toggle using regex
+            button_match = re.search(r"button=([^;]+)", raw_str)
+            button = button_match.group(1).strip() if button_match else None
 
-            return cls(name=name, alias=alias)
+
+            return cls(name=name, alias=alias, button=button)
 
 
 class DeviceCustomParameterMidiMapping(BaseModel):

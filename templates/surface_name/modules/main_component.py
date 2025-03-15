@@ -39,10 +39,8 @@ class MainComponent(ControlSurfaceComponent):
 
         self._osc_client = OSCMultiClient([
             OSCClient(host='127.0.0.1'),
-            OSCClient(host='192.168.68.84', port=5015)
+            OSCClient(host='192.168.68.84', port=5005)
         ])
-
-
 
         self._remote = Remote(self.manager, self._osc_client)
 

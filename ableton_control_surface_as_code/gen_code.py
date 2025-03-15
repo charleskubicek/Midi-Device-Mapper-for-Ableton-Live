@@ -192,13 +192,14 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                     f"Not generating parmeter_paging on mode {mode_name} as it's being exported to {device_with_midi.parameter_page_nav.export_to_mode}")
 
     print("Custom mappings")
+    custom_mappings = []
     for dev_name, encoder_map in device_with_midi.custom_device_mappings.items():
         print("  ", dev_name)
         d = [(em.index,
               find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
              for em in encoder_map]
 
-        for m_no, (p_no, _) in d:
+        for m_no, (p_no, _, _) in d:
             name = "Unknown"
             for p_values in device_parameter_names[dev_name]['parameters']:
                 if int(p_values['no']) == int(p_no):
@@ -206,12 +207,21 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
             print(f"     {m_no+1} / {p_no}: ({name})")
 
-        code = f"'{dev_name}': " + str(d)
-        codes.append(GeneratedCode(custom_parameter_mappings=[code]))
+        code = f"'{device_name_alternative(dev_name)}': " + str(d)
+        custom_mappings.append(code)
+
+    codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
 
     return codes
 
+## TODO Unit tests
+def device_name_alternative(name):
+    if name == 'Simpler':
+        return 'OriginalSimpler'
+    else:
+        return name
 
+#TODO Unit tests
 def code_for_parameter_paging(parameter_page_nav, mode_name):
     codes = []
     for call_name, mm in [("inc", parameter_page_nav.inc),
@@ -235,14 +245,14 @@ def code_for_parameter_paging(parameter_page_nav, mode_name):
 
     return codes
 
-
+#TODO Unit tests
 def find_device_parameter_number_for_given_name(device_name, device_parameter):
     if device_name not in device_parameter_names:
         print("Device not found, no mappings created: ", device_name)
 
     for param in device_parameter_names[device_name]['parameters']:
         if param['name'] == device_parameter.name:
-            return int(param['no']), device_parameter.alias_str()
+            return int(param['no']), device_parameter.alias_str(), device_parameter.button
     return None
 
 

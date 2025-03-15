@@ -39,14 +39,14 @@ class TestHelpers(unittest.TestCase):
         self.mappings = {
             # 3 values for the first 3 encoders on the midi device, Each maps to
             # controller on the ableton device and an alias is applied to each.
-            "OriginalSimpler": [(0, (2, 'a')), (1, (5, 'b')), (2, (4, 'c'))]
+            "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
 
         self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
 
     def test_device_parameter_action(self):
         device = Mock()
-        device.name = "Test Device"
+        device.name = "Simpler"
         device.class_name = "OriginalSimpler"
         device.parameters = [Mock(min=0.0, max=1.0, value=0.1, name=f"param {i}") for i in range(50)]
 

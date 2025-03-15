@@ -11,18 +11,20 @@ class TestCustomMappings(unittest.TestCase):
 
     def setUp(self):
         self.mappings = {
-            "OriginalSimpler": [(0, (2, 'a')), (1, (5, 'b')), (2, (4, 'c'))]
+            "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
         self.custom_mappings = CustomMappings(Mock(), self.mappings)
 
     def test_has_user_defined_parameters_true(self):
-        result = self.custom_mappings.has_user_defined_parameters("OriginalSimpler")
+        device = Mock()
+        device.class_name = "OriginalSimpler"
+        result = self.custom_mappings.has_user_defined_parameters(device)
         self.assertTrue(result)
 
     def test_has_user_defined_parameters_false(self):
         device = Mock()
         device.class_name = "UnknownDevice"
-        result = self.custom_mappings.has_user_defined_parameters(device.class_name)
+        result = self.custom_mappings.has_user_defined_parameters(device)
         self.assertFalse(result)
 
     # https://remotify.io/device-parameters/device_params_live11.html
@@ -33,8 +35,8 @@ class TestCustomMappings(unittest.TestCase):
         device.parameters = default_parameters
         result = self.custom_mappings.user_defined_parameters_or_defaults(device)
 
-        self.assertEqual(result.on_off, (0, 'On/Off'))
-        self.assertEqual(result.parameters, [(2, 'a'), (5, 'b'), (4, 'c')])
+        self.assertEqual(result.on_off, (0, 'On/Off', None))
+        self.assertEqual(result.parameters, [(2, 'a', None), (5, 'b', 'toggle'), (4, 'c', None)])
 
         actual_parameters = result.parameters_and_aliasses_from_device_params(device.parameters, include_on_off=True)
         self.assertEqual(len(actual_parameters), 4)
@@ -81,7 +83,7 @@ class TestCustomMappings(unittest.TestCase):
         device = Mock()
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
-        result, alias = self.custom_mappings.find_parameter(device, 1)
+        result, alias, button = self.custom_mappings.find_parameter(device, 1)
         self.assertEqual(result.name, "p1")
 
 
@@ -89,7 +91,7 @@ class TestCustomMappings(unittest.TestCase):
         device = Mock()
         device.class_name = "OriginalSimpler"
         device.parameters = self.params(6)
-        result, alias = self.custom_mappings.find_parameter(device, 1)
+        result, alias, button = self.custom_mappings.find_parameter(device, 1)
         self.assertEqual(result.name, "p2")
         self.assertEqual(alias, "a")
 

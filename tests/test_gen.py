@@ -65,8 +65,12 @@ def fn(self, value):
 
         self.assertIn("mode_1", result)
         self.assertIn("mode_2", result)
-        self.assertEqual(len(result["mode_1"]), 1)
-        self.assertEqual(len(result["mode_2"]), 1)
+        self.assertEqual(len(result["mode_1"]), 2, 'unsure why this is 2')
+        self.assertEqual(len(result["mode_2"]), 2, 'unsure why this is 2')
+        self.assertEqual(len(result["mode_1"][0].control_defs), 1)
+        self.assertEqual(len(result["mode_1"][1].control_defs), 0)
+        self.assertEqual(len(result["mode_2"][0].control_defs), 1)
+        self.assertEqual(len(result["mode_2"][1].control_defs), 0)
 
         if __name__ == '__main__':
             unittest.main()

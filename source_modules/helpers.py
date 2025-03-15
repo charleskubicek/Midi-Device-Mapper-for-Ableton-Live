@@ -61,35 +61,40 @@ class SelectedDeviceParameterPaging:
 
 @dataclass
 class ParameterNumberGroup:
-    on_off: [int, str] = field(default=(0, "On/Off"))
-    parameters: list[(int, Optional[str])] = field(default_factory=list)
+    on_off: [int, str, str] = field(default=(0, "On/Off", None))
+    parameters: list[(int, Optional[str], Optional[str])] = field(default_factory=list)
 
     def filter_parameter_indexes(self, parameter_indexes):
-        return replace(self, parameters=[(p, a) for i, (p, a) in enumerate(self.parameters) if i in parameter_indexes])
+        return replace(self, parameters=[(p, a, b) for i, (p, a, b) in enumerate(self.parameters) if i in parameter_indexes])
 
     @classmethod
     def from_raw_device_parameters(cls, device_parameter_count):
-        return cls((0, "On/Off"), list([(i, None) for i in range(1, device_parameter_count)]))
+        return cls((0, "On/Off", None), list([(i, None, None) for i in range(1, device_parameter_count)]))
 
 
     @classmethod
     def from_user_defined_parameters(cls, custom_mappings):
-        return ParameterNumberGroup((0, "On/Off"), [(p, a) for i, (p, a) in custom_mappings])
+        return ParameterNumberGroup((0, "On/Off", None), [(p, a, b) for i, (p, a, b) in custom_mappings])
 
     def list_of_all_parameters(self):
         return [self.on_off] + self.parameters
 
     def parameters_and_aliasses_from_device_params(self, device_parameters, include_on_off=True):
-        real_params = [(device_parameters[p[0]], p[1]) for p in self.parameters]
+        real_params = [(device_parameters[p[0]], p[1], p[2]) for p in self.parameters]
         if include_on_off:
-            return [(device_parameters[0], "On/Off")] + real_params
+            return [(device_parameters[0], "On/Off", None)] + real_params
         else:
             return real_params
 
     def parameter_from_device_params(self, device_parameters, param_no, include_on_off=True):
         return self.parameters_and_aliasses_from_device_params(device_parameters, include_on_off)[param_no]
 
-
+@dataclass
+class ParameterCustomisation:
+    #(2, (5, 'Mono'), 'toggle')
+    mapped_parameter:int
+    alias:Optional[str] = None
+    button:Optional[str] = None
 
 class Helpers:
     def __init__(self, manager, remote, custom_mappings={}, page_size=16):
@@ -157,7 +162,7 @@ class Helpers:
             self._device_parameter_paging.reset()
             self.update_remote_parameters()
 
-            if self._custom_mappings.has_user_defined_parameters(device.class_name):
+            if self._custom_mappings.has_user_defined_parameters(device):
                 self.show_message(f"{device.class_name}")
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
@@ -167,10 +172,10 @@ class Helpers:
             self.selected_device_changed(device)
 
         page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
-        parameter, alias = self._custom_mappings.find_parameter(device, paged_parameter_no)
+        parameter, alias, button = self._custom_mappings.find_parameter(device, paged_parameter_no)
 
         self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device.class_name)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
+            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, button:{button}, {fn_name}, {toggle}")
 
         if parameter is None:
             self.log_message(f"Parameter {paged_parameter_no} not found on device {device.name}")
@@ -196,7 +201,7 @@ class Helpers:
 
         if will_fire:
             parameter.value = next_value
-            self._remote.parameter_updated(parameter, alias, raw_parameter_no, next_value)
+            self._remote.parameter_updated(parameter, alias, raw_parameter_no, next_value, button)
 
     def value_is_max(self, value, max):
         return value == max
@@ -286,9 +291,9 @@ The custom_mappings maps encoder indexes to device parameter indexes
 
 
 class CustomMappings:
-    def __init__(self, manager, custom_mappings: dict[str, [(int, (int, str))]]):
+    def __init__(self, manager, custom_mappings: dict[str, [(int, (int, str, str))]]):
         self._manager = manager
-        self._custom_mappings: dict[str, [(int, (int, str))]] = custom_mappings
+        self._custom_mappings: dict[str, [(int, (int, str, str))]] = custom_mappings
 
     def log_message(self, message):
         self._manager.log_message(message)
@@ -296,8 +301,19 @@ class CustomMappings:
     def show_message(self, message):
         self._manager.show_message(message)
 
-    def has_user_defined_parameters(self, device_class_name):
-        return device_class_name in self._custom_mappings
+    def has_user_defined_parameters(self, device):
+        return self.device_lookup_key(device) in self._custom_mappings
+
+    def device_lookup_key(self, device):
+        # lookup_key = device.name
+
+        if device.class_name == 'OriginalSimpler':
+            return 'Simpler'
+        else:
+            return device.name
+
+    def user_defined_parameters_for(self, device):
+        return self._custom_mappings[self.device_lookup_key(device)]
 
     def user_defined_parameters_or_defaults(self, device) -> ParameterNumberGroup:
         '''
@@ -307,11 +323,11 @@ class CustomMappings:
         :param device:
         :return:
         '''
-        if not self.has_user_defined_parameters(device.class_name) or len(
-                self._custom_mappings[device.class_name]) == 0:
+        if not self.has_user_defined_parameters(device) or len(
+                self.user_defined_parameters_for(device)) == 0:
             return ParameterNumberGroup.from_raw_device_parameters(len(device.parameters))
         else:
-            return ParameterNumberGroup.from_user_defined_parameters(self._custom_mappings[device.class_name])
+            return ParameterNumberGroup.from_user_defined_parameters(self.user_defined_parameters_for(device))
 
     def find_parameter(self, device, parameter_no):
         '''
@@ -320,8 +336,8 @@ class CustomMappings:
         :param parameter_no:
         :return parameter, alias tuple:
         '''
-        if not self.has_user_defined_parameters(device.class_name):
-            return device.parameters[parameter_no], None
+        if not self.has_user_defined_parameters(device):
+            return device.parameters[parameter_no], None, None
         else:
             param_group = self.user_defined_parameters_or_defaults(device)
             return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)
@@ -332,16 +348,17 @@ class Remote:
         self._manager = manager
         self._osc_client = osc_client
 
-    def parameter_updated(self, param, alias, parameter_no, next_value):
+    #TODO unit tests datatypes sent
+    def parameter_updated(self, param, alias, parameter_no, next_value, button):
         name = param.name if alias is None else alias
         self._osc_client.send_message(f"/selected-device/parameter-update",
-                                      [parameter_no, str(next_value), name, param.min, param.max])
+                                      [parameter_no, next_value, name, param.min, param.max, button])
 
     def device_update(self, device_name, real_parameters, info_text=""):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        for i, (param, alias) in enumerate(real_parameters):
-            self.parameter_updated(param, alias, i, param.value)
+        for i, (param, alias, button) in enumerate(real_parameters):
+            self.parameter_updated(param, alias, i, param.value, button)
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 

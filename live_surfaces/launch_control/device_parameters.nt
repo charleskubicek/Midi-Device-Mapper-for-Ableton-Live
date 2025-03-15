@@ -4,8 +4,8 @@ custom-parameter-mappings:
         parameters:
             - Gain
             - Stereo Width
-            - Mono
-            - Bass Mono
+            - Mono; button=toggle;
+            - Bass Mono; button=toggle;
             - Bass Freq
             - Balance
     -
