@@ -207,19 +207,12 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
             print(f"     {m_no+1} / {p_no}: ({name})")
 
-        code = f"'{device_name_alternative(dev_name)}': " + str(d)
+        code = f"'{dev_name}': " + str(d)
         custom_mappings.append(code)
 
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
 
     return codes
-
-## TODO Unit tests
-def device_name_alternative(name):
-    if name == 'Simpler':
-        return 'OriginalSimpler'
-    else:
-        return name
 
 #TODO Unit tests
 def code_for_parameter_paging(parameter_page_nav, mode_name):
@@ -335,3 +328,8 @@ def class_function_body_code_block(lines: [str]):
 
 file = Path("data/devices_12.json").read_text()
 device_parameter_names = json.loads(file)
+
+device_class_names_to_friendly_names = {
+    "OriginalSimpler": "Simpler",
+    "InstrumentVector": "Wavetable"
+}

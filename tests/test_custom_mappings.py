@@ -13,7 +13,7 @@ class TestCustomMappings(unittest.TestCase):
         self.mappings = {
             "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
-        self.custom_mappings = CustomMappings(Mock(), self.mappings)
+        self.custom_mappings = CustomMappings(Mock(), self.mappings, {'OriginalSimpler': 'Simpler'})
 
     def test_has_user_defined_parameters_true(self):
         device = Mock()

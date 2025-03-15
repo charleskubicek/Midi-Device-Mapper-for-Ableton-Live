@@ -9,7 +9,8 @@ from typing import Tuple
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
-    transport_templates, dict_variable_decleration_block, GeneratedCodes, code_for_parameter_paging
+    transport_templates, dict_variable_decleration_block, GeneratedCodes, code_for_parameter_paging, \
+    device_class_names_to_friendly_names
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes
 
@@ -131,7 +132,8 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_creation': class_function_body_code_block(creation + array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
-        'code_listener_fns': "\n".join(codes.listener_fns)
+        'code_listener_fns': "\n".join(codes.listener_fns),
+        'device_friendly_names_to_class_names': str(device_class_names_to_friendly_names)
     }
 
 

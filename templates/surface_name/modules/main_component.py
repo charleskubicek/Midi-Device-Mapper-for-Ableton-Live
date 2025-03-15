@@ -46,11 +46,13 @@ class MainComponent(ControlSurfaceComponent):
 
         $code_setup
 
-        code_custom_parameter_mappings = { 
+        code_custom_parameter_mappings = {
             $code_custom_parameter_mappings
         }
 
-        self._helpers = Helpers(self.manager, self._remote, code_custom_parameter_mappings)
+        device_friendly_names_to_class_names = $device_friendly_names_to_class_names
+
+        self._helpers = Helpers(self.manager, self._remote, code_custom_parameter_mappings, device_friendly_names_to_class_names)
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 

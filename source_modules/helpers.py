@@ -97,9 +97,9 @@ class ParameterCustomisation:
     button:Optional[str] = None
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings={}, page_size=16):
+    def __init__(self, manager, remote, custom_mappings, device_class_names_to_friendly_names, page_size=16):
         self._manager = manager
-        self._custom_mappings = CustomMappings(manager, custom_mappings)
+        self._custom_mappings = CustomMappings(manager, custom_mappings, device_class_names_to_friendly_names)
         self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
         self._last_selected_device = None
@@ -291,9 +291,10 @@ The custom_mappings maps encoder indexes to device parameter indexes
 
 
 class CustomMappings:
-    def __init__(self, manager, custom_mappings: dict[str, [(int, (int, str, str))]]):
+    def __init__(self, manager, custom_mappings: dict[str, [(int, (int, str, str))]], device_class_names_to_friendly_names):
         self._manager = manager
         self._custom_mappings: dict[str, [(int, (int, str, str))]] = custom_mappings
+        self._device_class_names_to_friendly_names = device_class_names_to_friendly_names
 
     def log_message(self, message):
         self._manager.log_message(message)
@@ -305,12 +306,7 @@ class CustomMappings:
         return self.device_lookup_key(device) in self._custom_mappings
 
     def device_lookup_key(self, device):
-        # lookup_key = device.name
-
-        if device.class_name == 'OriginalSimpler':
-            return 'Simpler'
-        else:
-            return device.name
+        return self._device_class_names_to_friendly_names.get(device.class_name, device.name)
 
     def user_defined_parameters_for(self, device):
         return self._custom_mappings[self.device_lookup_key(device)]
@@ -325,6 +321,7 @@ class CustomMappings:
         '''
         if not self.has_user_defined_parameters(device) or len(
                 self.user_defined_parameters_for(device)) == 0:
+            self.log_message(f"no mapping found for {device.name}/{device.class_name}, look up key: {self.device_lookup_key(device)}")
             return ParameterNumberGroup.from_raw_device_parameters(len(device.parameters))
         else:
             return ParameterNumberGroup.from_user_defined_parameters(self.user_defined_parameters_for(device))

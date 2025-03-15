@@ -42,7 +42,7 @@ class TestHelpers(unittest.TestCase):
             "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
 
-        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
+        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings, {"OriginalSimpler": "Simpler"})
 
     def test_device_parameter_action(self):
         device = Mock()
