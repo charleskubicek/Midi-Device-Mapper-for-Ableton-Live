@@ -22,12 +22,16 @@ class OSCListener:
             button_handler: The handler for button events
         """
         self._manager = manager
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._socket.setblocking(0)
-        self._socket.bind(('0.0.0.0', port))
-        self.log_message(f"ck_launch_control_16: listening on port {port}")
-        
-        self._manager.schedule_message(1, self.tick)
+        try:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self._socket.setblocking(0)
+            self._socket.bind(('0.0.0.0', port))
+            self.log_message(f"ck_launch_control_16: listening on port {port}")
+
+            self._manager.schedule_message(1, self.tick)
+        except socket.error as e:
+            self.log_message(f"ck_launch_control_16: Socket error: {traceback.format_exc()}")
+            self._manager.show_message(f"ck_launch_control_16: Socket error: {traceback.format_exc()}")
         self.button_handler = button_handler
         # self.show_message("Connected to ck_launch_control_16")
     

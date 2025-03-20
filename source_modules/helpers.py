@@ -87,7 +87,11 @@ class ParameterNumberGroup:
             return real_params
 
     def parameter_from_device_params(self, device_parameters, param_no, include_on_off=True):
-        return self.parameters_and_aliasses_from_device_params(device_parameters, include_on_off)[param_no]
+        params = self.parameters_and_aliasses_from_device_params(device_parameters, include_on_off)
+        if param_no >= len(params):
+            return None, None, None
+
+        return params[param_no]
 
 @dataclass
 class ParameterCustomisation:
@@ -170,6 +174,9 @@ class Helpers:
             return
         else:
             self.selected_device_changed(device)
+
+        self.log_message(
+            f"device_parameter_action raw data: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
 
         page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
         parameter, alias, button = self._custom_mappings.find_parameter(device, paged_parameter_no)
@@ -324,6 +331,7 @@ class CustomMappings:
             self.log_message(f"no mapping found for {device.name}/{device.class_name}, look up key: {self.device_lookup_key(device)}")
             return ParameterNumberGroup.from_raw_device_parameters(len(device.parameters))
         else:
+            self.log_message(f"Creating ParameterNumberGroup from user defined parameters for {device.name}/{device.class_name}, look up key: {self.device_lookup_key(device)}. Parameter count on device is {len(device.parameters)}. User parameter count is: {len(self.user_defined_parameters_for(device))}")
             return ParameterNumberGroup.from_user_defined_parameters(self.user_defined_parameters_for(device))
 
     def find_parameter(self, device, parameter_no):
@@ -331,10 +339,13 @@ class CustomMappings:
 
         :param device:
         :param parameter_no:
-        :return parameter, alias tuple:
+        :return parameter, alias tuple: or None, None, None if not found for the parameter number because the device has less parameters.
         '''
         if not self.has_user_defined_parameters(device):
-            return device.parameters[parameter_no], None, None
+            if parameter_no >= len(device.parameters):
+                return None, None, None
+            else:
+                return device.parameters[parameter_no], None, None
         else:
             param_group = self.user_defined_parameters_or_defaults(device)
             return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)

@@ -28,3 +28,352 @@ custom-parameter-mappings:
             - Vol < Vel
             - Detune
             - Filt < Key
+    -
+        device-name: SQ Sequencer
+        parameters:
+            - PStep1
+            - PStep2
+            - PStep3
+            - PStep4
+            - PStep5
+            - PStep6
+            - ScramblePitch
+            - RandPitch
+            - VelStep1
+            - VelStep2
+            - VelStep3
+            - VelStep4
+            - VelStep5
+            - VelStep6
+            - ScrambleVel
+            - VelRandom
+            - OStep1
+            - OStep2
+            - OStep3
+            - OStep4
+            - OStep5
+            - OStep6
+            - ScrambleOct
+            - RandOct
+            - LStep1
+            - LStep2
+            - LStep3
+            - LStep4
+            - LStep5
+            - LStep6
+            - RandLength
+            - ScrambleLength
+            - SQ Run
+            - SQDirection
+            - SQMin
+            - SQMax
+            - ShiftLeft
+            - ShiftRight
+            - Scale
+            - ShiftUp
+            - ShiftDown
+            - StepMode
+            - StepNumber
+            - SQMin2
+            - SQMax2
+            - On/Off
+            - StepRecord
+            - ScrambleSteps
+            - Swing
+            - BPM
+            - ClockSource
+            - ConStep1
+            - ConStep10
+            - ConStep11
+            - ConStep12
+            - ConStep13
+            - ConStep14
+            - ConStep15
+            - ConStep16
+            - ConStep2
+            - ConStep3
+            - ConStep4
+            - ConStep5
+            - ConStep6
+            - ConStep7
+            - ConStep8
+            - ConStep9
+            - ConditionAll
+            - ConditionDirection
+            - ConditionLock
+            - ConditionMax1
+            - ConditionMax2
+            - ConditionMin1
+            - ConditionMin2
+            - CondRandRange
+            - ScrambleCond
+            - ConditionRand
+            - Division
+            - FollowRoot
+            - FollowScales
+            - LengthMax1
+            - LStep10
+            - LStep11
+            - LStep12
+            - LStep13
+            - LStep14
+            - LStep15
+            - LStep16
+            - LStep7
+            - LStep8
+            - LStep9
+            - LaneLock
+            - LengthDirection
+            - LengthMax2
+            - LengthMin2
+            - LengthAll
+            - LengthLock
+            - LengthRandRange
+            - LockSelect
+            - MIDItrnsp
+            - LengthMin1
+            - OStep10
+            - OStep11
+            - OStep12
+            - OStep13
+            - OStep14
+            - OStep15
+            - OStep16
+            - OStep7
+            - OStep8
+            - OStep9
+            - OctaveDirection
+            - OctaveMax1
+            - OctaveMax2
+            - OctaveMin1
+            - OctaveMin2
+            - OctaveAll
+            - OctaveLock
+            - OctaveRandRange
+            - PStep10
+            - PStep11
+            - PStep12
+            - PStep13
+            - PStep14
+            - PStep15
+            - PStep16
+            - PStep7
+            - PStep8
+            - PStep9
+            - PitchDirection
+            - PitchMax1
+            - PitchMax2
+            - PitchMin1
+            - PitchMin2
+            - PitchAll
+            - PitchRandRange
+            - PitchLock
+            - RandSteps
+            - RandTS
+            - RandomSelect
+            - RatchetAll
+            - RatchetDirection
+            - RatchetLock
+            - RatchetMax1
+            - RatchetMax2
+            - RatchetMin1
+            - RatchetMin2
+            - RatStep1
+            - RatStep10
+            - RatStep11
+            - RatStep12
+            - RatStep13
+            - RatStep14
+            - RatStep15
+            - RatStep16
+            - RatStep2
+            - RatStep3
+            - RatStep4
+            - RatStep5
+            - RatStep6
+            - RatStep7
+            - RatStep8
+            - RatStep9
+            - RatchetRand
+            - RatchetRandRange
+            - ScrambleRatchet
+            - ResetCond
+            - ResetLength
+            - ResetOctave
+            - ResetPitch
+            - ResetRatchet
+            - ResetSteps
+            - ResetTS
+            - ResetVelocity
+            - SQ Run
+            - SQDirection
+            - SQMax
+            - SQMax2
+            - SQMin
+            - SQMin2
+            - Scale
+            - ShiftDown
+            - ShiftLeft
+            - ShiftRight
+            - ShiftUp
+            - StepMode
+            - StepNumber
+            - On/Off
+            - StepRecord
+            - ScrambleSteps
+            - Swing
+            - TimeShiftAll
+            - TimeShiftDirection
+            - TimeShiftMax1
+            - TimeShiftMax2
+            - TimeShiftMin1
+            - TimeShiftMin2
+            - TSRandRange
+            - ScrambleTS
+            - TShift1
+            - TShift10
+            - TShift11
+            - TShift12
+            - TShift13
+            - TShift14
+            - TShift15
+            - TShift16
+            - TShift2
+            - TShift3
+            - TShift4
+            - TShift5
+            - TShift6
+            - TShift7
+            - TShift8
+            - TShift9
+            - Tab
+            - Time/MIDI
+            - TimeShiftLock
+            - VelocityAll
+            - VelocityDirection
+            - VelocityMax1
+            - VelocityMax2
+            - VelocityMin1
+            - VelocityMin2
+            - VelRandRange
+            - VelStep10
+            - VelStep11
+            - VelStep12
+            - VelStep13
+            - VelStep14
+            - VelStep15
+            - VelStep16
+            - VelStep7
+            - VelStep8
+            - VelStep9
+            - VelocityLock
+            - View
+            - TimeMode
+            - DotSync
+            - Triplet
+
+#    -
+#        device-name: Diva
+#        parameters:
+#            - VCF1: Frequency; alias=Frequency;
+#            - VCF1: Resonance; alias=Resonance;
+#            - VCF1: FilterFM; alias=FilterFM;
+#            - VCF1: KeyFollow; alias=KeyFollow;
+#            - ENV1: Attack; synth-grou=amp-env;
+#            - ENV1: Decay; synth-group=amp-env;
+#            - ENV1: Sustain; synth-group=amp-env;
+#            - ENV1: Release; synth-group=amp-env;
+#            - OSC: Volume1
+#            - OSC: Volume2
+#            - OSC: Volume3
+#            - OSC: NoiseVol
+#            - ENV2: Attack
+#            - ENV2: Decay
+#            - ENV2: Sustain
+#            - ENV2: Release
+#            - OSC: Tune1
+#            - OSC: Shape1
+#            - OSC: Tune2
+#            - OSC: Shape2
+#            - OSC: Tune3
+#            - OSC: Shape3
+#            - OSC: FM
+#            - VCC: Glide
+#            - OSC: EcoWave1
+#            - OSC: PulseWidth
+#            - OSC: EcoWave2
+#            - ENV1: Velocity
+#            - ENV1: KeyFollow
+#            - ENV2: Velocity
+#            - ENV2: KeyFollow
+#            - OSC: Model
+#            - main: Active #FX1
+#            - main: Active #FX2
+#            - VCF1: Feedback
+#            - ARP: OnOff
+#            - HPF: Frequency
+#            - HPF: Resonance
+#            - VCF1: SvfMode
+#            - VCF1: LadderColor
+#            - LFO1: Rate
+#            - LFO1: Waveform
+#            - LFO1: DepthMod Dpt1
+#            - LFO1: Sync
+#            - LFO2: Rate
+#            - LFO2: Waveform
+#            - LFO2: DepthMod Dpt1
+#            - LFO2: Sync
+#            - OSC: Triangle1On
+#            - OSC: Saw1On
+#            - OSC: Pwm1On
+#            - OSC: Noise1On
+#            - OSC: Triangle2On
+#            - OSC: Saw2On
+#            - OSC: Pulse2On
+#            - OSC: Sine2On
+#            - ENV2: Attack
+#            - VCF1: FreqModDepth
+#            - VCF1: FreqMod2Depth
+#            - ENV1: Release On
+#            - ENV2: Release On
+#            - LFO1: Phase
+#            - LFO1: Delay
+#            - LFO1: Rate
+#            - LFO1: FreqMod Dpt
+#            - LFO1: Restart
+#            - LFO1: DepthMod Dpt1
+#            - LFO2: Phase
+#            - LFO2: Delay
+#            - LFO2: Rate
+#            - LFO2: FreqMod Dpt
+#            - LFO2: Restart
+#            - LFO2: DepthMod Dpt1
+#            - OSC: Vibrato
+#            - VCC: Glide
+#            - VCC: Glide2
+#            - VCC: GlideRange
+#            - VCC: FineTuneCents
+#            - VCC: Transpose
+#            - VCC: PitchBend Up
+#            - VCC: PitchBend Down
+#            - main: Active #FX1
+#            - FX1: Module
+#            - main: Active #FX2
+#            - FX2: Module
+#            - OSC: TuneModOsc2
+#            - OSC: TuneModOsc3
+#            - OSC: ShapeModOsc2
+#            - OSC: ShapeModOsc3
+#            - OSC: Sync3
+#            - OSC: Sync2
+#            - OSC: ShapeModOsc1
+#            - OSC: OscMix
+#            - OSC: Tune1ModDepth
+#            - OSC: Tune2ModDepth
+#            - OSC: PWM2On
+#            - VCF1: LadderMode
+#            - VCF1: Model
+#            - ENV1: Model
+#            - OSC: ShapeDepth
+#            - OSC: NoiseVolModSrc
+#            - OSC: NoiseVolModDepth

@@ -86,6 +86,20 @@ class TestCustomMappings(unittest.TestCase):
         result, alias, button = self.custom_mappings.find_parameter(device, 1)
         self.assertEqual(result.name, "p1")
 
+    def test_out_of_index_parameter_should_be_none(self):
+        device = Mock()
+        device.class_name = "UnknownDevice"
+        device.parameters = self.params()
+        result, alias, button = self.custom_mappings.find_parameter(device, 10)
+        self.assertIsNone(result)
+
+
+    def test_out_of_index_parameter_for_deivce_with_mappings_should_be_none(self):
+        device = Mock()
+        device.class_name = "OriginalSimpler"
+        device.parameters = self.params()
+        result, alias, button = self.custom_mappings.find_parameter(device, 10)
+        self.assertIsNone(result)
 
     def test_find_parameter_with_mappings(self):
         device = Mock()
