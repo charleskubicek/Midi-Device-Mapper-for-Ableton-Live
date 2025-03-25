@@ -1,0 +1,15 @@
+controller: parks_controller.nt
+#ableton_dir: /Applications/Ableton Live 12 Suite.app
+ableton_dir: /Applications/Ableton Live 12 Beta.app
+
+
+mappings:
+    -
+        type: device
+        track: selected
+        device: selected
+#        parameter-mappings-file: device_parameters.nt
+        mappings:
+            encoders:
+                range: row-1:1-8
+                parameters: 1-8

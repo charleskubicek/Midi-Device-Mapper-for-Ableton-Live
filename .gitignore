@@ -5,5 +5,5 @@ examples/
 dist/
 build/
 .DS_Store
-live_surfaces/behringer_mini/ck_behringer_touch_mini
+live_surfaces/parks/ck_parkstool_12E1
 live_surfaces/launch_control/ck_launch_control_16

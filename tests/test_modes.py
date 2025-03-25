@@ -1,6 +1,6 @@
 import unittest
 from ableton_control_surface_as_code.core_model import MidiCoords, EncoderType, MidiType
-from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeType
+from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeType, ModeButtonWithMidi
 from tests.builders import midi_coords_ch2_cc_50_knob, build_midi_device_mapping
 
 
@@ -18,7 +18,8 @@ class TestModes(unittest.TestCase):
         ]
 
         mode_group = ModeGroupWithMidi(
-            mappings=mode_mappings, button=midi_coords_ch2_cc_50_knob(), on_colors=on_colours, type=ModeType.Switch)
+            mappings=mode_mappings,
+            mode_button=ModeButtonWithMidi(button=midi_coords_ch2_cc_50_knob(), on_colors=on_colours, type=ModeType.Switch))
 
         expected_output = mode_group.fsm()
 

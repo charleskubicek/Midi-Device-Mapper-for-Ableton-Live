@@ -282,6 +282,9 @@ if __name__ == '__main__':
     script_file = Path(sys.argv[1])
     generate(script_file)
 
+    script_file = Path(sys.argv[2])
+    generate(script_file)
+
     # # except GenError as e:
     # #     print(f"Problem Generating: {e}")
     # #     exit(-1)

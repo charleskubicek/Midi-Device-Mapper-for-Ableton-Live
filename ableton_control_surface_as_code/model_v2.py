@@ -64,7 +64,7 @@ class ModeDef(BaseModel, frozen=True):
 
     @classmethod
     def empty_with_one_mode(cls, mappings: AllMappingTypes):
-        return cls(name="fake_mode", on_color=0, mappings=mappings, is_fake_wrapper_mode=True)
+        return cls(name="fake_mode", on_color="0", mappings=mappings, is_fake_wrapper_mode=True)
 
 
 class RootV2(BaseModel):
@@ -94,31 +94,41 @@ class RootV2ModesOrModeless(BaseModel):
             ableton_dir=self.ableton_dir)
 
 
+class ModeButtonWithMidi(BaseModel):
+    on_colors: List[Tuple[str, int]]
+    button: MidiCoords
+    type: ModeType = ModeType.Switch
+
+
 class ModeGroupWithMidi(BaseModel):
     mappings: List[Tuple[str, AllMappingWithMidiTypes]]
-    on_colors: List[Tuple[str,int]]
-    button: Optional[MidiCoords]
-    type: Optional[ModeType] = ModeType.Switch
+    mode_button: Optional[ModeButtonWithMidi]
+
+    # on_colors: List[Tuple[str,int]]
+    # button: Optional[MidiCoords]
+    # type: Optional[ModeType] = ModeType.Switch
 
     def first_mode_name(self):
         return self.mappings[0][0]
 
     def is_shift(self):
-        return self.type is not None and self.type == ModeType.Shift
+        return self.mode_button is not None and self.mode_button.type == ModeType.Shift
 
     def has_modes(self):
         return len(self.mappings) > 1
 
     def fsm(self):
-        mode_names = [clr[0] for clr in self.on_colors]
+        if self.mode_button is None:
+            return []
+
+        mode_names = [clr[0] for clr in self.mode_button.on_colors]
         return [ModeData(
             name=name,
             next=mode_names[i + 1] if i + 1 < len(mode_names) else mode_names[0],
             is_shift=self.is_shift(),
             color=str(clr)
         )
-            for i, (name, clr) in enumerate(self.on_colors)]
-
+            for i, (name, clr) in enumerate(self.mode_button.on_colors)]
 
 
 def validate_mappings(mappings: AllMappingWithMidiTypes):
@@ -167,16 +177,22 @@ def print_model_with_mappings(model: ControllerV2, mappings):
         print(table)
 
 
-
 def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
     mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir))
                 for mode_dev in root.modes]
 
+    if root.mode_button is None:
+        mode_button = None
+    else:
+        mode_button = ModeButtonWithMidi(
+            on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in root.modes],
+            button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
+            type=root.mode_button.type)
+
     return ModeGroupWithMidi(
         mappings=mappings,
-        button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
-        on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in root.modes],
-        type=root.mode_button.type)
+        mode_button=mode_button
+    )
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
