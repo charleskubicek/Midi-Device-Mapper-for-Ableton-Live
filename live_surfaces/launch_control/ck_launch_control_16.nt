@@ -2,6 +2,7 @@ controller: controller_lc.nt
 #ableton_dir: /Applications/Ableton Live 12 Suite.app
 ableton_dir: /Applications/Ableton Live 12 Beta.app
 
+remote_on: true
 mode-button:
     button: row-3:1
     type: shift

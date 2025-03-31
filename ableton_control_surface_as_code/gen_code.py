@@ -193,26 +193,59 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
 
     print("Custom mappings")
     custom_mappings = []
-    for dev_name, encoder_map in device_with_midi.custom_device_mappings.items():
-        print("  ", dev_name)
-        d = [(em.index,
-              find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
-             for em in encoder_map]
 
-        for m_no, (p_no, _, _) in d:
-            name = "Unknown"
-            for p_values in device_parameter_names[dev_name]['parameters']:
-                if int(p_values['no']) == int(p_no):
-                    name = p_values['name']
+    for dev_name, groups in device_with_midi.custom_parameter_groups.items():
+        group_code = []
+        for encoder_map in groups:
+            print("  ", dev_name)
+            range = device_with_midi.group_name_to_range[encoder_map.name]
 
-            print(f"     {m_no+1} / {p_no}: ({name})")
+            d = [(r, find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
+                 for (r, em) in zip(range.as_inclusive_list(), encoder_map.parameters)]
 
-        code = f"'{dev_name}': " + str(d)
+            ser = [serialiase_param_info(m_no, d_idx, alias, button) for m_no, (d_idx, alias, button) in d]
+
+            for m_no, (p_no, _, _) in d:
+                name = "Unknown"
+                for p_values in device_parameter_names[dev_name]['parameters']:
+                    if int(p_values['no']) == int(p_no):
+                        name = p_values['name']
+
+                print(f"     {(m_no)} -> {p_no}: ({name})")
+
+            group_code.extend(ser)
+
+        code = f"'{dev_name}': " + str(group_code)
         custom_mappings.append(code)
+
+    # for dev_name, encoder_map in device_with_midi.custom_device_mappings.items():
+    #     print("  ", dev_name)
+    #     d = [(em.index,
+    #           find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
+    #          for em in encoder_map]
+    #
+    #     ser = [serialiase_param_info(m_no, d_idx, alias, button) for m_no, (d_idx, alias, button) in d]
+    #
+    #     for m_no, (p_no, _, _) in d:
+    #         name = "Unknown"
+    #         for p_values in device_parameter_names[dev_name]['parameters']:
+    #             if int(p_values['no']) == int(p_no):
+    #                 name = p_values['name']
+    #
+    #         print(f"     {m_no+1} / {p_no}: ({name})")
+    #
+    #     code = f"'{dev_name}': " + str(ser)
+    #     custom_mappings.append(code)
 
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
 
     return codes
+
+def serialiase_param_info(cont_idx, device_idx, alias, button):
+    ser = {'c_idx': cont_idx, 'd_idx':device_idx, 'alias': alias}
+    if button is not None:
+        ser['button'] = button
+    return ser
 
 #TODO Unit tests
 def code_for_parameter_paging(parameter_page_nav, mode_name):

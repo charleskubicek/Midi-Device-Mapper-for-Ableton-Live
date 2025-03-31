@@ -72,6 +72,7 @@ class RootV2(BaseModel):
     mode_button: Optional[ModeButton]
     modes: List[ModeDef]
     ableton_dir: str
+    remote_on: bool = Field(default=False)
 
     class Config:
         extra = 'forbid'
@@ -83,6 +84,7 @@ class RootV2ModesOrModeless(BaseModel):
     mode_button: Optional[ModeButton] = Field(default=None, alias='mode-button')
     modes: Optional[List[ModeDef]] = None
     ableton_dir: str
+    remote_on: bool = Field(default=False)
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -91,7 +93,9 @@ class RootV2ModesOrModeless(BaseModel):
             controller=self.controller,
             modes=model_modes,
             mode_button=self.mode_button,
-            ableton_dir=self.ableton_dir)
+            ableton_dir=self.ableton_dir,
+            remote_on=self.remote_on
+        )
 
 
 class ModeButtonWithMidi(BaseModel):
@@ -103,10 +107,6 @@ class ModeButtonWithMidi(BaseModel):
 class ModeGroupWithMidi(BaseModel):
     mappings: List[Tuple[str, AllMappingWithMidiTypes]]
     mode_button: Optional[ModeButtonWithMidi]
-
-    # on_colors: List[Tuple[str,int]]
-    # button: Optional[MidiCoords]
-    # type: Optional[ModeType] = ModeType.Switch
 
     def first_mode_name(self):
         return self.mappings[0][0]

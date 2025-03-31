@@ -1,10 +1,39 @@
-from dataclasses import dataclass, replace, field
+from dataclasses import dataclass, replace, field, Field
 from typing import Any, Optional
 
 from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
 import logging
 
+
+@dataclass
+class RealParameter:
+    param:Any
+    alias:Optional[str] = None
+    button:Optional[str] = None
+
+@dataclass
+class EncoderCoords:
+    row: int
+    col: int
+
+@dataclass
+class ParameterMapping:
+    #(2, (5, 'Mono'), 'toggle')
+    mapped_parameter:int
+    alias:Optional[str] = None
+    button:Optional[str] = None
+
+    @classmethod
+    def from_tuple(cls, tuple):
+        return cls(tuple[0], tuple[1], tuple[2])
+
+    @classmethod
+    def on_off(cls, param=0):
+        return cls(param, "On/Off", None)
+
+    def with_real_param(self, real_param):
+        return RealParameter(real_param, self.alias, self.button)
 
 class SelectedDeviceParameterPaging:
     def __init__(self, manager, page_size=16):
@@ -61,49 +90,61 @@ class SelectedDeviceParameterPaging:
 
 @dataclass
 class ParameterNumberGroup:
-    on_off: [int, str, str] = field(default=(0, "On/Off", None))
-    parameters: list[(int, Optional[str], Optional[str])] = field(default_factory=list)
+    on_off: ParameterMapping = field(default_factory=lambda : ParameterMapping.on_off())
+    # parameters: list[(int, Optional[str], Optional[str])] = field(default_factory=list)
+    parameters: [(int, ParameterMapping)] = field(default_factory=list)
 
     def filter_parameter_indexes(self, parameter_indexes):
-        return replace(self, parameters=[(p, a, b) for i, (p, a, b) in enumerate(self.parameters) if i in parameter_indexes])
+        return replace(self, parameters=[(i, p) for i, p in self.parameters if i in parameter_indexes])
 
     @classmethod
     def from_raw_device_parameters(cls, device_parameter_count):
-        return cls((0, "On/Off", None), list([(i, None, None) for i in range(1, device_parameter_count)]))
+        return cls(parameters=[(i, ParameterMapping(i)) for i in range(1, device_parameter_count)])
 
 
     @classmethod
     def from_user_defined_parameters(cls, custom_mappings):
-        return ParameterNumberGroup((0, "On/Off", None), [(p, a, b) for i, (p, a, b) in custom_mappings])
+        return cls(parameters=[(i, m) for (i, m) in custom_mappings])
 
     def list_of_all_parameters(self):
-        return [self.on_off] + self.parameters
+        return [self.on_off] + list(self.parameters.values())
 
-    def parameters_and_aliasses_from_device_params(self, device_parameters, include_on_off=True):
-        real_params = [(device_parameters[p[0]], p[1], p[2]) for p in self.parameters]
+    def parameters_and_aliasses_from_device_params(self, device_parameters, include_on_off=True) -> [RealParameter]:
+        real_params = [p.with_real_param(device_parameters[p.mapped_parameter]) for i, p in self.parameters]
         if include_on_off:
-            return [(device_parameters[0], "On/Off", None)] + real_params
+            on_off = ParameterMapping.on_off().with_real_param(device_parameters[0])
+            return [on_off] + real_params
         else:
             return real_params
 
     def parameter_from_device_params(self, device_parameters, param_no, include_on_off=True):
-        params = self.parameters_and_aliasses_from_device_params(device_parameters, include_on_off)
-        if param_no >= len(params):
-            return None, None, None
+        # if include_on_off:
+        #     param_no -= 1
 
-        return params[param_no]
+        if len([(i, p) for i, p in self.parameters if i == param_no]) == 0:
+            print(f"Didn't find {param_no} in {self.parameters}")
+            return None
 
-@dataclass
-class ParameterCustomisation:
-    #(2, (5, 'Mono'), 'toggle')
-    mapped_parameter:int
-    alias:Optional[str] = None
-    button:Optional[str] = None
+        p, m = [(p, device_parameters[p.mapped_parameter]) for i, p in self.parameters if i == param_no][0]
+
+        return RealParameter(m, alias=p.alias, button=p.button)
+
+def parse_custom_mappings(custom_mappings_raw):
+    res = {}
+    for device, mappings in custom_mappings_raw.items():
+        pm = [(m['c_idx'], ParameterMapping(m['d_idx'], m['alias'], m.get('button', None)))
+         for m in mappings]
+
+        res[device] = pm
+
+    return res
+
+
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings, device_class_names_to_friendly_names, page_size=16):
+    def __init__(self, manager, remote, custom_mappings_raw, device_class_names_to_friendly_names, page_size=16):
         self._manager = manager
-        self._custom_mappings = CustomMappings(manager, custom_mappings, device_class_names_to_friendly_names)
+        self._custom_mappings = CustomMappings(manager, parse_custom_mappings(custom_mappings_raw), device_class_names_to_friendly_names)
         self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
         self._last_selected_device = None
@@ -176,18 +217,22 @@ class Helpers:
             self.selected_device_changed(device)
 
         self.log_message(
-            f"device_parameter_action raw data: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
+            f"device_parameter_action raw data: name: {device.name}, class: {device.class_name}, Has custom params:{self._custom_mappings.has_user_defined_parameters(device)}, raw_parameter_no:{raw_parameter_no}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
 
         page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
-        parameter, alias, button = self._custom_mappings.find_parameter(device, paged_parameter_no)
+        self.log_message(f"device_parameter_action raw data: page:{page}, paged_param_no:{paged_parameter_no}")
 
-        self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, button:{button}, {fn_name}, {toggle}")
-
-        if parameter is None:
+        custom_mapping = self._custom_mappings.find_parameter(device, paged_parameter_no)
+        if custom_mapping is None:
             self.log_message(f"Parameter {paged_parameter_no} not found on device {device.name}")
             self.show_message(f"Parameter {paged_parameter_no} not found on device {device.name}, page {page}")
             return
+
+        parameter = custom_mapping.param
+        button = custom_mapping.button
+
+        self.log_message(
+            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, button:{button}, {fn_name}, {toggle}")
 
         min = parameter.min
         max = parameter.max
@@ -204,11 +249,11 @@ class Helpers:
             self.log_message \
                 (f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
             self.log_message \
-                (f"Device param min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[paged_parameter_no].value}")
+                (f"Device param {parameter} min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[paged_parameter_no].value}")
 
         if will_fire:
             parameter.value = next_value
-            self._remote.parameter_updated(parameter, alias, raw_parameter_no, next_value, button)
+            self._remote.parameter_updated(custom_mapping, raw_parameter_no)
 
     def value_is_max(self, value, max):
         return value == max
@@ -286,21 +331,21 @@ class Helpers:
         return None
 
 
-"""
-CustomMappings
-
-This class is responsible for managing custom mappings for devices. It is used to find user defined parameters or defaults
-for a given device. It also provides a method to find a parameter for a given device, parameter number and midi number.
-
-The custom_mappings maps encoder indexes to device parameter indexes
-
-"""
-
-
 class CustomMappings:
-    def __init__(self, manager, custom_mappings: dict[str, [(int, (int, str, str))]], device_class_names_to_friendly_names):
+    """
+        CustomMappings
+
+        This class is responsible for managing custom mappings for devices. It is used to find user defined parameters or defaults
+        for a given device. It also provides a method to find a parameter for a given device, parameter number and midi number.
+
+        The custom_mappings maps encoder indexes to device parameter indexes
+    """
+    def __init__(self, manager,
+                 custom_mappings: dict[str, [(int, ParameterMapping)]],
+                 device_class_names_to_friendly_names):
         self._manager = manager
-        self._custom_mappings: dict[str, [(int, (int, str, str))]] = custom_mappings
+
+        self._custom_mappings: dict[str, [(int, ParameterMapping)]] = custom_mappings
         self._device_class_names_to_friendly_names = device_class_names_to_friendly_names
 
     def log_message(self, message):
@@ -315,7 +360,7 @@ class CustomMappings:
     def device_lookup_key(self, device):
         return self._device_class_names_to_friendly_names.get(device.class_name, device.name)
 
-    def user_defined_parameters_for(self, device):
+    def user_defined_parameters_for(self, device) -> [(int, ParameterMapping)]:
         return self._custom_mappings[self.device_lookup_key(device)]
 
     def user_defined_parameters_or_defaults(self, device) -> ParameterNumberGroup:
@@ -339,15 +384,17 @@ class CustomMappings:
 
         :param device:
         :param parameter_no:
-        :return parameter, alias tuple: or None, None, None if not found for the parameter number because the device has less parameters.
+        :return parameter, alias tuple: or None if not found for the parameter number because the device has less parameters.
         '''
         if not self.has_user_defined_parameters(device):
             if parameter_no >= len(device.parameters):
-                return None, None, None
+                self.log_message("CustomMappings.find_parameter returning None as parameter_no >= len(device.parameters)")
+                return None
             else:
-                return device.parameters[parameter_no], None, None
+                return RealParameter(device.parameters[parameter_no], None, None) #TODO RealParameter here?
         else:
             param_group = self.user_defined_parameters_or_defaults(device)
+            self.log_message(f"CustomMappings.find_parameter param_group is {[(p[0], p[1].mapped_parameter) for p in param_group.parameters]}")
             return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)
 
 
@@ -357,16 +404,17 @@ class Remote:
         self._osc_client = osc_client
 
     #TODO unit tests datatypes sent
-    def parameter_updated(self, param, alias, parameter_no, next_value, button):
-        name = param.name if alias is None else alias
+    def parameter_updated(self, real_param, parameter_no):
+        param = real_param.param
+        name = param.name if real_param.alias is None else real_param.alias
         self._osc_client.send_message(f"/selected-device/parameter-update",
-                                      [parameter_no, next_value, name, param.min, param.max, button])
+                                      [parameter_no, param.value, name, param.min, param.max, real_param.button])
 
     def device_update(self, device_name, real_parameters, info_text=""):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        for i, (param, alias, button) in enumerate(real_parameters):
-            self.parameter_updated(param, alias, i, param.value, button)
+        for i, pm in enumerate(real_parameters):
+            self.parameter_updated(pm, i)
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 

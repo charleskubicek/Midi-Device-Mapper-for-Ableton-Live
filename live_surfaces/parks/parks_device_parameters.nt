@@ -1,0 +1,43 @@
+custom-parameter-mappings:
+    -
+        device-name: SQ Sequencer
+        # no other device will be able to use these buttons
+        exclusive: true
+
+        # should relate to encoder-list
+        parameter-groups:
+            -
+                name: buttons1
+                parameters:
+                    - ScramblePitch
+                    - RandPitch
+                    - ScrambleVel
+                    - VelRandom
+                    - ScrambleOct
+                    - RandOct
+                    - RandLength
+            -
+                name: buttons2
+                parameters:
+                    - ScrambleLength
+                    - SQMin
+                    - SQMax
+                    - ShiftLeft
+                    - ShiftRight
+                    - ShiftUp
+                    - ShiftDown
+#        parameters-map:
+#            ScramblePitch: row-2:1
+#            RandPitch: row-3:1
+#            ScrambleVel: row-2:2
+#            VelRandom: row-3:2
+#            ScrambleOct: row-2:3
+#            RandOct: row-3:3
+#            RandLength: row-2:4
+#            ScrambleLength: row-3:4
+#            SQMin: row-2:5
+#            SQMax: row-3:5
+#            ShiftLeft: row-2:6
+#            ShiftRight: row-3:6
+#            ShiftUp: row-2:7
+#            ShiftDown: row-3:7

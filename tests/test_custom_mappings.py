@@ -4,14 +4,16 @@ from unittest.mock import Mock
 from pathlib import Path
 import shutil
 
-from source_modules.helpers import CustomMappings, Helpers, SelectedDeviceParameterPaging
+from source_modules.helpers import CustomMappings, Helpers, SelectedDeviceParameterPaging, ParameterMapping, \
+    parse_custom_mappings
 
 
 class TestCustomMappings(unittest.TestCase):
 
     def setUp(self):
         self.mappings = {
-            "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
+            "Simpler": [(0, ParameterMapping(2, 'a', None)), (1, ParameterMapping(5, 'b', 'toggle')), (2, ParameterMapping(4, 'c', None))]
+            # "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
         self.custom_mappings = CustomMappings(Mock(), self.mappings, {'OriginalSimpler': 'Simpler'})
 
@@ -35,16 +37,16 @@ class TestCustomMappings(unittest.TestCase):
         device.parameters = default_parameters
         result = self.custom_mappings.user_defined_parameters_or_defaults(device)
 
-        self.assertEqual(result.on_off, (0, 'On/Off', None))
-        self.assertEqual(result.parameters, [(2, 'a', None), (5, 'b', 'toggle'), (4, 'c', None)])
+        self.assertEqual(result.on_off, ParameterMapping(0, 'On/Off', None))
+        self.assertEqual(result.parameters, [ParameterMapping(2, 'a', None), ParameterMapping(5, 'b', 'toggle'), ParameterMapping(4, 'c', None)])
 
         actual_parameters = result.parameters_and_aliasses_from_device_params(device.parameters, include_on_off=True)
         self.assertEqual(len(actual_parameters), 4)
 
-        self.assertEqual(actual_parameters[0][0].name, "p0")
-        self.assertEqual(actual_parameters[1][0].name, "p2")
-        self.assertEqual(actual_parameters[2][0].name, "p5")
-        self.assertEqual(actual_parameters[3][0].name, "p4")
+        self.assertEqual(actual_parameters[0].param.name, "p0")
+        self.assertEqual(actual_parameters[1].param.name, "p2")
+        self.assertEqual(actual_parameters[2].param.name, "p5")
+        self.assertEqual(actual_parameters[3].param.name, "p4")
 
     def test_filter_actual_parameters_with_custom_params_and_page_size(self):
         device = Mock()
@@ -58,17 +60,17 @@ class TestCustomMappings(unittest.TestCase):
         real_params = Helpers.get_actual_parameters_from_device(Mock(), self.custom_mappings, paging, device)
 
         self.assertEqual(len(real_params), 3)
-        self.assertEqual(real_params[0][0].name, "p0")
-        self.assertEqual(real_params[1][0].name, "p2")
-        self.assertEqual(real_params[2][0].name, "p5")
+        self.assertEqual(real_params[0].param.name, "p0")
+        self.assertEqual(real_params[1].param.name, "p2")
+        self.assertEqual(real_params[2].param.name, "p5")
 
         paging.device_parameter_page_inc(2)
 
         real_params = Helpers.get_actual_parameters_from_device(Mock(), self.custom_mappings, paging, device)
 
         self.assertEqual(len(real_params), 2)
-        self.assertEqual(real_params[0][0].name, "p0")
-        self.assertEqual(real_params[1][0].name, "p4")
+        self.assertEqual(real_params[0].param.name, "p0")
+        self.assertEqual(real_params[1].param.name, "p4")
 
     def mock_param(self, name):
         param = Mock()
@@ -83,14 +85,14 @@ class TestCustomMappings(unittest.TestCase):
         device = Mock()
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
-        result, alias, button = self.custom_mappings.find_parameter(device, 1)
-        self.assertEqual(result.name, "p1")
+        result = self.custom_mappings.find_parameter(device, 1)
+        self.assertEqual(result.mapped_parameter.name, "p1")
 
     def test_out_of_index_parameter_should_be_none(self):
         device = Mock()
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
-        result, alias, button = self.custom_mappings.find_parameter(device, 10)
+        result = self.custom_mappings.find_parameter(device, 10)
         self.assertIsNone(result)
 
 
@@ -98,16 +100,46 @@ class TestCustomMappings(unittest.TestCase):
         device = Mock()
         device.class_name = "OriginalSimpler"
         device.parameters = self.params()
-        result, alias, button = self.custom_mappings.find_parameter(device, 10)
+        result = self.custom_mappings.find_parameter(device, 10)
         self.assertIsNone(result)
 
     def test_find_parameter_with_mappings(self):
         device = Mock()
         device.class_name = "OriginalSimpler"
         device.parameters = self.params(6)
-        result, alias, button = self.custom_mappings.find_parameter(device, 1)
-        self.assertEqual(result.name, "p2")
-        self.assertEqual(alias, "a")
+        result = self.custom_mappings.find_parameter(device, 1)
+        self.assertEqual(result.param.name, "p2")
+        self.assertEqual(result.alias, "a")
+
+    def test_parse_custom_mappings(self):
+        custom_mappings_raw = {
+            "device1": [
+                {"c_idx": 0, "d_idx": 1, "alias": "alias1"},
+                {"c_idx": 1, "d_idx": 2, "alias": "alias2", "button": "button1"}
+            ],
+            "device2": [
+                {"c_idx": 0, "d_idx": 3, "alias": "alias3"}
+            ]
+        }
+        expected_result = {
+            "device1": [(0, ParameterMapping(1, "alias1", None)), (1, ParameterMapping(2, "alias2", "button1"))],
+            "device2": [(0, ParameterMapping(3, "alias3", None))]
+        }
+        self.assertEqual(parse_custom_mappings(custom_mappings_raw), expected_result)
+
+    def test_parse_custom_mappings_empty(self):
+        custom_mappings_raw = {}
+        expected_result = {}
+        self.assertEqual(parse_custom_mappings(custom_mappings_raw), expected_result)
+
+    def test_parse_custom_mappings_device_empty(self):
+        custom_mappings_raw = {
+            "device1": []
+        }
+        expected_result = {
+            "device1": []
+        }
+        self.assertEqual(parse_custom_mappings(custom_mappings_raw), expected_result)
 
 
 if __name__ == '__main__':

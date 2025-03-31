@@ -255,7 +255,8 @@ def generate(mapping_file_path):
         'udp_port': generate_5_digit_number(surface_name) + 1,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings',
-        'ableton_dir': validate_path(mappings.ableton_dir)
+        'ableton_dir': validate_path(mappings.ableton_dir),
+        'remote_on': mappings.remote_on
     }
 
     code_vars = generate_code_as_template_vars(mode_with_midi)
@@ -282,8 +283,8 @@ if __name__ == '__main__':
     script_file = Path(sys.argv[1])
     generate(script_file)
 
-    script_file = Path(sys.argv[2])
-    generate(script_file)
+    # script_file = Path(sys.argv[2])
+    # generate(script_file)
 
     # # except GenError as e:
     # #     print(f"Problem Generating: {e}")

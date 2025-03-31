@@ -5,7 +5,7 @@ from _Framework.InputControlElement import *
 from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
-from .helpers import Helpers, OSCMultiClient, OSCClient, Remote
+from .helpers import Helpers, OSCMultiClient, OSCClient, Remote, NullOSCClient
 from .listener import OSCListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
@@ -37,10 +37,13 @@ class MainComponent(ControlSurfaceComponent):
         self._song = self.manager.song()
         self._nav = Nav(self.manager)
 
-        self._osc_client = OSCMultiClient([
-            OSCClient(host='127.0.0.1'),
-            OSCClient(host='192.168.68.84', port=5005)
-        ])
+        self._osc_client = NullOSCClient()
+
+        if $remote_on:
+            self._osc_client = OSCMultiClient([
+                OSCClient(host='127.0.0.1'),
+                OSCClient(host='192.168.68.84', port=5005)
+            ])
 
         self._remote = Remote(self.manager, self._osc_client)
 

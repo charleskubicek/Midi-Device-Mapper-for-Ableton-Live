@@ -8,8 +8,19 @@ mappings:
         type: device
         track: selected
         device: selected
-#        parameter-mappings-file: device_parameters.nt
+        parameter-mappings-file: parks_device_parameters.nt
         mappings:
-            encoders:
-                range: row-1:1-8
-                parameters: 1-8
+            encoder-list:
+                -
+                    name: sliders
+                    range: row-1:1-8
+                    parameters: 17-24
+                -
+                    name: buttons1
+                    range: row-2:1-8
+                    parameters: 40-49
+                -
+                    name: buttons2
+                    range: row-3:1-8
+                    parameters: 50-59
+

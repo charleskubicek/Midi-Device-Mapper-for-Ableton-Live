@@ -332,6 +332,7 @@ class RangeV2(BaseModel):
 class RowMapV2_1(BaseModel):
     range_raw: str = Field(alias='range')
     parameters_raw: str = Field(alias='parameters')
+    name:str = Field(default="")
 
     @property
     def multi_encoder_coords(self) -> list[EncoderCoords]:

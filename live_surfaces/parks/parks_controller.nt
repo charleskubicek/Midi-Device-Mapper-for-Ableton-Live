@@ -12,13 +12,13 @@ control_groups:
         layout: row
         number: 2
         type: button
-        midi_channel: 2
+        midi_channel: 1
         midi_type: note
         midi_range: C2, D2, E2, FS2, GS2, AS2, C3, D3, F3
     -
         layout: row
-        number: 2
+        number: 3
         type: button
-        midi_channel: 2
+        midi_channel: 1
         midi_type: note
         midi_range: CS2, DS2, F2, G2, A3, B3, CS3, DS3, E3
