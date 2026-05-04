@@ -1,5 +1,6 @@
 import traceback
 from dataclasses import dataclass
+import random
 
 from _Framework.ControlSurfaceComponent import ControlSurfaceComponent
 from _Framework.ControlSurface import ControlSurface
@@ -1155,35 +1156,3 @@ class Random:
 
     def __str__(self):
         return f"Random for {self.name}"
-
-parameter_toggle_mappings = {
-    "SQ Sequencer": [OnOff("RandPitch"),
-                     OnOff("RandOct"),
-                     OnOff("VelRandom"),
-                     OnOff("RandLength"),
-                     OnOff("ResetVelocity"),
-                     OnOff("ResetLength"),
-                     Dec("SQMax"),
-                     Inc("SQMax"),
-                     OnOff("ShiftLeft"),
-                     OnOff("ShiftRight"),
-                     ],
-    "SHED SKIN - LOW END GENERATOR RACK": [
-        RackTurn("NEW GROOVE")
-    ],
-    "INST - Diva Preset Rack - CK": [
-        Dec("Program Change"),
-        Inc("Program Change"),
-        Dec("Bank (MSB)"),
-        Inc("Bank (MSB)")
-    ],
-    "ML-185 Sequencer": [
-        Group([Random("Pitch1"), Random("Pitch2"), Random("Pitch3"),
-               Random("Pitch4"), Random("Pitch5"), Random("Pitch6"),
-               Random("Pitch7"), Random("Pitch8")]),
-
-        Group([Random("Velocity1"), Random("Velocity2"), Random("Velocity3"),
-               Random("Velocity4"), Random("Velocity5"), Random("Velocity6"),
-               Random("Velocity7"), Random("Velocity8")])
-    ]
-}
