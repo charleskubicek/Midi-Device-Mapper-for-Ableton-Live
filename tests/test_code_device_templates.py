@@ -16,7 +16,6 @@ class TestDeviceModeTemplates(unittest.TestCase):
                                                               build_device_midi_mapping(midi_number=23,parameter=3),
                                                               build_device_midi_mapping(midi_number=24,parameter=4),
                                                           ],
-                                          custom_device_mappings={},
                                           parameter_page_nav=None)
         result = GeneratedCodes.merge_all(device_templates(device_with_midi, 'mode_1'))
         all_functions = "\n".join(result.listener_fns)

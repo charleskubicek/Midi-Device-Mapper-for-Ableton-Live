@@ -43,7 +43,7 @@ class TestHelpersWithCustom(unittest.TestCase):
                 {'c_idx': 41, 'd_idx': 219, 'alias': 'ScrambleVel'}]
         }
 
-        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings, {"OriginalSimpler": "Simpler"})
+        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
 
     def test_device_parameter_action(self):
         device = Mock()
@@ -87,12 +87,12 @@ class TestHelpers(unittest.TestCase):
 
         }
 
-        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings, {"OriginalSimpler": "Simpler"})
+        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
 
     def test_device_parameter_action(self):
         device = Mock()
         device.name = "Simpler"
-        device.class_name = "OriginalSimpler"
+        device.class_name = "Simpler"
         device.parameters = [Mock(min=0.0, max=1.0, value=0.1, name=f"param {i}") for i in range(150)]
 
         parameter_no = 3 # mapped to parameter 4

@@ -15,24 +15,11 @@ modes:
                 type: device
                 track: selected
                 device: selected
-                parameter-mappings-file: device_parameters.nt
                 mappings:
                     encoders:
-                        range: row-1:1-8,row-2:1-8
-                        parameters: 1-16
-    #                encoders:
-    #                    -   condition: default
-    #                        range: row-1:1-8,row-2:1-8
-    #                        parameters: 1-16
-    #                    -
-    #                        condition: rack, first_8_or_less_mapped
-    #                        range: row-1:1-4,row-2:1-4
-    #                        parameters: 1-8
+                        range: row-1:1-8
+                        slots: 1-8
                     on-off: row-3:4 toggle
-                    parameter-paging:
-                        dec: row-4:1
-                        inc: row-4:2
-                        export-to-mode: shift_mode
             -
                 type: mixer
                 track: selected

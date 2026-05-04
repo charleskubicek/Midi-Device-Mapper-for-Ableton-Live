@@ -16,7 +16,6 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             track='selected',
             device='selected',
             mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:2-5", parameters="1-4")),
-            custom_parameter_mappings=None
         )
 
         res = build_device_model_v2_1(controller, dev, root_dir="")
@@ -37,7 +36,6 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             track='selected',
             device='selected',
             mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:2-5,row-2:2-5", parameters="1-8")),
-            custom_parameter_mappings=None
         )
 
         res = build_device_model_v2_1(controller, dev, root_dir="")
@@ -65,7 +63,6 @@ class TestDevice(unittest.TestCase, CustomAssertions):
             track='master',
             device='MC',
             mappings=DeviceEncoderMappings(encoders=RowMapV2_1(range="row-1:1", parameters="6")),
-            custom_parameter_mappings=None
         )
 
         res = build_device_model_v2_1(controller, dev, root_dir="")

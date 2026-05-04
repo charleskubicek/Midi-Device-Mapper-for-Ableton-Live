@@ -66,6 +66,23 @@ class TestMixerTemplates(unittest.TestCase, CustomAssertions):
         self.assert_string_in_one('self.mixer.selected_strip().set_send_controls(None)', result.remove_listeners)
         self.assertEqual(result.listener_fns , [])
 
+    def test_mixer_sends_declares_each_knob_in_control_defs(self):
+        # Regression: array_defs reference `self.<knob>` so each underlying coord
+        # must also appear in control_defs to get an EncoderElement declaration in
+        # setup_controls. Without this, runtime fails with
+        #   AttributeError: 'MainComponent' object has no attribute 'knob_chX_NN_CC'
+        # when the array is built.
+        mixer_with_midi = build_mixer_with_multiple_mappings(
+            2, [45, 46, 47], 'CC', api_fn='sends', enocder_type=EncoderType.knob,
+        )
+
+        result = GeneratedCodes.merge_all(mixer_templates(mixer_with_midi, "shift_mode"))
+
+        declared_numbers = sorted(c.number for c in result.control_defs)
+        array_numbers = sorted(c.number for c in result.array_defs[0][1])
+        self.assertEqual(declared_numbers, array_numbers,
+                         "every coord referenced in the sends array must be declared in control_defs")
+
     def build_mixer_with_one_mapping(self, chan=2, no=50, type="CC", api_fn="pan",
                                      enocder_type=EncoderType.knob, track_info=TrackInfo.selected()):
         return build_mixer_with_multiple_mappings(chan, [no], type, api_fn, enocder_type, track_info)

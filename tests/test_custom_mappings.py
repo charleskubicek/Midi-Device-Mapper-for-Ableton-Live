@@ -10,13 +10,12 @@ class TestCustomMappings(unittest.TestCase):
     def setUp(self):
         self.mappings = {
             "Simpler": [(1, ParameterMapping(2, 'a', None)), (2, ParameterMapping(5, 'b', 'toggle')), (3, ParameterMapping(4, 'c', None))]
-            # "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
-        self.custom_mappings = CustomMappings(Mock(), self.mappings, {'OriginalSimpler': 'Simpler'})
+        self.custom_mappings = CustomMappings(Mock(), self.mappings)
 
     def test_has_user_defined_parameters_true(self):
         device = Mock()
-        device.class_name = "OriginalSimpler"
+        device.class_name = "Simpler"
         result = self.custom_mappings.has_user_defined_parameters(device)
         self.assertTrue(result)
 
@@ -30,7 +29,7 @@ class TestCustomMappings(unittest.TestCase):
 
     def test_filter_actual_parameters_with_custom_params_and_page_size(self):
         device = Mock()
-        device.class_name = "OriginalSimpler"
+        device.class_name = "Simpler"
         device.parameters = self.params(count=6)
 
         paging = SelectedDeviceParameterPaging(Mock(), page_size=2)
@@ -78,14 +77,14 @@ class TestCustomMappings(unittest.TestCase):
 
     def test_out_of_index_parameter_for_deivce_with_mappings_should_be_none(self):
         device = Mock()
-        device.class_name = "OriginalSimpler"
+        device.class_name = "Simpler"
         device.parameters = self.params()
         result = self.custom_mappings.find_parameter(device, 10)
         self.assertIsNone(result)
 
     def test_find_parameter_with_mappings(self):
         device = Mock()
-        device.class_name = "OriginalSimpler"
+        device.class_name = "Simpler"
         device.parameters = self.params(6)
         result = self.custom_mappings.find_parameter(device, 1)
         self.assertEqual(result.param.name, "p2")
@@ -120,6 +119,34 @@ class TestCustomMappings(unittest.TestCase):
             "device1": []
         }
         self.assertEqual(parse_custom_mappings(custom_mappings_raw), expected_result)
+
+    def test_macro_rack_falls_through_to_identity_mapping(self):
+        # Macro Racks (AudioEffectGroupDevice etc.) are deliberately absent from the
+        # slot table — they have no canonical slot meaning. Encoder N must drive
+        # device.parameters[N] directly so the user's encoders land on Macro N.
+        rack = Mock()
+        rack.class_name = "AudioEffectGroupDevice"
+        rack.parameters = self.params(count=17)  # device on/off + 16 macros
+
+        self.assertFalse(self.custom_mappings.has_user_defined_parameters(rack))
+
+        for encoder_index in range(1, 17):
+            result = self.custom_mappings.find_parameter(rack, encoder_index)
+            self.assertEqual(
+                result.param.name, f"p{encoder_index}",
+                f"encoder {encoder_index} should drive device.parameters[{encoder_index}]"
+            )
+            self.assertIsNone(result.alias)
+
+    def test_macro_rack_other_class_names_also_fall_through(self):
+        # Sanity-check the other rack classes Live exposes.
+        for class_name in ("InstrumentGroupDevice", "MidiEffectGroupDevice", "DrumGroupDevice"):
+            rack = Mock()
+            rack.class_name = class_name
+            rack.parameters = self.params(count=10)
+            self.assertFalse(self.custom_mappings.has_user_defined_parameters(rack))
+            result = self.custom_mappings.find_parameter(rack, 1)
+            self.assertEqual(result.param.name, "p1", f"{class_name} should fall through")
 
 
 if __name__ == '__main__':

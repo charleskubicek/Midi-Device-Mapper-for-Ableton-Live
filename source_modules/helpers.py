@@ -136,9 +136,9 @@ def parse_custom_mappings(custom_mappings_raw):
 
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings_raw, device_class_names_to_friendly_names, page_size=16):
+    def __init__(self, manager, remote, custom_mappings_raw, page_size=16):
         self._manager = manager
-        self._custom_mappings = CustomMappings(manager, parse_custom_mappings(custom_mappings_raw), device_class_names_to_friendly_names)
+        self._custom_mappings = CustomMappings(manager, parse_custom_mappings(custom_mappings_raw))
         self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
         self._last_selected_device = None
@@ -255,6 +255,31 @@ class Helpers:
     def value_is_max(self, value, max):
         return value == max
 
+    def device_param_cycle(self, device, param_no, cycle_min, cycle_max, fn_name):
+        """
+        Cycle a discrete-valued parameter through [cycle_min, cycle_max] inclusive.
+        Wraps from cycle_max back to cycle_min.
+        """
+        if device is None:
+            return
+        if param_no >= len(device.parameters):
+            self.log_message(f"{fn_name}: param {param_no} out of range for {device.class_name}")
+            return
+        parameter = device.parameters[param_no]
+        steps = cycle_max - cycle_min + 1
+        if steps < 2:
+            return
+        try:
+            current_step = int(round(parameter.value))
+        except (TypeError, ValueError):
+            current_step = cycle_min
+        next_step = cycle_min + ((current_step - cycle_min + 1) % steps)
+        if self._manager.debug:
+            self.log_message(
+                f"{fn_name}: {device.class_name} param {param_no} cycle {cycle_min}..{cycle_max}: {current_step} -> {next_step}"
+            )
+        parameter.value = next_step
+
     def normalise(self, midi_value, min_value, max_value):
         """
         Maps a MIDI value (0-127) to the given range [min_value, max_value].
@@ -332,18 +357,22 @@ class CustomMappings:
     """
         CustomMappings
 
-        This class is responsible for managing custom mappings for devices. It is used to find user defined parameters or defaults
-        for a given device. It also provides a method to find a parameter for a given device, parameter number and midi number.
+        Manages slot-derived parameter mappings keyed on the device's `class_name`.
+        For each known device class (Compressor2, Eq8, ...) it carries the list of
+        (encoder_index, ParameterMapping) entries derived from the user's `slots:` list
+        and the family-intents JSON.
 
-        The custom_mappings maps encoder indexes to device parameter indexes
+        Devices not in the slot table (notably Macro Racks — AudioEffectGroupDevice,
+        InstrumentGroupDevice, MidiEffectGroupDevice, DrumGroupDevice) fall through to
+        a direct identity mapping: encoder N drives device.parameters[N], so encoder 1
+        drives Macro 1, encoder 2 drives Macro 2, etc. This is intentional — racks
+        have no canonical slot meanings, so the macros themselves are the contract.
     """
     def __init__(self, manager,
-                 custom_mappings: dict[str, [(int, ParameterMapping)]],
-                 device_class_names_to_friendly_names):
+                 custom_mappings: dict[str, [(int, ParameterMapping)]]):
         self._manager = manager
 
         self._custom_mappings: dict[str, [(int, ParameterMapping)]] = custom_mappings
-        self._device_class_names_to_friendly_names = device_class_names_to_friendly_names
 
     def log_message(self, message):
         self._manager.log_message(message)
@@ -355,7 +384,7 @@ class CustomMappings:
         return self.device_lookup_key(device) in self._custom_mappings
 
     def device_lookup_key(self, device):
-        return self._device_class_names_to_friendly_names.get(device.class_name, device.name)
+        return device.class_name
 
     def user_defined_parameters_for(self, device) -> [(int, ParameterMapping)]:
         return self._custom_mappings[self.device_lookup_key(device)]

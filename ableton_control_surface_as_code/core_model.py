@@ -4,7 +4,7 @@ from abc import ABC
 from enum import Enum
 from typing import Literal, Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple, EncoderRefinements
 
@@ -331,8 +331,19 @@ class RangeV2(BaseModel):
 
 class RowMapV2_1(BaseModel):
     range_raw: str = Field(alias='range')
-    parameters_raw: str = Field(alias='parameters')
-    name:str = Field(default="")
+    parameters_raw: Optional[str] = Field(default=None, alias='parameters')
+    slots_raw: Optional[str] = Field(default=None, alias='slots')
+    name: str = Field(default="")
+
+    @model_validator(mode='after')
+    def _exactly_one_of_parameters_or_slots(self):
+        has_params = self.parameters_raw is not None
+        has_slots = self.slots_raw is not None
+        if has_params and has_slots:
+            raise ValueError("Specify either 'parameters' or 'slots', not both")
+        if not has_params and not has_slots:
+            raise ValueError("Must specify either 'parameters' or 'slots'")
+        return self
 
     @property
     def multi_encoder_coords(self) -> list[EncoderCoords]:
@@ -340,4 +351,17 @@ class RowMapV2_1(BaseModel):
 
     @property
     def parameters(self) -> RangeV2:
+        if self.parameters_raw is None:
+            raise ValueError("'parameters' not set on this RowMapV2_1; use slots property instead")
         return RangeV2.parse(self.parameters_raw)
+
+    @property
+    def slots(self) -> List[str]:
+        from .family_intents import parse_continuous_slot_list
+        if self.slots_raw is None:
+            return []
+        return parse_continuous_slot_list(self.slots_raw)
+
+    @property
+    def uses_slots(self) -> bool:
+        return self.slots_raw is not None

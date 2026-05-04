@@ -1,18 +1,22 @@
 import ast
-import json
 import keyword
 from dataclasses import dataclass, field
-from pathlib import Path
 from string import Template
-from typing import List, Dict
+from typing import List, Tuple
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, ButtonProviderBaseModel, MidiCoords
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
-from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceCustomParameterGroupMidiMapping
+from ableton_control_surface_as_code.family_intents import (
+    load_family_intents,
+    is_mode_slot,
+)
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, ModeButtonMidiMapping
 from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_surface_as_code.model_transport import TransportWithMidi
+
+_family_intents = load_family_intents()
 
 
 @dataclass
@@ -145,6 +149,9 @@ def mixer_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> [Generate
             var_name = f"{midi_map.midi_coords[0].controller_variable_name()}_{mode_name}_sends"
 
             codes.append(GeneratedCode(
+                # Each coord in the array_def is referenced as `self.<knob>`, so
+                # the corresponding EncoderElement must be declared in setup_controls.
+                control_defs=list(midi_map.midi_coords),
                 array_defs=[(var_name, midi_map.midi_coords)],
                 setup_listeners=[midi_map.listener_setup_code(var_name)],
                 remove_listeners=[midi_map.listener_remove_code()]
@@ -182,6 +189,9 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                 mm.info_string())
         ))
 
+    for mb in device_with_midi.mode_button_maps:
+        codes.append(_mode_button_template(mb, device_with_midi, mode_name))
+
     if device_with_midi.parameter_page_nav is not None:
         if device_with_midi.parameter_page_nav.export_to_mode is not None:
             if device_with_midi.parameter_page_nav.export_to_mode == mode_name:
@@ -190,79 +200,88 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                 print(
                     f"Not generating parmeter_paging on mode {mode_name} as it's being exported to {device_with_midi.parameter_page_nav.export_to_mode}")
 
-    custom_mappings = code_from_parameter_groups(
-        device_with_midi.custom_parameter_groups,
-        device_with_midi.group_name_to_range)
-
-    custom_mappings.extend(code_from_custom_device_mappings(device_with_midi.custom_device_mappings))
-
+    custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
 
     return codes
 
 
-def code_from_custom_device_mappings(custom_device_mappings):
-    custom_mappings = []
-    for dev_name, encoder_map in custom_device_mappings.items():
-        print("  ", dev_name)
-        d = [(em.non_zeroed_index,
-              find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
-             for em in encoder_map]
+def _mode_button_template(mb: ModeButtonMidiMapping, device_with_midi: DeviceWithMidi, mode_name: str) -> 'GeneratedCode':
+    btn_name = mb.controller_variable_name()
+    btn_listener_name = mb.controller_listener_fn_name(mode_name)
 
-        ser = [serialiase_param_info(m_no, d_idx, alias, button)
-               for m_no, (d_idx, alias, button) in d]
+    cycle_table = _slot_class_param_table(mb.slot, with_cycle=True)
 
-        print_parameter_mappings(d, dev_name)
+    fn = Template("""
+def ${fn_name}(self, value):
+    if value != 127:
+        return
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+    table = ${cycle_table}
+    entry = table.get(device.class_name)
+    if entry is None:
+        self.log_message(f"${slot} not supported for {device.class_name}")
+        return
+    param_no, cmin, cmax = entry
+    self._helpers.device_param_cycle(device, param_no, cmin, cmax, "$fn_name")
+    """).substitute(
+        fn_name=btn_listener_name,
+        track=device_with_midi.track.name.value,
+        device=device_with_midi.device,
+        cycle_table=cycle_table,
+        slot=mb.slot,
+    ).split("\n")
 
-        code = f"'{dev_name}': " + str(ser)
-        custom_mappings.append(code)
-
-    return custom_mappings
-
-
-def code_from_parameter_groups(
-        groups: Dict[str, List[DeviceCustomParameterGroupMidiMapping]],
-        group_name_to_range: dict):
-
-    custom_mappings = []
-
-    for dev_name, groups in groups.items():
-        group_code = []
-        for encoder_map in groups:
-            print("  ", dev_name)
-            range = group_name_to_range[encoder_map.name].as_inclusive_list()
-
-            d = [(r, find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
-                 for (r, em) in zip(range, encoder_map.parameters)]
-
-            ser = [serialiase_param_info(m_no, d_idx, alias, button)
-                   for m_no, (d_idx, alias, button) in d]
-
-            group_code.extend(ser)
-
-            print_parameter_mappings(d, dev_name)
-
-        code = f"'{dev_name}': " + str(group_code)
-        custom_mappings.append(code)
-
-    return custom_mappings
+    return GeneratedCode(
+        control_defs=[mb.only_midi_coord],
+        setup_listeners=[f"self.{btn_name}.add_value_listener(self.{btn_listener_name})",
+                         f"self._previous_values['{btn_listener_name}'] = 0"],
+        remove_listeners=[f"self.{btn_name}.remove_value_listener(self.{btn_listener_name})"],
+        listener_fns=fn,
+    )
 
 
-def print_parameter_mappings(d, dev_name):
-    for m_no, (p_no, _, _) in d:
-        name = "Unknown"
-        for p_values in device_parameter_names[dev_name]['parameters']:
-            if int(p_values['no']) == int(p_no):
-                name = p_values['name']
+def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[str]:
+    """
+    Given the user's encoder_index -> slot_name list for one device mapping, emit the
+    per-device-class parameter mappings dict entries that the runtime expects.
 
-        print(f"     {(m_no)} -> {p_no}: ({name})")
+    For each device class in the family-intents JSON, emit the entries for the slots
+    that class supports. Classes with no slot support contribute no entries.
+    """
+    if not slot_assignments:
+        return []
+
+    per_class: dict = {}
+    for c_idx, slot in slot_assignments:
+        if is_mode_slot(slot):
+            continue  # mode slots are handled by mode-buttons, not in this dict
+        slot_table = _family_intents.get(slot, {})
+        for class_name, entry in slot_table.items():
+            per_class.setdefault(class_name, []).append({
+                'c_idx': c_idx,
+                'd_idx': entry.parameter_number,
+                'alias': entry.parameter_name,
+            })
+
+    return [f"'{class_name}': {entries!r}" for class_name, entries in sorted(per_class.items())]
 
 
-def serialiase_param_info(cont_idx, device_idx, alias, button):
-    ser = {'c_idx': cont_idx, 'd_idx': device_idx, 'alias': alias}
-    if button is not None:
-        ser['button'] = button
-    return ser
+def _slot_class_param_table(slot: str, with_cycle: bool = False) -> str:
+    """Return a Python dict literal mapping class_name -> param_no (or (param_no, cmin, cmax))."""
+    table = _family_intents.get(slot, {})
+    if with_cycle:
+        items = {
+            cls: (e.parameter_number, e.cycle_min if e.cycle_min is not None else 0,
+                  e.cycle_max if e.cycle_max is not None else 0)
+            for cls, e in table.items() if e.cycle_min is not None and e.cycle_max is not None
+        }
+    else:
+        items = {cls: e.parameter_number for cls, e in table.items()}
+    return repr(items)
 
 
 # TODO Unit tests
@@ -288,19 +307,6 @@ def code_for_parameter_paging(parameter_page_nav, mode_name):
         )
 
     return codes
-
-
-# TODO Unit tests
-def find_device_parameter_number_for_given_name(device_name, device_parameter):
-    if device_name not in device_parameter_names:
-        print(f"Device not found, no mappings created: for {device_name} in {list(device_parameter_names.keys())}")
-
-    for param in device_parameter_names[device_name]['parameters']:
-        if param['name'] == device_parameter.name:
-            return int(param['no']), device_parameter.alias_str(), device_parameter.button
-
-    raise ValueError(f"Could not find device parameter for {device_name} - {device_parameter.name}")
-    # return None
 
 
 def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
@@ -380,11 +386,3 @@ def class_function_body_code_block(lines: [str]):
     return f"\n{tab_block}{tab_block}" + f"\n{tab_block}{tab_block}".join(lines) + "\n"
 
 
-# file = Path("data/devices_12.json").read_text()
-file = (Path(__file__).parent.parent / "data/devices_12.json").read_text()
-device_parameter_names = json.loads(file)
-
-device_class_names_to_friendly_names = {
-    "OriginalSimpler": "Simpler",
-    "InstrumentVector": "Wavetable"
-}
