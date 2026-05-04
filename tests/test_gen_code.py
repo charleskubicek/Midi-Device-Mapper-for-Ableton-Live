@@ -36,21 +36,21 @@ class TestSlotParsing(unittest.TestCase):
 
     def test_canonical_names_pass_through(self):
         self.assertEqual(parse_slot_token("slot1"), "slot1")
-        self.assertEqual(parse_slot_token("mode"), "mode")
-        self.assertEqual(parse_slot_token("modMode"), "modMode")
+        self.assertEqual(parse_slot_token("switch1"), "switch1")
+        self.assertEqual(parse_slot_token("switch2"), "switch2")
 
     def test_bare_int_expands(self):
         self.assertEqual(parse_slot_token("3"), "slot3")
 
-    def test_rejects_mode_in_continuous_list(self):
+    def test_rejects_switch1_in_continuous_list(self):
         with self.assertRaises(ValueError) as cm:
-            parse_continuous_slot_list("1,mode,3")
-        self.assertIn("mode", str(cm.exception))
+            parse_continuous_slot_list("1,switch1,3")
+        self.assertIn("switch1", str(cm.exception))
         self.assertIn("mode-buttons", str(cm.exception))
 
-    def test_rejects_modmode_in_continuous_list(self):
+    def test_rejects_switch2_in_continuous_list(self):
         with self.assertRaises(ValueError):
-            parse_continuous_slot_list("modMode")
+            parse_continuous_slot_list("switch2")
 
     def test_rejects_out_of_range(self):
         with self.assertRaises(ValueError):
@@ -98,10 +98,10 @@ class TestSlotAssignmentsCodegen(unittest.TestCase):
         self.assertNotIn("'Compressor2':", joined)
 
     def test_mode_slots_excluded_from_dict(self):
-        # mode is handled by mode-buttons; should not show up in the per-class dict.
-        lines = code_from_slot_assignments([(1, "slot1"), (2, "mode")])
+        # switch1 is handled by mode-buttons; should not show up in the per-class dict.
+        lines = code_from_slot_assignments([(1, "slot1"), (2, "switch1")])
         joined = "\n".join(lines)
-        # mode's parameter 10 (Compressor2's "Model") shouldn't show as a c_idx=2 entry.
+        # switch1's parameter 10 (Compressor2's "Model") shouldn't show as a c_idx=2 entry.
         # All entries should have c_idx=1.
         self.assertIn("'c_idx': 1, 'd_idx': 9, 'alias': 'Dry/Wet'", joined)
         self.assertNotIn("'c_idx': 2", joined)
@@ -140,7 +140,7 @@ class TestDeviceTemplatesWithSlots(unittest.TestCase):
             device="selected",
             mappings=DeviceEncoderMappings.model_validate({
                 "encoders": {"range": "row-1:1-4", "slots": "1-4"},
-                "mode-buttons": [{"coord": "row-1:5", "slot": "mode"}],
+                "mode-buttons": [{"coord": "row-1:5", "slot": "switch1"}],
             }),
         )
         device_with_midi = build_device_model_v2_1(controller, dev, root_dir="")
@@ -148,7 +148,7 @@ class TestDeviceTemplatesWithSlots(unittest.TestCase):
         all_fns = "\n".join(result.listener_fns)
 
         self.assertIn("self._helpers.device_param_cycle(device,", all_fns)
-        # Cycle table should include Compressor2's mode (param 10, range 0..2).
+        # Cycle table should include Compressor2's switch1 (param 10, range 0..2).
         self.assertIn("'Compressor2': (10, 0, 2)", all_fns)
 
 

@@ -2,12 +2,13 @@
 Loader for the device-family-intents JSON.
 
 The JSON groups Ableton devices into families. Each device declares slots
-(slot1..slot8, mode, modMode) that map a canonical role (e.g. "Dry/Wet")
+(slot1..slot8, switch1, switch2) that map a canonical role (e.g. "Dry/Wet")
 to a parameter number on that device.
 
 Slots are used to drive runtime dispatch: when an encoder is mapped to a
 slot, the listener looks up the currently selected device's class_name and
 finds the parameter number for that slot on that class.
+
 """
 import json
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 CONTINUOUS_SLOT_NAMES = [f"slot{i}" for i in range(1, 9)]
-MODE_SLOT_NAMES = ["mode", "modMode"]
+MODE_SLOT_NAMES = ["switch1", "switch2"]
 ALL_SLOT_NAMES = CONTINUOUS_SLOT_NAMES + MODE_SLOT_NAMES
 
 
@@ -69,7 +70,7 @@ def is_mode_slot(name: str) -> bool:
 
 def parse_slot_token(token: str) -> str:
     """
-    Accept canonical slot names (slot1..slot8, mode, modMode) or bare integers
+    Accept canonical slot names (slot1..slot8, switch1, switch2) or bare integers
     (1..8, expanded to slot1..slot8). Returns the canonical name.
     Raises ValueError on anything else.
     """
@@ -92,7 +93,7 @@ def parse_continuous_slot_list(raw: str) -> List[str]:
         - `1,3,5`         individual indices
         - `slot1,slot3`   explicit canonical names
         - mixes: `1,slot3,5-7`
-    Rejects mode / modMode (those belong in mode-buttons).
+    Rejects switch1 / switch2 (those belong in mode-buttons).
     """
     result: List[str] = []
     for chunk in [c.strip() for c in raw.split(",") if c.strip()]:

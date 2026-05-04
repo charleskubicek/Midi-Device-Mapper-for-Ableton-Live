@@ -8,7 +8,7 @@
         ["slot3", "Tone"],
         ["slot4", "Character"],
         ["slot5", "Output"],
-        ["mode", "Mode"]],
+        ["switch1", "Mode"]],
       "devices": [
         {
           "className": "Amp", "deviceName": "Amp",
@@ -18,7 +18,7 @@
             "slot3": {"parameterName": "Presence", "parameterNumber": 5},
             "slot4": {"parameterName": "Bass", "parameterNumber": 2},
             "slot5": {"parameterName": "Volume", "parameterNumber": 7},
-            "mode": {"parameterName": "Amp Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 6}
+            "switch1": {"parameterName": "Amp Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 6}
           }
         },
         {
@@ -27,7 +27,7 @@
             "slot1": {"parameterName": "Dry/Wet", "parameterNumber": 5},
             "slot3": {"parameterName": "Microphone Position", "parameterNumber": 3},
             "slot4": {"parameterName": "Microphone Type", "parameterNumber": 2, "cycleMin": 0, "cycleMax": 1},
-            "mode": {"parameterName": "Cabinet Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 4}
+            "switch1": {"parameterName": "Cabinet Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 4}
           }
         },
         {
@@ -38,7 +38,7 @@
             "slot3": {"parameterName": "Transients", "parameterNumber": 6},
             "slot4": {"parameterName": "Crunch", "parameterNumber": 4},
             "slot5": {"parameterName": "Boom Decay", "parameterNumber": 9},
-            "mode": {"parameterName": "Drive Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Drive Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -49,7 +49,7 @@
             "slot3": {"parameterName": "Tone", "parameterNumber": 8},
             "slot4": {"parameterName": "Bias", "parameterNumber": 4},
             "slot5": {"parameterName": "Output", "parameterNumber": 3},
-            "mode": {"parameterName": "Tube Type", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Tube Type", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -58,7 +58,7 @@
             "slot1": {"parameterName": "Amount", "parameterNumber": 3},
             "slot2": {"parameterName": "Width", "parameterNumber": 4},
             "slot3": {"parameterName": "Frequency", "parameterNumber": 2},
-            "mode": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -78,7 +78,7 @@
             "slot3": {"parameterName": "Mid Freq", "parameterNumber": 7},
             "slot4": {"parameterName": "Sub", "parameterNumber": 8},
             "slot5": {"parameterName": "Output", "parameterNumber": 3},
-            "mode": {"parameterName": "Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -89,7 +89,7 @@
             "slot3": {"parameterName": "Bit Depth", "parameterNumber": 3},
             "slot4": {"parameterName": "Jitter", "parameterNumber": 2},
             "slot5": {"parameterName": "Post-Filter", "parameterNumber": 8},
-            "mode": {"parameterName": "DC Shift", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "DC Shift", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -100,7 +100,7 @@
             "slot3": {"parameterName": "Tone Amt", "parameterNumber": 2},
             "slot4": {"parameterName": "Fb Amt", "parameterNumber": 47},
             "slot5": {"parameterName": "Fb Time", "parameterNumber": 49},
-            "mode": {"parameterName": "Fb Time Mode", "parameterNumber": 48, "cycleMin": 0, "cycleMax": 4}
+            "switch1": {"parameterName": "Fb Time Mode", "parameterNumber": 48, "cycleMin": 0, "cycleMax": 4}
           }
         },
         {
@@ -111,7 +111,7 @@
             "slot3": {"parameterName": "Color Freq", "parameterNumber": 6},
             "slot4": {"parameterName": "Color Amt Low", "parameterNumber": 5},
             "slot5": {"parameterName": "Output", "parameterNumber": 10},
-            "mode": {"parameterName": "Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 7}
+            "switch1": {"parameterName": "Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 7}
           }
         },
         {
@@ -132,7 +132,7 @@
         ["slot3", "Attack"],
         ["slot4", "Ratio"],
         ["slot5", "Release"],
-        ["mode", "Mode"]],
+        ["switch1", "Mode"]],
       "devices": [
         {
           "className": "Compressor2", "deviceName": "Compressor",
@@ -142,7 +142,7 @@
             "slot3": {"parameterName": "Attack", "parameterNumber": 4},
             "slot4": {"parameterName": "Ratio", "parameterNumber": 2},
             "slot5": {"parameterName": "Release", "parameterNumber": 5},
-            "mode": {"parameterName": "Model", "parameterNumber": 10, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Model", "parameterNumber": 10, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -152,7 +152,7 @@
             "slot3": {"parameterName": "Attack", "parameterNumber": 2},
             "slot4": {"parameterName": "Floor", "parameterNumber": 6},
             "slot5": {"parameterName": "Release", "parameterNumber": 4},
-            "mode": {"parameterName": "FlipMode", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "FlipMode", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -163,7 +163,7 @@
             "slot3": {"parameterName": "Attack", "parameterNumber": 3},
             "slot4": {"parameterName": "Ratio", "parameterNumber": 5},
             "slot5": {"parameterName": "Release", "parameterNumber": 6},
-            "mode": {"parameterName": "Peak Clip In", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Peak Clip In", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -172,7 +172,7 @@
             "slot1": {"parameterName": "Ceiling", "parameterNumber": 2},
             "slot2": {"parameterName": "Threshold", "parameterNumber": 11},
             "slot5": {"parameterName": "Release", "parameterNumber": 3},
-            "mode": {"parameterName": "Mode", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Mode", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -183,7 +183,7 @@
             "slot3": {"parameterName": "Attack Time Low", "parameterNumber": 29},
             "slot4": {"parameterName": "Above Ratio Low", "parameterNumber": 23},
             "slot5": {"parameterName": "Release Time Low", "parameterNumber": 32},
-            "mode": {"parameterName": "Peak/RMS Mode", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Peak/RMS Mode", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 1}
           }
         }
       ]
@@ -196,10 +196,10 @@
         ["slot3", "Frequency"],
         ["slot4", "Resonance"],
         ["slot5", "\u2014"],
-        ["mode", "Mode"],
+        ["switch1", "Mode"],
         ["slot6", "Mod Time"],
         ["slot7", "Mod Shape"],
-        ["modMode", "Mod Mode"]],
+        ["switch2", "Mod Mode"]],
       "devices": [
         {
           "className": "AutoFilter2", "deviceName": "Auto Filter",
@@ -208,10 +208,10 @@
             "slot2": {"parameterName": "Drive", "parameterNumber": 8},
             "slot3": {"parameterName": "Frequency", "parameterNumber": 1},
             "slot4": {"parameterName": "Resonance", "parameterNumber": 2},
-            "mode": {"parameterName": "Type", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 9},
+            "switch1": {"parameterName": "Type", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 9},
             "slot6": {"parameterName": "LFO Time", "parameterNumber": 16, "additionalParameters": [{"parameterName": "LFO Rate","parameterNumber": 17}]},
             "slot7": {"parameterName": "LFO Wave", "parameterNumber": 13, "cycleMin": 0, "cycleMax": 7},
-            "modMode": {"parameterName": "LFO T Mode", "parameterNumber": 14, "cycleMin": 0, "cycleMax": 5}
+            "switch2": {"parameterName": "LFO T Mode", "parameterNumber": 14, "cycleMin": 0, "cycleMax": 5}
           }
         },
         {
@@ -222,7 +222,7 @@
             "slot3": {"parameterName": "Mid Gain", "parameterNumber": 3},
             "slot4": {"parameterName": "High Gain", "parameterNumber": 5},
             "slot5": {"parameterName": "Low Gain", "parameterNumber": 2},
-            "mode": {"parameterName": "Highpass On", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Highpass On", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -232,7 +232,7 @@
             "slot2": {"parameterName": "Scale", "parameterNumber": 2},
             "slot3": {"parameterName": "1 Frequency A", "parameterNumber": 6},
             "slot4": {"parameterName": "1 Resonance A", "parameterNumber": 8},
-            "mode": {"parameterName": "1 Filter Type A", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 7}
+            "switch1": {"parameterName": "1 Filter Type A", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 7}
           }
         },
         {
@@ -242,7 +242,7 @@
             "slot2": {"parameterName": "GainLo", "parameterNumber": 1},
             "slot3": {"parameterName": "FreqLo", "parameterNumber": 4},
             "slot4": {"parameterName": "GainHi", "parameterNumber": 3},
-            "mode": {"parameterName": "Slope", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Slope", "parameterNumber": 9, "cycleMin": 0, "cycleMax": 1}
           }
         }
       ]
@@ -255,17 +255,17 @@
         ["slot3", "Tone"],
         ["slot4", "Feedback"],
         ["slot5", "Time"],
-        ["mode", "Mode"],
+        ["switch1", "Mode"],
         ["slot6", "Mod Time"],
         ["slot7", "Mod Shape"],
-        ["modMode", "Mod Mode"]],
+        ["switch2", "Mod Mode"]],
       "devices": [
         {
           "className": "MxDeviceAudioEffect", "deviceName": "Envelope Follower",
           "slots": {
             "slot1": {"parameterName": "Mix", "parameterNumber": 5},
             "slot5": {"parameterName": "Delay", "parameterNumber": 1},
-            "mode": {"parameterName": "Delay Mode", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Delay Mode", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -276,7 +276,7 @@
             "slot3": {"parameterName": "Jitter", "parameterNumber": 4},
             "slot6": {"parameterName": "Rate", "parameterNumber": 2, "additionalParameters": [{"parameterName": "Rate","parameterNumber": 11}]},
             "slot7": {"parameterName": "Shape", "parameterNumber": 8, "cycleMin": 0, "cycleMax": 8},
-            "modMode": {"parameterName": "Time Mode", "parameterNumber": 12, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Time Mode", "parameterNumber": 12, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -286,7 +286,7 @@
             "slot2": {"parameterName": "GridSize", "parameterNumber": 3},
             "slot3": {"parameterName": "Jitter", "parameterNumber": 4},
             "slot6": {"parameterName": "Rate", "parameterNumber": 2, "additionalParameters": [{"parameterName": "Rate","parameterNumber": 11}]},
-            "modMode": {"parameterName": "Time Mode", "parameterNumber": 13, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Time Mode", "parameterNumber": 13, "cycleMin": 0, "cycleMax": 1}
           }
         }
       ]
@@ -299,7 +299,7 @@
         ["slot3", "Tone"],
         ["slot4", "Feedback"],
         ["slot5", "Width"],
-        ["mode", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["modMode", "Mod Mode"]],
+        ["switch1", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["switch2", "Mod Mode"]],
       "devices": [
         {
           "className": "AutoPan2", "deviceName": "Auto Pan-Tremolo",
@@ -307,10 +307,10 @@
             "slot1": {"parameterName": "Amount", "parameterNumber": 2},
             "slot3": {"parameterName": "Frequency", "parameterNumber": 6},
             "slot5": {"parameterName": "Spin", "parameterNumber": 13},
-            "mode": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 1},
+            "switch1": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 1},
             "slot6": {"parameterName": "Time", "parameterNumber": 7, "additionalParameters": [{"parameterName": "Rate","parameterNumber": 8}]},
             "slot7": {"parameterName": "Waveform", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 8},
-            "modMode": {"parameterName": "Time Mode", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 5}
+            "switch2": {"parameterName": "Time Mode", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 5}
           }
         },
         {
@@ -319,10 +319,10 @@
             "slot1": {"parameterName": "Dry Wet", "parameterNumber": 2},
             "slot2": {"parameterName": "Shift Semitones", "parameterNumber": 9},
             "slot3": {"parameterName": "Formant Shift", "parameterNumber": 12},
-            "mode": {"parameterName": "Lfo Waveform", "parameterNumber": 24, "cycleMin": 0, "cycleMax": 8},
+            "switch1": {"parameterName": "Lfo Waveform", "parameterNumber": 24, "cycleMin": 0, "cycleMax": 8},
             "slot6": {"parameterName": "Lfo Rate Hz", "parameterNumber": 26, "additionalParameters": [{"parameterName": "Lfo S. Rate","parameterNumber": 27}]},
             "slot7": {"parameterName": "Lfo Waveform", "parameterNumber": 24, "cycleMin": 0, "cycleMax": 8},
-            "modMode": {"parameterName": "Lfo Sync", "parameterNumber": 25, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Lfo Sync", "parameterNumber": 25, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -333,7 +333,7 @@
             "slot3": {"parameterName": "Warmth", "parameterNumber": 11},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 5},
             "slot5": {"parameterName": "Width", "parameterNumber": 10},
-            "mode": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2},
+            "switch1": {"parameterName": "Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2},
             "slot6": {"parameterName": "Rate", "parameterNumber": 3},
             "slot7": {"parameterName": "Shape", "parameterNumber": 2}
           }
@@ -346,10 +346,10 @@
             "slot3": {"parameterName": "Warmth", "parameterNumber": 26},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 25},
             "slot5": {"parameterName": "Spread", "parameterNumber": 24},
-            "mode": {"parameterName": "Mode", "parameterNumber": 18, "cycleMin": 0, "cycleMax": 2},
+            "switch1": {"parameterName": "Mode", "parameterNumber": 18, "cycleMin": 0, "cycleMax": 2},
             "slot6": {"parameterName": "Mod Freq", "parameterNumber": 3, "additionalParameters": [{"parameterName": "Mod Rate","parameterNumber": 7}]},
             "slot7": {"parameterName": "Mod Wave", "parameterNumber": 2, "cycleMin": 0, "cycleMax": 9},
-            "modMode": {"parameterName": "Mod Sync", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Mod Sync", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -360,10 +360,10 @@
             "slot3": {"parameterName": "Pitch Fine", "parameterNumber": 14},
             "slot4": {"parameterName": "Delay Feedback", "parameterNumber": 31},
             "slot5": {"parameterName": "Wide", "parameterNumber": 34},
-            "mode": {"parameterName": "Mode", "parameterNumber": 32, "cycleMin": 0, "cycleMax": 2},
+            "switch1": {"parameterName": "Mode", "parameterNumber": 32, "cycleMin": 0, "cycleMax": 2},
             "slot6": {"parameterName": "Lfo Rate Hz", "parameterNumber": 5, "additionalParameters": [{"parameterName": "Lfo S. Rate","parameterNumber": 6}]},
             "slot7": {"parameterName": "Lfo Waveform", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 9},
-            "modMode": {"parameterName": "Lfo Sync", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Lfo Sync", "parameterNumber": 4, "cycleMin": 0, "cycleMax": 1}
           }
         }
       ]
@@ -376,7 +376,7 @@
         ["slot3", "Tone"],
         ["slot4", "Feedback"],
         ["slot2", "Width"],
-        ["mode", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["modMode", "Mod Mode"]],
+        ["switch1", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["switch2", "Mod Mode"]],
       "devices": [
         {
           "className": "BeatRepeat", "deviceName": "Beat Repeat",
@@ -386,7 +386,7 @@
             "slot3": {"parameterName": "Filter Freq", "parameterNumber": 15},
             "slot4": {"parameterName": "Gate", "parameterNumber": 8},
             "slot2": {"parameterName": "Filter Width", "parameterNumber": 16},
-            "mode": {"parameterName": "Mix Type", "parameterNumber": 12, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Mix Type", "parameterNumber": 12, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -397,7 +397,7 @@
             "slot3": {"parameterName": "Filter Freq", "parameterNumber": 15},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 12},
             "slot2": {"parameterName": "Filter Width", "parameterNumber": 16},
-            "mode": {"parameterName": "Delay Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2},
+            "switch1": {"parameterName": "Delay Mode", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 2},
             "slot6": {"parameterName": "Mod Freq", "parameterNumber": 17}
           }
         },
@@ -409,10 +409,10 @@
             "slot3": {"parameterName": "HP Freq", "parameterNumber": 29},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 16},
             "slot2": {"parameterName": "Stereo Width", "parameterNumber": 51},
-            "mode": {"parameterName": "Channel Mode", "parameterNumber": 18, "cycleMin": 0, "cycleMax": 2},
+            "switch1": {"parameterName": "Channel Mode", "parameterNumber": 18, "cycleMin": 0, "cycleMax": 2},
             "slot6": {"parameterName": "Mod Freq", "parameterNumber": 34, "additionalParameters": [{"parameterName": "Mod Rate","parameterNumber": 36}]},
             "slot7": {"parameterName": "Mod Wave", "parameterNumber": 33, "cycleMin": 0, "cycleMax": 5},
-            "modMode": {"parameterName": "Mod Sync", "parameterNumber": 35, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "Mod Sync", "parameterNumber": 35, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -422,7 +422,7 @@
             "slot3": {"parameterName": "1 Filter Freq", "parameterNumber": 3},
             "slot4": {"parameterName": "1 Feedback", "parameterNumber": 9},
             "slot2": {"parameterName": "1 Filter Width", "parameterNumber": 4},
-            "mode": {"parameterName": "1 Delay Mode", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "1 Delay Mode", "parameterNumber": 5, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -433,7 +433,7 @@
             "slot3": {"parameterName": "Frequency", "parameterNumber": 2},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 5},
             "slot2": {"parameterName": "Spray", "parameterNumber": 1},
-            "mode": {"parameterName": "Delay Mode", "parameterNumber": 7, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Delay Mode", "parameterNumber": 7, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -451,14 +451,14 @@
             "slot3": {"parameterName": "Delay Frequency Shift", "parameterNumber": 23},
             "slot4": {"parameterName": "Delay Feedback", "parameterNumber": 18},
             "slot2": {"parameterName": "Delay Spray", "parameterNumber": 20},
-            "mode": {"parameterName": "Mode", "parameterNumber": 6, "cycleMin": 0, "cycleMax": 1}
+            "switch1": {"parameterName": "Mode", "parameterNumber": 6, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
           "className": "MxDeviceAudioEffect", "deviceName": "Align Delay",
           "slots": {
             "slot5": {"parameterName": "Delay L Smp", "parameterNumber": 7},
-            "mode": {"parameterName": "Mode", "parameterNumber": 14, "cycleMin": 0, "cycleMax": 2}
+            "switch1": {"parameterName": "Mode", "parameterNumber": 14, "cycleMin": 0, "cycleMax": 2}
           }
         },
         {
@@ -469,7 +469,7 @@
             "slot3": {"parameterName": "Damp", "parameterNumber": 21},
             "slot4": {"parameterName": "Feedback", "parameterNumber": 5},
             "slot2": {"parameterName": "Flowfield Size", "parameterNumber": 27},
-            "mode": {"parameterName": "Filter Type", "parameterNumber": 24, "cycleMin": 0, "cycleMax": 6}
+            "switch1": {"parameterName": "Filter Type", "parameterNumber": 24, "cycleMin": 0, "cycleMax": 6}
           }
         }
       ]
@@ -482,7 +482,7 @@
         ["slot3", "Tone"],
         ["slot4", "Texture"],
         ["slot2", "Size"],
-        ["mode", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["modMode", "Mod Mode"]],
+        ["switch1", "Mode"], ["slot6", "Mod Time"], ["slot7", "Mod Shape"], ["switch2", "Mod Mode"]],
       "devices": [
         {
           "className": "Corpus", "deviceName": "Corpus",
@@ -492,10 +492,10 @@
             "slot3": {"parameterName": "Bright", "parameterNumber": 3},
             "slot4": {"parameterName": "Bleed", "parameterNumber": 37},
             "slot2": {"parameterName": "Hit", "parameterNumber": 14},
-            "mode": {"parameterName": "Resonance Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 6},
+            "switch1": {"parameterName": "Resonance Type", "parameterNumber": 1, "cycleMin": 0, "cycleMax": 6},
             "slot6": {"parameterName": "LFO Rate", "parameterNumber": 20, "additionalParameters": [{"parameterName": "LFO Sync Rate","parameterNumber": 21}]},
             "slot7": {"parameterName": "LFO Shape", "parameterNumber": 18, "cycleMin": 0, "cycleMax": 6},
-            "modMode": {"parameterName": "LFO Sync", "parameterNumber": 19, "cycleMin": 0, "cycleMax": 1}
+            "switch2": {"parameterName": "LFO Sync", "parameterNumber": 19, "cycleMin": 0, "cycleMax": 1}
           }
         },
         {
@@ -506,7 +506,7 @@
             "slot3": {"parameterName": "Damping", "parameterNumber": 12},
             "slot4": {"parameterName": "Diffusion", "parameterNumber": 13},
             "slot2": {"parameterName": "Size", "parameterNumber": 11},
-            "mode": {"parameterName": "Algo Type", "parameterNumber": 6, "cycleMin": 0, "cycleMax": 4}
+            "switch1": {"parameterName": "Algo Type", "parameterNumber": 6, "cycleMin": 0, "cycleMax": 4}
           }
         },
         {
@@ -517,7 +517,7 @@
             "slot3": {"parameterName": "Frequency", "parameterNumber": 2},
             "slot4": {"parameterName": "Color", "parameterNumber": 7},
             "slot2": {"parameterName": "Width", "parameterNumber": 8},
-            "mode": {"parameterName": "Filter Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 3}
+            "switch1": {"parameterName": "Filter Type", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 3}
           }
         },
         {
@@ -528,7 +528,7 @@
             "slot3": {"parameterName": "HiFilter Freq", "parameterNumber": 12},
             "slot4": {"parameterName": "Density", "parameterNumber": 29},
             "slot2": {"parameterName": "Room Size", "parameterNumber": 26},
-            "mode": {"parameterName": "HiFilter Type", "parameterNumber": 11, "cycleMin": 0, "cycleMax": 1},
+            "switch1": {"parameterName": "HiFilter Type", "parameterNumber": 11, "cycleMin": 0, "cycleMax": 1},
             "slot6": {"parameterName": "Chorus Rate", "parameterNumber": 18}
           }
         },
@@ -551,7 +551,7 @@
             "slot3": {"parameterName": "Formant Shift", "parameterNumber": 3},
             "slot4": {"parameterName": "Enhance", "parameterNumber": 13},
             "slot2": {"parameterName": "Filter Bandwidth", "parameterNumber": 4},
-            "mode": {"parameterName": "Oscillator Waveform", "parameterNumber": 22, "cycleMin": 0, "cycleMax": 3}
+            "switch1": {"parameterName": "Oscillator Waveform", "parameterNumber": 22, "cycleMin": 0, "cycleMax": 3}
           }
         }
       ]
@@ -564,7 +564,7 @@
         ["slot3", "Tone"],
         ["slot4", "Feedback"],
         ["slot5", "Time"],
-        ["mode", "Mode"]],
+        ["switch1", "Mode"]],
       "devices": [
         {
           "className": "ProxyAudioEffectDevice", "deviceName": "Ext. Audio Effect",
@@ -577,7 +577,7 @@
           "slots": {
             "slot3": {"parameterName": "Bass Freq", "parameterNumber": 7},
             "slot2": {"parameterName": "Stereo Width", "parameterNumber": 4},
-            "mode": {"parameterName": "Channel Mode", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 3}
+            "switch1": {"parameterName": "Channel Mode", "parameterNumber": 3, "cycleMin": 0, "cycleMax": 3}
           }
         }
       ]

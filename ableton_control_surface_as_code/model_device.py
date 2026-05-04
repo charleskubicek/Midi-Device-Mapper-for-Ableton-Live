@@ -61,7 +61,7 @@ class DeviceParameterPageNavMidi(BaseModel):
 
 class ModeButtonEntry(BaseModel):
     coord: EncoderCoords
-    slot: Literal['mode', 'modMode']
+    slot: Literal['switch1', 'switch2']
 
     @field_validator('coord', mode='before')
     @classmethod
@@ -71,7 +71,7 @@ class ModeButtonEntry(BaseModel):
 
 class ModeButtonMidiMapping(BaseModel):
     midi_coords: MidiCoords
-    slot: str  # 'mode' or 'modMode'
+    slot: str  # 'switch1' or 'switch2'
 
     @property
     def only_midi_coord(self) -> MidiCoords:
