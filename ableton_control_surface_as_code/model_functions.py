@@ -1,15 +1,27 @@
 from pathlib import Path
 from typing import Literal, List, Dict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, ButtonProviderBaseModel
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
+
+_SWITCH_KEYS = {'switch1', 'switch2'}
 
 
 class Functions(BaseModel):
     type: Literal['functions'] = "functions"
     mappings_raw: Dict[str, str] = Field(alias='mappings')
+
+    @model_validator(mode='after')
+    def reject_switch_keys(self):
+        bad = _SWITCH_KEYS & self.mappings_raw.keys()
+        if bad:
+            raise ValueError(
+                f"{', '.join(sorted(bad))} cannot be used in a 'functions' mapping — "
+                "put them inside a 'device' mapping alongside 'encoders' instead"
+            )
+        return self
 
     @property
     def mappings(self) -> Dict[str, EncoderCoords]:

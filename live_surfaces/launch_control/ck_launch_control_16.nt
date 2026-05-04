@@ -56,14 +56,6 @@ modes:
                     pan: row-2:8
                     sends: row-1:5-7,row-2:5-7
     #               arm: row-3:3
-    #       -
-    #           type: transport
-    #           mappings:
-    #               record-session: row-3:5
-    #               record-arrangement: row-3:6
-
-    #            type: device
-    #                parameter-page: row-4:1
     #        -
     #            type: device
     #            track: master
@@ -73,13 +65,20 @@ modes:
     #                    range: row-3:2 toggle
     #                    parameters: 0
             -
+                type: device
+                track: selected
+                device: selected
+                mappings:
+                    switch1: row-3:5
+                    switch2: row-3:6
+            -
                 type: functions
                 mappings:
                     record_midi_from_track_to_new_track: row-3:2 toggle
                     create_audio_track_taking_input_from_selected_track: row-3:3 toggle
                     selected_audio_to_simpler_in_new_track: row-3:4
-                    sequencer_random_notes: row-3:5
-                    sequencer_random_velocity: row-3:6
+#                    sequencer_random_notes: row-3:5
+#                    sequencer_random_velocity: row-3:6
                     sequencer_random_length: row-3:7
                     sequencer_shift_right: row-3:8
 

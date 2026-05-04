@@ -190,7 +190,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
         ))
 
     for mb in device_with_midi.mode_button_maps:
-        codes.append(_mode_button_template(mb, device_with_midi, mode_name))
+        codes.append(_mode_button_template(mb, mode_name, device_with_midi.track.name.value, device_with_midi.device))
 
     if device_with_midi.parameter_page_nav is not None:
         if device_with_midi.parameter_page_nav.export_to_mode is not None:
@@ -206,7 +206,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
     return codes
 
 
-def _mode_button_template(mb: ModeButtonMidiMapping, device_with_midi: DeviceWithMidi, mode_name: str) -> 'GeneratedCode':
+def _mode_button_template(mb: ModeButtonMidiMapping, mode_name: str, track: str = "selected", device: str = "selected") -> 'GeneratedCode':
     btn_name = mb.controller_variable_name()
     btn_listener_name = mb.controller_listener_fn_name(mode_name)
 
@@ -229,8 +229,8 @@ def ${fn_name}(self, value):
     self._helpers.device_param_cycle(device, param_no, cmin, cmax, "$fn_name")
     """).substitute(
         fn_name=btn_listener_name,
-        track=device_with_midi.track.name.value,
-        device=device_with_midi.device,
+        track=track,
+        device=device,
         cycle_table=cycle_table,
         slot=mb.slot,
     ).split("\n")

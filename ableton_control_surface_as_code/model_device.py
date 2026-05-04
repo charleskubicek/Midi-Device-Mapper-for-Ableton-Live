@@ -110,7 +110,14 @@ class DeviceEncoderMappings(BaseModel):
     encoder_list: List[RowMapV2_1] = Field([], alias='encoder-list')
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
     mode_buttons: List[ModeButtonEntry] = Field(default_factory=list, alias='mode-buttons')
+    switch1: Optional[EncoderCoords] = Field(None, alias='switch1')
+    switch2: Optional[EncoderCoords] = Field(None, alias='switch2')
     parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
+
+    @field_validator('switch1', 'switch2', mode='before')
+    @classmethod
+    def parse_switch(cls, value):
+        return parse_coords(value) if value is not None else None
 
     def encoders_all(self) -> List[RowMapV2_1]:
         if self.encoders is None:
@@ -194,6 +201,13 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             midi_coords=midi_coord,
             slot=entry.slot,
         ))
+    for slot_name, coord in [('switch1', device.mappings.switch1), ('switch2', device.mappings.switch2)]:
+        if coord is not None:
+            midi_coord = controller.build_midi_coords(coord)[0][0]
+            mode_button_maps.append(ModeButtonMidiMapping(
+                midi_coords=midi_coord,
+                slot=slot_name,
+            ))
 
     return DeviceWithMidi(
         track=device.track,
