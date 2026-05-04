@@ -32,8 +32,8 @@ class $surface_name(ControlSurface):
 
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self._socket.setblocking(0)
+            self.log_message("$surface_name: starting listen on port $udp_port")
             self._socket.bind(('0.0.0.0', $udp_port))
-            self.log_message("$surface_name: listening on port $udp_port")
 
             self.init_modules()
 
@@ -58,6 +58,30 @@ class $surface_name(ControlSurface):
 
     def dump_selected_device_parameter_names(self):
         device = self.song().view.selected_track.view.selected_device
+        if not device:
+            self.log_message("No device selected")
+            return
+
+        self.log_message("Dumping parameters for device; name:" + device.name+", class_name: " + device.class_name)
+
+        params_formated = "\n            - ".join([p.name for p in device.parameters])
+
+        res = f"""\n
+    -
+        device-name: {device.name}
+        parameters:
+            - {params_formated}
+"""
+        self.log_message(res)
+
+
+    def dump_selected_device_parameter_info(self):
+        device = self.song().view.selected_track.view.selected_device
+        if not device:
+            self.log_message("No device selected")
+            return
+
+
         self.log_message("Dumping parameters for device; name:" + device.name+", class_name: " + device.class_name)
         parameters = []
 
@@ -75,6 +99,17 @@ class $surface_name(ControlSurface):
 
         result_obj = { "class_name" : device.class_name,"name": device.name,  "parameters": parameters }
         self.log_message('\n' + str(result_obj).replace('\n', ' '))
+
+        string_params = [f"""{{"no": {i}, "name": "{p.name}", "min": {p.min}, "max": {p.max}}}""" for i, p in enumerate(device.parameters)]
+        joined = ",\n        ".join(string_params)
+
+        res = f"""    {{
+        "id": "{device.class_name}",
+        "name": "{device.name}",
+        "parameters": [
+        {joined}}}"""
+
+        self.log_message(res)
 
     def tick(self):
         # self.log_message(f"Ticking..")
@@ -113,6 +148,10 @@ class $surface_name(ControlSurface):
                 response = b'Debug set to ' + str(self.debug).encode('utf-8')
 
             elif data == b'dump':
+                self.dump_selected_device_parameter_info()
+                response = b'Dumped to logs'
+
+            elif data == b'dumpnames':
                 self.dump_selected_device_parameter_names()
                 response = b'Dumped to logs'
 
@@ -125,7 +164,7 @@ class $surface_name(ControlSurface):
                 #--------------------------------------------------------------------------------
                 # This benign error seems to occur on startup on Windows
                 #--------------------------------------------------------------------------------
-                self.logger.warning(f"$surface_name: Non-fatal socket error: {traceback.format_exc}")
+                self.log_message(f"$surface_name: Non-fatal socket error: {traceback.format_exc}")
             elif e.errno == errno.EAGAIN or e.errno == errno.EWOULDBLOCK:
                 #--------------------------------------------------------------------------------
                 # Another benign networking error, throw when no data is received
@@ -136,9 +175,11 @@ class $surface_name(ControlSurface):
                 #--------------------------------------------------------------------------------
                 # Something more serious has happened
                 #--------------------------------------------------------------------------------
-                self.logger.error(f"$surface_name: Socket error: {traceback.format_exc()}")
-
-        self.schedule_message(1, self.tick)
+                self.log_message(f"$surface_name: Socket error: {traceback.format_exc()}")
+        except Exception as e:
+            self.log_message(f"$surface_name: Exception in message processing: {traceback.format_exc()}")
+        finally:
+            self.schedule_message(1, self.tick)
 
     def disconnect(self):
         self.show_message("Disconnecting...")

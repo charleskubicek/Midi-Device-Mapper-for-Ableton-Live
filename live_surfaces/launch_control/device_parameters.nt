@@ -29,6 +29,44 @@ custom-parameter-mappings:
             - Detune
             - Filt < Key
     -
+        device-name: Delay
+        parameters:
+            - Dry/Wet
+            - Feedback
+            - Delay Mode
+            - Link
+            - L Sync
+            - R Sync
+            - L Time
+            - R Time
+            - L 16th
+            - R 16th
+            - L Offset
+            - R Offset
+            - Ping Pong
+            - Filter On
+            - Filter Freq
+            - Filter Width
+            - Freeze
+            - Mod Freq
+            - Dly < Mod
+            - Filter < Mod
+    -
+        device-name: EQ Eight
+        parameters:
+            - 1 Frequency A
+            - 1 Gain A
+            - 1 Resonance A
+            - 8 Frequency A
+            - 8 Gain A
+            - 8 Resonance A
+            - 2 Frequency B
+            - 2 Gain B
+            - 2 Resonance B
+            - 3 Frequency A
+            - 3 Gain A
+            - 3 Resonance A
+    -
         device-name: SQ Sequencer
         parameters:
             - PStep1
@@ -271,6 +309,68 @@ custom-parameter-mappings:
             - TimeMode
             - DotSync
             - Triplet
+    -
+        device-name: ML-185 SequencerPUSH
+        parameters:
+            - Pitch1
+            - Pitch2
+            - Pitch3
+            - Pitch4
+            - Pitch5
+            - Pitch6
+            - Pitch7
+            - Pitch8
+            - Velocity1
+            - Velocity2
+            - Velocity3
+            - Velocity4
+            - Velocity5
+            - Velocity6
+            - Velocity7
+            - Velocity8
+            - Stage1 Div
+            - Stage2 Div
+            - Stage3 Div
+            - Stage4 Div
+            - Stage5 Div
+            - Stage6 Div
+            - Stage7 Div
+            - Stage8 Div
+            - Stage1 Length
+            - Stage2 Length
+            - Stage3 Length
+            - Stage4 Length
+            - Stage5 Length
+            - Stage6 Length
+            - Stage7 Length
+            - Stage8 Length
+            - Stage1 Mode
+            - Stage2 Mode
+            - Stage3 Mode
+            - Stage4 Mode
+            - Stage5 Mode
+            - Stage6 Mode
+            - Stage7 Mode
+#            - Stage8 Mode - failed
+            - Timing_1
+            - Coarse Tune
+            - Direction
+            - Step Division
+            - Length Mode
+            - Randomize
+            - Length
+            - swing.amt
+            - Aux1
+            - Aux2
+            - Aux3
+            - Aux4
+            - Aux5
+            - Aux6
+            - Aux7
+            - Aux8
+            - live.text
+            - live.tab
+
 
 #    -
 #        device-name: Diva

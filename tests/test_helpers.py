@@ -28,6 +28,7 @@ class FakeManager:
     def log_message(self, msg):
         print(msg)
 
+
 class TestHelpersWithCustom(unittest.TestCase):
 
     def setUp(self):
@@ -79,7 +80,10 @@ class TestHelpers(unittest.TestCase):
             # 3 values for the first 3 encoders on the midi device, Each maps to
             # controller on the ableton device and an alias is applied to each.
             # "Simpler": [(0, ParameterMapping(2, 'a', None)), (1, ParameterMapping(5, 'b', 'toggle')), (2, ParameterMapping(4, 'c', None))]
-            'Simpler': [{'c_idx': 1, 'd_idx': 2, 'alias': 'a'}, {'c_idx': 2, 'd_idx': 5, 'alias': 'b', 'button': 'toggle'}, {'c_idx': 3, 'd_idx': 4, 'alias': 'c'}]
+            'Simpler': [
+                {'c_idx': 1, 'd_idx': 2, 'alias': 'a'},
+                {'c_idx': 2, 'd_idx': 5, 'alias': 'b', 'button': 'toggle'},
+                {'c_idx': 3, 'd_idx': 4, 'alias': 'c'}]
 
         }
 
@@ -102,10 +106,10 @@ class TestHelpers(unittest.TestCase):
         self.assertAlmostEqual(device.parameters[4].value, 0.5, places=1)
         result = self.remote_mock.parameter_updated.call_args[0]
 
-        self.assertEqual(result[0], device.parameters[4])
-        self.assertEqual(result[1], 'c')
-        self.assertEqual(result[2], 3)
-        self.assertAlmostEqual(result[3], 0.5, places=1)
+        self.assertEqual(result[0].param, device.parameters[4])
+        self.assertEqual(result[0].alias, 'c')
+        self.assertEqual(result[1], 3)
+        self.assertAlmostEqual(result[0].param.value, 0.5, places=1)
 
     def test_sets_correct_parameter_between_0_and_1(self):
         device = FakeDevice([FakeParameter(), FakeParameter(min=0.0, max=1.0, value=0.0)])

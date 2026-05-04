@@ -94,9 +94,14 @@ class DeviceCustomParameterMidiMapping(BaseModel):
     index: int
     device_parameter: CustomDeviceParameter
 
+    @property
+    def non_zeroed_index(self):
+        return self.index + 1
+
+
 class DeviceCustomParameterGroupMidiMapping(BaseModel):
-    name:str
-    parameters:list[DeviceCustomParameterMidiMapping]
+    name: str
+    parameters: list[DeviceCustomParameterMidiMapping]
 
 
 class DeviceNamedCustomParameterMidiMapping(BaseModel):
@@ -126,9 +131,8 @@ class DeviceWithMidi(BaseModel):
     device: str
     midi_maps: List[DeviceParameterMidiMapping]
     custom_device_mappings: Dict[str, List[DeviceCustomParameterMidiMapping]] = Field({})
-    named_custom_device_mappings: Dict[str, List[DeviceNamedCustomParameterMidiMapping]] = Field({})
     custom_parameter_groups: Dict[str, List[DeviceCustomParameterGroupMidiMapping]] = Field({})
-    group_name_to_range:Dict[str, RangeV2] = Field({})
+    group_name_to_range: Dict[str, RangeV2] = Field({})
     parameter_page_nav: Optional[DeviceParameterPageNavMidi]
 
     @property
@@ -150,8 +154,6 @@ class DeviceEncoderMappings(BaseModel):
 
     ## TODO assert encoders or encoder_list
 
-
-
     @field_validator('on_off', mode='before')
     @classmethod
     def parse_on_off(cls, value):
@@ -167,6 +169,7 @@ class CustomParameterGroup(BaseModel):
     def parse_parameters(cls, value: List[str]):
         return [CustomDeviceParameter.parse(item) for item in value]
 
+
 class CustomParameterMapping(BaseModel):
     device_name: str = Field(alias='device-name')
     exclusive: Optional[bool] = Field(default=False)
@@ -174,7 +177,8 @@ class CustomParameterMapping(BaseModel):
     named_parameter_mappings_raw: dict[str, str] = Field(alias='parameters-map', default={})
     parameter_mappings_group: list[CustomParameterGroup] = Field(alias='parameter-groups', default=[])
 
-    #TODO verify either parameter_mappings_raw or named_parameter_mappings_raw is empty
+    # TODO verify either parameter_mappings_raw or named_parameter_mappings_raw is empty
+
 
 class CustomParameterMappings(BaseModel):
     custom_parameter_mappings: list[CustomParameterMapping] = Field(alias='custom-parameter-mappings')
@@ -200,7 +204,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
     custom_param_maps_2 = {}
     custom_param_groups = {}
     parameter_page_nav = None
-    group_name_to_row = {} #TODO support multiple rows per group
+    group_name_to_row = {}  # TODO support multiple rows per group
 
     for encoders in device.mappings.encoders_all():
         param_list = encoders.parameters.as_inclusive_list()
@@ -253,15 +257,13 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             device_parameter=CustomDeviceParameter.parse(p_name))
             for p_name, midi_map in mapping.named_parameter_mappings_raw.items()]
 
-        groups = []
-
         for group in mapping.parameter_mappings_group:
             name = group.name
 
             custom_param_group = [DeviceCustomParameterMidiMapping(
                 index=i,
                 device_parameter=param)
-               for i, param in enumerate(group.parameters)]
+                for i, param in enumerate(group.parameters)]
 
             group = DeviceCustomParameterGroupMidiMapping(
                 name=name,
@@ -279,7 +281,6 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
         device=device.device,
         midi_maps=midi_maps,
         custom_device_mappings=custom_param_maps,
-        named_custom_device_mappings=custom_param_maps_2,
         custom_parameter_groups=custom_param_groups,
         group_name_to_range=group_name_to_row,
         parameter_page_nav=parameter_page_nav)

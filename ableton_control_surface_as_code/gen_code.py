@@ -4,11 +4,11 @@ import keyword
 from dataclasses import dataclass, field
 from pathlib import Path
 from string import Template
-from typing import List
+from typing import List, Dict
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, ButtonProviderBaseModel, MidiCoords
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
-from ableton_control_surface_as_code.model_device import DeviceWithMidi
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceCustomParameterGroupMidiMapping
 from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi
@@ -31,10 +31,10 @@ class GeneratedCode:
     def any_midi_coords_exists_in_control_defs(self, midi_coords: [MidiCoords]) -> bool:
         return any([self.midi_coords_exists_in_control_defs(c) for c in midi_coords])
 
-    def common_midi_coords_in_control_defs(self, other:'GeneratedCode') -> [MidiCoords]:
+    def common_midi_coords_in_control_defs(self, other: 'GeneratedCode') -> [MidiCoords]:
         return [c for c in self.control_defs if other.midi_coords_exists_in_control_defs(c)]
 
-    def common_midi_coords_in_any_control_defs(self, other:['GeneratedCode']) -> [MidiCoords]:
+    def common_midi_coords_in_any_control_defs(self, other: ['GeneratedCode']) -> [MidiCoords]:
         return [c for c in self.control_defs if any([o.midi_coords_exists_in_control_defs(c) for o in other])]
 
 
@@ -62,10 +62,9 @@ class GeneratedCodes:
             return first
 
     @classmethod
-    def common_midi_coords_in_control_defs(cls, one: [GeneratedCode], to:[GeneratedCode]) -> [MidiCoords]:
+    def common_midi_coords_in_control_defs(cls, one: [GeneratedCode], to: [GeneratedCode]) -> [MidiCoords]:
         listoflists = [o.common_midi_coords_in_any_control_defs(to) for o in one]
-        return sum(listoflists,[])
-
+        return sum(listoflists, [])
 
     @classmethod
     def merge(cls, one: GeneratedCode, other: GeneratedCode) -> GeneratedCode:
@@ -191,63 +190,82 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                 print(
                     f"Not generating parmeter_paging on mode {mode_name} as it's being exported to {device_with_midi.parameter_page_nav.export_to_mode}")
 
-    print("Custom mappings")
-    custom_mappings = []
+    custom_mappings = code_from_parameter_groups(
+        device_with_midi.custom_parameter_groups,
+        device_with_midi.group_name_to_range)
 
-    for dev_name, groups in device_with_midi.custom_parameter_groups.items():
-        group_code = []
-        for encoder_map in groups:
-            print("  ", dev_name)
-            range = device_with_midi.group_name_to_range[encoder_map.name]
-
-            d = [(r, find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
-                 for (r, em) in zip(range.as_inclusive_list(), encoder_map.parameters)]
-
-            ser = [serialiase_param_info(m_no, d_idx, alias, button) for m_no, (d_idx, alias, button) in d]
-
-            for m_no, (p_no, _, _) in d:
-                name = "Unknown"
-                for p_values in device_parameter_names[dev_name]['parameters']:
-                    if int(p_values['no']) == int(p_no):
-                        name = p_values['name']
-
-                print(f"     {(m_no)} -> {p_no}: ({name})")
-
-            group_code.extend(ser)
-
-        code = f"'{dev_name}': " + str(group_code)
-        custom_mappings.append(code)
-
-    # for dev_name, encoder_map in device_with_midi.custom_device_mappings.items():
-    #     print("  ", dev_name)
-    #     d = [(em.index,
-    #           find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
-    #          for em in encoder_map]
-    #
-    #     ser = [serialiase_param_info(m_no, d_idx, alias, button) for m_no, (d_idx, alias, button) in d]
-    #
-    #     for m_no, (p_no, _, _) in d:
-    #         name = "Unknown"
-    #         for p_values in device_parameter_names[dev_name]['parameters']:
-    #             if int(p_values['no']) == int(p_no):
-    #                 name = p_values['name']
-    #
-    #         print(f"     {m_no+1} / {p_no}: ({name})")
-    #
-    #     code = f"'{dev_name}': " + str(ser)
-    #     custom_mappings.append(code)
+    custom_mappings.extend(code_from_custom_device_mappings(device_with_midi.custom_device_mappings))
 
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
 
     return codes
 
+
+def code_from_custom_device_mappings(custom_device_mappings):
+    custom_mappings = []
+    for dev_name, encoder_map in custom_device_mappings.items():
+        print("  ", dev_name)
+        d = [(em.non_zeroed_index,
+              find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
+             for em in encoder_map]
+
+        ser = [serialiase_param_info(m_no, d_idx, alias, button)
+               for m_no, (d_idx, alias, button) in d]
+
+        print_parameter_mappings(d, dev_name)
+
+        code = f"'{dev_name}': " + str(ser)
+        custom_mappings.append(code)
+
+    return custom_mappings
+
+
+def code_from_parameter_groups(
+        groups: Dict[str, List[DeviceCustomParameterGroupMidiMapping]],
+        group_name_to_range: dict):
+
+    custom_mappings = []
+
+    for dev_name, groups in groups.items():
+        group_code = []
+        for encoder_map in groups:
+            print("  ", dev_name)
+            range = group_name_to_range[encoder_map.name].as_inclusive_list()
+
+            d = [(r, find_device_parameter_number_for_given_name(dev_name, em.device_parameter))
+                 for (r, em) in zip(range, encoder_map.parameters)]
+
+            ser = [serialiase_param_info(m_no, d_idx, alias, button)
+                   for m_no, (d_idx, alias, button) in d]
+
+            group_code.extend(ser)
+
+            print_parameter_mappings(d, dev_name)
+
+        code = f"'{dev_name}': " + str(group_code)
+        custom_mappings.append(code)
+
+    return custom_mappings
+
+
+def print_parameter_mappings(d, dev_name):
+    for m_no, (p_no, _, _) in d:
+        name = "Unknown"
+        for p_values in device_parameter_names[dev_name]['parameters']:
+            if int(p_values['no']) == int(p_no):
+                name = p_values['name']
+
+        print(f"     {(m_no)} -> {p_no}: ({name})")
+
+
 def serialiase_param_info(cont_idx, device_idx, alias, button):
-    ser = {'c_idx': cont_idx, 'd_idx':device_idx, 'alias': alias}
+    ser = {'c_idx': cont_idx, 'd_idx': device_idx, 'alias': alias}
     if button is not None:
         ser['button'] = button
     return ser
 
-#TODO Unit tests
+
+# TODO Unit tests
 def code_for_parameter_paging(parameter_page_nav, mode_name):
     codes = []
     for call_name, mm in [("inc", parameter_page_nav.inc),
@@ -271,15 +289,18 @@ def code_for_parameter_paging(parameter_page_nav, mode_name):
 
     return codes
 
-#TODO Unit tests
+
+# TODO Unit tests
 def find_device_parameter_number_for_given_name(device_name, device_parameter):
     if device_name not in device_parameter_names:
-        print("Device not found, no mappings created: ", device_name)
+        print(f"Device not found, no mappings created: for {device_name} in {list(device_parameter_names.keys())}")
 
     for param in device_parameter_names[device_name]['parameters']:
         if param['name'] == device_parameter.name:
             return int(param['no']), device_parameter.alias_str(), device_parameter.button
-    return None
+
+    raise ValueError(f"Could not find device parameter for {device_name} - {device_parameter.name}")
+    # return None
 
 
 def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
@@ -359,7 +380,8 @@ def class_function_body_code_block(lines: [str]):
     return f"\n{tab_block}{tab_block}" + f"\n{tab_block}{tab_block}".join(lines) + "\n"
 
 
-file = Path("data/devices_12.json").read_text()
+# file = Path("data/devices_12.json").read_text()
+file = (Path(__file__).parent.parent / "data/devices_12.json").read_text()
 device_parameter_names = json.loads(file)
 
 device_class_names_to_friendly_names = {

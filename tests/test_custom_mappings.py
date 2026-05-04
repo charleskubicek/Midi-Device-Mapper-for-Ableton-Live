@@ -1,9 +1,6 @@
 import unittest
 from unittest.mock import Mock
 
-from pathlib import Path
-import shutil
-
 from source_modules.helpers import CustomMappings, Helpers, SelectedDeviceParameterPaging, ParameterMapping, \
     parse_custom_mappings
 
@@ -12,7 +9,7 @@ class TestCustomMappings(unittest.TestCase):
 
     def setUp(self):
         self.mappings = {
-            "Simpler": [(0, ParameterMapping(2, 'a', None)), (1, ParameterMapping(5, 'b', 'toggle')), (2, ParameterMapping(4, 'c', None))]
+            "Simpler": [(1, ParameterMapping(2, 'a', None)), (2, ParameterMapping(5, 'b', 'toggle')), (3, ParameterMapping(4, 'c', None))]
             # "Simpler": [(0, (2, 'a', None)), (1, (5, 'b', 'toggle')), (2, (4, 'c', None))]
         }
         self.custom_mappings = CustomMappings(Mock(), self.mappings, {'OriginalSimpler': 'Simpler'})
@@ -30,23 +27,6 @@ class TestCustomMappings(unittest.TestCase):
         self.assertFalse(result)
 
     # https://remotify.io/device-parameters/device_params_live11.html
-    def test_find_user_defined_parameters_including_param_zero_for_on_off(self):
-        device = Mock()
-        device.class_name = "OriginalSimpler"
-        default_parameters = self.params()
-        device.parameters = default_parameters
-        result = self.custom_mappings.user_defined_parameters_or_defaults(device)
-
-        self.assertEqual(result.on_off, ParameterMapping(0, 'On/Off', None))
-        self.assertEqual(result.parameters, [ParameterMapping(2, 'a', None), ParameterMapping(5, 'b', 'toggle'), ParameterMapping(4, 'c', None)])
-
-        actual_parameters = result.parameters_and_aliasses_from_device_params(device.parameters, include_on_off=True)
-        self.assertEqual(len(actual_parameters), 4)
-
-        self.assertEqual(actual_parameters[0].param.name, "p0")
-        self.assertEqual(actual_parameters[1].param.name, "p2")
-        self.assertEqual(actual_parameters[2].param.name, "p5")
-        self.assertEqual(actual_parameters[3].param.name, "p4")
 
     def test_filter_actual_parameters_with_custom_params_and_page_size(self):
         device = Mock()
@@ -59,18 +39,18 @@ class TestCustomMappings(unittest.TestCase):
         # and it takes a page size as an argument
         real_params = Helpers.get_actual_parameters_from_device(Mock(), self.custom_mappings, paging, device)
 
-        self.assertEqual(len(real_params), 3)
-        self.assertEqual(real_params[0].param.name, "p0")
-        self.assertEqual(real_params[1].param.name, "p2")
-        self.assertEqual(real_params[2].param.name, "p5")
+        self.assertEqual(len(real_params), 2)
+        self.assertEqual(real_params[0].param.name, "p2")
+        self.assertEqual(real_params[1].param.name, "p5")
+        # self.assertEqual(real_params[2].param.name, "p5")
 
         paging.device_parameter_page_inc(2)
 
         real_params = Helpers.get_actual_parameters_from_device(Mock(), self.custom_mappings, paging, device)
 
-        self.assertEqual(len(real_params), 2)
-        self.assertEqual(real_params[0].param.name, "p0")
-        self.assertEqual(real_params[1].param.name, "p4")
+        self.assertEqual(len(real_params), 1)
+        self.assertEqual(real_params[0].param.name, "p4")
+        # self.assertEqual(real_params[1].param.name, "p4")
 
     def mock_param(self, name):
         param = Mock()
@@ -86,7 +66,7 @@ class TestCustomMappings(unittest.TestCase):
         device.class_name = "UnknownDevice"
         device.parameters = self.params()
         result = self.custom_mappings.find_parameter(device, 1)
-        self.assertEqual(result.mapped_parameter.name, "p1")
+        self.assertEqual(result.param.name, "p1")
 
     def test_out_of_index_parameter_should_be_none(self):
         device = Mock()

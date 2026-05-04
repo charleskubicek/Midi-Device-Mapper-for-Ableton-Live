@@ -1,6 +1,6 @@
 controller: parks_controller.nt
-#ableton_dir: /Applications/Ableton Live 12 Suite.app
-ableton_dir: /Applications/Ableton Live 12 Beta.app
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+#ableton_dir: /Applications/Ableton Live 12 Beta.app
 
 
 mappings:

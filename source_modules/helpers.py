@@ -13,11 +13,6 @@ class RealParameter:
     button:Optional[str] = None
 
 @dataclass
-class EncoderCoords:
-    row: int
-    col: int
-
-@dataclass
 class ParameterMapping:
     #(2, (5, 'Mono'), 'toggle')
     mapped_parameter:int
@@ -47,6 +42,7 @@ class SelectedDeviceParameterPaging:
         else:
             return self._device_parameter_page, ((self._device_parameter_page - 1) * self._page_size) + original_parameter
 
+    #TODO Test
     def parameters_indexes_for_selected_page(self, parameters_len):
         start = (self._device_parameter_page - 1) * self._page_size
         end = self._device_parameter_page * self._page_size
@@ -90,12 +86,12 @@ class SelectedDeviceParameterPaging:
 
 @dataclass
 class ParameterNumberGroup:
-    on_off: ParameterMapping = field(default_factory=lambda : ParameterMapping.on_off())
+    # on_off: ParameterMapping = field(default_factory=lambda : ParameterMapping.on_off())
     # parameters: list[(int, Optional[str], Optional[str])] = field(default_factory=list)
     parameters: [(int, ParameterMapping)] = field(default_factory=list)
 
     def filter_parameter_indexes(self, parameter_indexes):
-        return replace(self, parameters=[(i, p) for i, p in self.parameters if i in parameter_indexes])
+        return replace(self, parameters=[(i, p) for i, p in self.parameters if i-1 in parameter_indexes])
 
     @classmethod
     def from_raw_device_parameters(cls, device_parameter_count):
@@ -106,21 +102,19 @@ class ParameterNumberGroup:
     def from_user_defined_parameters(cls, custom_mappings):
         return cls(parameters=[(i, m) for (i, m) in custom_mappings])
 
-    def list_of_all_parameters(self):
-        return [self.on_off] + list(self.parameters.values())
+    def parameters_and_aliasses_from_device_params(self, device_parameters) -> [RealParameter]:
+        #validate_parameters_are_in_device_parameters()
 
-    def parameters_and_aliasses_from_device_params(self, device_parameters, include_on_off=True) -> [RealParameter]:
-        real_params = [p.with_real_param(device_parameters[p.mapped_parameter]) for i, p in self.parameters]
-        if include_on_off:
-            on_off = ParameterMapping.on_off().with_real_param(device_parameters[0])
-            return [on_off] + real_params
-        else:
-            return real_params
+        for i, p in self.parameters:
+            if p.mapped_parameter >= len(device_parameters):
+                print(f"Warning: Parameter {p.mapped_parameter} is out of range for device parameters {len(device_parameters)}")
+                print(f"Device parameters are: {[d.name for d in device_parameters]}")
+                return []
 
-    def parameter_from_device_params(self, device_parameters, param_no, include_on_off=True):
-        # if include_on_off:
-        #     param_no -= 1
+        return [p.with_real_param(device_parameters[p.mapped_parameter]) for i, p in self.parameters]
 
+
+    def parameter_from_device_params(self, device_parameters, param_no):
         if len([(i, p) for i, p in self.parameters if i == param_no]) == 0:
             print(f"Didn't find {param_no} in {self.parameters}")
             return None
@@ -175,8 +169,11 @@ class Helpers:
             self._device_parameter_paging,
             self._last_selected_device)
 
+        on_off = ParameterMapping.on_off().with_real_param(self._last_selected_device.parameters[0])
+        all_params = [on_off] + real_params
+
         info = f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}"
-        self._remote.device_update(self._last_selected_device.name, real_params, info)
+        self._remote.device_update(self._last_selected_device.name, all_params, info)
 
     @staticmethod
     def get_actual_parameters_from_device(manager, custom_mappings, paging, device):
@@ -395,7 +392,7 @@ class CustomMappings:
         else:
             param_group = self.user_defined_parameters_or_defaults(device)
             self.log_message(f"CustomMappings.find_parameter param_group is {[(p[0], p[1].mapped_parameter) for p in param_group.parameters]}")
-            return param_group.parameter_from_device_params(device.parameters, parameter_no, include_on_off=True)
+            return param_group.parameter_from_device_params(device.parameters, parameter_no)
 
 
 class Remote:

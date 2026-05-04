@@ -24,6 +24,7 @@ class Functions(ControlSurface):
         self.arranger = Arranger(self)
         self.bounce = Bounce(self, self.clip_ops)
         self.record_midi = MidiRecord(self, self.song())
+        self.sequencer = SequencerControlSurface(self, self.song())
 
     def show_message(self, message):
         self._manager.manager.show_message(message)
@@ -69,6 +70,166 @@ class Functions(ControlSurface):
 
     def shift_clip_notes_right(self):
         self.clip_ops.shift_clip_notes_right()
+
+    def create_audio_track_taking_input_from_selected_track(self):
+        self.bounce.create_audio_track_taking_input_from_selected_track()
+
+    def sequencer_random_notes(self):
+        self.sequencer.sequencer_random_notes()
+
+    def sequencer_random_velocity(self):
+        self.sequencer.sequencer_random_velocity()
+
+    def sequencer_random_length(self):
+        self.sequencer.sequencer_random_length()
+
+    def sequencer_shift_right(self):
+        self.sequencer.sequencer_shift_right()
+
+class SequencerControlSurface(ControlSurfaceComponent):
+
+    def __init__(self, ins, song):
+        ControlSurfaceComponent.__init__(self)
+        self._manager = ins
+        self._song = song
+
+
+    def log_message(self, message):
+        self._manager.log_message(message)
+
+        self.parameter_toggle_mappings = {
+            "SQ Sequencer": [OnOff("RandPitch"),
+                             OnOff("RandOct"),
+                             OnOff("VelRandom"),
+                             OnOff("RandLength"),
+                             OnOff("ResetVelocity"),
+                             OnOff("ResetLength"),
+                             Dec("SQMax"),
+                             Inc("SQMax"),
+                             OnOff("ShiftLeft"),
+                             OnOff("ShiftRight"),
+                             ],
+            "SHED SKIN - LOW END GENERATOR RACK": [
+                RackTurn("NEW GROOVE")
+            ],
+            "INST - Diva Preset Rack - CK": [
+                Dec("Program Change"),
+                Inc("Program Change"),
+                Dec("Bank (MSB)"),
+                Inc("Bank (MSB)")
+            ],
+            "ML-185 Sequencer": [
+                Group([Random("Pitch1"), Random("Pitch2"), Random("Pitch3"),
+                       Random("Pitch4"), Random("Pitch5"), Random("Pitch6"),
+                       Random("Pitch7"), Random("Pitch8")]),
+
+                Group([Random("Velocity1"), Random("Velocity2"), Random("Velocity3"),
+                       Random("Velocity4"), Random("Velocity5"), Random("Velocity6"),
+                       Random("Velocity7"), Random("Velocity8")])
+            ]
+        }
+
+        self.parameter_named_mappings = {
+            "SQ Sequencer": {
+                "random_pitch":    OnOff("RandPitch"),
+                "random_oct":      OnOff("RandOct"),
+                "random_velocity": OnOff("VelRandom"),
+                "random_length":   OnOff("RandLength"),
+                "reset_velocity":  OnOff("ResetVelocity"),
+                "reset_length":    OnOff("ResetLength"),
+                "dec_sq_max":      Dec("SQMax"),
+                "inc_sq_max":      Inc("SQMax"),
+                "shift_left":      OnOff("ShiftLeft"),
+                "shift_right":     OnOff("ShiftRight"),
+            },
+            "SHED SKIN - LOW END GENERATOR RACK": {
+                "next_random_value": RackTurn("NEW GROOVE"),
+            },
+            "INST - Diva Preset Rack - CK": {
+                "dec_program": Dec("Program Change"),
+                "inc_program": Inc("Program Change"),
+                "dec_bank":    Dec("Bank (MSB)"),
+                "inc_bank":    Inc("Bank (MSB)"),
+            },
+            "ML-185 Sequencer": {
+                "random_pitch": Group([Random("Pitch1"), Random("Pitch2"), Random("Pitch3"),
+                                       Random("Pitch4"), Random("Pitch5"), Random("Pitch6"),
+                                       Random("Pitch7"), Random("Pitch8")]),
+                "random_velocity": Group([Random("Velocity1"), Random("Velocity2"), Random("Velocity3"),
+                                          Random("Velocity4"), Random("Velocity5"), Random("Velocity6"),
+                                          Random("Velocity7"), Random("Velocity8")]),
+            },
+        }
+
+    def selected_device(self):
+        return self.song().view.selected_track.view.selected_device
+        
+    def safe_get_parameter_op(self, device, op_names):
+        """Try each name in op_names in order; return the first match found in
+        parameter_named_mappings for the given device, or None if not found."""
+
+        self.log_message(f"Looking for parameter operation among {op_names} for device {device.name if device else 'None'}")
+
+        if device is None:
+            self.log_message("No device selected")
+            return None
+        if device.name not in self.parameter_named_mappings:
+            self.log_message(f"Device {device.name} is not in parameter_named_mappings")
+            return None
+
+        device_ops = self.parameter_named_mappings[device.name]
+        for name in op_names:
+            if name in device_ops:
+                return device_ops[name]
+
+        self.log_message(f"None of {op_names} found for device {device.name}")
+        return None
+
+    def sequencer_shift_right(self):
+        device = self.selected_device()
+        parameter_op = self.safe_get_parameter_op(device, ['shift_right', 'dec_bank'])
+
+        if parameter_op is not None:
+            self.apply_parameter_op(device, parameter_op)
+
+    def sequencer_random_length(self):
+        device = self.selected_device()
+        parameter_op = self.safe_get_parameter_op(device, ['random_length', 'inc_bank'])
+
+        if parameter_op is not None:
+            self.apply_parameter_op(device, parameter_op)
+
+    def sequencer_random_velocity(self):
+        device = self.selected_device()
+        parameter_op = self.safe_get_parameter_op(device, ['random_velocity', 'dec_program'])
+
+        if parameter_op is not None:
+            self.apply_parameter_op(device, parameter_op)
+
+    def sequencer_random_notes(self):
+        device = self.selected_device()
+        parameter_op = self.safe_get_parameter_op(device, ['random_pitch', 'next_random_value', 'inc_program'])
+
+        if parameter_op is not None:
+            self.apply_parameter_op(device, parameter_op)
+            
+    def apply_parameter_op(self, device, parameter_op):
+        self.log_message(f"Parameter operation - {parameter_op} on {device.name}")
+        
+        if parameter_op.name == "Group Action":
+            for p in device.parameters:
+                for a in parameter_op.actions:
+                    if p.name == a.name:
+                        # logger.info(f"selected_device_parameter_toggle checking param '{p.name}' for group action")
+                        a.action(p)
+        else:
+            for p in device.parameters:
+                self.log_message(
+                    f"selected_device_parameter_toggle checking param '{p.name}' against '{parameter_op.name}' ({p.name == parameter_op.name})")
+                if p.name == parameter_op.name:
+                    parameter_op.action(p)
+
+
 
 class MidiRecord(ControlSurfaceComponent):
 
@@ -123,7 +284,7 @@ class MidiRecord(ControlSurfaceComponent):
                 destination_track.arm = 1
                 break
         else:
-            self._control_surface.show_message("Couldn't configure Routing")
+            self.log_message("Couldn't configure Routing")
 
         # Set the destination track to monitor input (ensure it captures the MIDI from the source)
 
@@ -362,6 +523,31 @@ class Bounce(ControlSurfaceComponent):
 
         self.delete_extra_default_devices(new_track)
 
+    def create_audio_track_taking_input_from_selected_track(self):
+
+        current_track = self.song().view.selected_track
+        new_track = self.song().create_audio_track()
+
+        for t in self.song().tracks:
+            try:
+                t.arm = False
+            except Exception as e:
+                self.log_message(f"failed to disarm track {t.name}: {e}")
+
+        for i in new_track.available_input_routing_types:
+            if i.display_name == current_track.name:
+                new_track.current_monitoring_state = 0
+                new_track.input_routing_type = i
+                new_track.arm = True
+
+                new_track.name = f"{current_track.name} - Input"
+                break
+        else:
+            self._user.show_message("Couldn't configure Routing")
+
+
+
+
     def delete_extra_default_devices(self, new_track):
         total_devices = len(new_track.devices)
         device_deletions = int((total_devices - 1) / 2)
@@ -587,6 +773,7 @@ class Patterns(object):
     ]
 
     basic_midi_cycles = [
+        ('', []),
         ('C Line', c_line),
         ('C Beats', notes_c_kicks),
         ('C Offbeat', notes_off_beat),
@@ -902,3 +1089,101 @@ class Arranger(ControlSurfaceComponent):
 
             self._control_surface.log_message(
                 f"{name} -> {end_loc} : {start_loc_in_beats} -> {end_loc_in_beats} ({beats_to_build})")
+
+
+
+@dataclass
+class OnOff:
+    name: str
+
+    def action(self, p):
+        p.value = 0.0
+        p.value = 1.0
+
+    def __str__(self):
+        return f"Click {self.name}"
+
+@dataclass
+class RackTurn:
+    name: str
+
+    def action(self, p):
+        p.value = 0.0
+        p.value = 70
+
+    def __str__(self):
+        return f"Click {self.name}"
+
+@dataclass
+class Inc:
+    name: str
+
+    def action(self, p):
+        p.value = p.value + 1.0
+
+    def __str__(self):
+        return f"Increment {self.name}"
+
+@dataclass
+class Dec:
+    name: str
+
+    def action(self, p):
+        p.value = p.value - 1.0
+
+    def __str__(self):
+        return f"Decrement {self.name}"
+
+@dataclass
+class Group:
+    actions: []
+    name: str = "Group Action"
+
+    def action(self, p):
+        for a in self.actions:
+            a.action(p)
+
+    def __str__(self):
+        return f"Random for {', '.join([a.name for a in self.actions])}"
+
+@dataclass
+class Random:
+    name: str
+
+    def action(self, p):
+        p.value = random.uniform(p.min, p.max)
+
+    def __str__(self):
+        return f"Random for {self.name}"
+
+parameter_toggle_mappings = {
+    "SQ Sequencer": [OnOff("RandPitch"),
+                     OnOff("RandOct"),
+                     OnOff("VelRandom"),
+                     OnOff("RandLength"),
+                     OnOff("ResetVelocity"),
+                     OnOff("ResetLength"),
+                     Dec("SQMax"),
+                     Inc("SQMax"),
+                     OnOff("ShiftLeft"),
+                     OnOff("ShiftRight"),
+                     ],
+    "SHED SKIN - LOW END GENERATOR RACK": [
+        RackTurn("NEW GROOVE")
+    ],
+    "INST - Diva Preset Rack - CK": [
+        Dec("Program Change"),
+        Inc("Program Change"),
+        Dec("Bank (MSB)"),
+        Inc("Bank (MSB)")
+    ],
+    "ML-185 Sequencer": [
+        Group([Random("Pitch1"), Random("Pitch2"), Random("Pitch3"),
+               Random("Pitch4"), Random("Pitch5"), Random("Pitch6"),
+               Random("Pitch7"), Random("Pitch8")]),
+
+        Group([Random("Velocity1"), Random("Velocity2"), Random("Velocity3"),
+               Random("Velocity4"), Random("Velocity5"), Random("Velocity6"),
+               Random("Velocity7"), Random("Velocity8")])
+    ]
+}
