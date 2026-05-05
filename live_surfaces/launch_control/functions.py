@@ -98,38 +98,6 @@ class SequencerControlSurface(ControlSurfaceComponent):
     def log_message(self, message):
         self._manager.log_message(message)
 
-        self.parameter_toggle_mappings = {
-            "SQ Sequencer": [OnOff("RandPitch"),
-                             OnOff("RandOct"),
-                             OnOff("VelRandom"),
-                             OnOff("RandLength"),
-                             OnOff("ResetVelocity"),
-                             OnOff("ResetLength"),
-                             Dec("SQMax"),
-                             Inc("SQMax"),
-                             OnOff("ShiftLeft"),
-                             OnOff("ShiftRight"),
-                             ],
-            "SHED SKIN - LOW END GENERATOR RACK": [
-                RackTurn("NEW GROOVE")
-            ],
-            "INST - Diva Preset Rack - CK": [
-                Dec("Program Change"),
-                Inc("Program Change"),
-                Dec("Bank (MSB)"),
-                Inc("Bank (MSB)")
-            ],
-            "ML-185 Sequencer": [
-                Group([Random("Pitch1"), Random("Pitch2"), Random("Pitch3"),
-                       Random("Pitch4"), Random("Pitch5"), Random("Pitch6"),
-                       Random("Pitch7"), Random("Pitch8")]),
-
-                Group([Random("Velocity1"), Random("Velocity2"), Random("Velocity3"),
-                       Random("Velocity4"), Random("Velocity5"), Random("Velocity6"),
-                       Random("Velocity7"), Random("Velocity8")])
-            ]
-        }
-
         self.parameter_named_mappings = {
             "SQ Sequencer": {
                 "random_pitch":    OnOff("RandPitch"),

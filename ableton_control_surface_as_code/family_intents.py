@@ -11,13 +11,18 @@ finds the parameter number for that slot on that class.
 
 """
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 CONTINUOUS_SLOT_NAMES = [f"slot{i}" for i in range(1, 9)]
-MODE_SLOT_NAMES = ["switch1", "switch2"]
+MODE_SLOT_NAMES = [f"switch{i}" for i in range(1, 9)]
 ALL_SLOT_NAMES = CONTINUOUS_SLOT_NAMES + MODE_SLOT_NAMES
+
+# Switch action vocabulary. `cycle` is the original audio-family behavior
+# (step through cycleMin..cycleMax). The rest cover the midi-family cases:
+# pulse (0->1), inc, dec, random (single param), group_random (many params).
+SWITCH_ACTIONS = {"cycle", "pulse", "inc", "dec", "random", "group_random"}
 
 
 @dataclass(frozen=True)
@@ -26,6 +31,8 @@ class SlotEntry:
     parameter_name: str
     cycle_min: Optional[int] = None
     cycle_max: Optional[int] = None
+    action: str = "cycle"
+    parameter_names: Tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def is_cycle(self) -> bool:
@@ -50,11 +57,26 @@ def load_family_intents(path: Path = _DEFAULT_PATH) -> Dict[str, Dict[str, SlotE
             for slot_name, slot in device.get("slots", {}).items():
                 if slot_name not in ALL_SLOT_NAMES:
                     continue
+                action = slot.get("action", "cycle")
+                if action not in SWITCH_ACTIONS:
+                    raise ValueError(
+                        f"Unknown action {action!r} for {class_name}.{slot_name}; "
+                        f"expected one of {sorted(SWITCH_ACTIONS)}"
+                    )
+                # parameterNumber is required for cycle (legacy audio families)
+                # but optional for midi actions that look up by parameterName at runtime.
+                param_no = int(slot["parameterNumber"]) if "parameterNumber" in slot else -1
+                # parameterName remains the canonical lookup key. group_random uses
+                # parameterNames (a list) instead.
+                param_name = str(slot.get("parameterName", ""))
+                param_names = tuple(slot.get("parameterNames", []))
                 table[slot_name][class_name] = SlotEntry(
-                    parameter_number=int(slot["parameterNumber"]),
-                    parameter_name=str(slot["parameterName"]),
+                    parameter_number=param_no,
+                    parameter_name=param_name,
                     cycle_min=int(slot["cycleMin"]) if "cycleMin" in slot else None,
                     cycle_max=int(slot["cycleMax"]) if "cycleMax" in slot else None,
+                    action=action,
+                    parameter_names=param_names,
                 )
 
     return table

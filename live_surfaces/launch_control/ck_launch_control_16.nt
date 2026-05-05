@@ -71,6 +71,8 @@ modes:
                 mappings:
                     switch1: row-3:5
                     switch2: row-3:6
+                    switch3: row-3:7
+                    switch4: row-3:8
             -
                 type: functions
                 mappings:
@@ -79,8 +81,8 @@ modes:
                     selected_audio_to_simpler_in_new_track: row-3:4
 #                    sequencer_random_notes: row-3:5
 #                    sequencer_random_velocity: row-3:6
-                    sequencer_random_length: row-3:7
-                    sequencer_shift_right: row-3:8
+#                    sequencer_random_length: row-3:7
+#                    sequencer_shift_right: row-3:8
 
     #                shift_clip_notes_left: row-4:1
     #                shift_clip_notes_right: row-4:2

@@ -581,6 +581,35 @@
           }
         }
       ]
+    },
+    {
+      "name": "MIDI Sequencers",
+      "markdown-columns": [
+        ["switch1", "Random Notes"],
+        ["switch2", "Random Velocity"],
+        ["switch3", "Random Length"],
+        ["switch4", "Shift Right"]
+      ],
+      "devices": [
+        {
+          "className": "SQ Sequencer", "deviceName": "SQ Sequencer",
+          "slots": {
+            "switch1": {"parameterName": "RandPitch", "action": "pulse"},
+            "switch2": {"parameterName": "VelRandom", "action": "pulse"},
+            "switch3": {"parameterName": "RandLength",  "action": "pulse"},
+            "switch4": {"parameterName": "ShiftRight",  "action": "pulse"}
+          }
+        },
+        {
+          "className": "ML-185 Sequencer", "deviceName": "ML-185 Sequencer",
+          "slots": {
+            "switch1": {"action": "group_random",
+                        "parameterNames": ["Pitch1","Pitch2","Pitch3","Pitch4","Pitch5","Pitch6","Pitch7","Pitch8"]},
+            "switch2": {"action": "group_random",
+                        "parameterNames": ["Velocity1","Velocity2","Velocity3","Velocity4","Velocity5","Velocity6","Velocity7","Velocity8"]}
+          }
+        }
+      ]
     }
   ]
 }

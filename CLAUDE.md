@@ -30,6 +30,14 @@ poetry run python ableton_control_surface_as_code/gen.py live_surfaces/launch_co
 ./bin/tail_logs.sh
 ```
 
+## Deployment
+
+generating a script creates a new live surface in a directory in the same folder as the mapping, with the same name as the mapping file stem (e.g. `ck_launch_control_16/`) under /live_surfaces.
+To deploy to Ableton, run `./deploy.sh`, in the generated folder, which copies all live surfaces to the Ableton MIDI Remote Scripts directory. After running this,
+a live_surface called will be deployd to `/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/MIDI Remote Scripts/ck_launch_control_16`
+Ableton Life will need to be restarted, and the logs can be tailed with `./bin/tail_logs.sh` to confirm the new control surface is loading correctly, or to see failure messages.
+
+
 ## Architecture
 
 ### Config Files (input)

@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, replace, field, Field
 from typing import Any, Optional
 
@@ -145,6 +146,7 @@ class Helpers:
         self._last_device_parameter_count = -1
         self._send_upd = True
         self.page_size = page_size
+        # self._pending_pulse_targets = []
 
         self._remote = remote
 
@@ -254,6 +256,84 @@ class Helpers:
 
     def value_is_max(self, value, max):
         return value == max
+
+    def _find_param_by_name(self, device, param_name):
+        for p in device.parameters:
+            if p.name == param_name:
+                return p
+        return None
+
+    def device_param_pulse(self, device, param_name, fn_name):
+        self.log_message(f"deivce_param_pulse: device:{device}, param_name:{param_name}, fn_name:{fn_name}")
+        if device is None:
+            return
+        p = self._find_param_by_name(device, param_name)
+        if p is None:
+            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
+            return
+
+
+        self.log_message \
+            (f"{fn_name}: selected_device:{device.name}, current value is {p.value}, min:{p.min}, max: {p.max}")
+
+        if p.value == p.max:
+            p.value = p.min
+
+        p.value = p.max
+
+
+
+        #             p.value = p.max
+        # self._pending_pulse_targets.append(p)
+        # self._manager.schedule_message(1, self._flush_pending_pulses)
+
+    # def _flush_pending_pulses(self):
+    #     targets = self._pending_pulse_targets
+    #     self._pending_pulse_targets = []
+    #     for p in targets:
+    #         try:
+    #             p.value = p.max
+    #         except Exception as e:
+    #             self.log_message(f"_flush_pending_pulses: {e}")
+
+    def device_param_inc(self, device, param_name, fn_name):
+        if device is None:
+            return
+        p = self._find_param_by_name(device, param_name)
+        if p is None:
+            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
+            return
+        p.value = min(p.max, p.value + 1.0)
+
+    def device_param_dec(self, device, param_name, fn_name):
+        if device is None:
+            return
+        p = self._find_param_by_name(device, param_name)
+        if p is None:
+            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
+            return
+        p.value = max(p.min, p.value - 1.0)
+
+    def device_param_random(self, device, param_name, fn_name):
+        if device is None:
+            return
+        p = self._find_param_by_name(device, param_name)
+        if p is None:
+            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
+            return
+        p.value = random.uniform(p.min, p.max)
+
+    def device_params_group_random(self, device, param_names, fn_name):
+        if device is None:
+            return
+        wanted = set(param_names)
+        hit = 0
+        for p in device.parameters:
+            if p.name in wanted:
+                p.value = random.uniform(p.min, p.max)
+                hit += 1
+        if hit == 0:
+            self.log_message(f"{fn_name}: none of {param_names} on {device.class_name}")
 
     def device_param_cycle(self, device, param_no, cycle_min, cycle_max, fn_name):
         """

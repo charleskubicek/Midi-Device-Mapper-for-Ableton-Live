@@ -59,9 +59,13 @@ class DeviceParameterPageNavMidi(BaseModel):
     export_to_mode: str = Optional[str]
 
 
+_SWITCH_LITERAL = Literal['switch1', 'switch2', 'switch3', 'switch4',
+                           'switch5', 'switch6', 'switch7', 'switch8']
+
+
 class ModeButtonEntry(BaseModel):
     coord: EncoderCoords
-    slot: Literal['switch1', 'switch2']
+    slot: _SWITCH_LITERAL
 
     @field_validator('coord', mode='before')
     @classmethod
@@ -112,12 +116,22 @@ class DeviceEncoderMappings(BaseModel):
     mode_buttons: List[ModeButtonEntry] = Field(default_factory=list, alias='mode-buttons')
     switch1: Optional[EncoderCoords] = Field(None, alias='switch1')
     switch2: Optional[EncoderCoords] = Field(None, alias='switch2')
+    switch3: Optional[EncoderCoords] = Field(None, alias='switch3')
+    switch4: Optional[EncoderCoords] = Field(None, alias='switch4')
+    switch5: Optional[EncoderCoords] = Field(None, alias='switch5')
+    switch6: Optional[EncoderCoords] = Field(None, alias='switch6')
+    switch7: Optional[EncoderCoords] = Field(None, alias='switch7')
+    switch8: Optional[EncoderCoords] = Field(None, alias='switch8')
     parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
 
-    @field_validator('switch1', 'switch2', mode='before')
+    @field_validator('switch1', 'switch2', 'switch3', 'switch4',
+                     'switch5', 'switch6', 'switch7', 'switch8', mode='before')
     @classmethod
     def parse_switch(cls, value):
         return parse_coords(value) if value is not None else None
+
+    def switch_entries(self) -> List[Tuple[str, Optional[EncoderCoords]]]:
+        return [(f"switch{i}", getattr(self, f"switch{i}")) for i in range(1, 9)]
 
     def encoders_all(self) -> List[RowMapV2_1]:
         if self.encoders is None:
@@ -201,7 +215,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             midi_coords=midi_coord,
             slot=entry.slot,
         ))
-    for slot_name, coord in [('switch1', device.mappings.switch1), ('switch2', device.mappings.switch2)]:
+    for slot_name, coord in device.mappings.switch_entries():
         if coord is not None:
             midi_coord = controller.build_midi_coords(coord)[0][0]
             mode_button_maps.append(ModeButtonMidiMapping(

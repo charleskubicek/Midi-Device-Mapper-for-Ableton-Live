@@ -210,30 +210,7 @@ def _mode_button_template(mb: ModeButtonMidiMapping, mode_name: str, track: str 
     btn_name = mb.controller_variable_name()
     btn_listener_name = mb.controller_listener_fn_name(mode_name)
 
-    cycle_table = _slot_class_param_table(mb.slot, with_cycle=True)
-
-    fn = Template("""
-def ${fn_name}(self, value):
-    if value != 127:
-        return
-    device = self.find_device("${track}", "${device}")
-    if device is None:
-        self.log_message(f"device not found: ${track} - ${device}")
-        return
-    table = ${cycle_table}
-    entry = table.get(device.class_name)
-    if entry is None:
-        self.log_message(f"${slot} not supported for {device.class_name}")
-        return
-    param_no, cmin, cmax = entry
-    self._helpers.device_param_cycle(device, param_no, cmin, cmax, "$fn_name")
-    """).substitute(
-        fn_name=btn_listener_name,
-        track=track,
-        device=device,
-        cycle_table=cycle_table,
-        slot=mb.slot,
-    ).split("\n")
+    fn = _switch_action_dispatch_fn(btn_listener_name, mb.slot, track, device).split("\n")
 
     return GeneratedCode(
         control_defs=[mb.only_midi_coord],
@@ -241,6 +218,73 @@ def ${fn_name}(self, value):
                          f"self._previous_values['{btn_listener_name}'] = 0"],
         remove_listeners=[f"self.{btn_name}.remove_value_listener(self.{btn_listener_name})"],
         listener_fns=fn,
+    )
+
+
+def _switch_action_dispatch_fn(fn_name: str, slot: str, track: str, device: str) -> str:
+    """
+    Build a per-class dispatch table for one switch slot. The table value is
+    (action, payload) where payload's shape depends on the action:
+        cycle        -> (param_no:int, cmin:int, cmax:int)
+        pulse|inc|dec|random -> param_name:str
+        group_random -> tuple[str, ...] of parameter names
+    Each branch defers the actual work to a runtime helper.
+    """
+    table = _family_intents.get(slot, {})
+    rows = {}
+    for cls, entry in table.items():
+        if entry.action == "cycle":
+            if not entry.is_cycle:
+                continue
+            rows[cls] = ("cycle", (entry.parameter_number, entry.cycle_min, entry.cycle_max))
+        elif entry.action in ("pulse", "inc", "dec", "random"):
+            if not entry.parameter_name:
+                continue
+            rows[cls] = (entry.action, entry.parameter_name)
+        elif entry.action == "group_random":
+            if not entry.parameter_names:
+                continue
+            rows[cls] = ("group_random", tuple(entry.parameter_names))
+
+    table_literal = repr(rows)
+
+    return Template("""
+def ${fn_name}(self, value):
+    self.log_message(f"calling : ${fn_name}")
+    #if value != 127:
+    #    return
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+    table = ${table_literal}
+    # class_name first so audio families (Compressor2, Amp, ...) win;
+    # device.name as fallback covers Max4Live (MxDeviceMidiEffect) and racks
+    # (InstrumentGroupDevice) where class_name is too generic to identify the device.
+    entry = table.get(device.class_name) or table.get(device.name)
+    if entry is None:
+        self.log_message(f"${slot} not supported for {device.class_name} / {device.name}")
+        return
+    action, payload = entry
+    if action == "cycle":
+        param_no, cmin, cmax = payload
+        self._helpers.device_param_cycle(device, param_no, cmin, cmax, "$fn_name")
+    elif action == "pulse":
+        self._helpers.device_param_pulse(device, payload, "$fn_name")
+    elif action == "inc":
+        self._helpers.device_param_inc(device, payload, "$fn_name")
+    elif action == "dec":
+        self._helpers.device_param_dec(device, payload, "$fn_name")
+    elif action == "random":
+        self._helpers.device_param_random(device, payload, "$fn_name")
+    elif action == "group_random":
+        self._helpers.device_params_group_random(device, payload, "$fn_name")
+    """).substitute(
+        fn_name=fn_name,
+        track=track,
+        device=device,
+        table_literal=table_literal,
+        slot=slot,
     )
 
 
@@ -268,20 +312,6 @@ def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[
             })
 
     return [f"'{class_name}': {entries!r}" for class_name, entries in sorted(per_class.items())]
-
-
-def _slot_class_param_table(slot: str, with_cycle: bool = False) -> str:
-    """Return a Python dict literal mapping class_name -> param_no (or (param_no, cmin, cmax))."""
-    table = _family_intents.get(slot, {})
-    if with_cycle:
-        items = {
-            cls: (e.parameter_number, e.cycle_min if e.cycle_min is not None else 0,
-                  e.cycle_max if e.cycle_max is not None else 0)
-            for cls, e in table.items() if e.cycle_min is not None and e.cycle_max is not None
-        }
-    else:
-        items = {cls: e.parameter_number for cls, e in table.items()}
-    return repr(items)
 
 
 # TODO Unit tests

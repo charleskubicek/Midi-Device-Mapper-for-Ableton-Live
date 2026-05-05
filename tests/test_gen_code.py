@@ -149,7 +149,7 @@ class TestDeviceTemplatesWithSlots(unittest.TestCase):
 
         self.assertIn("self._helpers.device_param_cycle(device,", all_fns)
         # Cycle table should include Compressor2's switch1 (param 10, range 0..2).
-        self.assertIn("'Compressor2': (10, 0, 2)", all_fns)
+        self.assertIn("'Compressor2': ('cycle', (10, 0, 2))", all_fns)
 
 
 if __name__ == "__main__":
