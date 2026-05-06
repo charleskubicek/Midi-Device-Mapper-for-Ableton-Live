@@ -1,9 +1,10 @@
 import unittest
 from dataclasses import dataclass, field
 # from typing import List
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock, call
 
-from source_modules.helpers import Helpers, ParameterMapping
+from source_modules.helpers import Helpers, ParameterMapping, Remote
+from source_modules.hud_client import NullHudClient
 
 
 @dataclass
@@ -150,6 +151,94 @@ class TestHelpers(unittest.TestCase):
         self.assertAlmostEqual(int(self.helpers.normalise(0, -10.0, 10.0)), -10)
         self.assertAlmostEqual(int(self.helpers.normalise(64, -10.0, 10.0)), 0)
         self.assertAlmostEqual(int(self.helpers.normalise(127, -10.0, 10.0)), 10)
+
+
+def _make_param(name="Freq", value=0.5, vmin=0.0, vmax=1.0):
+    p = Mock()
+    p.name = name
+    p.value = value
+    p.min = vmin
+    p.max = vmax
+    return p
+
+
+def _make_real_param(param, alias=None, button=None):
+    rp = Mock()
+    rp.param = param
+    rp.alias = alias
+    rp.button = button
+    return rp
+
+
+class TestRemoteBurstSuppression(unittest.TestCase):
+    """Remote must not emit UPDATE during a device_update burst."""
+
+    def setUp(self):
+        self.osc = Mock()
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=self.osc, hud_client=self.hud)
+
+    def _burst(self, params):
+        """Run a minimal device_update with the given RealParam list (index 0 = on/off)."""
+        self.remote.device_update("TestDevice", params)
+
+    def test_send_update_not_called_during_burst(self):
+        """send_update must be silent while device_update is building the snapshot."""
+        params = [_make_real_param(_make_param(f"p{i}")) for i in range(4)]
+        self._burst(params)
+        self.hud.send_update.assert_not_called()
+
+    def test_send_update_called_after_burst(self):
+        """send_update IS sent when parameter_updated is called outside a burst."""
+        rp = _make_real_param(_make_param("Freq", value=0.7), alias="Frequency")
+        self.remote.parameter_updated(rp, parameter_no=1)
+        self.hud.send_update.assert_called_once_with('dial', 0, "Frequency", 0.7, 0.0, 1.0)
+
+    def test_send_update_not_called_for_index_0(self):
+        """on/off at parameter_no=0 never triggers send_update."""
+        rp = _make_real_param(_make_param("On/Off"))
+        self.remote.parameter_updated(rp, parameter_no=0)
+        self.hud.send_update.assert_not_called()
+
+    def test_send_update_uses_alias_over_param_name(self):
+        """Alias takes priority over raw parameter name in send_update."""
+        rp = _make_real_param(_make_param("RawName"), alias="NiceName")
+        self.remote.parameter_updated(rp, parameter_no=2)
+        args = self.hud.send_update.call_args[0]
+        self.assertEqual(args[2], "NiceName")
+
+    def test_send_update_uses_param_name_when_no_alias(self):
+        rp = _make_real_param(_make_param("RawName"), alias=None)
+        self.remote.parameter_updated(rp, parameter_no=3)
+        args = self.hud.send_update.call_args[0]
+        self.assertEqual(args[2], "RawName")
+
+    def test_burst_flag_cleared_after_device_update(self):
+        """After device_update completes, send_update works again."""
+        params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        self._burst(params)
+        self.hud.send_update.reset_mock()
+
+        rp = _make_real_param(_make_param("Res", value=0.3))
+        self.remote.parameter_updated(rp, parameter_no=1)
+        self.hud.send_update.assert_called_once()
+
+    def test_burst_sends_commit(self):
+        params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        self._burst(params)
+        self.hud.commit.assert_called_once()
+
+    def test_burst_sends_device_name(self):
+        params = [_make_real_param(_make_param())]
+        self.remote.device_update("EQ Eight", params)
+        self.hud.send_device.assert_called_once_with("EQ Eight")
+
+    def test_dial_index_mapping(self):
+        """parameter_no 1..N maps to dial slot 0..N-1."""
+        rp = _make_real_param(_make_param("Size", value=0.9))
+        self.remote.parameter_updated(rp, parameter_no=5)
+        args = self.hud.send_update.call_args[0]
+        self.assertEqual(args[1], 4)  # dial index = parameter_no - 1
 
 
 if __name__ == '__main__':

@@ -28,6 +28,7 @@ class GeneratedCode:
     setup_listeners: [str] = field(default_factory=list)
     remove_listeners: [str] = field(default_factory=list)
     custom_parameter_mappings: [str] = field(default_factory=list)
+    switch_parameter_mappings: [str] = field(default_factory=list)
 
     def midi_coords_exists_in_control_defs(self, midi_coords: MidiCoords) -> bool:
         return any([c == midi_coords for c in self.control_defs])
@@ -77,6 +78,8 @@ class GeneratedCodes:
 
         custom_parameter_mappings = one_non_empty_array_or_none(
             one.custom_parameter_mappings, other.custom_parameter_mappings)
+        switch_parameter_mappings = one_non_empty_array_or_none(
+            one.switch_parameter_mappings, other.switch_parameter_mappings)
 
         return GeneratedCode(
             one.array_defs + other.array_defs,
@@ -86,6 +89,7 @@ class GeneratedCodes:
             one.setup_listeners + other.setup_listeners,
             one.remove_listeners + other.remove_listeners,
             custom_parameter_mappings,
+            switch_parameter_mappings,
         )
 
 
@@ -201,7 +205,9 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
                     f"Not generating parmeter_paging on mode {mode_name} as it's being exported to {device_with_midi.parameter_page_nav.export_to_mode}")
 
     custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
-    codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings))
+    switch_mappings = code_from_switch_slot_assignments(device_with_midi.mode_button_maps)
+    codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings,
+                               switch_parameter_mappings=switch_mappings))
 
     return codes
 
@@ -307,6 +313,32 @@ def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[
         for class_name, entry in slot_table.items():
             per_class.setdefault(class_name, []).append({
                 'c_idx': c_idx,
+                'd_idx': entry.parameter_number,
+                'alias': entry.parameter_name,
+            })
+
+    return [f"'{class_name}': {entries!r}" for class_name, entries in sorted(per_class.items())]
+
+
+def code_from_switch_slot_assignments(mode_button_maps) -> List[str]:
+    """
+    Build the per-device-class switch-slot parameter mapping dict entries.
+    Only processes mode_button_maps entries with slot names starting with 'switch'.
+    Returns List[str] lines for the code_switch_parameter_mappings dict.
+    """
+    per_class: dict = {}
+    seen: set = set()  # avoid duplicate (class, switch_idx) entries across modes
+    for mb in mode_button_maps:
+        if not mb.slot.startswith('switch'):
+            continue
+        switch_idx = int(mb.slot.replace('switch', '')) - 1  # 0-indexed
+        for class_name, entry in _family_intents.get(mb.slot, {}).items():
+            key = (class_name, switch_idx)
+            if key in seen:
+                continue
+            seen.add(key)
+            per_class.setdefault(class_name, []).append({
+                'switch_idx': switch_idx,
                 'd_idx': entry.parameter_number,
                 'alias': entry.parameter_name,
             })

@@ -29,6 +29,9 @@ class HudClient:
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax):
         self._send(f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}")
 
+    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax):
+        self._send(f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}")
+
     def commit(self, count: int):
         self._send(f"COMMIT|{count}")
 
@@ -36,4 +39,5 @@ class HudClient:
 class NullHudClient:
     def send_device(self, name: str): pass
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass
+    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def commit(self, count: int): pass

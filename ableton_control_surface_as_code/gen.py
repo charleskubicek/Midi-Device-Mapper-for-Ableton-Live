@@ -111,6 +111,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
         codes.setup_listeners.append(class_function_body_code_block(merge.setup_listeners))
         codes.listener_fns.append(class_function_code_block(merge.listener_fns))
         codes.custom_parameter_mappings.append(",\n\t\t\t".join(merge.custom_parameter_mappings))
+        codes.switch_parameter_mappings.append(",\n\t\t\t".join(merge.switch_parameter_mappings))
 
         for (name, values) in merge.array_defs:
             array_defs.append(array_def_template(name, values))
@@ -128,6 +129,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
     return {
         'code_setup': "\n".join(codes.init),
         'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
+        'code_switch_parameter_mappings': dict_variable_decleration_block(codes.switch_parameter_mappings),
         'code_creation': class_function_body_code_block(creation + array_defs),
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),

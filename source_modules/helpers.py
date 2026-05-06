@@ -136,11 +136,29 @@ def parse_custom_mappings(custom_mappings_raw):
     return res
 
 
+@dataclass
+class SwitchSlotMapping:
+    switch_idx: int  # 0-7
+    d_idx: int       # index into device.parameters
+    alias: str
+
+
+def parse_switch_mappings(switch_mappings_raw):
+    """Parse the code_switch_parameter_mappings dict into {class_name: [SwitchSlotMapping]}."""
+    res = {}
+    for device_class, entries in (switch_mappings_raw or {}).items():
+        res[device_class] = [
+            SwitchSlotMapping(m['switch_idx'], m['d_idx'], m['alias'])
+            for m in entries
+        ]
+    return res
+
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings_raw, page_size=16):
+    def __init__(self, manager, remote, custom_mappings_raw, switch_mappings_raw=None, page_size=16):
         self._manager = manager
         self._custom_mappings = CustomMappings(manager, parse_custom_mappings(custom_mappings_raw))
+        self._switch_mappings = parse_switch_mappings(switch_mappings_raw)
         self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
         self._last_device_message_about = None
         self._last_selected_device = None
@@ -176,7 +194,8 @@ class Helpers:
         all_params = [on_off] + real_params
 
         info = f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}"
-        self._remote.device_update(self._last_selected_device.name, all_params, info)
+        switch_entries = self._switch_mappings.get(self._last_selected_device.class_name, [])
+        self._remote.device_update(self._last_selected_device.name, all_params, info, switch_entries, self._last_selected_device.parameters)
 
     @staticmethod
     def get_actual_parameters_from_device(manager, custom_mappings, paging, device):
@@ -510,6 +529,7 @@ class Remote:
         self._manager = manager
         self._osc_client = osc_client
         self._hud_client = hud_client if hud_client is not None else NullHudClient()
+        self._in_burst = False  # suppresses UPDATE during device_update burst
 
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):
@@ -517,11 +537,15 @@ class Remote:
         name = param.name if real_param.alias is None else real_param.alias
         self._osc_client.send_message(f"/selected-device/parameter-update",
                                       [parameter_no, param.value, name, param.min, param.max, real_param.button])
+        # Live HUD update — skip on/off (index 0) and skip during the initial burst
+        if parameter_no > 0 and not self._in_burst:
+            self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
 
-    def device_update(self, device_name, real_parameters, info_text=""):
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        # HUD burst: index 0 is on/off (skip it), indices 1+ are dial slots 0..7
+        # HUD burst: suppress live UPDATE calls while we build the full snapshot
+        self._in_burst = True
         self._hud_client.send_device(device_name)
         hud_count = 0
         for i, pm in enumerate(real_parameters):
@@ -531,7 +555,19 @@ class Remote:
                 name = p.name if pm.alias is None else pm.alias
                 self._hud_client.send_slot('dial', i - 1, name, p.value, p.min, p.max)
                 hud_count += 1
+
+        # Button/switch slots for the current device class
+        if switch_entries and device_parameters:
+            for entry in switch_entries:
+                try:
+                    p = device_parameters[entry.d_idx]
+                    self._hud_client.send_slot('button', entry.switch_idx, entry.alias or p.name, p.value, p.min, p.max)
+                    hud_count += 1
+                except (IndexError, Exception):
+                    pass
+
         self._hud_client.commit(hud_count)
+        self._in_burst = False
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 
