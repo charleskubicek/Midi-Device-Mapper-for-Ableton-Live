@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
+from .hud_client import HudClient, NullHudClient
 import logging
 
 
@@ -505,9 +506,10 @@ class CustomMappings:
 
 
 class Remote:
-    def __init__(self, manager, osc_client):
+    def __init__(self, manager, osc_client, hud_client=None):
         self._manager = manager
         self._osc_client = osc_client
+        self._hud_client = hud_client if hud_client is not None else NullHudClient()
 
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):
@@ -519,8 +521,17 @@ class Remote:
     def device_update(self, device_name, real_parameters, info_text=""):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
+        # HUD burst: index 0 is on/off (skip it), indices 1+ are dial slots 0..7
+        self._hud_client.send_device(device_name)
+        hud_count = 0
         for i, pm in enumerate(real_parameters):
             self.parameter_updated(pm, i)
+            if i > 0:
+                p = pm.param
+                name = p.name if pm.alias is None else pm.alias
+                self._hud_client.send_slot('dial', i - 1, name, p.value, p.min, p.max)
+                hud_count += 1
+        self._hud_client.commit(hud_count)
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 

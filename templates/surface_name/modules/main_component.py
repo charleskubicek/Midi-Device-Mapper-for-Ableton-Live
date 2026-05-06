@@ -6,6 +6,7 @@ from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
 from .helpers import Helpers, OSCMultiClient, OSCClient, Remote, NullOSCClient
+from .hud_client import HudClient
 from .listener import OSCListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
@@ -45,7 +46,8 @@ class MainComponent(ControlSurfaceComponent):
                 OSCClient(host='192.168.68.84', port=5005)
             ])
 
-        self._remote = Remote(self.manager, self._osc_client)
+        self._hud_client = HudClient()
+        self._remote = Remote(self.manager, self._osc_client, self._hud_client)
 
         $code_setup
 
