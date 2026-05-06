@@ -8,6 +8,8 @@ This is a code generator that takes NestedText (`.nt`) config files describing a
 
 **Pipeline:** `.nt` mapping file → `gen.py` → Python control surface directory → `deploy.sh` → Ableton Live
 
+A companion native macOS app (`/Users/ck/current/ableton_hud`) renders a floating HUD overlay showing the current device's mapped parameters (8 dials + 8 buttons). The Python side pushes mapping data over UDP on every device focus change.
+
 ## Commands
 
 ```bash
@@ -64,6 +66,20 @@ Two NestedText files per controller setup, typically in `live_surfaces/<controll
 `live_surfaces/` contains real controller configs:
 - `launch_control/` — Novation Launch Control XL with shift modes, device/mixer/function mappings
 - `parks/` — Parks tool controller
+
+### HUD Client (`source_modules/hud_client.py`)
+
+Emits the HUD wire protocol to `127.0.0.1:5006` (UDP) whenever device focus changes. The protocol is line-based and pipe-delimited:
+
+```
+DEVICE|<deviceName>          # resets HUD state
+SLOT|dial|<0..7>|<name>|<value>|<min>|<max>
+SLOT|button|<0..7>|<name>|<value>|<min>|<max>
+COMMIT|<slotCount>           # atomic swap / render trigger
+UPDATE|<kind>|<index>|...    # single-slot live update, no COMMIT needed
+```
+
+`HudClient` sends real datagrams; `NullHudClient` is the no-op fallback when no HUD process is running. Both have identical interfaces so the generated surface code never needs to branch. The hook point in generated surfaces is `main_component.py` — it calls `hud_client.send_device()` + `send_slot()` + `commit()` on the same code path that emits OSC parameter updates.
 
 ### Modes / FSM
 The mode system is a finite state machine: a single mode button cycles through named modes. Each mode has its own set of mappings. Shift-type modes work differently (held, not toggled). `ModeGroupWithMidi` in `model_v2.py` holds the FSM; `gen.py` renders the mode setup/teardown code.

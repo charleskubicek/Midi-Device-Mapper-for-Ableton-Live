@@ -35,9 +35,13 @@ class HudClient:
     def commit(self, count: int):
         self._send(f"COMMIT|{count}")
 
+    def send_ping(self):
+        self._send("PING")
+
 
 class NullHudClient:
     def send_device(self, name: str): pass
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def commit(self, count: int): pass
+    def send_ping(self): pass

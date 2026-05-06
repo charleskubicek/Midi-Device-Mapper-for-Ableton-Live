@@ -285,6 +285,7 @@ def ${fn_name}(self, value):
         self._helpers.device_param_random(device, payload, "$fn_name")
     elif action == "group_random":
         self._helpers.device_params_group_random(device, payload, "$fn_name")
+    self._hud_client.send_ping()
     """).substitute(
         fn_name=fn_name,
         track=track,

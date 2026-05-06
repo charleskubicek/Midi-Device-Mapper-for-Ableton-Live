@@ -16,4 +16,5 @@ Specific features include:
 - **User and Transport Functions**: Customizable user functions alongside transport controls like play, stop, and record.
 - **Device and Track Navigation**: Directly navigate to named top-level devices or tracks by name.
 - **Custom Encoder Ranges**: Define custom min/max ranges for encoder values for finer control.
-- **Python Functions**; The ultimate customisation- call any function of the Ableton API combined with your own workflow logic! 
+- **Python Functions**; The ultimate customisation- call any function of the Ableton API combined with your own workflow logic!
+- **HUD Overlay**: A companion macOS app (`ableton_hud`) shows a transparent floating overlay with the current device's dial/button assignments whenever Ableton is in focus.
