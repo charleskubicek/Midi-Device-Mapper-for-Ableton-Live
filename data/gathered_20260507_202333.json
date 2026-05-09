@@ -1,0 +1,309 @@
+{
+  "families": [
+    {
+      "name": "Blue Hand",
+      "devices": [
+        {
+          "className": "AudioEffectGroupDevice",
+          "deviceName": "CK Utility - Shaper Version",
+          "slots": {
+            "slot1": {
+              "parameterName": "Output",
+              "parameterNumber": 1
+            },
+            "slot2": {
+              "parameterName": "Stereo Width",
+              "parameterNumber": 2
+            },
+            "slot3": {
+              "parameterName": "Bass Mono",
+              "parameterNumber": 3
+            },
+            "slot4": {
+              "parameterName": "Balance",
+              "parameterNumber": 4
+            },
+            "slot5": {
+              "parameterName": "Low",
+              "parameterNumber": 6
+            },
+            "slot6": {
+              "parameterName": "Mid",
+              "parameterNumber": 7
+            },
+            "slot7": {
+              "parameterName": "High",
+              "parameterNumber": 8
+            },
+            "slot8": {
+              "parameterName": "Macro 10",
+              "parameterNumber": 10
+            },
+            "slot9": {
+              "parameterName": "Macro 11",
+              "parameterNumber": 11
+            },
+            "slot10": {
+              "parameterName": "Macro 12",
+              "parameterNumber": 12
+            },
+            "slot11": {
+              "parameterName": "Macro 13",
+              "parameterNumber": 13
+            },
+            "slot12": {
+              "parameterName": "Macro 14",
+              "parameterNumber": 14
+            },
+            "slot13": {
+              "parameterName": "Macro 15",
+              "parameterNumber": 15
+            },
+            "slot14": {
+              "parameterName": "Macro 16",
+              "parameterNumber": 16
+            },
+            "slot15": {
+              "parameterName": "Chain Selector",
+              "parameterNumber": 17
+            }
+          }
+        },
+        {
+          "className": "Delay",
+          "deviceName": "Delay",
+          "slots": {
+            "slot1": {
+              "parameterName": "LFO Synced",
+              "parameterNumber": 20
+            },
+            "slot2": {
+              "parameterName": "LFO 16th",
+              "parameterNumber": 21
+            },
+            "slot3": {
+              "parameterName": "LFO Wave",
+              "parameterNumber": 22
+            },
+            "slot4": {
+              "parameterName": "LFO Morph",
+              "parameterNumber": 23
+            },
+            "slot5": {
+              "parameterName": "LFO > Delay",
+              "parameterNumber": 24
+            },
+            "slot6": {
+              "parameterName": "LFO > Filter",
+              "parameterNumber": 25
+            },
+            "slot7": {
+              "parameterName": "Dry/Wet",
+              "parameterNumber": 26
+            }
+          }
+        },
+        {
+          "className": "Hybrid",
+          "deviceName": "Hybrid Reverb",
+          "slots": {
+            "slot1": {
+              "parameterName": "Blend",
+              "parameterNumber": 49
+            },
+            "slot2": {
+              "parameterName": "Decay",
+              "parameterNumber": 10
+            },
+            "slot3": {
+              "parameterName": "Size",
+              "parameterNumber": 11
+            },
+            "slot4": {
+              "parameterName": "Damping",
+              "parameterNumber": 12
+            },
+            "slot5": {
+              "parameterName": "DH Shape",
+              "parameterNumber": 15
+            },
+            "slot6": {
+              "parameterName": "DH BassMult",
+              "parameterNumber": 16
+            },
+            "slot7": {
+              "parameterName": "Predelay",
+              "parameterNumber": 2
+            },
+            "slot8": {
+              "parameterName": "Predelay Sync",
+              "parameterNumber": 1
+            },
+            "slot9": {
+              "parameterName": "Algo Type",
+              "parameterNumber": 6
+            },
+            "slot10": {
+              "parameterName": "EQ Peak 2 Freq",
+              "parameterNumber": 40
+            },
+            "slot11": {
+              "parameterName": "Algo Delay",
+              "parameterNumber": 7
+            },
+            "slot12": {
+              "parameterName": "Modulation",
+              "parameterNumber": 14
+            },
+            "slot13": {
+              "parameterName": "Diffusion",
+              "parameterNumber": 13
+            },
+            "slot14": {
+              "parameterName": "Vintage",
+              "parameterNumber": 50
+            },
+            "slot15": {
+              "parameterName": "Dry/Wet",
+              "parameterNumber": 53
+            },
+            "slot16": {
+              "parameterName": "EQ Lo Freq",
+              "parameterNumber": 34
+            },
+            "slot17": {
+              "parameterName": "EQ Lo Slope",
+              "parameterNumber": 36
+            },
+            "slot18": {
+              "parameterName": "Width",
+              "parameterNumber": 51
+            },
+            "slot19": {
+              "parameterName": "Predelay FB",
+              "parameterNumber": 4
+            }
+          }
+        },
+        {
+          "className": "MxDeviceMidiEffect",
+          "deviceName": "SQ Sequencer",
+          "slots": {
+            "slot1": {
+              "parameterName": "Tab",
+              "parameterNumber": 191
+            },
+            "slot2": {
+              "parameterName": "VelStep1",
+              "parameterNumber": 202
+            },
+            "slot3": {
+              "parameterName": "VelStep2",
+              "parameterNumber": 210
+            },
+            "slot4": {
+              "parameterName": "VelStep3",
+              "parameterNumber": 211
+            },
+            "slot5": {
+              "parameterName": "VelStep4",
+              "parameterNumber": 212
+            },
+            "slot6": {
+              "parameterName": "VelStep5",
+              "parameterNumber": 213
+            },
+            "slot7": {
+              "parameterName": "VelStep6",
+              "parameterNumber": 214
+            },
+            "slot8": {
+              "parameterName": "VelStep7",
+              "parameterNumber": 215
+            },
+            "slot9": {
+              "parameterName": "VelStep8",
+              "parameterNumber": 216
+            },
+            "slot10": {
+              "parameterName": "PStep1",
+              "parameterNumber": 85
+            },
+            "slot11": {
+              "parameterName": "PStep10",
+              "parameterNumber": 86
+            },
+            "slot12": {
+              "parameterName": "PStep11",
+              "parameterNumber": 87
+            },
+            "slot13": {
+              "parameterName": "PStep12",
+              "parameterNumber": 88
+            },
+            "slot14": {
+              "parameterName": "PStep13",
+              "parameterNumber": 89
+            },
+            "slot15": {
+              "parameterName": "PStep14",
+              "parameterNumber": 90
+            },
+            "slot16": {
+              "parameterName": "PStep15",
+              "parameterNumber": 91
+            },
+            "slot17": {
+              "parameterName": "PStep16",
+              "parameterNumber": 92
+            },
+            "slot18": {
+              "parameterName": "PStep2",
+              "parameterNumber": 93
+            },
+            "slot19": {
+              "parameterName": "PStep3",
+              "parameterNumber": 94
+            },
+            "slot20": {
+              "parameterName": "PStep4",
+              "parameterNumber": 95
+            },
+            "slot21": {
+              "parameterName": "PStep5",
+              "parameterNumber": 96
+            },
+            "slot22": {
+              "parameterName": "PStep6",
+              "parameterNumber": 97
+            },
+            "slot23": {
+              "parameterName": "PStep7",
+              "parameterNumber": 98
+            },
+            "slot24": {
+              "parameterName": "PStep8",
+              "parameterNumber": 99
+            },
+            "slot25": {
+              "parameterName": "PStep9",
+              "parameterNumber": 100
+            },
+            "slot26": {
+              "parameterName": "RatchetMax2",
+              "parameterNumber": 120
+            },
+            "slot27": {
+              "parameterName": "RatchetMin1",
+              "parameterNumber": 121
+            },
+            "slot28": {
+              "parameterName": "RatchetMin2",
+              "parameterNumber": 122
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

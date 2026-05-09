@@ -357,7 +357,7 @@ class RowMapV2_1(BaseModel):
 
     @property
     def slots(self) -> List[str]:
-        from .family_intents import parse_continuous_slot_list
+        from .model_device import parse_continuous_slot_list
         if self.slots_raw is None:
             return []
         return parse_continuous_slot_list(self.slots_raw)

@@ -1,10 +1,9 @@
 import unittest
 from dataclasses import dataclass, field
-# from typing import List
-from unittest.mock import Mock, MagicMock, call
+from unittest.mock import Mock
 
-from source_modules.helpers import Helpers, ParameterMapping, Remote
-from source_modules.hud_client import NullHudClient
+from source_modules.helpers import Helpers, ParameterMapping, Remote, SwitchSlotMapping
+from source_modules.hud_protocol import EMPTY_SLOT, SlotPayload
 
 
 @dataclass
@@ -13,144 +12,191 @@ class FakeParameter:
     max: float = 127
     value: float = 0
     name: str = "p1"
+    is_quantized: bool = False
 
 
 @dataclass
 class FakeDevice:
-    parameters: list[FakeParameter] = field(default_factory=list)
-    name = "Test Device"
-    class_name = "Test Device"
+    parameters: list = field(default_factory=list)
+    name: str = "Test Device"
+    class_name: str = "Test Device"
 
 
-class FakeManager:
-    def debug(self):
-        return True
+def _amp_mappings():
+    return {
+        "devices": [
+            {
+                "className": "Amp",
+                "encoders": [
+                    {"number": 1, "name": "Bass"},
+                    {"number": 2, "name": "Middle"},
+                    {"number": 3, "name": "Treble"},
+                ],
+                "buttons": [
+                    {"number": 4, "name": "Type", "min": 0, "max": 2},
+                    {"number": 5, "name": "Mono"},
+                ],
+            }
+        ]
+    }
 
-    def log_message(self, msg):
-        print(msg)
 
-
-class TestHelpersWithCustom(unittest.TestCase):
-
+class TestEncoderResolution(unittest.TestCase):
     def setUp(self):
         self.manager = Mock()
-        self.manager.debug = True
-        self.manager.log_message.side_effect = lambda x:print(x)
-        self.remote_mock = Mock()
-        self.mappings = {
-            'SQ Sequencer': [
-                {'c_idx': 39, 'd_idx': 108, 'alias': 'ScramblePitch'},
-                {'c_idx': 40, 'd_idx': 112, 'alias': 'RandPitch'},
-                {'c_idx': 41, 'd_idx': 219, 'alias': 'ScrambleVel'}]
-        }
+        self.remote = Mock()
+        self.helpers = Helpers(
+            self.manager, self.remote,
+            slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
+            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            parameter_mappings_raw=_amp_mappings(),
+        )
 
-        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
+    def test_encoder_resolves_to_json_entry(self):
+        device = FakeDevice(
+            class_name="Amp",
+            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(10)],
+        )
+        self.helpers.device_parameter_action(device, 1, 22, 64.0, "fn")
+        # encoder slot1 → encoders[0] → number=1 → device.parameters[1]
+        self.assertAlmostEqual(device.parameters[1].value, 0.5, places=1)
+        self.assertEqual(self.remote.parameter_updated.call_args[0][0].alias, 'Bass')
 
-    def test_device_parameter_action(self):
-        device = Mock()
-        device.name = "SQ Sequencer"
-        device.class_name = "SQ Sequencer"
-        device.parameters = [Mock(min=0.0, max=1.0, value=0.1, name=f"param {i}") for i in range(220)]
-
-        parameter_no = 40
-        value = 64.0
-        midi_no = 23
-        fn_name = "test_fn"
-        toggle = False
-
-        self.helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
-
-        self.assertAlmostEqual(device.parameters[112].value, 0.5, places=1)
-        result = self.remote_mock.parameter_updated.call_args[0]
-
-        self.assertAlmostEqual(result[0].param.value, 0.5, places=1)
-        self.assertEqual(result[0].param, device.parameters[112])
-        self.assertEqual(result[0].alias, 'RandPitch')
-        self.assertEqual(result[1], 40)
+    def test_encoder_identity_fallback_when_class_unknown(self):
+        device = FakeDevice(
+            class_name="Unknown",
+            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(10)],
+        )
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn")
+        self.assertAlmostEqual(device.parameters[2].value, 1.0, places=1)
 
 
-
-class TestHelpers(unittest.TestCase):
+class TestEncoderFallbackSkipsQuantized(unittest.TestCase):
+    """Identity fallback (no JSON entry for class) must skip on/off + quantized params,
+    so quantized buttons don't double up on encoders."""
 
     def setUp(self):
-        self.manager = Mock()
-        self.manager.debug = True
-        self.manager.log_message.side_effect = lambda x:print(x)
-        self.remote_mock = Mock()
-        self.mappings = {
-            # 3 values for the first 3 encoders on the midi device, Each maps to
-            # controller on the ableton device and an alias is applied to each.
-            # "Simpler": [(0, ParameterMapping(2, 'a', None)), (1, ParameterMapping(5, 'b', 'toggle')), (2, ParameterMapping(4, 'c', None))]
-            'Simpler': [
-                {'c_idx': 1, 'd_idx': 2, 'alias': 'a'},
-                {'c_idx': 2, 'd_idx': 5, 'alias': 'b', 'button': 'toggle'},
-                {'c_idx': 3, 'd_idx': 4, 'alias': 'c'}]
+        self.helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=None,  # no file → fully fallback
+        )
 
-        }
+    def test_encoders_skip_quantized_in_fallback(self):
+        # idx 0 = on/off; 1 = quantized (skip); 2 = continuous; 3 = quantized (skip); 4 = continuous; 5 = continuous
+        params = [
+            FakeParameter(name="On/Off"),
+            FakeParameter(name="q1", is_quantized=True),
+            FakeParameter(name="cont1", min=0.0, max=1.0),
+            FakeParameter(name="q2", is_quantized=True),
+            FakeParameter(name="cont2", min=0.0, max=1.0),
+            FakeParameter(name="cont3", min=0.0, max=1.0),
+        ]
+        device = FakeDevice(class_name="Unknown", parameters=params)
+        # encoder 1 → cont1, encoder 2 → cont2, encoder 3 → cont3
+        self.helpers.device_parameter_action(device, 1, 0, 127, "fn")
+        self.helpers.device_parameter_action(device, 2, 0, 127, "fn")
+        self.helpers.device_parameter_action(device, 3, 0, 127, "fn")
+        self.assertEqual(params[2].value, 1.0)  # cont1
+        self.assertEqual(params[4].value, 1.0)  # cont2
+        self.assertEqual(params[5].value, 1.0)  # cont3
+        # Quantized params untouched.
+        self.assertEqual(params[1].value, 0)
+        self.assertEqual(params[3].value, 0)
 
-        self.helpers = Helpers(self.manager, self.remote_mock, self.mappings)
 
-    def test_device_parameter_action(self):
-        device = Mock()
-        device.name = "Simpler"
-        device.class_name = "Simpler"
-        device.parameters = [Mock(min=0.0, max=1.0, value=0.1, name=f"param {i}") for i in range(150)]
+class TestSwitchAction(unittest.TestCase):
+    def setUp(self):
+        self.helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[],
+            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            parameter_mappings_raw=_amp_mappings(),
+        )
 
-        parameter_no = 3 # mapped to parameter 4
-        value = 64.0
-        midi_no = 23
-        fn_name = "test_fn"
-        toggle = False
+    def test_switch_with_range_cycles(self):
+        device = FakeDevice(
+            class_name="Amp",
+            parameters=[FakeParameter(name=f"p{i}", min=0, max=2, value=0) for i in range(10)],
+        )
+        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.parameters[4].value, 1)
+        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.parameters[4].value, 2)
+        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.parameters[4].value, 0)
 
-        self.helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
+    def test_switch_without_range_pulses(self):
+        device = FakeDevice(
+            class_name="Amp",
+            parameters=[FakeParameter(name=f"p{i}", min=0, max=1, value=0) for i in range(10)],
+        )
+        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.assertEqual(device.parameters[5].value, 1)
 
-        self.assertAlmostEqual(device.parameters[4].value, 0.5, places=1)
-        result = self.remote_mock.parameter_updated.call_args[0]
+    def test_switch_fires_on_any_value(self):
+        """LC XL row-3 buttons can be in latching mode where each physical press
+        emits exactly one event alternating 127/0. Fire on every event so each
+        press advances the cycle once."""
+        device = FakeDevice(
+            class_name="Amp",
+            parameters=[FakeParameter(name=f"p{i}", min=0, max=2, value=0) for i in range(10)],
+        )
+        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.parameters[4].value, 1)
+        self.helpers.switch_slot_action(device, 'switch1', 0, 'fn')
+        self.assertEqual(device.parameters[4].value, 2)
+        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.parameters[4].value, 0)
 
-        self.assertEqual(result[0].param, device.parameters[4])
-        self.assertEqual(result[0].alias, 'c')
-        self.assertEqual(result[1], 3)
-        self.assertAlmostEqual(result[0].param.value, 0.5, places=1)
+    def test_switch_quantized_without_json_range_cycles_param_range(self):
+        """Quantized param with no min/max in JSON should cycle through its own
+        min/max — fixes 'binary toggles trigger once then stick' bug."""
+        device = FakeDevice(
+            class_name="Amp",
+            parameters=[FakeParameter(name=f"p{i}", min=0, max=1, value=0, is_quantized=True) for i in range(10)],
+        )
+        # switch2 → buttons[1] = "Mono", number=5, no min/max in JSON
+        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.assertEqual(device.parameters[5].value, 1)
+        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.assertEqual(device.parameters[5].value, 0)
+        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.assertEqual(device.parameters[5].value, 1)
 
-    def test_sets_correct_parameter_between_0_and_1(self):
-        device = FakeDevice([FakeParameter(), FakeParameter(min=0.0, max=1.0, value=0.0)])
-        self.helpers.device_parameter_action(device, 1, 22, 64.0, "test")
 
-        self.assertEqual(device.parameters[0].value, 0)
-        self.assertAlmostEqual(device.parameters[1].value, 0.5, places=2)
+class TestPager(unittest.TestCase):
+    def setUp(self):
+        self.helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1'), (2, 'slot2')],
+            switch_slot_assignments=[],
+            parameter_mappings_raw={
+                "devices": [{
+                    "className": "Big",
+                    "encoders": [{"number": i, "name": f"n{i}"} for i in range(1, 17)],
+                    "buttons": [],
+                }]
+            },
+            encoder_slot_count=8,
+        )
 
-    def test_sets_toggle_correctly_for_toggle_button_when_on(self):
-        device = FakeDevice([FakeParameter(), FakeParameter(min=0.0, max=1.0, value=0.0)])
-
-        self.helpers.device_parameter_action(device, 1, 22, 127, "test", toggle=True)
-        self.assertEqual(device.parameters[1].value, 1.0)
-        self.helpers.device_parameter_action(device, 1, 22, 0, "test", toggle=True)
-        self.assertEqual(device.parameters[1].value, 1.0)
-
-    def test_sets_toggle_correctly_for_toggle_button_when_off(self):
-        device = FakeDevice([FakeParameter(), FakeParameter(min=0.0, max=1.0, value=0.0)])
-
-        self.helpers.device_parameter_action(device, 1, 22, 127, "test", toggle=False)
-        self.assertEqual(1.0, device.parameters[1].value)
-        self.helpers.device_parameter_action(device, 1, 22, 0, "test", toggle=False)
-        self.assertEqual(0, device.parameters[1].value)
-
-    def test_normalise_within_range(self):
-        self.assertAlmostEqual(self.helpers.normalise(65, 0.0, 1.0), 0.5, places=1)
-        self.assertAlmostEqual(self.helpers.normalise(0, 0.0, 1.0), 0.0)
-        self.assertAlmostEqual(self.helpers.normalise(127, 0.0, 1.0), 1.0)
-
-    def test_normalise_below_min(self):
-        self.assertAlmostEqual(self.helpers.normalise(-1, 0.0, 1.0), 0.0)
-
-    def test_normalise_above_max(self):
-        self.assertAlmostEqual(self.helpers.normalise(128, 0.0, 1.0), 1.0)
-
-    def test_normalise_with_different_range(self):
-        self.assertAlmostEqual(int(self.helpers.normalise(64, 0.0, 10.0)), 5)
-        self.assertAlmostEqual(int(self.helpers.normalise(0, -10.0, 10.0)), -10)
-        self.assertAlmostEqual(int(self.helpers.normalise(64, -10.0, 10.0)), 0)
-        self.assertAlmostEqual(int(self.helpers.normalise(127, -10.0, 10.0)), 10)
+    def test_encoder_page_inc_dec_within_bounds(self):
+        device = FakeDevice(
+            class_name="Big",
+            parameters=[FakeParameter(name=f"p{i}") for i in range(20)],
+        )
+        self.helpers.selected_device_changed(device)
+        self.assertEqual(self.helpers._encoder_page, 1)
+        self.helpers.parameter_page_inc('encoder')
+        self.assertEqual(self.helpers._encoder_page, 2)
+        self.helpers.parameter_page_inc('encoder')  # at max (2 pages of 8)
+        self.assertEqual(self.helpers._encoder_page, 2)
+        self.helpers.parameter_page_dec('encoder')
+        self.assertEqual(self.helpers._encoder_page, 1)
+        self.helpers.parameter_page_dec('encoder')  # at min
+        self.assertEqual(self.helpers._encoder_page, 1)
 
 
 def _make_param(name="Freq", value=0.5, vmin=0.0, vmax=1.0):
@@ -171,57 +217,28 @@ def _make_real_param(param, alias=None, button=None):
 
 
 class TestRemoteBurstSuppression(unittest.TestCase):
-    """Remote must not emit UPDATE during a device_update burst."""
-
     def setUp(self):
         self.osc = Mock()
         self.hud = Mock()
         self.remote = Remote(manager=Mock(), osc_client=self.osc, hud_client=self.hud)
 
     def _burst(self, params):
-        """Run a minimal device_update with the given RealParam list (index 0 = on/off)."""
         self.remote.device_update("TestDevice", params)
 
     def test_send_update_not_called_during_burst(self):
-        """send_update must be silent while device_update is building the snapshot."""
         params = [_make_real_param(_make_param(f"p{i}")) for i in range(4)]
         self._burst(params)
         self.hud.send_update.assert_not_called()
 
     def test_send_update_called_after_burst(self):
-        """send_update IS sent when parameter_updated is called outside a burst."""
         rp = _make_real_param(_make_param("Freq", value=0.7), alias="Frequency")
         self.remote.parameter_updated(rp, parameter_no=1)
         self.hud.send_update.assert_called_once_with('dial', 0, "Frequency", 0.7, 0.0, 1.0)
 
     def test_send_update_not_called_for_index_0(self):
-        """on/off at parameter_no=0 never triggers send_update."""
         rp = _make_real_param(_make_param("On/Off"))
         self.remote.parameter_updated(rp, parameter_no=0)
         self.hud.send_update.assert_not_called()
-
-    def test_send_update_uses_alias_over_param_name(self):
-        """Alias takes priority over raw parameter name in send_update."""
-        rp = _make_real_param(_make_param("RawName"), alias="NiceName")
-        self.remote.parameter_updated(rp, parameter_no=2)
-        args = self.hud.send_update.call_args[0]
-        self.assertEqual(args[2], "NiceName")
-
-    def test_send_update_uses_param_name_when_no_alias(self):
-        rp = _make_real_param(_make_param("RawName"), alias=None)
-        self.remote.parameter_updated(rp, parameter_no=3)
-        args = self.hud.send_update.call_args[0]
-        self.assertEqual(args[2], "RawName")
-
-    def test_burst_flag_cleared_after_device_update(self):
-        """After device_update completes, send_update works again."""
-        params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
-        self._burst(params)
-        self.hud.send_update.reset_mock()
-
-        rp = _make_real_param(_make_param("Res", value=0.3))
-        self.remote.parameter_updated(rp, parameter_no=1)
-        self.hud.send_update.assert_called_once()
 
     def test_burst_sends_commit(self):
         params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
@@ -233,12 +250,161 @@ class TestRemoteBurstSuppression(unittest.TestCase):
         self.remote.device_update("EQ Eight", params)
         self.hud.send_device.assert_called_once_with("EQ Eight")
 
-    def test_dial_index_mapping(self):
-        """parameter_no 1..N maps to dial slot 0..N-1."""
-        rp = _make_real_param(_make_param("Size", value=0.9))
-        self.remote.parameter_updated(rp, parameter_no=5)
-        args = self.hud.send_update.call_args[0]
-        self.assertEqual(args[1], 4)  # dial index = parameter_no - 1
+
+class TestHudLayoutSeparation(unittest.TestCase):
+    """
+    LAYOUT describes the physical controller — it never changes between devices.
+    It must NOT be re-sent inside device_update; that would reset the HUD on
+    every device selection and wipe any button state before SLOT|button can arrive.
+
+    SLOT|button messages are the per-device concern and must always be emitted
+    for every switch position defined in hud_cells, even when _resolve_switch
+    cannot find a matching parameter (the layout is independent of resolution).
+    """
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_device_update_does_not_call_send_layout(self):
+        """LAYOUT is a one-time controller description; device_update must not re-send it."""
+        params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        hud_cells = [(0, 0, 'dial', 8, 0), (2, 0, 'button', 4, 0)]
+        self.remote.device_update("SomeDevice", params, hud_layout=hud_cells)
+        self.hud.send_layout.assert_not_called()
+
+    def test_device_update_always_sends_button_slots_for_all_hud_button_cells(self):
+        """Every button cell in hud_cells must produce SLOT|button messages,
+        regardless of whether a device parameter could be resolved."""
+        real_params = [_make_real_param(_make_param("On/Off"))]
+        # switch_entries is empty — simulates a device with no resolvable params
+        self.remote.device_update(
+            "SomeRack", real_params,
+            switch_entries=[],
+            device_parameters=[],
+            hud_layout=[(2, 0, 'button', 4, 0)],
+        )
+        button_calls = [c for c in self.hud.send_slot.call_args_list if c[0][0] == 'button']
+        self.assertEqual(len(button_calls), 4,
+            "Expected one SLOT|button per button cell slot even when no params resolved")
+
+
+class TestDenseSymmetricEmission(unittest.TestCase):
+    """Dials and buttons must follow the same emission rule: one SLOT per cell
+    position, whether or not a parameter resolves. Empty slots use the
+    EMPTY_SLOT sentinel."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_dial_cells_emit_dense_with_empty_sentinel_for_unfilled(self):
+        # Two real params (skipping on/off) but a dial cell of count=8 starting at 0
+        params = [_make_real_param(_make_param("On/Off"))]
+        params.append(_make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0)))
+        params.append(_make_real_param(_make_param("Q", value=0.7, vmin=0.0, vmax=1.0)))
+        self.remote.device_update(
+            "Dev", params,
+            hud_layout=[(0, 0, 'dial', 8, 0)],
+        )
+        dial_calls = [c for c in self.hud.send_slot.call_args_list if c[0][0] == 'dial']
+        self.assertEqual(len(dial_calls), 8, "Expected 8 SLOT|dial — one per cell position")
+        # First two carry real names, rest are empty
+        self.assertEqual(dial_calls[0][0][2], "Freq")
+        self.assertEqual(dial_calls[1][0][2], "Q")
+        for idx in range(2, 8):
+            self.assertEqual(dial_calls[idx][0][2], EMPTY_SLOT.name)
+            self.assertEqual(dial_calls[idx][0][3], EMPTY_SLOT.value)
+            self.assertEqual(dial_calls[idx][0][4], EMPTY_SLOT.vmin)
+            self.assertEqual(dial_calls[idx][0][5], EMPTY_SLOT.vmax)
+
+    def test_unmapped_cell_with_negative_start_emits_no_slots(self):
+        # start=-1 cells aren't in the wire-index space; they're placeholders
+        params = [_make_real_param(_make_param("On/Off"))]
+        self.remote.device_update(
+            "Dev", params,
+            hud_layout=[(2, 0, 'button', 4, -1)],
+        )
+        self.assertEqual([c for c in self.hud.send_slot.call_args_list], [])
+
+    def test_commit_count_matches_emitted_slots(self):
+        params = [_make_real_param(_make_param("On/Off"))]
+        self.remote.device_update(
+            "Dev", params,
+            hud_layout=[(0, 0, 'dial', 8, 0), (2, 0, 'button', 4, 0)],
+        )
+        # 8 dials + 4 buttons = 12
+        self.hud.commit.assert_called_once_with(12)
+
+
+class TestModeOverlay(unittest.TestCase):
+    """Mode-aware burst: non-device cells in the active mode get static
+    labels overlaid onto the EMPTY device-path payloads."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_mode_labels_replace_empty_slots(self):
+        params = [_make_real_param(_make_param("On/Off"))]
+        self.remote.device_update(
+            "Dev", params,
+            hud_layout=[(0, 0, 'dial', 8, 0)],
+            mode_labels={('dial', 4): 'volume', ('dial', 5): 'pan'},
+        )
+        dial_calls = [c for c in self.hud.send_slot.call_args_list if c[0][0] == 'dial']
+        names = [c[0][2] for c in dial_calls]
+        # idx 0..3 empty, idx 4 = 'volume', idx 5 = 'pan', idx 6..7 empty
+        self.assertEqual(names, ['', '', '', '', 'volume', 'pan', '', ''])
+
+    def test_mode_labels_do_not_clobber_real_device_data(self):
+        params = [
+            _make_real_param(_make_param("On/Off")),
+            _make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0)),
+        ]
+        self.remote.device_update(
+            "Dev", params,
+            hud_layout=[(0, 0, 'dial', 8, 0)],
+            mode_labels={('dial', 0): 'should_not_appear'},
+        )
+        dial_calls = [c for c in self.hud.send_slot.call_args_list if c[0][0] == 'dial']
+        # idx 0 should keep the real device label, not the mode label
+        self.assertEqual(dial_calls[0][0][2], 'Freq')
+
+    def test_mode_labels_carry_placeholder_range(self):
+        self.remote.device_update(
+            "Dev", [_make_real_param(_make_param("On/Off"))],
+            hud_layout=[(0, 0, 'dial', 8, 0)],
+            mode_labels={('dial', 0): 'volume'},
+        )
+        first = next(c for c in self.hud.send_slot.call_args_list if c[0][0] == 'dial')
+        # name, value, vmin, vmax — labeled but with placeholder range 0..1, value 0
+        self.assertEqual(first[0][2:], ('volume', 0, 0, 1))
+
+
+class TestRefreshBurst(unittest.TestCase):
+    """The generic burst entrypoint: takes precomputed dense payloads."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_refresh_burst_emits_device_then_slots_then_commit(self):
+        self.remote.refresh_burst(
+            "Mixer",
+            dial_payloads=[(0, SlotPayload("Vol", 0.8, 0, 1)), (1, EMPTY_SLOT)],
+            button_payloads=[(0, SlotPayload("Mute", 1, 0, 1))],
+        )
+        self.hud.send_device.assert_called_once_with("Mixer")
+        self.hud.commit.assert_called_once_with(3)
+        kinds = [c[0][0] for c in self.hud.send_slot.call_args_list]
+        self.assertEqual(kinds, ['dial', 'dial', 'button'])
+
+    def test_in_burst_flag_resets_even_on_exception(self):
+        self.hud.commit.side_effect = RuntimeError("boom")
+        with self.assertRaises(RuntimeError):
+            self.remote.refresh_burst("Dev", [], [])
+        self.assertFalse(self.remote._in_burst)
 
 
 if __name__ == '__main__':

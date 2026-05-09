@@ -1,4 +1,5 @@
 import hashlib
+import json
 import sys
 from pathlib import Path
 import shutil
@@ -9,7 +10,8 @@ from typing import Tuple
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
-    transport_templates, dict_variable_decleration_block, GeneratedCodes, code_for_parameter_paging
+    transport_templates, dict_variable_decleration_block, GeneratedCodes, \
+    parameter_pager_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes
 
@@ -93,10 +95,18 @@ def validate_exports(export_targets, mode_codes):
                 if len(commmon) > 0:
                     raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
-    mode_codes = create_code_model(modes)
+    # Global wire-index allocation: every physical control on the surface
+    # gets a wire slot, regardless of which mode binds it. Modes overlay
+    # static labels onto these slots at runtime.
+    from ableton_control_surface_as_code.hud_layout import (
+        allocate_global_layout, collect_mode_labels,
+    )
+    hud_cells_raw = allocate_global_layout(controller)
+
+    mode_codes = create_code_model(modes, controller=controller, hud_cells=hud_cells_raw)
 
     array_defs = []
     codes = GeneratedCode()
@@ -126,6 +136,17 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
 
         codes.init.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
+    device_mappings = [
+        m for _, mode_maps in modes.mappings
+        for m in mode_maps
+        if m.type == 'device'
+    ]
+    encoder_slot_count = max((m.encoder_slot_count for m in device_mappings), default=8)
+
+    mode_hud_labels = {
+        mode_name: collect_mode_labels(controller, mode_maps, hud_cells_raw)
+        for mode_name, mode_maps in modes.mappings
+    }
     return {
         'code_setup': "\n".join(codes.init),
         'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
@@ -134,57 +155,34 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi) -> dict:
         'code_remove_listeners': "\n".join(codes.remove_listeners),
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns),
+        'encoder_slot_count': encoder_slot_count,
+        'hud_cells': repr(hud_cells_raw),
+        'mode_hud_labels': repr(mode_hud_labels),
+        '_hud_cells_raw': hud_cells_raw,
     }
 
 
-def create_code_model(modes):
-    exports = find_device_parameter_paging_mode_exports(modes.mappings)
-
-    mode_codes = {mode_name: build_mode_code(maps, mode_name)
-                  for mode_name, maps in modes.mappings}
-
-    validate_exports(exports, mode_codes)
-
-    for export_mode, export_code in exports.items():
-        mode_codes[export_mode].extend(export_code)
-
-    return mode_codes
+def create_code_model(modes, controller=None, hud_cells=None):
+    return {mode_name: build_mode_code(maps, mode_name, controller=controller, hud_cells=hud_cells)
+            for mode_name, maps in modes.mappings}
 
 
 template_to_code = {
-    'device': device_templates,
     'mixer': mixer_templates,
     'track-nav': track_nav_templates,
     'device-nav': device_nav_templates,
     'functions': functions_templates,
-    'transport': transport_templates
+    'transport': transport_templates,
+    'parameter-pager': parameter_pager_templates,
 }
 
-def find_device_parameter_paging_mode_exports(mode_mappings:list[Tuple[str, AllMappingWithMidiTypes]]):
-    '''
-    Given a list of mode mappings, find the device parameter paging mappings that export to another mode,
-    generate the GenerateCode for the parameter paging and return a dictionary of the mode to the generated code,
-    or an empty dictionary if no exports are found.
-
-    :param mode_mappings:
-    :return:
-    '''
-    for mode, mode_mapping in mode_mappings:
-        for mapping in mode_mapping:
-            if mapping.type == 'device' and mapping.has_paging_export:
-                #TODO: only parameter_page_nav can export to another mode
-
-                export_target = mapping.parameter_page_nav.export_to_mode
-                gen_code = code_for_parameter_paging(mapping.parameter_page_nav, export_target)
-
-                return {export_target: gen_code}
-
-    return {}
-
-def build_mode_code(mode_mappings, name) -> list[GeneratedCode]:
+def build_mode_code(mode_mappings, name, controller=None, hud_cells=None) -> list[GeneratedCode]:
     res = []
     for mapping in mode_mappings:
-        res.extend(template_to_code[mapping.type](mapping, name))
+        if mapping.type == 'device':
+            res.extend(device_templates(mapping, name, controller=controller, hud_cells=hud_cells))
+        else:
+            res.extend(template_to_code[mapping.type](mapping, name))
 
     return res
 
@@ -232,6 +230,43 @@ def validate_path(string):
         return string
 
 
+def print_hud_layout(hud_cells_raw):
+    from source_modules.hud_protocol import encode_layout
+    layout_line = encode_layout(hud_cells_raw)
+    print("HUD wire messages:")
+    print(f"  {layout_line}")
+    print()
+    print("  HUD cells breakdown:")
+    for gr, gc, kind, count, start in hud_cells_raw:
+        mapped = f"slots {start}..{start + count - 1}" if start >= 0 else "unmapped"
+        print(f"    grid({gr},{gc})  {kind:<8}  count={count}  {mapped}")
+
+
+def print_ascii_layout(controller):
+    from ableton_control_surface_as_code.core_model import EncoderType
+
+    symbol = {
+        EncoderType.knob: '(o)',
+        EncoderType.button: '[■]',
+        EncoderType.slider: '[-]',
+    }
+
+    # Group control groups by grid_row
+    by_row = {}
+    for g in controller.control_groups:
+        by_row.setdefault(g.grid_row, []).append(g)
+
+    for grid_row in sorted(by_row):
+        cols = sorted(by_row[grid_row], key=lambda g: g.grid_col)
+        parts = []
+        for g in cols:
+            s = symbol.get(g.type, '[?]')
+            row_label = f"row-{g.number}"
+            controls = ' '.join([s] * len(g.midi_coords))
+            parts.append(f"{row_label}: {controls}")
+        print('  |  '.join(parts))
+
+
 def generate(mapping_file_path):
     functions_path = mapping_file_path.parent / "functions.py"
 
@@ -250,16 +285,24 @@ def generate(mapping_file_path):
     controller = read_controller(controller_path.read_text())
     mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
 
+    parameter_mappings_raw = None
+    if mappings.parameter_mappings_file is not None:
+        pm_path = (mapping_file_path.parent / mappings.parameter_mappings_file).resolve()
+        if not pm_path.exists():
+            raise ValueError(f"parameter_mappings_file not found: {pm_path}")
+        parameter_mappings_raw = json.loads(pm_path.read_text())
+
     vars = {
         'surface_name': surface_name,
         'udp_port': generate_5_digit_number(surface_name) + 1,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings',
         'ableton_dir': validate_path(mappings.ableton_dir),
-        'remote_on': mappings.remote_on
+        'remote_on': mappings.remote_on,
+        'parameter_mappings_raw': repr(parameter_mappings_raw),
     }
 
-    code_vars = generate_code_as_template_vars(mode_with_midi)
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
@@ -275,6 +318,10 @@ def generate(mapping_file_path):
             shutil.copytree(file, target_dir / vars['surface_name'] / "modules" / file.name, dirs_exist_ok=True)
 
     print("Finished generating code.")
+    print()
+    print_hud_layout(code_vars['_hud_cells_raw'])
+    print()
+    print_ascii_layout(controller)
 
 
 if __name__ == '__main__':

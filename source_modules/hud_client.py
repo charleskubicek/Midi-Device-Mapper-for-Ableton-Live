@@ -1,6 +1,8 @@
 import socket
 import logging
 
+from . import hud_protocol
+
 logger = logging.getLogger("hud-client")
 
 
@@ -23,23 +25,27 @@ class HudClient:
         except Exception as e:
             logger.error(f"HudClient._send: {e}")
 
+    def send_layout(self, cells):
+        self._send(hud_protocol.encode_layout(cells))
+
     def send_device(self, name: str):
-        self._send(f"DEVICE|{name}")
+        self._send(hud_protocol.encode_device(name))
 
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax):
-        self._send(f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}")
+        self._send(hud_protocol.encode_slot(kind, index, name, value, vmin, vmax))
 
     def send_update(self, kind: str, index: int, name: str, value, vmin, vmax):
-        self._send(f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}")
+        self._send(hud_protocol.encode_update(kind, index, name, value, vmin, vmax))
 
     def commit(self, count: int):
-        self._send(f"COMMIT|{count}")
+        self._send(hud_protocol.encode_commit(count))
 
     def send_ping(self):
-        self._send("PING")
+        self._send(hud_protocol.encode_ping())
 
 
 class NullHudClient:
+    def send_layout(self, cells): pass
     def send_device(self, name: str): pass
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass

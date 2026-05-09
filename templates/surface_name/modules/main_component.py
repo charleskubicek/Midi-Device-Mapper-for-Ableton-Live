@@ -51,15 +51,15 @@ class MainComponent(ControlSurfaceComponent):
 
         $code_setup
 
-        code_custom_parameter_mappings = {
+        code_slot_assignments = [
             $code_custom_parameter_mappings
-        }
+        ]
 
-        code_switch_parameter_mappings = {
+        code_switch_slot_assignments = [
             $code_switch_parameter_mappings
-        }
+        ]
 
-        self._helpers = Helpers(self.manager, self._remote, code_custom_parameter_mappings, code_switch_parameter_mappings)
+        self._helpers = Helpers(self.manager, self._remote, code_slot_assignments, code_switch_slot_assignments, parameter_mappings_raw=$parameter_mappings_raw, encoder_slot_count=$encoder_slot_count, hud_cells=$hud_cells, mode_hud_labels=$mode_hud_labels)
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 
@@ -137,6 +137,10 @@ $code_setup_listeners
             self.mode_button.send_value(0)
 
         self.current_mode = next_mode
+
+        # HUD: refresh labels for the new mode's bindings (mixer/functions/etc.).
+        # Device-bound slots are repopulated by the next selected_device_changed.
+        self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
         self.manager.show_message(f'Switched to {next_mode_name}')
 

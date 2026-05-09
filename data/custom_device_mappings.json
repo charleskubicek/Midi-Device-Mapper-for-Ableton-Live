@@ -1,0 +1,48 @@
+{
+  "devices": [
+    {
+      "className": "Amp",
+      "deviceName": "Amp",
+      "fixed": true,
+      "encoders": [
+        { "number": 2, "name": "Bass"},
+        { "number": 3, "name": "Middle"},
+        { "number": 4, "name": "Treble"},
+        { "number": 5, "name": "Presence"},
+        { "number": 6, "name": "Gain"},
+        { "number": 7, "name": "Volume"},
+        { "number": 9, "name": "Dry/Wet" }
+      ],
+      "buttons": [
+        { "number": 1,"name": "Amp Type" },
+        { "number": 8,"name": "Dual Mono" }
+      ]
+    },
+    {
+      "className": "AutoFilter2",
+      "deviceName": "Auto Filter",
+      "fixed": true,
+      "encoders": [
+        { "number": 1, "name": "Frequency"},
+        { "number": 2, "name": "Resonance"},
+        { "number": 8, "name": "Drive"},
+        { "number": 28, "name": "Env Amount"},
+        { "number": 29, "name": "Env Attack"},
+        { "number": 31, "name": "Env Release"},
+        { "number": 12, "name": "LFO Amount"},
+        { "number": 15,  "name": "LFO Freq" },
+        { "number": 16,  "name": "LFO Time" },
+        { "number": 17,  "name": "LFO Rate" },
+        { "number": 18,  "name": "LFO 16th" },
+
+        { "number": 36, "name": "Dry/Wet" }
+      ],
+      "buttons": [
+        { "name": "Soft Clip On",  "number": 35 },
+        { "name": "LFO S Mode",  "number": 21 },
+        { "name": "S/C EQ Type",  "number": 38 },
+        { "name": "S/C On",  "number": 42 }
+      ]
+    }
+  ]
+ }

@@ -6,17 +6,11 @@ from typing import List, Tuple
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, ButtonProviderBaseModel, MidiCoords
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
-from ableton_control_surface_as_code.family_intents import (
-    load_family_intents,
-    is_mode_slot,
-)
-from ableton_control_surface_as_code.model_device import DeviceWithMidi, ModeButtonMidiMapping
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, ModeButtonMidiMapping, is_mode_slot
 from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi
 from ableton_control_surface_as_code.model_transport import TransportWithMidi
-
-_family_intents = load_family_intents()
 
 
 @dataclass
@@ -141,6 +135,7 @@ def ${fn_name}(self, value):
 
     if ${toggle_fn}:
         $callee
+    self._hud_client.send_ping()
     """).substitute(callee=callee, var_name=var_name, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split(
         "\n")
 
@@ -170,7 +165,7 @@ def mixer_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> [Generate
     return codes
 
 
-def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
+def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controller=None, hud_cells=None):
     codes = []
 
     for mm in device_with_midi.midi_maps:
@@ -196,16 +191,8 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str):
     for mb in device_with_midi.mode_button_maps:
         codes.append(_mode_button_template(mb, mode_name, device_with_midi.track.name.value, device_with_midi.device))
 
-    if device_with_midi.parameter_page_nav is not None:
-        if device_with_midi.parameter_page_nav.export_to_mode is not None:
-            if device_with_midi.parameter_page_nav.export_to_mode == mode_name:
-                codes.extend(code_for_parameter_paging(device_with_midi.parameter_page_nav, mode_name))
-            else:
-                print(
-                    f"Not generating parmeter_paging on mode {mode_name} as it's being exported to {device_with_midi.parameter_page_nav.export_to_mode}")
-
     custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
-    switch_mappings = code_from_switch_slot_assignments(device_with_midi.mode_button_maps)
+    switch_mappings = code_from_switch_slot_assignments(device_with_midi.mode_button_maps, controller, hud_cells)
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings,
                                switch_parameter_mappings=switch_mappings))
 
@@ -229,147 +216,60 @@ def _mode_button_template(mb: ModeButtonMidiMapping, mode_name: str, track: str 
 
 def _switch_action_dispatch_fn(fn_name: str, slot: str, track: str, device: str) -> str:
     """
-    Build a per-class dispatch table for one switch slot. The table value is
-    (action, payload) where payload's shape depends on the action:
-        cycle        -> (param_no:int, cmin:int, cmax:int)
-        pulse|inc|dec|random -> param_name:str
-        group_random -> tuple[str, ...] of parameter names
-    Each branch defers the actual work to a runtime helper.
+    Switch listener — dispatches to the runtime Helpers, which resolves the
+    slot against the loaded parameter_mappings JSON (or the identity fallback).
     """
-    table = _family_intents.get(slot, {})
-    rows = {}
-    for cls, entry in table.items():
-        if entry.action == "cycle":
-            if not entry.is_cycle:
-                continue
-            rows[cls] = ("cycle", (entry.parameter_number, entry.cycle_min, entry.cycle_max))
-        elif entry.action in ("pulse", "inc", "dec", "random"):
-            if not entry.parameter_name:
-                continue
-            rows[cls] = (entry.action, entry.parameter_name)
-        elif entry.action == "group_random":
-            if not entry.parameter_names:
-                continue
-            rows[cls] = ("group_random", tuple(entry.parameter_names))
-
-    table_literal = repr(rows)
-
     return Template("""
 def ${fn_name}(self, value):
     self.log_message(f"calling : ${fn_name}")
-    #if value != 127:
-    #    return
     device = self.find_device("${track}", "${device}")
     if device is None:
         self.log_message(f"device not found: ${track} - ${device}")
         return
-    table = ${table_literal}
-    # class_name first so audio families (Compressor2, Amp, ...) win;
-    # device.name as fallback covers Max4Live (MxDeviceMidiEffect) and racks
-    # (InstrumentGroupDevice) where class_name is too generic to identify the device.
-    entry = table.get(device.class_name) or table.get(device.name)
-    if entry is None:
-        self.log_message(f"${slot} not supported for {device.class_name} / {device.name}")
-        return
-    action, payload = entry
-    if action == "cycle":
-        param_no, cmin, cmax = payload
-        self._helpers.device_param_cycle(device, param_no, cmin, cmax, "$fn_name")
-    elif action == "pulse":
-        self._helpers.device_param_pulse(device, payload, "$fn_name")
-    elif action == "inc":
-        self._helpers.device_param_inc(device, payload, "$fn_name")
-    elif action == "dec":
-        self._helpers.device_param_dec(device, payload, "$fn_name")
-    elif action == "random":
-        self._helpers.device_param_random(device, payload, "$fn_name")
-    elif action == "group_random":
-        self._helpers.device_params_group_random(device, payload, "$fn_name")
     self._hud_client.send_ping()
-    """).substitute(
-        fn_name=fn_name,
-        track=track,
-        device=device,
-        table_literal=table_literal,
-        slot=slot,
-    )
+    self._helpers.switch_slot_action(device, "${slot}", value, "${fn_name}")
+    """).substitute(fn_name=fn_name, track=track, device=device, slot=slot)
 
 
 def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[str]:
     """
-    Given the user's encoder_index -> slot_name list for one device mapping, emit the
-    per-device-class parameter mappings dict entries that the runtime expects.
-
-    For each device class in the family-intents JSON, emit the entries for the slots
-    that class supports. Classes with no slot support contribute no entries.
+    Emit a flat list of (c_idx, slot_name) tuples for the runtime to resolve
+    against the loaded parameter_mappings JSON.
     """
-    if not slot_assignments:
-        return []
-
-    per_class: dict = {}
+    out: List[str] = []
     for c_idx, slot in slot_assignments:
         if is_mode_slot(slot):
-            continue  # mode slots are handled by mode-buttons, not in this dict
-        slot_table = _family_intents.get(slot, {})
-        for class_name, entry in slot_table.items():
-            per_class.setdefault(class_name, []).append({
-                'c_idx': c_idx,
-                'd_idx': entry.parameter_number,
-                'alias': entry.parameter_name,
-            })
-
-    return [f"'{class_name}': {entries!r}" for class_name, entries in sorted(per_class.items())]
+            continue
+        out.append(f"({c_idx}, '{slot}')")
+    return out
 
 
-def code_from_switch_slot_assignments(mode_button_maps) -> List[str]:
+def code_from_switch_slot_assignments(mode_button_maps, controller=None, hud_cells=None) -> List[str]:
     """
-    Build the per-device-class switch-slot parameter mapping dict entries.
-    Only processes mode_button_maps entries with slot names starting with 'switch'.
-    Returns List[str] lines for the code_switch_parameter_mappings dict.
+    Emit (wire_idx, slot_name) tuples — wire_idx is the HUD button-array
+    index assigned by the global layout allocator. The runtime uses
+    wire_idx for HUD lookups; the slot_name still drives device-table
+    parameter resolution.
     """
-    per_class: dict = {}
-    seen: set = set()  # avoid duplicate (class, switch_idx) entries across modes
+    from ableton_control_surface_as_code.hud_layout import find_wire_index
+    out: List[str] = []
+    seen_slots: set = set()
     for mb in mode_button_maps:
         if not mb.slot.startswith('switch'):
             continue
-        switch_idx = int(mb.slot.replace('switch', '')) - 1  # 0-indexed
-        for class_name, entry in _family_intents.get(mb.slot, {}).items():
-            key = (class_name, switch_idx)
-            if key in seen:
-                continue
-            seen.add(key)
-            per_class.setdefault(class_name, []).append({
-                'switch_idx': switch_idx,
-                'd_idx': entry.parameter_number,
-                'alias': entry.parameter_name,
-            })
-
-    return [f"'{class_name}': {entries!r}" for class_name, entries in sorted(per_class.items())]
-
-
-# TODO Unit tests
-def code_for_parameter_paging(parameter_page_nav, mode_name):
-    codes = []
-    for call_name, mm in [("inc", parameter_page_nav.inc),
-                          ("dec", parameter_page_nav.dec)]:
-        enc_name = mm.controller_variable_name()
-        enc_listener_name = mm.controller_listener_fn_name(mode_name)
-
-        codes.append(
-            GeneratedCode(  ## TODO swap this with a CodeGenerator that delays the genreation to as late as possible
-                control_defs=[mm],
-                setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})",
-                                 f"self._previous_values['{enc_listener_name}'] = 0"],
-                remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
-                listener_fns=[Template(f"""
-    def $enc_listener_name(self, value):
-        self._helpers.device_parameter_page_$call_name()
-    """).substitute(enc_listener_name=enc_listener_name, call_name=call_name)
-                              ]
-            )
-        )
-
-    return codes
+        if mb.slot in seen_slots:
+            continue
+        seen_slots.add(mb.slot)
+        wire_idx = None
+        if controller is not None and hud_cells is not None:
+            resolved = find_wire_index(controller, mb.only_midi_coord, hud_cells)
+            if resolved is not None and resolved[0] == 'button':
+                wire_idx = resolved[1]
+        if wire_idx is None:
+            # Fallback to the legacy logical index when controller info is missing
+            wire_idx = int(mb.slot.replace('switch', '')) - 1
+        out.append(f"({wire_idx}, '{mb.slot}')")
+    return out
 
 
 def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel, mode_name: str):
@@ -408,6 +308,10 @@ def transport_templates(transport_with_midi: TransportWithMidi, mode_name) -> [G
 
 def functions_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> [GeneratedCode]:
     return map_controllers(mode_name, functions_with_midi.midi_maps)
+
+
+def parameter_pager_templates(pager_with_midi, mode_name) -> [GeneratedCode]:
+    return map_controllers(mode_name, pager_with_midi.midi_maps)
 
 
 def get_python_code_error(code):

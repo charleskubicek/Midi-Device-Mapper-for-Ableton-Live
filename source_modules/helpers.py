@@ -1,10 +1,10 @@
-import random
-from dataclasses import dataclass, replace, field, Field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from .pythonosc.udp_client import SimpleUDPClient
 from .pythonosc.osc_message_builder import ArgValue
 from .hud_client import HudClient, NullHudClient
+from .hud_protocol import SlotPayload, EMPTY_SLOT
 import logging
 
 
@@ -32,142 +32,65 @@ class ParameterMapping:
     def with_real_param(self, real_param):
         return RealParameter(real_param, self.alias, self.button)
 
-class SelectedDeviceParameterPaging:
-    def __init__(self, manager, page_size=16):
-        self._manager = manager
-        self._page_size = page_size
-        self._device_parameter_page = 1
-
-    def paged_parameter_number(self, original_parameter):
-        if self._device_parameter_page == 1:
-            return 1, original_parameter
-        else:
-            return self._device_parameter_page, ((self._device_parameter_page - 1) * self._page_size) + original_parameter
-
-    #TODO Test
-    def parameters_indexes_for_selected_page(self, parameters_len):
-        start = (self._device_parameter_page - 1) * self._page_size
-        end = self._device_parameter_page * self._page_size
-        return list(range(start, min(end, parameters_len)))
-
-    def reset(self):
-        self._device_parameter_page = 1
-
-    def validate_and_report_device_page(self, device_parameter_count, page):
-        if page < 1:
-            self._manager.show_message("Page number must be greater than 0")
-            return False
-        elif page > self.page_count_of(device_parameter_count):
-            self._manager.show_message(
-                f"Page number {page} is greater than the number of pages {self.page_count_of(device_parameter_count)}")
-            return False
-
-        return True
-
-    def device_parameter_page_inc(self, device_parameter_count):
-        if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page + 1):
-            self._device_parameter_page += 1
-            self._manager.show_message(
-                f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
-            return True
-        else:
-            return False
-
-    def device_parameter_page_dec(self, device_parameter_count):
-        if self.validate_and_report_device_page(device_parameter_count, self._device_parameter_page - 1):
-            self._device_parameter_page -= 1
-            self._manager.show_message(
-                f"Page {self._device_parameter_page}/{self.page_count_of(device_parameter_count)} ({device_parameter_count})")
-            return True
-        else:
-            return False
-
-    def page_count_of(self, device_parameter_count):
-        return int(device_parameter_count / self._page_size) + 1
-
-
-@dataclass
-class ParameterNumberGroup:
-    # on_off: ParameterMapping = field(default_factory=lambda : ParameterMapping.on_off())
-    # parameters: list[(int, Optional[str], Optional[str])] = field(default_factory=list)
-    parameters: [(int, ParameterMapping)] = field(default_factory=list)
-
-    def filter_parameter_indexes(self, parameter_indexes):
-        return replace(self, parameters=[(i, p) for i, p in self.parameters if i-1 in parameter_indexes])
-
-    @classmethod
-    def from_raw_device_parameters(cls, device_parameter_count):
-        return cls(parameters=[(i, ParameterMapping(i)) for i in range(1, device_parameter_count)])
-
-
-    @classmethod
-    def from_user_defined_parameters(cls, custom_mappings):
-        return cls(parameters=[(i, m) for (i, m) in custom_mappings])
-
-    def parameters_and_aliasses_from_device_params(self, device_parameters) -> [RealParameter]:
-        #validate_parameters_are_in_device_parameters()
-
-        for i, p in self.parameters:
-            if p.mapped_parameter >= len(device_parameters):
-                print(f"Warning: Parameter {p.mapped_parameter} is out of range for device parameters {len(device_parameters)}")
-                print(f"Device parameters are: {[d.name for d in device_parameters]}")
-                return []
-
-        return [p.with_real_param(device_parameters[p.mapped_parameter]) for i, p in self.parameters]
-
-
-    def parameter_from_device_params(self, device_parameters, param_no):
-        if len([(i, p) for i, p in self.parameters if i == param_no]) == 0:
-            print(f"Didn't find {param_no} in {self.parameters}")
-            return None
-
-        p, m = [(p, device_parameters[p.mapped_parameter]) for i, p in self.parameters if i == param_no][0]
-
-        return RealParameter(m, alias=p.alias, button=p.button)
-
-def parse_custom_mappings(custom_mappings_raw):
-    res = {}
-    for device, mappings in custom_mappings_raw.items():
-        pm = [(m['c_idx'], ParameterMapping(m['d_idx'], m['alias'], m.get('button', None)))
-         for m in mappings]
-
-        res[device] = pm
-
-    return res
-
-
 @dataclass
 class SwitchSlotMapping:
-    switch_idx: int  # 0-7
-    d_idx: int       # index into device.parameters
+    switch_idx: int
+    d_idx: int
     alias: str
 
 
-def parse_switch_mappings(switch_mappings_raw):
-    """Parse the code_switch_parameter_mappings dict into {class_name: [SwitchSlotMapping]}."""
-    res = {}
-    for device_class, entries in (switch_mappings_raw or {}).items():
-        res[device_class] = [
-            SwitchSlotMapping(m['switch_idx'], m['d_idx'], m['alias'])
-            for m in entries
-        ]
-    return res
+def _overlay_labels(payloads, labels, kind):
+    """Replace EMPTY slots with labeled placeholders when the active mode
+    binds that wire index to a non-device mapping. Real device data stays
+    untouched."""
+    if not labels:
+        return payloads
+    out = []
+    for wire_idx, p in payloads:
+        if p == EMPTY_SLOT:
+            label = labels.get((kind, wire_idx))
+            if label is not None:
+                out.append((wire_idx, SlotPayload(label, 0, 0, 1)))
+                continue
+        out.append((wire_idx, p))
+    return out
+
+
+def _build_device_table(raw):
+    table = {}
+    if not raw:
+        return table
+    for d in raw.get('devices', []):
+        table[d['className']] = {
+            'encoders': d.get('encoders', []) or [],
+            'buttons': d.get('buttons', []) or [],
+        }
+    return table
 
 
 class Helpers:
-    def __init__(self, manager, remote, custom_mappings_raw, switch_mappings_raw=None, page_size=16):
+    def __init__(self, manager, remote,
+                 slot_assignments=None, switch_slot_assignments=None,
+                 parameter_mappings_raw=None,
+                 encoder_slot_count=8, button_slot_count=8,
+                 hud_cells=None, mode_hud_labels=None):
         self._manager = manager
-        self._custom_mappings = CustomMappings(manager, parse_custom_mappings(custom_mappings_raw))
-        self._switch_mappings = parse_switch_mappings(switch_mappings_raw)
-        self._device_parameter_paging = SelectedDeviceParameterPaging(manager, page_size)
-        self._last_device_message_about = None
-        self._last_selected_device = None
-        self._last_device_parameter_count = -1
-        self._send_upd = True
-        self.page_size = page_size
-        # self._pending_pulse_targets = []
-
         self._remote = remote
+        self._slot_assignments = list(slot_assignments or [])
+        self._switch_slot_assignments = list(switch_slot_assignments or [])
+        self._device_table = _build_device_table(parameter_mappings_raw)
+        self._encoder_slot_count = encoder_slot_count
+        self._button_slot_count = button_slot_count
+        self._hud_cells = hud_cells or []
+        # mode_hud_labels: {mode_name: {(kind, wire_idx): label}} for non-device
+        # mappings. Device cells are populated from live device state and don't
+        # appear here. _current_mode_name tracks which overlay is active.
+        self._mode_hud_labels = mode_hud_labels or {}
+        self._current_mode_name = None
+        self._remote.init_layout(self._hud_cells)
+        self._encoder_page = 1
+        self._button_page = 1
+        self._last_selected_device = None
 
     def show_message(self, message):
         self._manager.show_message(message)
@@ -175,353 +98,259 @@ class Helpers:
     def log_message(self, message):
         self._manager.log_message(message)
 
-    def device_parameter_page_inc(self):
-        if self._device_parameter_paging.device_parameter_page_inc(self._last_device_parameter_count):
-            self.update_remote_parameters()
+    def has_user_defined_parameters(self, device):
+        return device is not None and device.class_name in self._device_table
 
-    def device_parameter_page_dec(self):
-        if self._device_parameter_paging.device_parameter_page_dec(self._last_device_parameter_count):
-            self.update_remote_parameters()
+    def _encoder_json_index(self, c_idx):
+        return (self._encoder_page - 1) * self._encoder_slot_count + (c_idx - 1)
 
-    def update_remote_parameters(self):
-        real_params = Helpers.get_actual_parameters_from_device(
-            self._manager,
-            self._custom_mappings,
-            self._device_parameter_paging,
-            self._last_selected_device)
+    def _button_json_index(self, switch_idx):
+        return (self._button_page - 1) * self._button_slot_count + switch_idx
 
-        on_off = ParameterMapping.on_off().with_real_param(self._last_selected_device.parameters[0])
-        all_params = [on_off] + real_params
+    def _encoder_pages_count(self, device):
+        n = len(self._device_table.get(getattr(device, 'class_name', None), {}).get('encoders', []))
+        if n == 0:
+            return 1
+        return max(1, (n + self._encoder_slot_count - 1) // self._encoder_slot_count)
 
-        info = f"{self._device_parameter_paging._device_parameter_page}/{self._device_parameter_paging.page_count_of(self._last_device_parameter_count)}"
-        switch_entries = self._switch_mappings.get(self._last_selected_device.class_name, [])
-        self._remote.device_update(self._last_selected_device.name, all_params, info, switch_entries, self._last_selected_device.parameters)
+    def _button_pages_count(self, device):
+        n = len(self._device_table.get(getattr(device, 'class_name', None), {}).get('buttons', []))
+        if n == 0:
+            return 1
+        return max(1, (n + self._button_slot_count - 1) // self._button_slot_count)
 
-    @staticmethod
-    def get_actual_parameters_from_device(manager, custom_mappings, paging, device):
-        p_group = custom_mappings.user_defined_parameters_or_defaults(device)
-        parameter_indexes = paging.parameters_indexes_for_selected_page(len(p_group.parameters))
-        filtered = p_group.filter_parameter_indexes(parameter_indexes)
-        real_params = filtered.parameters_and_aliasses_from_device_params(device.parameters)
+    def _resolve_encoder(self, device, c_idx):
+        if device is None:
+            return None
+        idx = self._encoder_json_index(c_idx)
+        entry = self._device_table.get(device.class_name)
+        if entry and idx < len(entry['encoders']):
+            e = entry['encoders'][idx]
+            d_idx = int(e['number'])
+            if d_idx >= len(device.parameters):
+                return None
+            return RealParameter(device.parameters[d_idx], e.get('name'), e.get('button'))
+        # Identity fallback: skip on/off (idx 0) and quantized params so
+        # buttons (which switch slots already cover) don't double up on encoders.
+        non_quantized = [(i, p) for i, p in enumerate(device.parameters)
+                         if i > 0 and not getattr(p, 'is_quantized', False)]
+        if idx >= len(non_quantized):
+            return None
+        d_idx, p = non_quantized[idx]
+        return RealParameter(p, None, None)
 
-        # manager.log_message(f"update_remote_parameters: p_group      : {str(p_group.parameters)}")
-        # manager.log_message(f"update_remote_parameters: param numbers: {(str(parameter_indexes))}")
-        # manager.log_message(f"update_remote_parameters: filtered     : {str(filtered.parameters)}")
-        # manager.log_message(f"update_remote_parameters: real_params: : {[r.name[0:5] for r in real_params]}")
-
-        return real_params
+    def _resolve_switch(self, device, switch_idx):
+        if device is None:
+            return None
+        idx = self._button_json_index(switch_idx)
+        entry = self._device_table.get(device.class_name)
+        if entry and idx < len(entry['buttons']):
+            b = entry['buttons'][idx]
+            d_idx = int(b['number'])
+            if d_idx >= len(device.parameters):
+                return None
+            has_range = 'min' in b and 'max' in b
+            return {
+                'param': device.parameters[d_idx],
+                'alias': b.get('name'),
+                'd_idx': d_idx,
+                'has_range': has_range,
+                'min': int(b['min']) if has_range else None,
+                'max': int(b['max']) if has_range else None,
+            }
+        quantized = [(i, p) for i, p in enumerate(device.parameters) if i > 0 and getattr(p, 'is_quantized', False)]
+        if idx >= len(quantized):
+            return None
+        d_idx, p = quantized[idx]
+        return {
+            'param': p, 'alias': p.name, 'd_idx': d_idx,
+            'has_range': True, 'min': int(p.min), 'max': int(p.max),
+        }
 
     def selected_device_changed(self, device):
-        if device is None:
-            # self.log_message("Selected device is None")
+        if device is None or device == self._last_selected_device:
             return
-        if device == self._last_selected_device:
-            # self.log_message("Selected device is the same as last time")
-            return
-        else:
-            self._last_selected_device = device
-            self._last_device_message_about = None
-            self._last_device_parameter_count = len(self._custom_mappings.user_defined_parameters_or_defaults(device).parameters)
-
-            self._device_parameter_paging.reset()
-            self.update_remote_parameters()
-
-            if self._custom_mappings.has_user_defined_parameters(device):
-                self.show_message(f"{device.class_name}")
+        self._last_selected_device = device
+        self._encoder_page = 1
+        self._button_page = 1
+        self.update_remote_parameters()
+        if self.has_user_defined_parameters(device):
+            self.show_message(f"{device.class_name}")
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:
             return
-        else:
-            self.selected_device_changed(device)
-
-        self.log_message(
-            f"device_parameter_action raw data: name: {device.name}, class: {device.class_name}, Has custom params:{self._custom_mappings.has_user_defined_parameters(device)}, raw_parameter_no:{raw_parameter_no}, midi:{midi_no}, val:{value}, {fn_name}, {toggle}")
-
-        page, paged_parameter_no = self._device_parameter_paging.paged_parameter_number(raw_parameter_no)
-        self.log_message(f"device_parameter_action raw data: page:{page}, paged_param_no:{paged_parameter_no}")
-
-        custom_mapping = self._custom_mappings.find_parameter(device, paged_parameter_no)
-        if custom_mapping is None:
-            self.log_message(f"Parameter {paged_parameter_no} not found on device {device.name}")
-            self.show_message(f"Parameter {paged_parameter_no} not found on device {device.name}, page {page}")
+        self.selected_device_changed(device)
+        rp = self._resolve_encoder(device, raw_parameter_no)
+        if rp is None:
+            self.log_message(f"{fn_name}: encoder {raw_parameter_no} not resolvable on {device.class_name}")
             return
-
-        parameter = custom_mapping.param
-        button = custom_mapping.button
-
-        self.log_message(
-            f"device_parameter_action: {device.name}, {device.class_name}, ({self._custom_mappings.has_user_defined_parameters(device)}), raw_parameter_no:{raw_parameter_no}, param_page:{page}, param_name:{parameter.name} midi:{midi_no}, val:{value}, button:{button}, {fn_name}, {toggle}")
-
-        min = parameter.min
-        max = parameter.max
-
+        parameter = rp.param
         will_fire = not toggle or (toggle and value == 127)
-
         if toggle:
-            current_value = parameter.value
-            next_value = max if current_value == min else min
+            next_value = parameter.max if parameter.value == parameter.min else parameter.min
         else:
-            next_value = self.normalise(value, min, max)
-
-        if self._manager.debug:
-            self.log_message \
-                (f"{fn_name}: selected_device:{device.name}, trigger value:{value}, next value:{next_value}")
-            self.log_message \
-                (f"Device param {parameter} min:{min}, max: {max}, will_fire:{will_fire}, current value is {device.parameters[paged_parameter_no].value}")
-
+            next_value = self.normalise(value, parameter.min, parameter.max)
         if will_fire:
             parameter.value = next_value
-            self._remote.parameter_updated(custom_mapping, raw_parameter_no)
+            self._remote.parameter_updated(rp, raw_parameter_no)
+
+    def switch_slot_action(self, device, slot_name, value, fn_name):
+        self.log_message(f"[switch] enter fn={fn_name} slot={slot_name} value={value} device={getattr(device,'class_name','None')}")
+        if device is None:
+            return
+        self.selected_device_changed(device)
+        switch_idx = int(slot_name.replace('switch', '')) - 1
+        info = self._resolve_switch(device, switch_idx)
+        if info is None:
+            self.log_message(f"[switch] {slot_name} not resolvable on {device.class_name}")
+            return
+        p = info['param']
+        before = p.value
+        is_q = getattr(p, 'is_quantized', False)
+        self.log_message(f"[switch] resolved d_idx={info['d_idx']} alias={info.get('alias')} has_range={info['has_range']} json_min={info.get('min')} json_max={info.get('max')} param.min={p.min} param.max={p.max} param.value={before} is_quantized={is_q}")
+        if info['has_range']:
+            self._cycle(p, info['min'], info['max'])
+            mode = "cycle(json)"
+        elif is_q:
+            try:
+                self._cycle(p, int(p.min), int(p.max))
+                mode = "cycle(param)"
+            except (TypeError, ValueError):
+                self._pulse(p)
+                mode = "pulse(fallback)"
+        else:
+            self._pulse(p)
+            mode = "pulse"
+        self.log_message(f"[switch] applied mode={mode} before={before} after={p.value}")
+
+    def _cycle(self, parameter, cmin, cmax):
+        steps = cmax - cmin + 1
+        if steps < 2:
+            return
+        try:
+            current = int(round(parameter.value))
+        except (TypeError, ValueError):
+            current = cmin
+        parameter.value = cmin + ((current - cmin + 1) % steps)
+
+    def _pulse(self, parameter):
+        parameter.value = parameter.max
+
+    def parameter_page_inc(self, target):
+        device = self._last_selected_device
+        if device is None:
+            return
+        if target == 'encoder':
+            count = self._encoder_pages_count(device)
+            if self._encoder_page < count:
+                self._encoder_page += 1
+                self.show_message(f"Enc page {self._encoder_page}/{count}")
+                self.update_remote_parameters()
+        else:
+            count = self._button_pages_count(device)
+            if self._button_page < count:
+                self._button_page += 1
+                self.show_message(f"Btn page {self._button_page}/{count}")
+                self.update_remote_parameters()
+
+    def parameter_page_dec(self, target):
+        device = self._last_selected_device
+        if device is None:
+            return
+        if target == 'encoder':
+            if self._encoder_page > 1:
+                self._encoder_page -= 1
+                count = self._encoder_pages_count(device)
+                self.show_message(f"Enc page {self._encoder_page}/{count}")
+                self.update_remote_parameters()
+        else:
+            if self._button_page > 1:
+                self._button_page -= 1
+                count = self._button_pages_count(device)
+                self.show_message(f"Btn page {self._button_page}/{count}")
+                self.update_remote_parameters()
+
+    def update_remote_parameters(self):
+        device = self._last_selected_device
+        if device is None:
+            return
+        on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
+        real_params = [on_off]
+        for c_idx, _slot in sorted(self._slot_assignments):
+            rp = self._resolve_encoder(device, c_idx)
+            if rp is not None:
+                real_params.append(rp)
+        switch_entries = []
+        for wire_idx, slot in self._switch_slot_assignments:
+            # slot_name ("switch1", "switch2", …) drives JSON-table parameter
+            # resolution; wire_idx is the HUD button index assigned at codegen.
+            logical_idx = int(slot.replace('switch', '')) - 1
+            info = self._resolve_switch(device, logical_idx)
+            if info is not None:
+                switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], info.get('alias') or ''))
+        info_text = f"e{self._encoder_page}/b{self._button_page}"
+        mode_labels = self._mode_hud_labels.get(self._current_mode_name)
+        self._remote.device_update(
+            device.name, real_params, info_text, switch_entries, device.parameters,
+            hud_layout=self._hud_cells, mode_labels=mode_labels,
+        )
+
+    def refresh_hud_for_mode(self, mode_name, device):
+        """Called by the surface when goto_mode swaps bindings. Sets the
+        active overlay and re-emits a burst so the HUD reflects the new
+        labels for non-device cells. Device cells reuse the existing
+        device-path data when a device is focused."""
+        self._current_mode_name = mode_name
+        if device is not None:
+            self._last_selected_device = device
+        if self._last_selected_device is not None:
+            self.update_remote_parameters()
+        else:
+            # No focused device yet — emit a label-only burst.
+            mode_labels = self._mode_hud_labels.get(mode_name) or {}
+            self._remote.device_update(
+                '', [], info_text='', switch_entries=[], device_parameters=[],
+                hud_layout=self._hud_cells, mode_labels=mode_labels,
+            )
 
     def value_is_max(self, value, max):
         return value == max
 
-    def _find_param_by_name(self, device, param_name):
-        for p in device.parameters:
-            if p.name == param_name:
-                return p
-        return None
-
-    def device_param_pulse(self, device, param_name, fn_name):
-        self.log_message(f"deivce_param_pulse: device:{device}, param_name:{param_name}, fn_name:{fn_name}")
-        if device is None:
-            return
-        p = self._find_param_by_name(device, param_name)
-        if p is None:
-            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
-            return
-
-
-        self.log_message \
-            (f"{fn_name}: selected_device:{device.name}, current value is {p.value}, min:{p.min}, max: {p.max}")
-
-        if p.value == p.max:
-            p.value = p.min
-
-        p.value = p.max
-
-
-
-        #             p.value = p.max
-        # self._pending_pulse_targets.append(p)
-        # self._manager.schedule_message(1, self._flush_pending_pulses)
-
-    # def _flush_pending_pulses(self):
-    #     targets = self._pending_pulse_targets
-    #     self._pending_pulse_targets = []
-    #     for p in targets:
-    #         try:
-    #             p.value = p.max
-    #         except Exception as e:
-    #             self.log_message(f"_flush_pending_pulses: {e}")
-
-    def device_param_inc(self, device, param_name, fn_name):
-        if device is None:
-            return
-        p = self._find_param_by_name(device, param_name)
-        if p is None:
-            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
-            return
-        p.value = min(p.max, p.value + 1.0)
-
-    def device_param_dec(self, device, param_name, fn_name):
-        if device is None:
-            return
-        p = self._find_param_by_name(device, param_name)
-        if p is None:
-            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
-            return
-        p.value = max(p.min, p.value - 1.0)
-
-    def device_param_random(self, device, param_name, fn_name):
-        if device is None:
-            return
-        p = self._find_param_by_name(device, param_name)
-        if p is None:
-            self.log_message(f"{fn_name}: param {param_name!r} not on {device.class_name}")
-            return
-        p.value = random.uniform(p.min, p.max)
-
-    def device_params_group_random(self, device, param_names, fn_name):
-        if device is None:
-            return
-        wanted = set(param_names)
-        hit = 0
-        for p in device.parameters:
-            if p.name in wanted:
-                p.value = random.uniform(p.min, p.max)
-                hit += 1
-        if hit == 0:
-            self.log_message(f"{fn_name}: none of {param_names} on {device.class_name}")
-
-    def device_param_cycle(self, device, param_no, cycle_min, cycle_max, fn_name):
-        """
-        Cycle a discrete-valued parameter through [cycle_min, cycle_max] inclusive.
-        Wraps from cycle_max back to cycle_min.
-        """
-        if device is None:
-            return
-        if param_no >= len(device.parameters):
-            self.log_message(f"{fn_name}: param {param_no} out of range for {device.class_name}")
-            return
-        parameter = device.parameters[param_no]
-        steps = cycle_max - cycle_min + 1
-        if steps < 2:
-            return
-        try:
-            current_step = int(round(parameter.value))
-        except (TypeError, ValueError):
-            current_step = cycle_min
-        next_step = cycle_min + ((current_step - cycle_min + 1) % steps)
-        if self._manager.debug:
-            self.log_message(
-                f"{fn_name}: {device.class_name} param {param_no} cycle {cycle_min}..{cycle_max}: {current_step} -> {next_step}"
-            )
-        parameter.value = next_step
-
     def normalise(self, midi_value, min_value, max_value):
-        """
-        Maps a MIDI value (0-127) to the given range [min_value, max_value].
-
-        :param midi_value: int, The input MIDI value (0-127)
-        :param min_value: int, The minimum value of the target range
-        :param max_value: int, The maximum value of the target range
-        :return: int, The mapped value within the range [min_value, max_value]
-        """
         if min_value == max_value:
             return min_value
-
         normalized_value = midi_value / 127.0
         mapped_value = min_value + normalized_value * (max_value - min_value)
-
-        # mapped_value = round(mapped_value)
         return max(min_value, min(mapped_value, max_value))
 
     def find_device(self, song, track_name, device_name):
-        if self._manager.debug:
-            self.log_message(f"Looking for device {device_name} on track {track_name}")
-
         track = self.find_track(song, track_name)
         if track is not None:
             return self.find_device_on_track(track, device_name)
-        else:
-            self.log_message(f"Track {track_name} not found")
-            return None
+        return None
 
     def find_track(self, song, track_name):
-        if self._manager.debug:
-            self.log_message(f"Looking for track {track_name}")
-
         if track_name == "selected":
             return song.view.selected_track
         elif track_name == "master":
             return song.master_track
         elif track_name.isnumeric():
             return song.tracks[int(track_name) - 1]
-
-        if self._manager.debug:
-            self.log_message(f"Track {track_name} must be one of: selected, manager or number")
-            from pprint import pprint;
-            pprint(vars(song))
-
         for track in self._manager.song().tracks:
             if track is not None and track.name == track_name:
                 return track
-
-        if self._manager.debug:
-            self.log_message(f"Track {track_name} not found")
-
         return None
 
     def find_device_on_track(self, track, device_name):
-        if self._manager.debug:
-            self.log_message(f"find_device_on_track Looking for device {device_name} on track {track.name}")
-
         if device_name == "selected":
             return track.view.selected_device
         elif device_name.isnumeric():
             return track.devices[int(device_name) - 1]
-
         for device in track.devices:
             if device is not None and device.name == device_name:
                 return device
-
-        if self._manager.debug:
-            self.log_message(f"Device {device_name} not found")
-
         return None
-
-
-class CustomMappings:
-    """
-        CustomMappings
-
-        Manages slot-derived parameter mappings keyed on the device's `class_name`.
-        For each known device class (Compressor2, Eq8, ...) it carries the list of
-        (encoder_index, ParameterMapping) entries derived from the user's `slots:` list
-        and the family-intents JSON.
-
-        Devices not in the slot table (notably Macro Racks — AudioEffectGroupDevice,
-        InstrumentGroupDevice, MidiEffectGroupDevice, DrumGroupDevice) fall through to
-        a direct identity mapping: encoder N drives device.parameters[N], so encoder 1
-        drives Macro 1, encoder 2 drives Macro 2, etc. This is intentional — racks
-        have no canonical slot meanings, so the macros themselves are the contract.
-    """
-    def __init__(self, manager,
-                 custom_mappings: dict[str, [(int, ParameterMapping)]]):
-        self._manager = manager
-
-        self._custom_mappings: dict[str, [(int, ParameterMapping)]] = custom_mappings
-
-    def log_message(self, message):
-        self._manager.log_message(message)
-
-    def show_message(self, message):
-        self._manager.show_message(message)
-
-    def has_user_defined_parameters(self, device):
-        return self.device_lookup_key(device) in self._custom_mappings
-
-    def device_lookup_key(self, device):
-        return device.class_name
-
-    def user_defined_parameters_for(self, device) -> [(int, ParameterMapping)]:
-        return self._custom_mappings[self.device_lookup_key(device)]
-
-    def user_defined_parameters_or_defaults(self, device) -> ParameterNumberGroup:
-        '''
-        Returns the user defined parameters for a device if they exist, otherwise returns the default parameters
-
-        Will NOT send the on/off parameter, use ParameterGroup to send the on/off parameter
-        :param device:
-        :return:
-        '''
-        if not self.has_user_defined_parameters(device) or len(
-                self.user_defined_parameters_for(device)) == 0:
-            self.log_message(f"no mapping found for {device.name}/{device.class_name}, look up key: {self.device_lookup_key(device)}")
-            return ParameterNumberGroup.from_raw_device_parameters(len(device.parameters))
-        else:
-            self.log_message(f"Creating ParameterNumberGroup from user defined parameters for {device.name}/{device.class_name}, look up key: {self.device_lookup_key(device)}. Parameter count on device is {len(device.parameters)}. User parameter count is: {len(self.user_defined_parameters_for(device))}")
-            return ParameterNumberGroup.from_user_defined_parameters(self.user_defined_parameters_for(device))
-
-    def find_parameter(self, device, parameter_no):
-        '''
-
-        :param device:
-        :param parameter_no:
-        :return parameter, alias tuple: or None if not found for the parameter number because the device has less parameters.
-        '''
-        if not self.has_user_defined_parameters(device):
-            if parameter_no >= len(device.parameters):
-                self.log_message("CustomMappings.find_parameter returning None as parameter_no >= len(device.parameters)")
-                return None
-            else:
-                return RealParameter(device.parameters[parameter_no], None, None) #TODO RealParameter here?
-        else:
-            param_group = self.user_defined_parameters_or_defaults(device)
-            self.log_message(f"CustomMappings.find_parameter param_group is {[(p[0], p[1].mapped_parameter) for p in param_group.parameters]}")
-            return param_group.parameter_from_device_params(device.parameters, parameter_no)
 
 
 class Remote:
@@ -530,6 +359,10 @@ class Remote:
         self._osc_client = osc_client
         self._hud_client = hud_client if hud_client is not None else NullHudClient()
         self._in_burst = False  # suppresses UPDATE during device_update burst
+
+    def init_layout(self, cells):
+        if cells:
+            self._hud_client.send_layout(cells)
 
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):
@@ -541,35 +374,86 @@ class Remote:
         if parameter_no > 0 and not self._in_burst:
             self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
 
-    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None):
+    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=()):
+        """Generic dense burst. dial_payloads / button_payloads are iterables
+        of (wire_idx, SlotPayload). Caller is responsible for filling empty
+        slots with hud_protocol.EMPTY_SLOT — the wire is sender-dense."""
+        self._in_burst = True
+        try:
+            self._hud_client.send_device(device_name)
+            count = 0
+            for idx, p in dial_payloads:
+                self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
+                count += 1
+            for idx, p in button_payloads:
+                self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
+                count += 1
+            self._hud_client.commit(count)
+        finally:
+            self._in_burst = False
+
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
-        # HUD burst: suppress live UPDATE calls while we build the full snapshot
+        # HUD burst: suppress live UPDATE calls while we build the full snapshot.
+        # `parameter_updated` reads `_in_burst`, so we set it before the loop.
         self._in_burst = True
-        self._hud_client.send_device(device_name)
-        hud_count = 0
-        for i, pm in enumerate(real_parameters):
-            self.parameter_updated(pm, i)
-            if i > 0:
-                p = pm.param
-                name = p.name if pm.alias is None else pm.alias
-                self._hud_client.send_slot('dial', i - 1, name, p.value, p.min, p.max)
-                hud_count += 1
+        try:
+            for i, pm in enumerate(real_parameters):
+                self.parameter_updated(pm, i)
+        finally:
+            self._in_burst = False
 
-        # Button/switch slots for the current device class
-        if switch_entries and device_parameters:
-            for entry in switch_entries:
-                try:
-                    p = device_parameters[entry.d_idx]
-                    self._hud_client.send_slot('button', entry.switch_idx, entry.alias or p.name, p.value, p.min, p.max)
-                    hud_count += 1
-                except (IndexError, Exception):
-                    pass
-
-        self._hud_client.commit(hud_count)
-        self._in_burst = False
+        dial_payloads = self._build_dial_payloads(real_parameters, hud_layout)
+        button_payloads = self._build_button_payloads(switch_entries, device_parameters, hud_layout)
+        if mode_labels:
+            dial_payloads = _overlay_labels(dial_payloads, mode_labels, 'dial')
+            button_payloads = _overlay_labels(button_payloads, mode_labels, 'button')
+        self.refresh_burst(device_name, dial_payloads, button_payloads)
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
+
+    @staticmethod
+    def _build_dial_payloads(real_parameters, hud_layout):
+        """Dense dial payloads keyed on wire index. real_parameters[0] is
+        Device On (skipped); wire idx N corresponds to real_parameters[N+1]."""
+        payloads = []
+        for cell in (hud_layout or []):
+            _gr, _gc, kind, count, start = cell
+            if kind != 'dial' or start < 0:
+                continue
+            for i in range(count):
+                wire_idx = start + i
+                rp_idx = wire_idx + 1
+                if rp_idx < len(real_parameters):
+                    pm = real_parameters[rp_idx]
+                    p = pm.param
+                    name = p.name if pm.alias is None else pm.alias
+                    payloads.append((wire_idx, SlotPayload(name, p.value, p.min, p.max)))
+                else:
+                    payloads.append((wire_idx, EMPTY_SLOT))
+        return payloads
+
+    @staticmethod
+    def _build_button_payloads(switch_entries, device_parameters, hud_layout):
+        switch_by_idx = {e.switch_idx: e for e in (switch_entries or [])}
+        payloads = []
+        for cell in (hud_layout or []):
+            _gr, _gc, kind, count, start = cell
+            if kind != 'button' or start < 0:
+                continue
+            for i in range(count):
+                wire_idx = start + i
+                entry = switch_by_idx.get(wire_idx)
+                if entry is not None and device_parameters:
+                    try:
+                        p = device_parameters[entry.d_idx]
+                        payloads.append((wire_idx, SlotPayload(entry.alias or p.name, p.value, p.min, p.max)))
+                        continue
+                    except IndexError:
+                        pass
+                payloads.append((wire_idx, EMPTY_SLOT))
+        return payloads
 
 
 class NullOSCClient:

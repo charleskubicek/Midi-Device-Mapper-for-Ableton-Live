@@ -1,5 +1,6 @@
 controller: controller_lc.nt
 ableton_dir: /Applications/Ableton Live 12 Suite.app
+parameter_mappings_file: ../../data/custom_device_mappings.json
 #ableton_dir: /Applications/Ableton Live 12 Beta.app
 
 remote_on: true
@@ -16,9 +17,13 @@ modes:
                 track: selected
                 device: selected
                 mappings:
-                    encoders:
-                        range: row-1:1-8
-                        slots: 1-8
+                    encoder-list:
+                        -
+                            range: row-1:1-8
+                            slots: 1-8
+                        -
+                            range: row-2:1-8
+                            slots: 9-16
                     on-off: row-3:4 toggle
             -
                 type: mixer
@@ -88,3 +93,8 @@ modes:
     #                shift_clip_notes_right: row-4:2
                     clip_extend: row-5:2
                     clip_delete_end: row-5:1
+            -
+                type: parameter-pager
+                encoders:
+                    inc: row-4:2
+                    dec: row-4:1

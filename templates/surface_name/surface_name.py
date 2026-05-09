@@ -115,10 +115,43 @@ class $surface_name(ControlSurface):
         # self.log_message(f"Ticking..")
         try:
             data, addr = self._socket.recvfrom(1024)
-            self.log_message(f"data = {data}")
-            self.log_message(f"data is reload {data == b'reload'}")
+            cmd_str = data.decode('utf-8', errors='ignore').strip()
+            parts = cmd_str.split('|')
+            cmd = parts[0]
             response = None
-            if data == b'reload':
+
+            if cmd == 'PING':
+                response = b'PONG'
+
+            elif cmd == 'GET_DEVICE':
+                device = self.song().view.selected_track.view.selected_device
+                if device:
+                    n = len(device.parameters)
+                    response = f'DEVICE|{device.class_name}|{device.name}|{n}'.encode('utf-8')
+                else:
+                    response = b'DEVICE|||0'
+
+            elif cmd == 'GET_PARAMS':
+                device = self.song().view.selected_track.view.selected_device
+                if device and len(parts) >= 3:
+                    start, count = int(parts[1]), int(parts[2])
+                    chunk = device.parameters[start:start + count]
+                    entries = ';'.join(f'{start + i},{p.name},{p.min},{p.max},{1 if p.is_quantized else 0}' for i, p in enumerate(chunk))
+                    response = f'PARAMS|{entries}'.encode('utf-8')
+                else:
+                    response = b'PARAMS|'
+
+            elif cmd == 'GET_PARAM_VALUES':
+                device = self.song().view.selected_track.view.selected_device
+                if device and len(parts) >= 3:
+                    start, count = int(parts[1]), int(parts[2])
+                    chunk = device.parameters[start:start + count]
+                    values = ','.join(str(p.value) for p in chunk)
+                    response = f'PARAM_VALUES|{values}'.encode('utf-8')
+                else:
+                    response = b'PARAM_VALUES|'
+
+            elif cmd == 'reload':
                 try:
                     self.log_message('Reloading modules')
                     try:
@@ -142,22 +175,22 @@ class $surface_name(ControlSurface):
                     self.show_message("Reload Failed, check logs")
                     self.log_message(traceback.format_exc())
                     response = b'reload failed, check logs'
-            elif data == b'debug':
+
+            elif cmd == 'debug':
                 self.debug = not self.debug
                 self.log_message(f"Debug set to {self.debug}")
                 response = b'Debug set to ' + str(self.debug).encode('utf-8')
 
-            elif data == b'dump':
+            elif cmd == 'dump':
                 self.dump_selected_device_parameter_info()
                 response = b'Dumped to logs'
 
-            elif data == b'dumpnames':
+            elif cmd == 'dumpnames':
                 self.dump_selected_device_parameter_names()
                 response = b'Dumped to logs'
 
             if response is not None:
                 self._socket.sendto(response, addr)
-                print(f"Sent response to {addr}")
 
         except socket.error as e:
             if e.errno == errno.ECONNRESET:

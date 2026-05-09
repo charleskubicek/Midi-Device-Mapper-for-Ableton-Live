@@ -14,6 +14,9 @@ from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV
 from ableton_control_surface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
 from ableton_control_surface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
 from ableton_control_surface_as_code.model_mixer import MixerV2, build_mixer_model_v2
+from ableton_control_surface_as_code.model_parameter_pager import (
+    ParameterPagerV2, ParameterPagerWithMidi, build_parameter_pager_model_v2,
+)
 from ableton_control_surface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
     build_track_nav_model_v2
 from ableton_control_surface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
@@ -24,7 +27,8 @@ AllMappingTypes = List[Union[
     TrackNav,
     DeviceNav,
     Functions,
-    Transport
+    Transport,
+    ParameterPagerV2,
 ]]
 
 AllMappingWithMidiTypes = List[Union[
@@ -33,7 +37,8 @@ AllMappingWithMidiTypes = List[Union[
     TrackNavWithMidi,
     DeviceNavWithMidi,
     FunctionsWithMidi,
-    TransportWithMidi
+    TransportWithMidi,
+    ParameterPagerWithMidi,
 ]]
 
 
@@ -73,6 +78,7 @@ class RootV2(BaseModel):
     modes: List[ModeDef]
     ableton_dir: str
     remote_on: bool = Field(default=False)
+    parameter_mappings_file: Optional[str] = None
 
     class Config:
         extra = 'forbid'
@@ -85,6 +91,7 @@ class RootV2ModesOrModeless(BaseModel):
     modes: Optional[List[ModeDef]] = None
     ableton_dir: str
     remote_on: bool = Field(default=False)
+    parameter_mappings_file: Optional[str] = None
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -94,7 +101,8 @@ class RootV2ModesOrModeless(BaseModel):
             modes=model_modes,
             mode_button=self.mode_button,
             ableton_dir=self.ableton_dir,
-            remote_on=self.remote_on
+            remote_on=self.remote_on,
+            parameter_mappings_file=self.parameter_mappings_file,
         )
 
 
@@ -221,6 +229,8 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
             mappings_with_midi.append(build_functions_model_v2(controller, mapping, root_dir))
         if mapping.type == "transport":
             mappings_with_midi.append(build_transport_model(controller, mapping))
+        if mapping.type == "parameter-pager":
+            mappings_with_midi.append(build_parameter_pager_model_v2(controller, mapping))
 
     print_model_with_mappings(controller, mappings_with_midi)
     validate_mappings(mappings_with_midi)

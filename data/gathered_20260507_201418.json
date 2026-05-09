@@ -1,0 +1,85 @@
+{
+  "families": [
+    {
+      "name": "Blue Hand",
+      "devices": [
+        {
+          "className": "Delay",
+          "deviceName": "Delay",
+          "slots": {
+            "slot1": {
+              "parameterName": "Feedback",
+              "parameterNumber": 12
+            },
+            "slot2": {
+              "parameterName": "Dry/Wet",
+              "parameterNumber": 26
+            },
+            "slot3": {
+              "parameterName": "L 16th",
+              "parameterNumber": 8
+            },
+            "slot4": {
+              "parameterName": "R 16th",
+              "parameterNumber": 9
+            },
+            "slot5": {
+              "parameterName": "R Offset",
+              "parameterNumber": 11
+            },
+            "slot6": {
+              "parameterName": "L Offset",
+              "parameterNumber": 10
+            },
+            "slot7": {
+              "parameterName": "L Sync",
+              "parameterNumber": 4
+            },
+            "slot8": {
+              "parameterName": "R Sync",
+              "parameterNumber": 5
+            }
+          }
+        },
+        {
+          "className": "MxDeviceMidiEffect",
+          "deviceName": "SQ Sequencer",
+          "slots": {
+            "slot1": {
+              "parameterName": "PStep1",
+              "parameterNumber": 85
+            },
+            "slot2": {
+              "parameterName": "PStep2",
+              "parameterNumber": 93
+            },
+            "slot3": {
+              "parameterName": "PStep3",
+              "parameterNumber": 94
+            },
+            "slot4": {
+              "parameterName": "PStep4",
+              "parameterNumber": 95
+            },
+            "slot5": {
+              "parameterName": "PStep5",
+              "parameterNumber": 96
+            },
+            "slot6": {
+              "parameterName": "PStep6",
+              "parameterNumber": 97
+            },
+            "slot7": {
+              "parameterName": "PStep7",
+              "parameterNumber": 98
+            },
+            "slot8": {
+              "parameterName": "PStep8",
+              "parameterNumber": 99
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

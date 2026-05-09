@@ -24,6 +24,7 @@ control_groups:
         midi_channel: 3
         midi_type: CC
         midi_range: 29, 42, 43, 44, 45, 46, 47, 48
+        under: 1
     -
         layout: row
         number: 3
@@ -31,6 +32,7 @@ control_groups:
         midi_channel: 9
         midi_type: note
         midi_range: A-2, C-1, CS1, D1, C1, C3, F1, G1
+        under: 2
     -
         layout: row
         number: 4
@@ -38,6 +40,7 @@ control_groups:
         midi_channel: 3
         midi_type: CC
         midi_range: 114, 115
+        right_of: 2
     -
         layout: row
         number: 5
@@ -45,3 +48,4 @@ control_groups:
         midi_channel: 3
         midi_type: CC
         midi_range: 116, 117
+        right_of: 3

@@ -20,6 +20,8 @@ class ControlGroupPartV2(BaseModel):
     midi_type: MidiType
     midi_range_raw: str = Field(alias='midi_range')
     row_parts_raw: Optional[str] = Field(None, alias='row_parts')
+    under: Optional[int] = Field(None)
+    right_of: Optional[int] = Field(None)
 
     @model_validator(mode='after')
     def validate_midi_range(self):
@@ -73,10 +75,12 @@ class ControllerRawV2(BaseModel):
 
 
 class ControlGroup:
-    def __init__(self, midi_coords, number, type):
+    def __init__(self, midi_coords, number, type, grid_row=0, grid_col=0):
         self.midi_coords = midi_coords
         self._number = number
         self._type = type
+        self.grid_row = grid_row
+        self.grid_col = grid_col
 
     @property
     def type(self):
@@ -104,15 +108,52 @@ class ControllerV2:
     @staticmethod
     def build_from(c: ControllerRawV2):
 
-        def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode) -> ControlGroup:
+        def compute_grid_positions(groups: List[ControlGroupPartV2]) -> dict:
+            # row_number → (grid_row, grid_col)
+            positions = {}
+            # representative per row number (first part encountered)
+            rep = {g.number: g for g in reversed(groups)}
+            remaining = set(rep.keys())
+            # row 1 (or whichever has no under/right_of) is at (0,0)
+            for num, g in rep.items():
+                if g.under is None and g.right_of is None:
+                    positions[num] = (0, 0)
+                    remaining.discard(num)
+                    break
+            iterations = 0
+            while remaining and iterations < 20:
+                iterations += 1
+                for num in list(remaining):
+                    g = rep[num]
+                    if g.under is not None and g.under in positions:
+                        pr, pc = positions[g.under]
+                        positions[num] = (pr + 1, pc)
+                        remaining.discard(num)
+                    elif g.right_of is not None and g.right_of in positions:
+                        pr, pc = positions[g.right_of]
+                        positions[num] = (pr, pc + 1)
+                        remaining.discard(num)
+            return positions
+
+        def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode, grid_pos) -> ControlGroup:
             midi_coords = flatten([g.build_midi_coords(encoder_mode) for g in groups])
-            return ControlGroup(midi_coords, groups[0].number, groups[0].type)
+            gr, gc = grid_pos
+            return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc)
 
         c.control_groups.sort(key=lambda x: x.number)
-        control_groups = [merge_groups(list(group), c.encoder_mode) for key, group in
-                          groupby(c.control_groups, lambda x: x.number)]
+        grid_positions = compute_grid_positions(c.control_groups)
+        control_groups = [
+            merge_groups(list(group), c.encoder_mode, grid_positions.get(key, (0, 0)))
+            for key, group in groupby(c.control_groups, lambda x: x.number)
+        ]
 
         return ControllerV2(control_groups, c.light_colors, c.encoder_mode)
+
+    def grid_position_for(self, row_number: int):
+        for g in self.control_groups:
+            if g.number == row_number:
+                return (g.grid_row, g.grid_col)
+        return (0, 0)
 
     def find_group(self, row_col: int):
         for group in self.control_groups:

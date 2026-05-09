@@ -8,7 +8,13 @@ Usage:
 import socket
 import time
 import sys
+import os
 import random
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from source_modules.hud_protocol import (
+    encode_device, encode_slot, encode_slot_payload, encode_commit, EMPTY_SLOT,
+)
 
 HOST = '127.0.0.1'
 PORT = 5006
@@ -40,22 +46,26 @@ def send(sock, line: str):
 def send_burst(sock, device: dict):
     name = device['name']
     print(f'\n--- Sending burst for: {name} ---')
-    send(sock, f'DEVICE|{name}')
+    send(sock, encode_device(name))
 
     count = 0
     for i, param in enumerate(device.get('dials', [])):
         if param:
             value = round(random.uniform(0.0, 1.0), 3)
-            send(sock, f'SLOT|dial|{i}|{param}|{value}|0.0|1.0')
-            count += 1
+            send(sock, encode_slot('dial', i, param, value, 0.0, 1.0))
+        else:
+            send(sock, encode_slot_payload('dial', i, EMPTY_SLOT))
+        count += 1
 
     for i, param in enumerate(device.get('buttons', [])):
         if param:
             value = random.choice([0.0, 1.0])
-            send(sock, f'SLOT|button|{i}|{param}|{value}|0.0|1.0')
-            count += 1
+            send(sock, encode_slot('button', i, param, value, 0.0, 1.0))
+        else:
+            send(sock, encode_slot_payload('button', i, EMPTY_SLOT))
+        count += 1
 
-    send(sock, f'COMMIT|{count}')
+    send(sock, encode_commit(count))
 
 
 def main():

@@ -1,15 +1,63 @@
 import itertools
+import re
+from dataclasses import dataclass
 from typing import Literal, List, Optional, Dict, Tuple
 
 from pydantic import BaseModel, Field, field_validator
 
 from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
-from ableton_control_surface_as_code.family_intents import (
-    parse_slot_token,
-    is_mode_slot,
-    MODE_SLOT_NAMES,
-)
+
+
+MODE_SLOT_NAMES = [f"switch{i}" for i in range(1, 9)]
+
+
+@dataclass
+class HudCell:
+    grid_row: int
+    grid_col: int
+    kind: str       # 'dial' or 'button'
+    count: int
+    start_index: int
+
+
+def is_mode_slot(name: str) -> bool:
+    return name in MODE_SLOT_NAMES
+
+
+def parse_slot_token(token: str) -> str:
+    token = token.strip()
+    if token.startswith("slot") and token[4:].isdigit():
+        return token
+    if token in MODE_SLOT_NAMES:
+        return token
+    if token.isdigit():
+        n = int(token)
+        if n < 1:
+            raise ValueError(f"Slot index {n} out of range; must be >= 1")
+        return f"slot{n}"
+    raise ValueError(f"Unknown slot token: {token!r}")
+
+
+def parse_continuous_slot_list(raw: str) -> List[str]:
+    result: List[str] = []
+    for chunk in [c.strip() for c in raw.split(",") if c.strip()]:
+        if "-" in chunk and not chunk.startswith("slot"):
+            lo_s, hi_s = chunk.split("-", 1)
+            lo, hi = int(lo_s), int(hi_s)
+            if lo > hi:
+                raise ValueError(f"Invalid slot range {chunk!r}: {lo} > {hi}")
+            result.extend(parse_slot_token(str(n)) for n in range(lo, hi + 1))
+        else:
+            result.append(parse_slot_token(chunk))
+
+    bad = [s for s in result if s in MODE_SLOT_NAMES]
+    if bad:
+        raise ValueError(
+            f"{bad} are cycle-type slots and cannot appear under encoders.slots; "
+            "place them under mode-buttons instead"
+        )
+    return result
 
 
 class DeviceParameterMidiMapping(BaseModel):
@@ -35,28 +83,6 @@ class DeviceParameterMidiMapping(BaseModel):
     def controller_listener_fn_name(self, mode_name):
         suffix = self.slot if self.slot else f"p{self.parameter}"
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_{suffix}")
-
-
-class DeviceParameterPageNav(BaseModel):
-    inc: EncoderCoords
-    dec: EncoderCoords
-    export_to_mode: str = Field(alias='export-to-mode')
-
-    @field_validator('dec', mode='before')
-    @classmethod
-    def parameter_paging_dec(cls, value):
-        return parse_coords(value) if value is not None else None
-
-    @field_validator('inc', mode='before')
-    @classmethod
-    def parameter_paging_inc(cls, value):
-        return parse_coords(value) if value is not None else None
-
-
-class DeviceParameterPageNavMidi(BaseModel):
-    inc: MidiCoords
-    dec: MidiCoords
-    export_to_mode: str = Optional[str]
 
 
 _SWITCH_LITERAL = Literal['switch1', 'switch2', 'switch3', 'switch4',
@@ -102,11 +128,8 @@ class DeviceWithMidi(BaseModel):
     mode_button_maps: List[ModeButtonMidiMapping] = Field(default_factory=list)
     # encoder_index -> slot_name; populated when user wrote `slots:` in their mapping.
     slot_assignments: List[Tuple[int, str]] = Field(default_factory=list)
-    parameter_page_nav: Optional[DeviceParameterPageNavMidi] = None
-
-    @property
-    def has_paging_export(self):
-        return self.parameter_page_nav is not None and self.parameter_page_nav.export_to_mode is not None
+    encoder_slot_count: int = 8
+    hud_cells: List[HudCell] = Field(default_factory=list)
 
 
 class DeviceEncoderMappings(BaseModel):
@@ -122,7 +145,6 @@ class DeviceEncoderMappings(BaseModel):
     switch6: Optional[EncoderCoords] = Field(None, alias='switch6')
     switch7: Optional[EncoderCoords] = Field(None, alias='switch7')
     switch8: Optional[EncoderCoords] = Field(None, alias='switch8')
-    parameter_paging: Optional[DeviceParameterPageNav] = Field(None, alias='parameter-paging')
 
     @field_validator('switch1', 'switch2', 'switch3', 'switch4',
                      'switch5', 'switch6', 'switch7', 'switch8', mode='before')
@@ -160,7 +182,6 @@ class DeviceV2(BaseModel):
 def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWithMidi:
     midi_maps: List[DeviceParameterMidiMapping] = []
     slot_assignments: List[Tuple[int, str]] = []
-    parameter_page_nav = None
 
     encoder_index = 0
     for encoders in device.mappings.encoders_all():
@@ -201,13 +222,6 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             parameter=0,
         ))
 
-    if device.mappings.parameter_paging is not None:
-        parameter_page_nav = DeviceParameterPageNavMidi(
-            inc=controller.build_midi_coords(device.mappings.parameter_paging.inc)[0][0],
-            dec=controller.build_midi_coords(device.mappings.parameter_paging.dec)[0][0],
-            export_to_mode=device.mappings.parameter_paging.export_to_mode,
-        )
-
     mode_button_maps: List[ModeButtonMidiMapping] = []
     for entry in device.mappings.mode_buttons:
         midi_coord = controller.build_midi_coords(entry.coord)[0][0]
@@ -223,11 +237,37 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
                 slot=slot_name,
             ))
 
+    slot_groups = [e for e in device.mappings.encoders_all() if e.uses_slots]
+    total_slots = sum(len(e.slots) for e in slot_groups)
+    encoder_slot_count = total_slots if total_slots > 0 else 8
+
+    # Build HUD grid cells from slot groups
+    hud_cells: List[HudCell] = []
+    dial_start = 0
+    for e in slot_groups:
+        m = re.match(r'row-(\d+)', e.range_raw)
+        row_num = int(m.group(1)) if m else 1
+        gr, gc = controller.grid_position_for(row_num)
+        count = len(e.slots)
+        hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='dial', count=count, start_index=dial_start))
+        dial_start += count
+
+    switch_maps = [m for m in mode_button_maps if m.slot.startswith('switch')]
+    if switch_maps:
+        # Find the controller row for the first switch
+        first_switch = device.mappings.switch_entries()
+        for slot_name, coord in first_switch:
+            if coord is not None and slot_name.startswith('switch'):
+                gr, gc = controller.grid_position_for(int(coord.row))
+                hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='button', count=len(switch_maps), start_index=0))
+                break
+
     return DeviceWithMidi(
         track=device.track,
         device=device.device,
         midi_maps=midi_maps,
         mode_button_maps=mode_button_maps,
         slot_assignments=slot_assignments,
-        parameter_page_nav=parameter_page_nav,
+        encoder_slot_count=encoder_slot_count,
+        hud_cells=hud_cells,
     )

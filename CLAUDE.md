@@ -69,15 +69,9 @@ Two NestedText files per controller setup, typically in `live_surfaces/<controll
 
 ### HUD Client (`source_modules/hud_client.py`)
 
-Emits the HUD wire protocol to `127.0.0.1:5006` (UDP) whenever device focus changes. The protocol is line-based and pipe-delimited:
+Emits a line-based, pipe-delimited UDP protocol to `127.0.0.1:5006`. Six message types: `LAYOUT` (once at init), `DEVICE` / `SLOT` / `COMMIT` (device-focus burst), `UPDATE` (single-slot live patch), `PING` (keepalive / dismiss-timer reset).
 
-```
-DEVICE|<deviceName>          # resets HUD state
-SLOT|dial|<0..7>|<name>|<value>|<min>|<max>
-SLOT|button|<0..7>|<name>|<value>|<min>|<max>
-COMMIT|<slotCount>           # atomic swap / render trigger
-UPDATE|<kind>|<index>|...    # single-slot live update, no COMMIT needed
-```
+**Full spec:** see [`hud_protocol.md`](./hud_protocol.md) for message formats, indexing conventions (dial vs button indices differ), burst semantics (`_in_burst` suppresses `UPDATE` during a burst), and sequence diagrams. Note: button-slot emission rules are currently flagged as unstable / under review.
 
 `HudClient` sends real datagrams; `NullHudClient` is the no-op fallback when no HUD process is running. Both have identical interfaces so the generated surface code never needs to branch. The hook point in generated surfaces is `main_component.py` — it calls `hud_client.send_device()` + `send_slot()` + `commit()` on the same code path that emits OSC parameter updates.
 
