@@ -55,6 +55,12 @@ class ModeType(str, Enum):
     Switch = 'switch'
 
 
+class HudMode(str, Enum):
+    On = 'on'
+    Off = 'off'
+    DeviceOnly = 'device_only'
+
+
 class ModeButton(BaseModel):
     button: str
     type: ModeType = ModeType.Switch
@@ -79,6 +85,7 @@ class RootV2(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    hud: HudMode = HudMode.On
 
     class Config:
         extra = 'forbid'
@@ -92,6 +99,7 @@ class RootV2ModesOrModeless(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    hud: HudMode = HudMode.On
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -103,6 +111,7 @@ class RootV2ModesOrModeless(BaseModel):
             ableton_dir=self.ableton_dir,
             remote_on=self.remote_on,
             parameter_mappings_file=self.parameter_mappings_file,
+            hud=self.hud,
         )
 
 

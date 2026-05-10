@@ -11,7 +11,7 @@ class CustomEncoderEntry(BaseModel):
 class GroupMember(BaseModel):
     number: int
     name: Optional[str] = None
-    activeWhen: List[int
+    activeWhen: List[int]
 
 
 class GroupedEncoderEntry(BaseModel):

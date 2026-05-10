@@ -13,7 +13,7 @@ from ableton_control_surface_as_code.gen_code import class_function_body_code_bl
     transport_templates, dict_variable_decleration_block, GeneratedCodes, \
     parameter_pager_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
-    read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes
+    read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode
 
 tab = " " * 4
 
@@ -95,7 +95,7 @@ def validate_exports(export_targets, mode_codes):
                 if len(commmon) > 0:
                     raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On) -> dict:
     first_mode_name = modes.first_mode_name()
 
     # Global wire-index allocation: every physical control on the surface
@@ -143,10 +143,16 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None) ->
     ]
     encoder_slot_count = max((m.encoder_slot_count for m in device_mappings), default=8)
 
-    mode_hud_labels = {
-        mode_name: collect_mode_labels(controller, mode_maps, hud_cells_raw)
-        for mode_name, mode_maps in modes.mappings
-    }
+    if hud_mode == HudMode.DeviceOnly:
+        mode_hud_labels = {mode_name: {} for mode_name, _ in modes.mappings}
+    else:
+        mode_hud_labels = {
+            mode_name: collect_mode_labels(controller, mode_maps, hud_cells_raw)
+            for mode_name, mode_maps in modes.mappings
+        }
+
+    hud_client_class = 'NullHudClient' if hud_mode == HudMode.Off else 'HudClient'
+
     return {
         'code_setup': "\n".join(codes.init),
         'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
@@ -158,6 +164,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None) ->
         'encoder_slot_count': encoder_slot_count,
         'hud_cells': repr(hud_cells_raw),
         'mode_hud_labels': repr(mode_hud_labels),
+        'hud_client_class': hud_client_class,
         '_hud_cells_raw': hud_cells_raw,
     }
 
@@ -304,7 +311,7 @@ def generate(mapping_file_path):
         'parameter_mappings_raw': repr(parameter_mappings_raw),
     }
 
-    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller)
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
