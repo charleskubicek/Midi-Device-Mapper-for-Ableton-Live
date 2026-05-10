@@ -89,12 +89,11 @@
           {"number": 4, "name": "Predelay FB"},
           {"number": 5, "name": "Predel. FB 16th"},
           {"number": 50, "name": "Vintage"},
-,
-,
+
           {"number": 19, "name": "Sh Pitch Shift"},
           {"number": 21, "name": "Ti Rate"},
           {"number": 22, "name": "Ti Waveform"},
-,
+
           {"number": 24, "name": "Qz Low Damp"},
           {"number": 25, "name": "Qz Distance"},
           {"number": 26, "name": "Pr High Mult"},

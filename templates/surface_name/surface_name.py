@@ -124,7 +124,6 @@ class $surface_name(ControlSurface):
         buttons = []
 
         for i, p in enumerate(device.parameters):
-            # i = str(i).zfill(2)
             msg = {
                 'no': i,
                 'name': p.name,
@@ -169,6 +168,10 @@ class $surface_name(ControlSurface):
 
             if cmd == 'PING':
                 response = b'PONG'
+
+            elif cmd == 'HELLO':
+                self.main_component._remote.init_layout(self.main_component._helpers._hud_cells)
+                self.main_component._helpers.update_remote_parameters()
 
             elif cmd == 'GET_DEVICE':
                 device = self.song().view.selected_track.view.selected_device
