@@ -69,6 +69,8 @@ class MainComponent(ControlSurfaceComponent):
 
         self._lisetenr = OSCListener(self.manager, self.button_handler)
 
+        self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
+
     def button_handler(self, button, send_value):
         value = 127 if send_value > 0.0 else 0
 
@@ -86,6 +88,17 @@ class MainComponent(ControlSurfaceComponent):
     def setup_controls(self):
         $code_creation
 
+    def _on_selected_parameter_changed(self):
+        if self.manager.debug:
+            param = self._song.view.selected_parameter
+            if param is not None:
+                if param.is_quantized:
+                    items = ", items: " +", ".join(param.value_items)
+                else:
+                    items = ""
+                self.log_message(f"Selected parameter changed:  {param.name} (value: {param.value}, min: {param.min}, max: {param.max}, is_quantized: {param.is_quantized}{items})")
+            else:
+                self.log_message("Selected parameter changed: None")
 
 $code_setup_listeners
 

@@ -91,6 +91,7 @@ class Helpers:
         self._encoder_page = 1
         self._button_page = 1
         self._last_selected_device = None
+        self._group_selector_listeners = []  # [(param, callback)] for teardown
 
     def show_message(self, message):
         self._manager.show_message(message)
@@ -126,6 +127,10 @@ class Helpers:
         entry = self._device_table.get(device.class_name)
         if entry and idx < len(entry['encoders']):
             e = entry['encoders'][idx]
+            if 'controlledBy' in e and 'group' in e:
+                e = self._resolve_group_member(device, e)
+                if e is None:
+                    return None
             d_idx = int(e['number'])
             if d_idx >= len(device.parameters):
                 return None
@@ -138,6 +143,20 @@ class Helpers:
             return None
         d_idx, p = non_quantized[idx]
         return RealParameter(p, None, None)
+
+    def _resolve_group_member(self, device, entry):
+        selector_name = entry['controlledBy']
+        selector = next((p for p in device.parameters if p.name == selector_name), None)
+        if selector is None:
+            return None
+        try:
+            sel_value = int(round(selector.value))
+        except (TypeError, ValueError):
+            return None
+        for member in entry['group']:
+            if sel_value in member.get('activeWhen', []):
+                return member
+        return None
 
     def _resolve_switch(self, device, switch_idx):
         if device is None:
@@ -170,12 +189,46 @@ class Helpers:
     def selected_device_changed(self, device):
         if device is None or device == self._last_selected_device:
             return
+        self._teardown_group_selector_listeners()
         self._last_selected_device = device
         self._encoder_page = 1
         self._button_page = 1
+        self._attach_group_selector_listeners(device)
         self.update_remote_parameters()
         if self.has_user_defined_parameters(device):
             self.show_message(f"{device.class_name}")
+
+    def _attach_group_selector_listeners(self, device):
+        entry = self._device_table.get(getattr(device, 'class_name', None))
+        if not entry:
+            return
+        seen = set()
+        for e in entry['encoders']:
+            name = e.get('controlledBy') if isinstance(e, dict) else None
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            selector = next((p for p in device.parameters if p.name == name), None)
+            if selector is None or not hasattr(selector, 'add_value_listener'):
+                continue
+            cb = self._on_group_selector_changed
+            try:
+                selector.add_value_listener(cb)
+                self._group_selector_listeners.append((selector, cb))
+            except Exception as ex:
+                self.log_message(f"[group] failed to attach listener on {name}: {ex}")
+
+    def _teardown_group_selector_listeners(self):
+        for selector, cb in self._group_selector_listeners:
+            try:
+                selector.remove_value_listener(cb)
+            except Exception:
+                pass
+        self._group_selector_listeners = []
+
+    def _on_group_selector_changed(self):
+        if self._last_selected_device is not None:
+            self.update_remote_parameters()
 
     def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
         if device is None:

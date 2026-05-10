@@ -8,7 +8,11 @@ This is a code generator that takes NestedText (`.nt`) config files describing a
 
 **Pipeline:** `.nt` mapping file → `gen.py` → Python control surface directory → `deploy.sh` → Ableton Live
 
-A companion native macOS app (`/Users/ck/current/ableton_hud`) renders a floating HUD overlay showing the current device's mapped parameters (8 dials + 8 buttons). The Python side pushes mapping data over UDP on every device focus change.
+A companion native macOS app (`/Users/ck/current/ableton_hud`) renders a floating HUD overlay showing the control parameter names. These change may dynamically as different devices are selected. The Python side pushes mapping data over UDP on every device focus change.
+
+## Docs
+
+See @docs for details on features.
 
 ## Commands
 
@@ -31,6 +35,14 @@ poetry run python ableton_control_surface_as_code/gen.py live_surfaces/launch_co
 # Tail Ableton logs
 ./bin/tail_logs.sh
 ```
+
+## Planning
+
+If an existing feature or constraint appears to be contradictory to a new requirement, flag the issue to the user, and ask clarifying questions to resolve the ambiguity before proceeding. 
+
+## Development
+
+There is some complex interactions here. Follow a TTD loop, failing tests first, then implementing the feature, then adding integration tests for cross-cutting concerns.
 
 ## Deployment
 

@@ -23,25 +23,57 @@
       "deviceName": "Auto Filter",
       "fixed": true,
       "encoders": [
-        { "number": 1, "name": "Frequency"},
-        { "number": 2, "name": "Resonance"},
-        { "number": 8, "name": "Drive"},
-        { "number": 28, "name": "Env Amount"},
-        { "number": 29, "name": "Env Attack"},
-        { "number": 31, "name": "Env Release"},
-        { "number": 12, "name": "LFO Amount"},
-        { "number": 15,  "name": "LFO Freq" },
-        { "number": 16,  "name": "LFO Time" },
-        { "number": 17,  "name": "LFO Rate" },
-        { "number": 18,  "name": "LFO 16th" },
-
-        { "number": 36, "name": "Dry/Wet" }
+        {"number": 1, "name": "Frequency"},
+        {"number": 2, "name": "Resonance"},
+        {"number": 12, "name": "LFO Amount"},
+        {"number": 13, "name": "LFO Wave"},
+        {
+          "controlledBy": "LFO T Mode",
+          "group": [
+            { "number": 15, "name": "LFO Freq" ,"activeWhen": [0] },
+            { "number": 16, "name": "LFO Time","activeWhen": [1] },
+            { "number": 17, "name": "LFO Rate" ,"activeWhen": [2, 3, 4] },
+            { "number": 18, "name": "LFO 16th","activeWhen": [5] }
+          ]
+        },
+        {"number": 8, "name": "Drive"},
+        {"number": 28, "name": "Env Amount"},
+        {"number": 34, "name": "Output"},
+        {"number": 35, "name": "Soft Clip On"},
+        {"number": 36, "name": "Dry/Wet"},
+        {"number": 6, "name": "Morph Slope"},
+        {"number": 3, "name": "Filter Morph"},
+        {"number": 9, "name": "Control"},
+        {"number": 10, "name": "Pitch"},
+        {"number": 11, "name": "Formant"},
+        {"number": 19, "name": "LFO Phase"},
+        {"number": 20, "name": "LFO Offset"},
+        {"number": 21, "name": "LFO S Mode"},
+        {"number": 22, "name": "LFO Spin"},
+        {"number": 23, "name": "LFO Morph"},
+        {"number": 24, "name": "LFO Smoothing"},
+        {"number": 25, "name": "LFO Q Mode"},
+        {"number": 26, "name": "LFO Steps"},
+        {"number": 27, "name": "LFO S&H"},
+        {"number": 29, "name": "Env Attack"},
+        {"number": 30, "name": "Env Hold On"},
+        {"number": 31, "name": "Env Release"},
+        {"number": 32, "name": "Env S&H On"},
+        {"number": 33, "name": "Env S&H"},
+        {"number": 37, "name": "S/C EQ On"},
+        {"number": 38, "name": "S/C EQ Type"},
+        {"number": 39, "name": "S/C EQ Freq"},
+        {"number": 40, "name": "S/C EQ Q"},
+        {"number": 41, "name": "S/C EQ Gain"},
+        {"number": 42, "name": "S/C On"},
+        {"number": 43, "name": "S/C Gain"},
+        {"number": 44, "name": "S/C Mix"}
       ],
       "buttons": [
-        { "name": "Soft Clip On",  "number": 35 },
-        { "name": "LFO S Mode",  "number": 21 },
-        { "name": "S/C EQ Type",  "number": 38 },
-        { "name": "S/C On",  "number": 42 }
+        {"number": 4, "name": "Filter Type"},
+        {"number": 5, "name": "Filter Slope"},
+        {"number": 14, "name": "LFO T Mode"},
+        {"number": 7, "name": "Circuit"}
       ]
     }
   ]

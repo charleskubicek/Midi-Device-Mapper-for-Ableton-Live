@@ -166,6 +166,100 @@ class TestSwitchAction(unittest.TestCase):
         self.assertEqual(device.parameters[5].value, 1)
 
 
+class TestGroupedEncoder(unittest.TestCase):
+    """A grouped encoder occupies one encoder slot but maps to one of N
+    parameters depending on the value of a selector parameter named by
+    `controlledBy`. Each group member's `activeWhen` lists the selector
+    values for which that member is active."""
+
+    def _mappings(self):
+        return {
+            "devices": [{
+                "className": "AutoFilter2",
+                "encoders": [
+                    {"number": 1, "name": "Frequency"},
+                    {
+                        "controlledBy": "LFO T Mode",
+                        "group": [
+                            {"number": 15, "activeWhen": [0]},
+                            {"number": 16, "activeWhen": [1]},
+                            {"number": 17, "activeWhen": [2, 3]},
+                            {"number": 18, "activeWhen": [4]},
+                        ],
+                    },
+                ],
+                "buttons": [],
+            }]
+        }
+
+    def _make_device(self, selector_value):
+        # parameters[0] = on/off, [1] = Frequency, [14] = "LFO T Mode" selector,
+        # [15..18] = the four group members.
+        params = [FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(20)]
+        params[14] = FakeParameter(name="LFO T Mode", value=selector_value, min=0, max=4, is_quantized=True)
+        return FakeDevice(class_name="AutoFilter2", parameters=params)
+
+    def setUp(self):
+        self.helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1'), (2, 'slot2')],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=self._mappings(),
+        )
+
+    def test_grouped_encoder_routes_to_member_for_selector_value_0(self):
+        device = self._make_device(selector_value=0)
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn")
+        self.assertEqual(device.parameters[15].value, 1.0)
+        self.assertEqual(device.parameters[16].value, 0.0)
+        self.assertEqual(device.parameters[17].value, 0.0)
+        self.assertEqual(device.parameters[18].value, 0.0)
+
+    def test_grouped_encoder_routes_to_member_for_selector_value_1(self):
+        device = self._make_device(selector_value=1)
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn")
+        self.assertEqual(device.parameters[16].value, 1.0)
+        self.assertEqual(device.parameters[15].value, 0.0)
+
+    def test_grouped_encoder_routes_to_member_with_multi_value_activeWhen(self):
+        device = self._make_device(selector_value=3)
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn")
+        # value 3 is in activeWhen=[2,3] of the third member (param 17)
+        self.assertEqual(device.parameters[17].value, 1.0)
+        self.assertEqual(device.parameters[16].value, 0.0)
+
+    def test_selector_value_change_triggers_hud_refresh(self):
+        """When the selector parameter changes value (e.g. user touches the
+        device UI in Live), the HUD must re-burst so the active member's
+        name and value appear without the user touching the encoder."""
+        # Use a real-ish param with listener support via Mock
+        selector = Mock()
+        selector.name = "LFO T Mode"
+        selector.value = 0
+        selector.min = 0
+        selector.max = 4
+        selector.is_quantized = True
+        params = [FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(20)]
+        params[14] = selector
+        device = FakeDevice(class_name="AutoFilter2", parameters=params)
+        self.helpers.selected_device_changed(device)
+        selector.add_value_listener.assert_called_once()
+        cb = selector.add_value_listener.call_args[0][0]
+        self.helpers._remote.reset_mock()
+        cb()  # simulate Live firing the listener
+        self.helpers._remote.device_update.assert_called()
+
+    def test_grouped_encoder_uses_active_member_name_in_remote_update(self):
+        device = self._make_device(selector_value=2)
+        device.parameters[17].name = "LFO Rate"
+        remote = self.helpers._remote
+        self.helpers.device_parameter_action(device, 2, 22, 64.0, "fn")
+        rp = remote.parameter_updated.call_args[0][0]
+        # No alias from JSON → fall through to live param name
+        self.assertEqual(rp.alias, None)
+        self.assertEqual(rp.param.name, "LFO Rate")
+
+
 class TestPager(unittest.TestCase):
     def setUp(self):
         self.helpers = Helpers(

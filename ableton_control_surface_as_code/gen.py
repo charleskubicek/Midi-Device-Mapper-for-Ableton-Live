@@ -291,6 +291,8 @@ def generate(mapping_file_path):
         if not pm_path.exists():
             raise ValueError(f"parameter_mappings_file not found: {pm_path}")
         parameter_mappings_raw = json.loads(pm_path.read_text())
+        from ableton_control_surface_as_code.model_custom_devices import validate_custom_device_mappings
+        validate_custom_device_mappings(parameter_mappings_raw)
 
     vars = {
         'surface_name': surface_name,

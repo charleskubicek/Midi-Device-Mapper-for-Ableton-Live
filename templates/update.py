@@ -10,8 +10,8 @@ def send_udp_message(message, ip, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # Send the message
+        print(f"Sending message to {ip}:{port}")
         sock.sendto(message, (ip, port))
-        print(f"Sent message to {ip}:{port}")
         sleep(1)
         # Wait for a response
         try:
@@ -29,7 +29,7 @@ def main():
 
     args = parser.parse_args()
 
-    ip = '0.0.0.0'  # Replace with your target IP address if needed
+    ip = '127.0.0.1'  # Replace with your target IP address if needed
     port = $udp_port  # Replace with your desired UDP port number
 
     if args.command == 'cs_dir':
