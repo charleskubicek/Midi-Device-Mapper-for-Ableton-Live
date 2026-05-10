@@ -31,6 +31,8 @@ def allocate_global_layout(controller) -> List[LayoutCell]:
     dial_next = 0
     button_next = 0
     for g in groups:
+        if getattr(g, 'hud', True) is False:
+            continue
         kind = _kind_for(g.type)
         if kind is None:
             continue
@@ -61,6 +63,8 @@ def find_wire_index(controller, coord: MidiCoords, cells: List[LayoutCell]):
     if controller is None or coord is None:
         return None
     for group in controller.control_groups:
+        if getattr(group, 'hud', True) is False:
+            continue
         for i, gc in enumerate(group.midi_coords):
             if gc.midi_equals(coord):
                 kind = _kind_for(group.type)

@@ -41,6 +41,7 @@ control_groups:
         midi_type: CC
         midi_range: 114, 115
         right_of: 2
+        hud: false
     -
         layout: row
         number: 5
@@ -49,3 +50,4 @@ control_groups:
         midi_type: CC
         midi_range: 116, 117
         right_of: 3
+        hud: false

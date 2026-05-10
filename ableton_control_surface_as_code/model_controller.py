@@ -22,6 +22,7 @@ class ControlGroupPartV2(BaseModel):
     row_parts_raw: Optional[str] = Field(None, alias='row_parts')
     under: Optional[int] = Field(None)
     right_of: Optional[int] = Field(None)
+    hud: bool = Field(default=True)
 
     @model_validator(mode='after')
     def validate_midi_range(self):
@@ -75,12 +76,14 @@ class ControllerRawV2(BaseModel):
 
 
 class ControlGroup:
-    def __init__(self, midi_coords, number, type, grid_row=0, grid_col=0):
+    def __init__(self, midi_coords, number, type, grid_row=0, grid_col=0, hud=True):
         self.midi_coords = midi_coords
         self._number = number
         self._type = type
         self.grid_row = grid_row
         self.grid_col = grid_col
+        self.hud = hud
+        self.hud = hud
 
     @property
     def type(self):
@@ -138,7 +141,7 @@ class ControllerV2:
         def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode, grid_pos) -> ControlGroup:
             midi_coords = flatten([g.build_midi_coords(encoder_mode) for g in groups])
             gr, gc = grid_pos
-            return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc)
+            return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc, hud=groups[0].hud)
 
         c.control_groups.sort(key=lambda x: x.number)
         grid_positions = compute_grid_positions(c.control_groups)

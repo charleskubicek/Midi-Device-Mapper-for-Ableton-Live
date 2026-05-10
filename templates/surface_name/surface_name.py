@@ -107,7 +107,54 @@ class $surface_name(ControlSurface):
         "id": "{device.class_name}",
         "name": "{device.name}",
         "parameters": [
-        {joined}}}"""
+        {joined}        
+        ]}}"""
+
+        self.log_message(res)
+
+    def dump_selected_device_parameter_info_split_into_encoders_and_buttons(self):
+        device = self.song().view.selected_track.view.selected_device
+        if not device:
+            self.log_message("No device selected")
+            return
+
+
+        self.log_message("Dumping parameters for device; name:" + device.name+", class_name: " + device.class_name)
+        encoders = []
+        buttons = []
+
+        for i, p in enumerate(device.parameters):
+            # i = str(i).zfill(2)
+            msg = {
+                'no': i,
+                'name': p.name,
+            }
+
+            if p.is_quantized:
+                buttons.append(msg)
+            else:
+                encoders.append(msg)
+
+        result_obj = { "class_name" : device.class_name,"name": device.name,  "encoders": encoders }
+        self.log_message('\n' + str(result_obj).replace('\n', ' '))
+
+        string_enc_params = [f"""{{"number": {p['no']}, "name": "{p['name']}"}}""" for i, p in enumerate(encoders)]
+        joined_encoders = ",\n          ".join(string_enc_params)
+
+        string_button_params = [f"""{{"number": {p['no']}, "name": "{p['name']}"}}""" for i, p in enumerate(buttons)]
+        joined_buttons = ",\n          ".join(string_button_params)
+
+        res = f"""    
+    {{
+        "className": "{device.class_name}",
+        "deviceName": "{device.name}",
+        "encoders": [
+          {joined_encoders}
+        ],
+        "buttons": [
+          {joined_buttons}
+        ]
+    }}"""
 
         self.log_message(res)
 
@@ -183,6 +230,11 @@ class $surface_name(ControlSurface):
 
             elif cmd == 'dump':
                 self.dump_selected_device_parameter_info()
+                response = b'Dumped to logs'
+
+
+            elif cmd == 'dump2':
+                self.dump_selected_device_parameter_info_split_into_encoders_and_buttons()
                 response = b'Dumped to logs'
 
             elif cmd == 'dumpnames':
