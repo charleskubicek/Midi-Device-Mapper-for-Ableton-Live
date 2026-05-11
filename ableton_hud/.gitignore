@@ -1,0 +1,23 @@
+.idea
+.build/
+AbletonHUD.app/
+.DS_Store
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+
+.vscode
+.swiftpm
+.ck
+.idea
+.iml
+.pyc
+*.swp
+__pycache__
+.DS_Store
+logs
+
+
+# Health dashboard generated files
+scripts/.health-history.jsonl
+scripts/health-dashboard.html

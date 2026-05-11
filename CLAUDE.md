@@ -13,6 +13,7 @@ A companion native macOS app (`/Users/ck/current/ableton_hud`) renders a floatin
 ## Docs
 
 See @docs for details on features.
+See @dev-docs on ableton API docs
 
 ## Commands
 

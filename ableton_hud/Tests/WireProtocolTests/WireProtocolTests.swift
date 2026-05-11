@@ -1,0 +1,365 @@
+import XCTest
+@testable import AbletonHUDCore
+
+final class WireProtocolTests: XCTestCase {
+
+    // MARK: - DEVICE
+
+    func test_device_line() {
+        let msg = WireProtocol.parse(line: "DEVICE|EQ Eight")
+        XCTAssertEqual(msg, .device("EQ Eight"))
+    }
+
+    func test_device_empty_name() {
+        let msg = WireProtocol.parse(line: "DEVICE|")
+        XCTAssertEqual(msg, .device(""))
+    }
+
+    func test_device_missing_arg_is_unknown() {
+        let msg = WireProtocol.parse(line: "DEVICE")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - SLOT
+
+    func test_slot_dial() {
+        let msg = WireProtocol.parse(line: "SLOT|dial|3|Resonance|0.5|0.0|1.0")
+        XCTAssertEqual(msg, .slot(.dial, 3, Slot(name: "Resonance", value: 0.5, min: 0.0, max: 1.0)))
+    }
+
+    func test_slot_button() {
+        let msg = WireProtocol.parse(line: "SLOT|button|0|On/Off|1.0|0.0|1.0")
+        XCTAssertEqual(msg, .slot(.button, 0, Slot(name: "On/Off", value: 1.0, min: 0.0, max: 1.0)))
+    }
+
+    func test_slot_unknown_kind() {
+        let msg = WireProtocol.parse(line: "SLOT|knob|0|Freq|0.5|0.0|1.0")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_slot_malformed_index() {
+        let msg = WireProtocol.parse(line: "SLOT|dial|x|Freq|0.5|0.0|1.0")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_slot_malformed_value() {
+        let msg = WireProtocol.parse(line: "SLOT|dial|0|Freq|bad|0.0|1.0")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_slot_too_few_fields() {
+        let msg = WireProtocol.parse(line: "SLOT|dial|0|Freq|0.5|0.0")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - COMMIT
+
+    func test_commit() {
+        let msg = WireProtocol.parse(line: "COMMIT|8")
+        XCTAssertEqual(msg, .commit(8))
+    }
+
+    func test_commit_malformed() {
+        let msg = WireProtocol.parse(line: "COMMIT|x")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - UPDATE (live single-slot update)
+
+    func test_update_dial() {
+        let msg = WireProtocol.parse(line: "UPDATE|dial|2|Resonance|0.75|0.0|1.0")
+        XCTAssertEqual(msg, .update(.dial, 2, Slot(name: "Resonance", value: 0.75, min: 0.0, max: 1.0)))
+    }
+
+    func test_update_button() {
+        let msg = WireProtocol.parse(line: "UPDATE|button|0|On/Off|1.0|0.0|1.0")
+        XCTAssertEqual(msg, .update(.button, 0, Slot(name: "On/Off", value: 1.0, min: 0.0, max: 1.0)))
+    }
+
+    func test_update_malformed_index() {
+        let msg = WireProtocol.parse(line: "UPDATE|dial|x|Freq|0.5|0.0|1.0")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_update_too_few_fields() {
+        let msg = WireProtocol.parse(line: "UPDATE|dial|0|Freq|0.5")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - MODE
+
+    func test_mode_shift() {
+        let msg = WireProtocol.parse(line: "MODE|shift")
+        XCTAssertEqual(msg, .mode(isShift: true))
+    }
+
+    func test_mode_normal() {
+        let msg = WireProtocol.parse(line: "MODE|normal")
+        XCTAssertEqual(msg, .mode(isShift: false))
+    }
+
+    func test_mode_unknown_value() {
+        let msg = WireProtocol.parse(line: "MODE|bogus")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+func test_mode_missing_arg() {
+        let msg = WireProtocol.parse(line: "MODE")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - PAGE
+
+    func test_page_message() {
+        let msg = WireProtocol.parse(line: "PAGE|2|4|1|2")
+        XCTAssertEqual(msg, .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2))
+    }
+
+    func test_page_too_few_fields() {
+        let msg = WireProtocol.parse(line: "PAGE|1|3|1")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_page_malformed_int() {
+        let msg = WireProtocol.parse(line: "PAGE|x|3|1|2")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - Unknown commands
+
+    func test_unknown_command_ignored() {
+        let msg = WireProtocol.parse(line: "PING|foo")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    func test_empty_line() {
+        let msg = WireProtocol.parse(line: "")
+        XCTAssertEqual(msg, .unknown)
+    }
+
+    // MARK: - parseAll / multi-line burst
+
+    func test_parse_all_full_burst() {
+        let data = """
+        DEVICE|EQ Eight
+        SLOT|dial|0|Frequency|440.0|20.0|20000.0
+        SLOT|dial|1|Resonance|0.5|0.0|1.0
+        COMMIT|2
+        """.data(using: .utf8)!
+
+        let msgs = WireProtocol.parseAll(data: data)
+        XCTAssertEqual(msgs.count, 4)
+        XCTAssertEqual(msgs[0], .device("EQ Eight"))
+        XCTAssertEqual(msgs[3], .commit(2))
+    }
+
+    func test_parse_all_with_unknown_line() {
+        let data = "DEVICE|Test\nFUTURE|whatever\nCOMMIT|0\n".data(using: .utf8)!
+        let msgs = WireProtocol.parseAll(data: data)
+        XCTAssertEqual(msgs, [.device("Test"), .unknown, .commit(0)])
+    }
+}
+
+// MARK: - DeviceState burst tests
+
+@MainActor
+final class DeviceStateBurstTests: XCTestCase {
+
+    func makeState() -> DeviceState { DeviceState() }
+
+    func test_clean_burst_populates_slots() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
+        state.apply(message: .device("Reverb"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "Size", value: 0.5, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, 2, Slot(name: "Damp", value: 0.3, min: 0, max: 1)))
+        state.apply(message: .commit(2))
+
+        XCTAssertEqual(state.deviceName, "Reverb")
+        XCTAssertEqual(state.dialSlots[0]?.name, "Size")
+        XCTAssertNil(state.dialSlots[1])
+        XCTAssertEqual(state.dialSlots[2]?.name, "Damp")
+    }
+
+    func test_second_burst_clears_first() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 0)]))
+        state.apply(message: .device("Device A"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "Param", value: 0.5, min: 0, max: 1)))
+        state.apply(message: .commit(1))
+
+        // Second burst
+        state.apply(message: .device("Device B"))
+        state.apply(message: .commit(0))
+
+        XCTAssertEqual(state.deviceName, "Device B")
+        XCTAssertNil(state.dialSlots[0]) // cleared
+    }
+
+    func test_out_of_range_index_ignored() async {
+        let state = makeState()
+        state.apply(message: .device("X"))
+        state.apply(message: .slot(.dial, 8, Slot(name: "Overflow", value: 0, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, -1, Slot(name: "Underflow", value: 0, min: 0, max: 1)))
+        state.apply(message: .commit(0))
+
+        XCTAssertTrue(state.dialSlots.allSatisfy { $0 == nil })
+    }
+
+    // MARK: - UPDATE applies immediately without COMMIT
+
+    func test_update_writes_slot_directly() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 4, startIndex: 0)]))
+        state.apply(message: .device("EQ Eight"))
+        state.apply(message: .commit(0))
+
+        // Now a live knob-turn update arrives
+        state.apply(message: .update(.dial, 3, Slot(name: "Freq", value: 0.8, min: 0, max: 1)))
+
+        XCTAssertEqual(state.dialSlots[3]?.name, "Freq")
+        XCTAssertEqual(state.dialSlots[3]?.value, 0.8)
+    }
+
+    func test_update_does_not_affect_other_slots() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
+        state.apply(message: .device("Rev"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "Size", value: 0.5, min: 0, max: 1)))
+        state.apply(message: .commit(1))
+
+        state.apply(message: .update(.dial, 2, Slot(name: "Damp", value: 0.2, min: 0, max: 1)))
+
+        XCTAssertEqual(state.dialSlots[0]?.name, "Size")  // untouched
+        XCTAssertEqual(state.dialSlots[2]?.name, "Damp")  // updated
+        XCTAssertNil(state.dialSlots[1])                  // still nil
+    }
+
+    func test_update_button_slot() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .button, count: 2, startIndex: 0)]))
+        state.apply(message: .device("Filter"))
+        state.apply(message: .commit(0))
+
+        state.apply(message: .update(.button, 1, Slot(name: "On/Off", value: 1, min: 0, max: 1)))
+
+        XCTAssertEqual(state.buttonSlots[1]?.name, "On/Off")
+        XCTAssertEqual(state.buttonSlots[1]?.value, 1.0)
+    }
+
+    func test_update_out_of_range_ignored() async {
+        let state = makeState()
+        state.apply(message: .device("X"))
+        state.apply(message: .commit(0))
+
+        state.apply(message: .update(.dial, 8, Slot(name: "OOB", value: 0, min: 0, max: 1)))
+        XCTAssertTrue(state.dialSlots.allSatisfy { $0 == nil })
+    }
+
+    func test_update_fires_commitReceived() async {
+        let state = makeState()
+        var firedCount = 0
+        let cancellable = state.commitReceived.sink { firedCount += 1 }
+        defer { cancellable.cancel() }
+
+        state.apply(message: .update(.dial, 0, Slot(name: "X", value: 0.5, min: 0, max: 1)))
+        XCTAssertEqual(firedCount, 1)
+    }
+
+    // MARK: - Dense-symmetric emission (sender fills empty slots)
+    //
+    // The Python sender now emits one SLOT per cell position for both
+    // dials AND buttons. Empty positions carry the sentinel
+    // `||0|0|1` (empty name, value 0, min 0, max 1). The receiver must
+    // treat this as a real `.slot` message and render it as an empty slot.
+
+    func test_empty_slot_sentinel_parses_as_slot() {
+        let msg = WireProtocol.parse(line: "SLOT|button|1||0|0|1")
+        XCTAssertEqual(msg, .slot(.button, 1, Slot(name: "", value: 0, min: 0, max: 1)))
+    }
+
+    func test_empty_dial_sentinel_parses_as_slot() {
+        let msg = WireProtocol.parse(line: "SLOT|dial|3||0|0|1")
+        XCTAssertEqual(msg, .slot(.dial, 3, Slot(name: "", value: 0, min: 0, max: 1)))
+    }
+
+    func test_dense_burst_produces_named_and_empty_slots() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 4, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        // Dense emission: positions 0 and 2 named, 1 and 3 empty (sentinel)
+        state.apply(message: .slot(.dial, 0, Slot(name: "Freq", value: 0.5, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, 1, Slot(name: "", value: 0, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, 2, Slot(name: "Q", value: 0.7, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, 3, Slot(name: "", value: 0, min: 0, max: 1)))
+        state.apply(message: .commit(4))
+
+        XCTAssertEqual(state.dialSlots.count, 4)
+        XCTAssertEqual(state.dialSlots[0]?.name, "Freq")
+        XCTAssertEqual(state.dialSlots[1]?.name, "")  // empty sentinel renders as named-empty slot
+        XCTAssertEqual(state.dialSlots[2]?.name, "Q")
+        XCTAssertEqual(state.dialSlots[3]?.name, "")
+    }
+
+    func test_dense_burst_with_only_dials_publishes_empty_buttons() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "A", value: 0.1, min: 0, max: 1)))
+        state.apply(message: .slot(.dial, 1, Slot(name: "B", value: 0.2, min: 0, max: 1)))
+        state.apply(message: .commit(2))
+
+        XCTAssertEqual(state.dialSlots.count, 2)
+        XCTAssertEqual(state.buttonSlots.count, 0)
+    }
+
+    // MARK: - PAGE message burst
+
+    func test_page_published_on_commit() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        state.apply(message: .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2))
+        state.apply(message: .commit(0))
+
+        XCTAssertEqual(state.encoderPage, 2)
+        XCTAssertEqual(state.pageTotal, 4) // max(encTotal=4, btnTotal=2)
+    }
+
+    func test_page_resets_on_device() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        state.apply(message: .page(encPage: 2, encTotal: 3, btnPage: 1, btnTotal: 1))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.encoderPage, 2)
+
+        state.apply(message: .device("Other"))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.encoderPage, 1)
+        XCTAssertEqual(state.pageTotal, 1)
+    }
+
+    func test_page_total_is_max_of_encoder_and_button_totals() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        // 3 encoder pages, 5 button pages → total should show 5
+        state.apply(message: .page(encPage: 1, encTotal: 3, btnPage: 1, btnTotal: 5))
+        state.apply(message: .commit(0))
+
+        XCTAssertEqual(state.encoderPage, 1)
+XCTAssertEqual(state.pageTotal, 5)
+    }
+
+    // MARK: - MODE message
+
+    func test_mode_sets_isShiftMode() async {
+        let state = makeState()
+        XCTAssertFalse(state.isShiftMode)
+        state.apply(message: .mode(isShift: true))
+        XCTAssertTrue(state.isShiftMode)
+        state.apply(message: .mode(isShift: false))
+        XCTAssertFalse(state.isShiftMode)
+    }
+}
