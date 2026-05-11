@@ -155,6 +155,8 @@ $code_setup_listeners
         # Device-bound slots are repopulated by the next selected_device_changed.
         self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
+        self._hud_client.send_mode(next_mode['is_shift'])
+
         self.manager.show_message(f'Switched to {next_mode_name}')
 
     def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
@@ -171,6 +173,7 @@ $code_setup_listeners
             self.goto_mode(self.current_mode['next_mode_name'])
         elif value == 0 and self.current_mode['is_shift']:
             self.goto_mode(self.current_mode['next_mode_name'])
+            self._hud_client.send_mode(False)
 
     def on_device_selected(self):
         self._helpers.selected_device_changed(self.selected_device())

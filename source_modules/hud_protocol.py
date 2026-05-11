@@ -67,6 +67,10 @@ def encode_ping() -> str:
     return "PING"
 
 
+def encode_mode(is_shift: bool) -> str:
+    return "MODE|shift" if is_shift else "MODE|normal"
+
+
 # ---- parse ------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -104,11 +108,16 @@ class PingMsg:
 
 
 @dataclass(frozen=True)
+class ModeMsg:
+    is_shift: bool
+
+
+@dataclass(frozen=True)
 class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, ModeMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -183,6 +192,11 @@ def parse(line: str) -> Message:
 
     if verb == 'PING':
         return PingMsg()
+
+    if verb == 'MODE':
+        if len(fields) >= 2:
+            return ModeMsg(is_shift=(fields[1] == 'shift'))
+        return UnknownMsg(line)
 
     return UnknownMsg(line)
 

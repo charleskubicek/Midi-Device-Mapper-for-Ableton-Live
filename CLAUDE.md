@@ -36,6 +36,10 @@ poetry run python ableton_control_surface_as_code/gen.py live_surfaces/launch_co
 ./bin/tail_logs.sh
 ```
 
+## Running
+
+Let the user redeploy so that they can restart ableton live too.
+
 ## Planning
 
 If an existing feature or constraint appears to be contradictory to a new requirement, flag the issue to the user, and ask clarifying questions to resolve the ambiguity before proceeding. 
