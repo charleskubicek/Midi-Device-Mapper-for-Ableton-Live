@@ -31,7 +31,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are six message types.
+There are seven message types.
 
 ### `LAYOUT`
 
@@ -149,6 +149,62 @@ PING
   `ableton_control_surface_as_code/gen_code.py`).
 - **Receiver effect:** resets the auto-dismiss timer. Does not change displayed
   state.
+
+### `PAGE`
+
+Page indicator for the parameter pager. Sent inside a burst, between `DEVICE`
+and `SLOT` messages. Not counted in the `COMMIT|<count>` value — it is metadata,
+not a slot.
+
+```
+PAGE|<enc_page>|<enc_total>|<btn_page>|<btn_total>
+```
+
+| Field        | Type | Meaning                                |
+|--------------|------|----------------------------------------|
+| `enc_page`   | int  | current encoder page number (1-based)  |
+| `enc_total`  | int  | total encoder pages                    |
+| `btn_page`   | int  | current button page number (1-based)   |
+| `btn_total`  | int  | total button pages                     |
+
+- **Emitted:** during `Remote.refresh_burst()`, immediately after `DEVICE`
+  (`helpers.py:436`).
+- **Receiver effect:** writes to `pendingEncoderPage`, `pendingEncoderTotal`,
+  `pendingButtonPage`, `pendingButtonTotal`. Published to `encoderPage` and
+  `pageTotal` on `COMMIT`. `pageTotal` is `max(encTotal, btnTotal)` — the HUD
+  shows a single combined indicator (e.g. "1/3"). Only rendered when
+  `pageTotal > 1`.
+- When the encoder page count exceeds the button page count (e.g. 5 encoder
+  pages but only 2 button pages), the button page stays at its last valid page.
+  The HUD indicator tracks the encoder page over the shared maximum total.
+
+### `PAGE`
+
+Page indicator for the parameter pager. Sent inside a burst, between `DEVICE`
+and `SLOT` messages. Not counted in the `COMMIT|<count>` value — it is metadata,
+not a slot.
+
+```
+PAGE|<enc_page>|<enc_total>|<btn_page>|<btn_total>
+```
+
+| Field        | Type | Meaning                                |
+|--------------|------|----------------------------------------|
+| `enc_page`   | int  | current encoder page number (1-based)  |
+| `enc_total`  | int  | total encoder pages                    |
+| `btn_page`   | int  | current button page number (1-based)   |
+| `btn_total`  | int  | total button pages                     |
+
+- **Emitted:** during `Remote.refresh_burst()`, immediately after `DEVICE`
+  (`helpers.py:436`).
+- **Receiver effect:** writes to `pendingEncoderPage`, `pendingEncoderTotal`,
+  `pendingButtonPage`, `pendingButtonTotal`. Published to `encoderPage` and
+  `pageTotal` on `COMMIT`. `pageTotal` is `max(encTotal, btnTotal)` — the HUD
+  shows a single combined indicator (e.g. "1/3"). Only rendered when
+  `pageTotal > 1`.
+- When the encoder page count exceeds the button page count (e.g. 5 encoder
+  pages but only 2 button pages), the button page stays at its last valid page.
+  The HUD indicator tracks the encoder page over the shared maximum total.
 
 ---
 
@@ -271,10 +327,15 @@ sender                                       receiver
   |                                            |
   | _in_burst = True                           |
   |                                            |
-  | DEVICE|EQ Eight                            |
+| DEVICE|EQ Eight                            |
   |------------------------------------------->|
   |                            pendingDials = {}, pendingButtons = {}
   |                            pendingName = "EQ Eight"
+  |                                            |
+  | PAGE|1|3|1|2                               |
+  |------------------------------------------->|
+  |                            pendingEncoderPage = 1, pendingEncoderTotal = 3
+  |                            pendingButtonPage = 1, pendingButtonTotal = 2
   |                                            |
   | SLOT|dial|0|Frequency|440.0|20.0|20000.0   |
   |------------------------------------------->|
@@ -292,8 +353,9 @@ sender                                       receiver
   |                                            |
   | COMMIT|<count>                             |
   |------------------------------------------->|
-  |                          atomic swap → published state
+|                          atomic swap → published state
   |                          dialSlots / buttonSlots / deviceName / hudCells
+  |                          encoderPage / pageTotal
   |                          dismiss timer reset
   |                                            |
   | _in_burst = False                          |
@@ -333,8 +395,11 @@ changing what is displayed.
 The receiver keeps two layers:
 
 - **Pending** (`pendingDials`, `pendingButtons`, `pendingName`,
-  `pendingCells`) — written by `LAYOUT`, `DEVICE`, `SLOT`.
-- **Published** (`dialSlots`, `buttonSlots`, `deviceName`, `hudCells`) —
+  `pendingCells`, `pendingEncoderPage`, `pendingEncoderTotal`,
+  `pendingButtonPage`, `pendingButtonTotal`) — written by `LAYOUT`, `DEVICE`,
+  `SLOT`, `PAGE`.
+- **Published** (`dialSlots`, `buttonSlots`, `deviceName`, `hudCells`,
+  `encoderPage`, `pageTotal`) —
   observed by the SwiftUI view layer. Written only by `COMMIT` (atomic swap)
   or `UPDATE` (single-slot patch).
 
@@ -356,6 +421,7 @@ arrive within the dismiss window, the HUD hides itself.
 | Wire constructors        | `source_modules/hud_client.py`                                |
 | Send-site orchestration  | `source_modules/helpers.py` (`Remote` class)                  |
 | `PING` emission          | `ableton_control_surface_as_code/gen_code.py` + templates     |
+| `PAGE` emission          | `source_modules/helpers.py` (`Remote.refresh_burst`)          |
 | Wire parser              | `Sources/AbletonHUDCore/WireProtocol.swift`                   |
 | Receiver state machine   | `Sources/AbletonHUDCore/DeviceState.swift`                    |
 | UDP socket               | `Sources/AbletonHUD/UDPListener.swift`                        |

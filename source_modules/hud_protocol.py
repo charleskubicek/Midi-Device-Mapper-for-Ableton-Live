@@ -67,6 +67,10 @@ def encode_ping() -> str:
     return "PING"
 
 
+def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int) -> str:
+    return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}"
+
+
 def encode_mode(is_shift: bool) -> str:
     return "MODE|shift" if is_shift else "MODE|normal"
 
@@ -113,11 +117,19 @@ class ModeMsg:
 
 
 @dataclass(frozen=True)
+class PageMsg:
+    enc_page: int
+    enc_total: int
+    btn_page: int
+    btn_total: int
+
+
+@dataclass(frozen=True)
 class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, ModeMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, ModeMsg, PageMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -197,6 +209,14 @@ def parse(line: str) -> Message:
         if len(fields) >= 2:
             return ModeMsg(is_shift=(fields[1] == 'shift'))
         return UnknownMsg(line)
+
+    if verb == 'PAGE':
+        if len(fields) != 5:
+            return UnknownMsg(line)
+        try:
+            return PageMsg(int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4]))
+        except ValueError:
+            return UnknownMsg(line)
 
     return UnknownMsg(line)
 

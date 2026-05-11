@@ -46,6 +46,9 @@ class HudClient:
     def send_mode(self, is_shift: bool):
         self._send(hud_protocol.encode_mode(is_shift))
 
+    def send_page_info(self, enc_page: int, enc_total: int, btn_page: int, btn_total: int):
+        self._send(hud_protocol.encode_page_info(enc_page, enc_total, btn_page, btn_total))
+
 
 class NullHudClient:
     def send_layout(self, cells): pass
@@ -55,3 +58,4 @@ class NullHudClient:
     def commit(self, count: int): pass
     def send_ping(self): pass
     def send_mode(self, is_shift: bool): pass
+    def send_page_info(self, enc_page: int, enc_total: int, btn_page: int, btn_total: int): pass

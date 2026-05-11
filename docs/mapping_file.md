@@ -189,6 +189,22 @@ When a device has more parameters than encoders, the pager shifts which slots
 are visible. `inc` / `dec` are buttons that step the visible page forward /
 backward.
 
+The HUD shows a single combined page indicator (e.g. "1/3") between the device
+name and the grid rows. It only appears when more than one page exists. The
+indicator shows the current encoder page over the larger of the encoder and
+button page totals — so if a device has 5 encoder pages and 2 button pages, the
+indicator reads e.g. "1/5". When the encoder page exceeds the button page count
+(e.g. page 3 of 5), the button slots display their last defined page
+(page 2).
+
+The HUD shows a single combined page indicator (e.g. "1/3") between the device
+name and the grid rows. It only appears when more than one page exists. The
+indicator shows the current encoder page over the larger of the encoder and
+button page totals — so if a device has 5 encoder pages and 2 button pages, the
+indicator reads e.g. "1/5". When the encoder page exceeds the button page count
+(e.g. page 3 of 5), the button slots display their last defined page
+(page 2).
+
 ## How the file is processed
 
 1. `gen.py` parses the mapping `.nt` via `RootV2ModesOrModeless` →

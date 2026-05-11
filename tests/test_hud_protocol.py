@@ -9,6 +9,7 @@ from source_modules.hud_protocol import (
     UpdateMsg,
     CommitMsg,
     PingMsg,
+    PageMsg,
     UnknownMsg,
     encode_layout,
     encode_device,
@@ -17,6 +18,7 @@ from source_modules.hud_protocol import (
     encode_update,
     encode_commit,
     encode_ping,
+    encode_page_info,
     parse,
     parse_all,
 )
@@ -62,6 +64,18 @@ class TestEncodeBytes(unittest.TestCase):
     def test_ping(self):
         self.assertEqual(encode_ping(), "PING")
 
+    def test_page_info(self):
+        self.assertEqual(encode_page_info(1, 3, 1, 2), "PAGE|1|3|1|2")
+
+    def test_page_info_single_page(self):
+        self.assertEqual(encode_page_info(1, 1, 1, 1), "PAGE|1|1|1|1")
+
+    def test_page_info(self):
+        self.assertEqual(encode_page_info(1, 3, 1, 2), "PAGE|1|3|1|2")
+
+    def test_page_info_single_page(self):
+        self.assertEqual(encode_page_info(1, 1, 1, 1), "PAGE|1|1|1|1")
+
 
 class TestParseRoundtrip(unittest.TestCase):
     def test_layout_roundtrip(self):
@@ -90,19 +104,29 @@ class TestParseRoundtrip(unittest.TestCase):
     def test_ping_roundtrip(self):
         self.assertEqual(parse(encode_ping()), PingMsg())
 
+    def test_page_info_roundtrip(self):
+        line = encode_page_info(2, 4, 1, 2)
+        self.assertEqual(parse(line), PageMsg(2, 4, 1, 2))
+
+    def test_page_info_roundtrip(self):
+        line = encode_page_info(2, 4, 1, 2)
+        self.assertEqual(parse(line), PageMsg(2, 4, 1, 2))
+
 
 class TestParseAll(unittest.TestCase):
     def test_full_burst_concatenated(self):
         burst = "\n".join([
             encode_device("Amp"),
+            encode_page_info(1, 3, 1, 2),
             encode_slot('dial', 0, "Bass", 0.5, 0.0, 1.0),
             encode_slot_payload('dial', 1, EMPTY_SLOT),
             encode_slot('button', 0, "Type", 1, 0, 2),
             encode_commit(3),
         ]) + "\n"
         msgs = parse_all(burst)
-        self.assertEqual(len(msgs), 5)
+        self.assertEqual(len(msgs), 6)
         self.assertIsInstance(msgs[0], DeviceMsg)
+        self.assertIsInstance(msgs[1], PageMsg)
         self.assertIsInstance(msgs[-1], CommitMsg)
 
     def test_blank_lines_skipped(self):
@@ -132,6 +156,18 @@ class TestMalformed(unittest.TestCase):
 
     def test_commit_bad_int(self):
         self.assertIsInstance(parse("COMMIT|abc"), UnknownMsg)
+
+    def test_page_info_bad_int(self):
+        self.assertIsInstance(parse("PAGE|x|3|1|2"), UnknownMsg)
+
+    def test_page_info_wrong_field_count(self):
+        self.assertIsInstance(parse("PAGE|1|3|1"), UnknownMsg)
+
+    def test_page_info_bad_int(self):
+        self.assertIsInstance(parse("PAGE|x|3|1|2"), UnknownMsg)
+
+    def test_page_info_wrong_field_count(self):
+        self.assertIsInstance(parse("PAGE|1|3|1"), UnknownMsg)
 
 
 if __name__ == '__main__':

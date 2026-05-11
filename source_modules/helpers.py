@@ -344,9 +344,13 @@ class Helpers:
                 switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], info.get('alias') or ''))
         info_text = f"e{self._encoder_page}/b{self._button_page}"
         mode_labels = self._mode_hud_labels.get(self._current_mode_name)
+        enc_total = self._encoder_pages_count(device)
+        btn_total = self._button_pages_count(device)
         self._remote.device_update(
             device.name, real_params, info_text, switch_entries, device.parameters,
             hud_layout=self._hud_cells, mode_labels=mode_labels,
+            enc_page=self._encoder_page, enc_total=enc_total,
+            btn_page=self._button_page, btn_total=btn_total,
         )
 
     def refresh_hud_for_mode(self, mode_name, device):
@@ -360,11 +364,12 @@ class Helpers:
         if self._last_selected_device is not None:
             self.update_remote_parameters()
         else:
-            # No focused device yet — emit a label-only burst.
+# No focused device yet — emit a label-only burst.
             mode_labels = self._mode_hud_labels.get(mode_name) or {}
             self._remote.device_update(
                 '', [], info_text='', switch_entries=[], device_parameters=[],
                 hud_layout=self._hud_cells, mode_labels=mode_labels,
+                enc_page=1, enc_total=1, btn_page=1, btn_total=1,
             )
 
     def value_is_max(self, value, max):
@@ -427,13 +432,16 @@ class Remote:
         if parameter_no > 0 and not self._in_burst:
             self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
 
-    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=()):
+    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=(), page_info=None):
         """Generic dense burst. dial_payloads / button_payloads are iterables
         of (wire_idx, SlotPayload). Caller is responsible for filling empty
         slots with hud_protocol.EMPTY_SLOT — the wire is sender-dense."""
         self._in_burst = True
         try:
             self._hud_client.send_device(device_name)
+            if page_info is not None:
+                enc_page, enc_total, btn_page, btn_total = page_info
+                self._hud_client.send_page_info(enc_page, enc_total, btn_page, btn_total)
             count = 0
             for idx, p in dial_payloads:
                 self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
@@ -445,7 +453,7 @@ class Remote:
         finally:
             self._in_burst = False
 
-    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None):
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, enc_page=1, enc_total=1, btn_page=1, btn_total=1):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
         # HUD burst: suppress live UPDATE calls while we build the full snapshot.
@@ -462,7 +470,8 @@ class Remote:
         if mode_labels:
             dial_payloads = _overlay_labels(dial_payloads, mode_labels, 'dial')
             button_payloads = _overlay_labels(button_payloads, mode_labels, 'button')
-        self.refresh_burst(device_name, dial_payloads, button_payloads)
+        self.refresh_burst(device_name, dial_payloads, button_payloads,
+                           page_info=(enc_page, enc_total, btn_page, btn_total))
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 
