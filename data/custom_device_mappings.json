@@ -51,15 +51,15 @@
         "className": "OriginalSimpler",
         "deviceName": "stb_dark solo stab",
         "encoders": [
-          {"number": 3, "name": "S Start"},
-          {"number": 4, "name": "S Length"},
+          {"number": 3, "name": "S Start", "display": "Start"},
+          {"number": 4, "name": "S Length", "display": "Length"},
           {"number": 11, "name": "Transpose"},
           {"number": 12, "name": "Detune"},
 
-          {"number": 21, "name": "Ve Attack"},
-          {"number": 22, "name": "Ve Decay"},
-          {"number": 23, "name": "Ve Sustain"},
-          {"number": 24, "name": "Ve Release"},
+          {"number": 21, "name": "Ve Attack", "display": "Attack"},
+          {"number": 22, "name": "Ve Decay", "display": "Decay"},
+          {"number": 23, "name": "Ve Sustain", "display": "Sustain"},
+          {"number": 24, "name": "Ve Release", "display": "Release"},
 
           {"number": 36, "name": "Filter Freq"},
           {"number": 37, "name": "Filter Res"},
@@ -655,7 +655,7 @@
           {"number": 215, "name": "VelStep7", "display":  "Vel 7"},
           {"number": 216, "name": "VelStep8", "display":  "Vel 8"},
 
-          {"number": 152, "name": "SQMax"},
+          {"number": 152, "name": "SQMax", "display":  "Seq length"},
           {"number": 166, "name": "Swing"},
           {"number": 33, "name": "LStep1"},
           {"number": 41, "name": "LStep2"},

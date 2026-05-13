@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field, model_validator
 class CustomEncoderEntry(BaseModel):
     number: int
     name: Optional[str] = None
+    display: Optional[str] = None
     button: Optional[str] = None
 
 
 class GroupMember(BaseModel):
     number: int
     name: Optional[str] = None
+    display: Optional[str] = None
     activeWhen: List[int]
 
 
@@ -41,6 +43,7 @@ EncoderEntry = Union[GroupedEncoderEntry, CustomEncoderEntry]
 class CustomButtonEntry(BaseModel):
     number: int
     name: Optional[str] = None
+    display: Optional[str] = None
     min: Optional[int] = None
     max: Optional[int] = None
 

@@ -134,7 +134,7 @@ class Helpers:
             d_idx = int(e['number'])
             if d_idx >= len(device.parameters):
                 return None
-            return RealParameter(device.parameters[d_idx], e.get('name'), e.get('button'))
+            return RealParameter(device.parameters[d_idx], e.get('display') or e.get('name'), e.get('button'))
         # Identity fallback: skip on/off (idx 0) and quantized params so
         # buttons (which switch slots already cover) don't double up on encoders.
         non_quantized = [(i, p) for i, p in enumerate(device.parameters)
@@ -171,7 +171,7 @@ class Helpers:
             has_range = 'min' in b and 'max' in b
             return {
                 'param': device.parameters[d_idx],
-                'alias': b.get('name'),
+                'alias': b.get('display') or b.get('name'),
                 'd_idx': d_idx,
                 'has_range': has_range,
                 'min': int(b['min']) if has_range else None,

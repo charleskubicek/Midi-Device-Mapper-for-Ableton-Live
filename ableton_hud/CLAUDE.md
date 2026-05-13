@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-See [../ableton_control_suface_as_code](../ableton_control_suface_as_code) for the wire protocol, controller layout model, and all parameter-resolution logic. This file covers the Swift side only.
+See @../hud_protocol.md for the wire protocol, controller layout model, and all parameter-resolution logic. This file covers the Swift side only.
 
 ## Commands
 
