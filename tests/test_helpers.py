@@ -22,6 +22,17 @@ class FakeDevice:
     class_name: str = "Test Device"
 
 
+def _build_named_params(entries, total=50, min=0.0, max=1.0, value=0.0):
+    """Build a parameter list whose names match a list of (number, name) JSON
+    entries. Defaults to 50 unnamed parameters with names overridden at the
+    specified indices — mirrors how Live exposes Parameter.name."""
+    params = [FakeParameter(name=f"slot{i}", min=min, max=max, value=value) for i in range(total)]
+    for num, nm in entries:
+        if num < total:
+            params[num].name = nm
+    return params
+
+
 def _amp_mappings():
     return {
         "devices": [
@@ -55,7 +66,8 @@ class TestEncoderResolution(unittest.TestCase):
     def test_encoder_resolves_to_json_entry(self):
         device = FakeDevice(
             class_name="Amp",
-            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(10)],
+            parameters=_build_named_params(
+                [(1, "Bass"), (2, "Middle"), (3, "Treble"), (4, "Type"), (5, "Mono")], total=10),
         )
         self.helpers.device_parameter_action(device, 1, 22, 64.0, "fn")
         # encoder slot1 → encoders[0] → number=1 → device.parameters[1]
@@ -118,7 +130,7 @@ class TestSwitchAction(unittest.TestCase):
     def test_switch_with_range_cycles(self):
         device = FakeDevice(
             class_name="Amp",
-            parameters=[FakeParameter(name=f"p{i}", min=0, max=2, value=0) for i in range(10)],
+            parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, max=2, value=0),
         )
         self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
         self.assertEqual(device.parameters[4].value, 1)
@@ -130,7 +142,7 @@ class TestSwitchAction(unittest.TestCase):
     def test_switch_without_range_pulses(self):
         device = FakeDevice(
             class_name="Amp",
-            parameters=[FakeParameter(name=f"p{i}", min=0, max=1, value=0) for i in range(10)],
+            parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, value=0),
         )
         self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
@@ -141,7 +153,7 @@ class TestSwitchAction(unittest.TestCase):
         press advances the cycle once."""
         device = FakeDevice(
             class_name="Amp",
-            parameters=[FakeParameter(name=f"p{i}", min=0, max=2, value=0) for i in range(10)],
+            parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, max=2, value=0),
         )
         self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
         self.assertEqual(device.parameters[4].value, 1)
@@ -153,10 +165,10 @@ class TestSwitchAction(unittest.TestCase):
     def test_switch_quantized_without_json_range_cycles_param_range(self):
         """Quantized param with no min/max in JSON should cycle through its own
         min/max — fixes 'binary toggles trigger once then stick' bug."""
-        device = FakeDevice(
-            class_name="Amp",
-            parameters=[FakeParameter(name=f"p{i}", min=0, max=1, value=0, is_quantized=True) for i in range(10)],
-        )
+        params = _build_named_params([(4, "Type"), (5, "Mono")], total=10, value=0)
+        for p in params:
+            p.is_quantized = True
+        device = FakeDevice(class_name="Amp", parameters=params)
         # switch2 → buttons[1] = "Mono", number=5, no min/max in JSON
         self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
@@ -164,6 +176,186 @@ class TestSwitchAction(unittest.TestCase):
         self.assertEqual(device.parameters[5].value, 0)
         self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
+
+
+class TestSimplerEncoderRegression(unittest.TestCase):
+    """Regression for: after adding a `lom_property` entry to Simpler's
+    `buttons` list, the encoders themselves got mis-mapped. The HUD label
+    said "Fade In" but turning the encoder moved Sustain instead.
+
+    Encoders are independent of buttons, so adding a button-list entry
+    must not shift encoder resolution."""
+
+    SIMPLER_ENCODERS = [
+        {"number": 3, "name": "S Start", "display": "Start"},
+        {"number": 4, "name": "S Length", "display": "Length"},
+        {"number": 11, "name": "Transpose"},
+        {"number": 12, "name": "Detune"},
+        {"number": 21, "name": "Ve Attack"},
+        {"number": 22, "name": "Ve Decay"},
+        {"number": 23, "name": "Ve Sustain"},   # idx 6
+        {"number": 24, "name": "Ve Release"},
+        {"number": 36, "name": "Filter Freq"},  # idx 8
+        {"number": 37, "name": "Filter Res"},
+        {"number": 38, "name": "Filter Morph"},
+        {"number": 39, "name": "Filter Drive"},
+        {"number": 15, "name": "Volume"},
+        {"number": 28, "name": "Fade In"},      # idx 13
+        {"number": 30, "name": "Fade Out"},
+        {"number": 8, "name": "Spread"},
+    ]
+
+    SIMPLER_BUTTONS = [
+        {"lom_property": "playback_mode", "type": "enum"},
+        {"number": 29, "name": "Trigger Mode"},
+    ]
+
+    def _helpers(self, raw_buttons):
+        # 16 encoder slots (two rows of 8) — matches ck_launch_control_16.
+        return Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+            switch_slot_assignments=[(0, 'switch1')],
+            parameter_mappings_raw={"devices": [{
+                "className": "OriginalSimpler",
+                "encoders": self.SIMPLER_ENCODERS,
+                "buttons": raw_buttons,
+            }]},
+            encoder_slot_count=16,
+        )
+
+    def _device(self):
+        entries = [(e['number'], e['name']) for e in self.SIMPLER_ENCODERS]
+        entries.extend([(b['number'], b['name']) for b in self.SIMPLER_BUTTONS if 'number' in b])
+        return FakeDevice(
+            class_name="OriginalSimpler",
+            parameters=_build_named_params(entries, total=50),
+        )
+
+    def test_fade_in_encoder_moves_param_28_not_23(self):
+        """Turning encoder c_idx=14 must move device.parameters[28] (Fade In),
+        not parameters[23] (Sustain)."""
+        helpers = self._helpers(self.SIMPLER_BUTTONS)
+        device = self._device()
+        helpers.device_parameter_action(device, 14, 22, 127.0, "fn")
+        self.assertAlmostEqual(device.parameters[28].value, 1.0, places=2,
+                               msg="Fade In encoder failed to move param 28")
+        self.assertEqual(device.parameters[23].value, 0.0,
+                         "Sustain (param 23) must remain untouched when Fade In is turned")
+
+    def test_filter_freq_encoder_moves_param_36(self):
+        helpers = self._helpers(self.SIMPLER_BUTTONS)
+        device = self._device()
+        helpers.device_parameter_action(device, 9, 22, 127.0, "fn")
+        self.assertAlmostEqual(device.parameters[36].value, 1.0, places=2,
+                               msg="Filter Freq encoder failed to move param 36")
+
+    def test_hud_label_and_encoder_action_agree(self):
+        """The HUD label for wire_idx=N must point to the same json entry
+        that turning encoder c_idx=N+1 manipulates."""
+        helpers = self._helpers(self.SIMPLER_BUTTONS)
+        device = self._device()
+        helpers.selected_device_changed(device)
+        call = helpers._remote.device_update.call_args
+        self.assertIsNotNone(call, "device_update must have been invoked")
+        real_parameters = call[0][1]
+        # wire_idx 13 -> rp_idx 14 -> Fade In (alias)
+        fade_in_rp = real_parameters[14]
+        self.assertEqual(fade_in_rp.alias, "Fade In",
+                         f"HUD slot 14 alias was {fade_in_rp.alias!r}, expected 'Fade In'")
+        helpers.device_parameter_action(device, 14, 22, 127.0, "fn")
+        self.assertGreater(fade_in_rp.param.value, 0,
+                           "Encoder action must move the parameter shown on the HUD")
+
+
+class _FakePlaybackMode:
+    """Mimics a Boost.Python enum: members are int-valued constants and the
+    class exposes `.values` as a dict[int, member]."""
+    _by_idx = {}
+
+    def __init__(self, name, idx):
+        self.name = name
+        self._idx = idx
+
+    def __int__(self):
+        return self._idx
+
+    def __repr__(self):
+        return self.name
+
+    def __eq__(self, other):
+        return isinstance(other, _FakePlaybackMode) and self._idx == other._idx
+
+    def __hash__(self):
+        return hash(self._idx)
+
+
+_FakePlaybackMode.classic = _FakePlaybackMode('classic', 0)
+_FakePlaybackMode.one_shot = _FakePlaybackMode('one_shot', 1)
+_FakePlaybackMode.slicing = _FakePlaybackMode('slicing', 2)
+_FakePlaybackMode.values = {0: _FakePlaybackMode.classic,
+                            1: _FakePlaybackMode.one_shot,
+                            2: _FakePlaybackMode.slicing}
+
+
+@dataclass
+class FakeSimpler:
+    parameters: list = field(default_factory=list)
+    name: str = "Simpler"
+    class_name: str = "OriginalSimpler"
+    playback_mode: object = _FakePlaybackMode.classic
+    pad_slicing: bool = False
+    crop_calls: int = 0
+
+    def crop(self):
+        self.crop_calls += 1
+
+
+class TestLomButtonActions(unittest.TestCase):
+    def _make(self, buttons):
+        return Helpers(
+            Mock(), Mock(),
+            slot_assignments=[],
+            switch_slot_assignments=[(0, 'switch1')],
+            parameter_mappings_raw={"devices": [{
+                "className": "OriginalSimpler",
+                "encoders": [],
+                "buttons": buttons,
+            }]},
+        )
+
+    def test_enum_button_cycles_through_members(self):
+        helpers = self._make([{"lom_property": "playback_mode", "type": "enum"}])
+        device = FakeSimpler(parameters=[FakeParameter()])
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.playback_mode, _FakePlaybackMode.one_shot)
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.playback_mode, _FakePlaybackMode.slicing)
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.playback_mode, _FakePlaybackMode.classic)
+
+    def test_bool_button_toggles(self):
+        helpers = self._make([{"lom_property": "pad_slicing", "type": "bool"}])
+        device = FakeSimpler(parameters=[FakeParameter()])
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertTrue(device.pad_slicing)
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertFalse(device.pad_slicing)
+
+    def test_function_button_calls(self):
+        helpers = self._make([{"lom_function": "crop", "type": "function"}])
+        device = FakeSimpler(parameters=[FakeParameter()])
+        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.assertEqual(device.crop_calls, 1)
+
+    def test_enum_button_hud_payload(self):
+        helpers = self._make([{"lom_property": "playback_mode", "type": "enum", "display": "Mode"}])
+        device = FakeSimpler(parameters=[FakeParameter()])
+        info = helpers._resolve_switch(device, 0)
+        payload = helpers._lom_slot_payload(info)
+        self.assertEqual(payload.name, "Mode: classic")
+        self.assertEqual(payload.value, 0.0)
+        self.assertEqual(payload.vmax, 2.0)
 
 
 class TestGroupedEncoder(unittest.TestCase):

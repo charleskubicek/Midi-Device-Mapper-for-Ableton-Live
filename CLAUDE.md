@@ -56,6 +56,9 @@ To deploy to Ableton, run `./deploy.sh`, in the generated folder, which copies a
 a live_surface called will be deployd to `/Applications/Ableton Live 12 Suite.app/Contents/App-Resources/MIDI Remote Scripts/ck_launch_control_16`
 Ableton Life will need to be restarted, and the logs can be tailed with `./bin/tail_logs.sh` to confirm the new control surface is loading correctly, or to see failure messages.
 
+## Debugging
+
+call the @update.py script on generated code to call into live to get information printed to the live logs, qeuried with `./bin/tail_logs.sh`. This is the main way to get runtime information out of the generated control surface code, since it runs inside Ableton Live's Python environment.
 
 ## Architecture
 

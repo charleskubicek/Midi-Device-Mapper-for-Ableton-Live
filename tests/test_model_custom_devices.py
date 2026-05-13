@@ -53,6 +53,55 @@ class TestCustomDeviceMappings(unittest.TestCase):
         with self.assertRaises(ValidationError):
             CustomDeviceMappings.model_validate(raw)
 
+    def test_lom_enum_button_parses(self):
+        raw = {"devices": [{
+            "className": "OriginalSimpler",
+            "encoders": [],
+            "buttons": [{"lom_property": "playback_mode", "type": "enum"}],
+        }]}
+        validate_custom_device_mappings(raw)
+
+    def test_lom_bool_button_parses(self):
+        raw = {"devices": [{
+            "className": "OriginalSimpler",
+            "encoders": [],
+            "buttons": [{"lom_property": "pad_slicing", "type": "bool", "display": "Pad Slice"}],
+        }]}
+        validate_custom_device_mappings(raw)
+
+    def test_lom_function_button_parses(self):
+        raw = {"devices": [{
+            "className": "OriginalSimpler",
+            "encoders": [],
+            "buttons": [{"lom_function": "crop", "type": "function"}],
+        }]}
+        validate_custom_device_mappings(raw)
+
+    def test_legacy_number_button_still_parses(self):
+        raw = {"devices": [{
+            "className": "Amp",
+            "encoders": [],
+            "buttons": [{"number": 1, "name": "Amp Type"}],
+        }]}
+        validate_custom_device_mappings(raw)
+
+    def test_lom_button_with_display_override(self):
+        raw = {"devices": [{
+            "className": "OriginalSimpler",
+            "encoders": [],
+            "buttons": [{"lom_property": "playback_mode", "type": "enum", "display": "Mode"}],
+        }]}
+        validate_custom_device_mappings(raw)
+
+    def test_invalid_button_type_rejected(self):
+        raw = {"devices": [{
+            "className": "X",
+            "encoders": [],
+            "buttons": [{"lom_property": "foo", "type": "bogus"}],
+        }]}
+        with self.assertRaises(ValidationError):
+            CustomDeviceMappings.model_validate(raw)
+
     def test_missing_active_when_rejected(self):
         raw = {"devices": [{
             "className": "X",

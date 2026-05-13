@@ -95,6 +95,7 @@
           {"number": 46, "name": "Filt < Key"}
         ],
         "buttons": [
+          {"lom_property": "playback_mode", "type": "enum"},
           {"number": 29, "name": "Trigger Mode"},
           {"number": 32, "name": "Filter Type"},
           {"number": 35, "name": "Filter Slope"},

@@ -157,6 +157,79 @@ class $surface_name(ControlSurface):
 
         self.log_message(res)
 
+    def dump_selected_device_lom(self):
+        """Diagnostic dump of non-parameter LOM attributes on the selected
+        device: properties, methods, and (especially) any enum-typed values
+        with whatever introspection hooks they expose. Use this to figure
+        out how to enumerate things like SimplerDevice.playback_mode."""
+        device = self.song().view.selected_track.view.selected_device
+        if not device:
+            self.log_message("No device selected")
+            return
+
+        self.log_message(f"=== LOM dump for {device.class_name} ({device.name}) ===")
+        self.log_message(f"device python type: {type(device)!r}")
+        self.log_message(f"device mro: {[c.__name__ for c in type(device).__mro__]}")
+
+        skip = {'parameters', 'canonical_parent'}
+        props = []
+        methods = []
+        enums = []
+
+        for attr in sorted(dir(device)):
+            if attr.startswith('_') or attr in skip:
+                continue
+            try:
+                val = getattr(device, attr)
+            except Exception as ex:
+                self.log_message(f"  [skip] {attr}: getattr raised {ex!r}")
+                continue
+            if callable(val):
+                methods.append(attr)
+                continue
+            tname = type(val).__name__
+            tmod = getattr(type(val), '__module__', '?')
+            line = f"  {attr}: type={tmod}.{tname}  value={val!r}"
+            props.append(line)
+            # Heuristic: anything that isn't a plain primitive may be enum-like.
+            if not isinstance(val, (int, float, bool, str, bytes, list, tuple, dict, type(None))):
+                enums.append((attr, val))
+
+        self.log_message("-- properties --")
+        for line in props:
+            self.log_message(line)
+
+        self.log_message("-- methods --")
+        self.log_message("  " + ", ".join(methods))
+
+        self.log_message("-- enum-like introspection --")
+        for attr, val in enums:
+            cls = type(val)
+            self.log_message(f"  {attr}: cls={cls.__module__}.{cls.__name__}")
+            self.log_message(f"    repr(val)={val!r}  int_cast={self._safe_int(val)}")
+            self.log_message(f"    dir(cls)={[d for d in dir(cls) if not d.startswith('_')]}")
+            values = getattr(cls, 'values', None)
+            self.log_message(f"    cls.values={values!r}  type={type(values).__name__}")
+            try:
+                it = list(cls)
+                self.log_message(f"    list(cls)={it!r}")
+            except Exception as ex:
+                self.log_message(f"    list(cls) raised: {ex!r}")
+            try:
+                names = getattr(cls, 'names', None)
+                self.log_message(f"    cls.names={names!r}")
+            except Exception as ex:
+                self.log_message(f"    cls.names raised: {ex!r}")
+
+        self.log_message("=== end LOM dump ===")
+
+    @staticmethod
+    def _safe_int(v):
+        try:
+            return int(v)
+        except Exception:
+            return None
+
     def tick(self):
         # self.log_message(f"Ticking..")
         try:
@@ -243,6 +316,10 @@ class $surface_name(ControlSurface):
             elif cmd == 'dumpnames':
                 self.dump_selected_device_parameter_names()
                 response = b'Dumped to logs'
+
+            elif cmd == 'lom':
+                self.dump_selected_device_lom()
+                response = b'LOM dump written to logs'
 
             if response is not None:
                 self._socket.sendto(response, addr)

@@ -25,7 +25,7 @@ def send_udp_message(message, ip, port):
 
 def main():
     parser = argparse.ArgumentParser(description="Send a UDP message based on command parameter.")
-    parser.add_argument('command', type=str, choices=['reload', 'debug', 'dump', 'dump2', 'dumpnames', 'cs_dir', 'options'], help='Command to be executed')
+    parser.add_argument('command', type=str, choices=['reload', 'debug', 'dump', 'dump2', 'dumpnames', 'lom', 'cs_dir', 'options'], help='Command to be executed')
 
     args = parser.parse_args()
 
@@ -44,6 +44,9 @@ def main():
         send_udp_message(message, ip, port)
     elif args.command == 'dumpnames':
         message = b'dumpnames'
+        send_udp_message(message, ip, port)
+    elif args.command == 'lom':
+        message = b'lom'
         send_udp_message(message, ip, port)
     elif args.command == 'dump':
         message = b'dump'

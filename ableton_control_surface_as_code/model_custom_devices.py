@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -41,6 +41,7 @@ EncoderEntry = Union[GroupedEncoderEntry, CustomEncoderEntry]
 
 
 class CustomButtonEntry(BaseModel):
+    type: Literal['param'] = 'param'
     number: int
     name: Optional[str] = None
     display: Optional[str] = None
@@ -48,12 +49,49 @@ class CustomButtonEntry(BaseModel):
     max: Optional[int] = None
 
 
+class LomEnumButtonEntry(BaseModel):
+    type: Literal['enum']
+    lom_property: str
+    display: Optional[str] = None
+
+
+class LomBoolButtonEntry(BaseModel):
+    type: Literal['bool']
+    lom_property: str
+    display: Optional[str] = None
+
+
+class LomFunctionButtonEntry(BaseModel):
+    type: Literal['function']
+    lom_function: str
+    display: Optional[str] = None
+
+
+ButtonEntry = Union[
+    LomEnumButtonEntry,
+    LomBoolButtonEntry,
+    LomFunctionButtonEntry,
+    CustomButtonEntry,
+]
+
+
 class CustomDeviceEntry(BaseModel):
     className: str
     deviceName: Optional[str] = None
     fixed: Optional[bool] = None
     encoders: List[EncoderEntry] = Field(default_factory=list)
-    buttons: List[CustomButtonEntry] = Field(default_factory=list)
+    buttons: List[ButtonEntry] = Field(default_factory=list)
+
+    @model_validator(mode='before')
+    @classmethod
+    def _default_button_type(cls, data):
+        if isinstance(data, dict):
+            buttons = data.get('buttons')
+            if isinstance(buttons, list):
+                for b in buttons:
+                    if isinstance(b, dict) and 'type' not in b:
+                        b['type'] = 'param'
+        return data
 
 
 class CustomDeviceMappings(BaseModel):
@@ -63,7 +101,7 @@ class CustomDeviceMappings(BaseModel):
     def _check_group_selectors_resolve(self):
         for d in self.devices:
             encoder_names = {e.name for e in d.encoders if isinstance(e, CustomEncoderEntry) and e.name}
-            button_names = {b.name for b in d.buttons if b.name}
+            button_names = {b.name for b in d.buttons if isinstance(b, CustomButtonEntry) and b.name}
             known = encoder_names | button_names
             for e in d.encoders:
                 if isinstance(e, GroupedEncoderEntry):

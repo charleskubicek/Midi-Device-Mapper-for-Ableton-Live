@@ -97,17 +97,7 @@
 
 ##### Live.Application.Application.View.NavDirection
 
-- **Live.Application.Application.View.NavDirection.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Application.Application.View.NavDirection.down** _Value_
-- **Live.Application.Application.View.NavDirection.left** _Value_
-- **Live.Application.Application.View.NavDirection.name** _Value_
-- **Live.Application.Application.View.NavDirection.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Application.Application.View.NavDirection.right** _Value_
-- **Live.Application.Application.View.NavDirection.up** _Value_
-- **Live.Application.Application.View.NavDirection.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `up=up`, `down=down`, `left=left`, `right=right`
 
 ### Live.Application.ControlDescription
 
@@ -156,54 +146,17 @@
 
 > Specifies the characteristics of the message box, e.g. which buttons to show.
 
-- **Live.Application.MessageButtons.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Application.MessageButtons.OK_ACCOUNT_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.OK_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.OK_NEW_SET_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.OK_PURCHASE_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.OK_RETRY_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.SAVE_DONT_SAVE_BUTTON** _Value_
-  > Specifies the characteristics of the message box, e.g. which buttons to show.
-- **Live.Application.MessageButtons.name** _Value_
-- **Live.Application.MessageButtons.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Application.MessageButtons.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (6): `OK_BUTTON=OK_BUTTON`, `OK_NEW_SET_BUTTON=OK_NEW_SET_BUTTON`, `OK_RETRY_BUTTON=OK_RETRY_BUTTON`, `SAVE_DONT_SAVE_BUTTON=SAVE_DONT_SAVE_BUTTON`, `OK_ACCOUNT_BUTTON=OK_ACCOUNT_BUTTON`, `OK_PURCHASE_BUTTON=OK_PURCHASE_BUTTON`
 
 ### Live.Application.PushDialogType
 
 > Specifies the dialog type for Push.
 
-- **Live.Application.PushDialogType.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Application.PushDialogType.MESSAGE_BOX** _Value_
-  > Specifies the dialog type for Push.
-- **Live.Application.PushDialogType.OUT_OF_UNLOCKS_DIALOG** _Value_
-  > Specifies the dialog type for Push.
-- **Live.Application.PushDialogType.RENT_TO_OWN_LICENSE_EXPIRED_DIALOG** _Value_
-  > Specifies the dialog type for Push.
-- **Live.Application.PushDialogType.name** _Value_
-- **Live.Application.PushDialogType.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Application.PushDialogType.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `MESSAGE_BOX=MESSAGE_BOX`, `OUT_OF_UNLOCKS_DIALOG=OUT_OF_UNLOCKS_DIALOG`, `RENT_TO_OWN_LICENSE_EXPIRED_DIALOG=RENT_TO_OWN_LICENSE_EXPIRED_DIALOG`
 
 ### Live.Application.UnavailableFeature
 
-- **Live.Application.UnavailableFeature.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Application.UnavailableFeature.name** _Value_
-- **Live.Application.UnavailableFeature.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Application.UnavailableFeature.note_velocity_ranges_and_probabilities** _Value_
-- **Live.Application.UnavailableFeature.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (1): `note_velocity_ranges_and_probabilities=note_velocity_ranges_and_probabilities`
 
 ### Live.Application.UnavailableFeatureVector
 
@@ -409,36 +362,11 @@
 
 ### Live.Browser.FilterType
 
-- **Live.Browser.FilterType.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Browser.FilterType.audio_effect_hotswap** _Value_
-- **Live.Browser.FilterType.count** _Value_
-- **Live.Browser.FilterType.disabled** _Value_
-- **Live.Browser.FilterType.drum_pad_hotswap** _Value_
-- **Live.Browser.FilterType.hotswap_off** _Value_
-- **Live.Browser.FilterType.instrument_hotswap** _Value_
-- **Live.Browser.FilterType.midi_effect_hotswap** _Value_
-- **Live.Browser.FilterType.midi_track_devices** _Value_
-- **Live.Browser.FilterType.name** _Value_
-- **Live.Browser.FilterType.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Browser.FilterType.samples** _Value_
-- **Live.Browser.FilterType.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (9): `disabled=disabled`, `hotswap_off=hotswap_off`, `instrument_hotswap=instrument_hotswap`, `audio_effect_hotswap=audio_effect_hotswap`, `midi_effect_hotswap=midi_effect_hotswap`, `drum_pad_hotswap=drum_pad_hotswap`, `midi_track_devices=midi_track_devices`, `samples=samples`, `count=count`
 
 ### Live.Browser.Relation
 
-- **Live.Browser.Relation.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Browser.Relation.ancestor** _Value_
-- **Live.Browser.Relation.descendant** _Value_
-- **Live.Browser.Relation.equal** _Value_
-- **Live.Browser.Relation.name** _Value_
-- **Live.Browser.Relation.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Browser.Relation.none** _Value_
-- **Live.Browser.Relation.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `ancestor=ancestor`, `equal=equal`, `descendant=descendant`, `none=none`
 
 ## Live.CcControlDevice
 
@@ -806,63 +734,15 @@
 
 ### Live.Clip.ClipLaunchQuantization
 
-- **Live.Clip.ClipLaunchQuantization.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Clip.ClipLaunchQuantization.name** _Value_
-- **Live.Clip.ClipLaunchQuantization.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Clip.ClipLaunchQuantization.q_2_bars** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_4_bars** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_8_bars** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_bar** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_eighth** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_eighth_triplet** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_global** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_half** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_half_triplet** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_none** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_quarter** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_quarter_triplet** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_sixteenth** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_sixteenth_triplet** _Value_
-- **Live.Clip.ClipLaunchQuantization.q_thirtysecond** _Value_
-- **Live.Clip.ClipLaunchQuantization.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (15): `q_global=q_global`, `q_none=q_none`, `q_8_bars=q_8_bars`, `q_4_bars=q_4_bars`, `q_2_bars=q_2_bars`, `q_bar=q_bar`, `q_half=q_half`, `q_half_triplet=q_half_triplet`, `q_quarter=q_quarter`, `q_quarter_triplet=q_quarter_triplet`, `q_eighth=q_eighth`, `q_eighth_triplet=q_eighth_triplet`, `q_sixteenth=q_sixteenth`, `q_sixteenth_triplet=q_sixteenth_triplet`, `q_thirtysecond=q_thirtysecond`
 
 ### Live.Clip.GridQuantization
 
-- **Live.Clip.GridQuantization.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Clip.GridQuantization.count** _Value_
-- **Live.Clip.GridQuantization.g_2_bars** _Value_
-- **Live.Clip.GridQuantization.g_4_bars** _Value_
-- **Live.Clip.GridQuantization.g_8_bars** _Value_
-- **Live.Clip.GridQuantization.g_bar** _Value_
-- **Live.Clip.GridQuantization.g_eighth** _Value_
-- **Live.Clip.GridQuantization.g_half** _Value_
-- **Live.Clip.GridQuantization.g_quarter** _Value_
-- **Live.Clip.GridQuantization.g_sixteenth** _Value_
-- **Live.Clip.GridQuantization.g_thirtysecond** _Value_
-- **Live.Clip.GridQuantization.name** _Value_
-- **Live.Clip.GridQuantization.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Clip.GridQuantization.no_grid** _Value_
-- **Live.Clip.GridQuantization.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (11): `no_grid=no_grid`, `g_8_bars=g_8_bars`, `g_4_bars=g_4_bars`, `g_2_bars=g_2_bars`, `g_bar=g_bar`, `g_half=g_half`, `g_quarter=g_quarter`, `g_eighth=g_eighth`, `g_sixteenth=g_sixteenth`, `g_thirtysecond=g_thirtysecond`, `count=count`
 
 ### Live.Clip.LaunchMode
 
-- **Live.Clip.LaunchMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Clip.LaunchMode.gate** _Value_
-- **Live.Clip.LaunchMode.name** _Value_
-- **Live.Clip.LaunchMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Clip.LaunchMode.repeat** _Value_
-- **Live.Clip.LaunchMode.toggle** _Value_
-- **Live.Clip.LaunchMode.trigger** _Value_
-- **Live.Clip.LaunchMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `trigger=trigger`, `gate=gate`, `toggle=toggle`, `repeat=repeat`
 
 ### Live.Clip.MidiNote
 
@@ -913,21 +793,7 @@
 
 ### Live.Clip.WarpMode
 
-- **Live.Clip.WarpMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Clip.WarpMode.beats** _Value_
-- **Live.Clip.WarpMode.complex** _Value_
-- **Live.Clip.WarpMode.complex_pro** _Value_
-- **Live.Clip.WarpMode.count** _Value_
-- **Live.Clip.WarpMode.name** _Value_
-- **Live.Clip.WarpMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Clip.WarpMode.repitch** _Value_
-- **Live.Clip.WarpMode.rex** _Value_
-- **Live.Clip.WarpMode.texture** _Value_
-- **Live.Clip.WarpMode.tones** _Value_
-- **Live.Clip.WarpMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (8): `beats=beats`, `tones=tones`, `texture=texture`, `repitch=repitch`, `complex=complex`, `rex=rex`, `complex_pro=complex_pro`, `count=count`
 
 ## Live.ClipSlot
 
@@ -979,16 +845,7 @@
 
 ### Live.ClipSlot.ClipSlotPlayingState
 
-- **Live.ClipSlot.ClipSlotPlayingState.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.ClipSlot.ClipSlotPlayingState.name** _Value_
-- **Live.ClipSlot.ClipSlotPlayingState.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.ClipSlot.ClipSlotPlayingState.recording** _Value_
-- **Live.ClipSlot.ClipSlotPlayingState.started** _Value_
-- **Live.ClipSlot.ClipSlotPlayingState.stopped** _Value_
-- **Live.ClipSlot.ClipSlotPlayingState.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `stopped=stopped`, `started=started`, `recording=recording`
 
 ## Live.CompressorDevice
 
@@ -1066,16 +923,7 @@
 
 ### Live.Conversions.AudioToMidiType
 
-- **Live.Conversions.AudioToMidiType.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Conversions.AudioToMidiType.drums_to_midi** _Value_
-- **Live.Conversions.AudioToMidiType.harmony_to_midi** _Value_
-- **Live.Conversions.AudioToMidiType.melody_to_midi** _Value_
-- **Live.Conversions.AudioToMidiType.name** _Value_
-- **Live.Conversions.AudioToMidiType.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Conversions.AudioToMidiType.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `harmony_to_midi=harmony_to_midi`, `melody_to_midi=melody_to_midi`, `drums_to_midi=drums_to_midi`
 
 ## Live.Device
 
@@ -1137,21 +985,7 @@
 
 > The type of the device.
 
-- **Live.Device.DeviceType.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Device.DeviceType.audio_effect** _Value_
-  > The type of the device.
-- **Live.Device.DeviceType.instrument** _Value_
-  > The type of the device.
-- **Live.Device.DeviceType.midi_effect** _Value_
-  > The type of the device.
-- **Live.Device.DeviceType.name** _Value_
-- **Live.Device.DeviceType.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Device.DeviceType.undefined** _Value_
-  > The type of the device.
-- **Live.Device.DeviceType.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `undefined=undefined`, `instrument=instrument`, `audio_effect=audio_effect`, `midi_effect=midi_effect`
 
 ## Live.DeviceIO
 
@@ -1178,16 +1012,7 @@
 
 ### Live.DeviceParameter.AutomationState
 
-- **Live.DeviceParameter.AutomationState.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.DeviceParameter.AutomationState.name** _Value_
-- **Live.DeviceParameter.AutomationState.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.DeviceParameter.AutomationState.none** _Value_
-- **Live.DeviceParameter.AutomationState.overridden** _Value_
-- **Live.DeviceParameter.AutomationState.playing** _Value_
-- **Live.DeviceParameter.AutomationState.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `none=none`, `playing=playing`, `overridden=overridden`
 
 ### Live.DeviceParameter.DeviceParameter
 
@@ -1232,16 +1057,7 @@
 
 ### Live.DeviceParameter.ParameterState
 
-- **Live.DeviceParameter.ParameterState.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.DeviceParameter.ParameterState.disabled** _Value_
-- **Live.DeviceParameter.ParameterState.enabled** _Value_
-- **Live.DeviceParameter.ParameterState.irrelevant** _Value_
-- **Live.DeviceParameter.ParameterState.name** _Value_
-- **Live.DeviceParameter.ParameterState.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.DeviceParameter.ParameterState.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `enabled=enabled`, `irrelevant=irrelevant`, `disabled=disabled`
 
 ## Live.DriftDevice
 
@@ -1524,15 +1340,7 @@
 
 ### Live.Eq8Device.EditMode
 
-- **Live.Eq8Device.EditMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Eq8Device.EditMode.a** _Value_
-- **Live.Eq8Device.EditMode.b** _Value_
-- **Live.Eq8Device.EditMode.name** _Value_
-- **Live.Eq8Device.EditMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Eq8Device.EditMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (2): `a=a`, `b=b`
 
 ### Live.Eq8Device.Eq8Device
 
@@ -1590,36 +1398,14 @@
 
 ### Live.Eq8Device.GlobalMode
 
-- **Live.Eq8Device.GlobalMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Eq8Device.GlobalMode.left_right** _Value_
-- **Live.Eq8Device.GlobalMode.mid_side** _Value_
-- **Live.Eq8Device.GlobalMode.name** _Value_
-- **Live.Eq8Device.GlobalMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Eq8Device.GlobalMode.stereo** _Value_
-- **Live.Eq8Device.GlobalMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `stereo=stereo`, `left_right=left_right`, `mid_side=mid_side`
 
 ## Live.Groove
 
 
 ### Live.Groove.Base
 
-- **Live.Groove.Base.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Groove.Base.count** _Value_
-- **Live.Groove.Base.gb_eight** _Value_
-- **Live.Groove.Base.gb_eight_triplet** _Value_
-- **Live.Groove.Base.gb_four** _Value_
-- **Live.Groove.Base.gb_sixteen** _Value_
-- **Live.Groove.Base.gb_sixteen_triplet** _Value_
-- **Live.Groove.Base.gb_thirtytwo** _Value_
-- **Live.Groove.Base.name** _Value_
-- **Live.Groove.Base.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Groove.Base.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (7): `gb_four=gb_four`, `gb_eight=gb_eight`, `gb_eight_triplet=gb_eight_triplet`, `gb_sixteen=gb_sixteen`, `gb_sixteen_triplet=gb_sixteen_triplet`, `gb_thirtytwo=gb_thirtytwo`, `count=count`
 
 ### Live.Groove.Groove
 
@@ -1798,16 +1584,7 @@
 
 ### Live.Licensing.TrialContext
 
-- **Live.Licensing.TrialContext.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Licensing.TrialContext.FORCE_UPDATE** _Value_
-- **Live.Licensing.TrialContext.SAVE** _Value_
-- **Live.Licensing.TrialContext.STARTUP** _Value_
-- **Live.Licensing.TrialContext.name** _Value_
-- **Live.Licensing.TrialContext.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Licensing.TrialContext.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `SAVE=SAVE`, `FORCE_UPDATE=FORCE_UPDATE`, `STARTUP=STARTUP`
 
 ### Live.Licensing.UnlockStatus
 
@@ -2092,23 +1869,7 @@
 
 ### Live.MidiMap.MapMode
 
-- **Live.MidiMap.MapMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.MidiMap.MapMode.absolute** _Value_
-- **Live.MidiMap.MapMode.absolute_14_bit** _Value_
-- **Live.MidiMap.MapMode.name** _Value_
-- **Live.MidiMap.MapMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.MidiMap.MapMode.relative_binary_offset** _Value_
-- **Live.MidiMap.MapMode.relative_signed_bit** _Value_
-- **Live.MidiMap.MapMode.relative_signed_bit2** _Value_
-- **Live.MidiMap.MapMode.relative_smooth_binary_offset** _Value_
-- **Live.MidiMap.MapMode.relative_smooth_signed_bit** _Value_
-- **Live.MidiMap.MapMode.relative_smooth_signed_bit2** _Value_
-- **Live.MidiMap.MapMode.relative_smooth_two_compliment** _Value_
-- **Live.MidiMap.MapMode.relative_two_compliment** _Value_
-- **Live.MidiMap.MapMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (10): `absolute=absolute`, `relative_signed_bit=relative_signed_bit`, `relative_binary_offset=relative_binary_offset`, `relative_two_compliment=relative_two_compliment`, `relative_signed_bit2=relative_signed_bit2`, `absolute_14_bit=absolute_14_bit`, `relative_smooth_signed_bit=relative_smooth_signed_bit`, `relative_smooth_binary_offset=relative_smooth_binary_offset`, `relative_smooth_two_compliment=relative_smooth_two_compliment`, `relative_smooth_signed_bit2=relative_smooth_signed_bit2`
 
 ### Live.MidiMap.NoteFeedbackRule
 
@@ -2163,28 +1924,11 @@
 
 #### Live.MixerDevice.MixerDevice.crossfade_assignments
 
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.A** _Value_
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.B** _Value_
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.NONE** _Value_
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.name** _Value_
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.MixerDevice.MixerDevice.crossfade_assignments.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `A=A`, `NONE=NONE`, `B=B`
 
 #### Live.MixerDevice.MixerDevice.panning_modes
 
-- **Live.MixerDevice.MixerDevice.panning_modes.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.MixerDevice.MixerDevice.panning_modes.name** _Value_
-- **Live.MixerDevice.MixerDevice.panning_modes.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.MixerDevice.MixerDevice.panning_modes.stereo** _Value_
-- **Live.MixerDevice.MixerDevice.panning_modes.stereo_split** _Value_
-- **Live.MixerDevice.MixerDevice.panning_modes.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (2): `stereo=stereo`, `stereo_split=stereo_split`
 
 ## Live.PluginDevice
 
@@ -2469,51 +2213,15 @@
 
 ### Live.Sample.SlicingBeatDivision
 
-- **Live.Sample.SlicingBeatDivision.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Sample.SlicingBeatDivision.eighth** _Value_
-- **Live.Sample.SlicingBeatDivision.eighth_triplett** _Value_
-- **Live.Sample.SlicingBeatDivision.four_bars** _Value_
-- **Live.Sample.SlicingBeatDivision.half** _Value_
-- **Live.Sample.SlicingBeatDivision.half_triplett** _Value_
-- **Live.Sample.SlicingBeatDivision.name** _Value_
-- **Live.Sample.SlicingBeatDivision.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Sample.SlicingBeatDivision.one_bar** _Value_
-- **Live.Sample.SlicingBeatDivision.quarter** _Value_
-- **Live.Sample.SlicingBeatDivision.quarter_triplett** _Value_
-- **Live.Sample.SlicingBeatDivision.sixteenth** _Value_
-- **Live.Sample.SlicingBeatDivision.sixteenth_triplett** _Value_
-- **Live.Sample.SlicingBeatDivision.two_bars** _Value_
-- **Live.Sample.SlicingBeatDivision.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (11): `sixteenth=sixteenth`, `sixteenth_triplett=sixteenth_triplett`, `eighth=eighth`, `eighth_triplett=eighth_triplett`, `quarter=quarter`, `quarter_triplett=quarter_triplett`, `half=half`, `half_triplett=half_triplett`, `one_bar=one_bar`, `two_bars=two_bars`, `four_bars=four_bars`
 
 ### Live.Sample.SlicingStyle
 
-- **Live.Sample.SlicingStyle.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Sample.SlicingStyle.beat** _Value_
-- **Live.Sample.SlicingStyle.manual** _Value_
-- **Live.Sample.SlicingStyle.name** _Value_
-- **Live.Sample.SlicingStyle.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Sample.SlicingStyle.region** _Value_
-- **Live.Sample.SlicingStyle.transient** _Value_
-- **Live.Sample.SlicingStyle.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `transient=transient`, `beat=beat`, `region=region`, `manual=manual`
 
 ### Live.Sample.TransientLoopMode
 
-- **Live.Sample.TransientLoopMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Sample.TransientLoopMode.alternate** _Value_
-- **Live.Sample.TransientLoopMode.forward** _Value_
-- **Live.Sample.TransientLoopMode.name** _Value_
-- **Live.Sample.TransientLoopMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Sample.TransientLoopMode.off** _Value_
-- **Live.Sample.TransientLoopMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `off=off`, `forward=forward`, `alternate=alternate`
 
 ## Live.Scene
 
@@ -2615,16 +2323,7 @@
 
 ### Live.SimplerDevice.PlaybackMode
 
-- **Live.SimplerDevice.PlaybackMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.SimplerDevice.PlaybackMode.classic** _Value_
-- **Live.SimplerDevice.PlaybackMode.name** _Value_
-- **Live.SimplerDevice.PlaybackMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.SimplerDevice.PlaybackMode.one_shot** _Value_
-- **Live.SimplerDevice.PlaybackMode.slicing** _Value_
-- **Live.SimplerDevice.PlaybackMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `classic=classic`, `one_shot=one_shot`, `slicing=slicing`
 
 ### Live.SimplerDevice.SimplerDevice
 
@@ -2732,16 +2431,7 @@
 
 ### Live.SimplerDevice.SlicingPlaybackMode
 
-- **Live.SimplerDevice.SlicingPlaybackMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.SimplerDevice.SlicingPlaybackMode.mono** _Value_
-- **Live.SimplerDevice.SlicingPlaybackMode.name** _Value_
-- **Live.SimplerDevice.SlicingPlaybackMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.SimplerDevice.SlicingPlaybackMode.poly** _Value_
-- **Live.SimplerDevice.SlicingPlaybackMode.thru** _Value_
-- **Live.SimplerDevice.SlicingPlaybackMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `mono=mono`, `poly=poly`, `thru=thru`
 
 ## Live.Song
 
@@ -2761,35 +2451,13 @@
 
 > The destination for MIDI capture.
 
-- **Live.Song.CaptureDestination.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.CaptureDestination.arrangement** _Value_
-  > The destination for MIDI capture.
-- **Live.Song.CaptureDestination.auto** _Value_
-  > The destination for MIDI capture.
-- **Live.Song.CaptureDestination.name** _Value_
-- **Live.Song.CaptureDestination.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.CaptureDestination.session** _Value_
-  > The destination for MIDI capture.
-- **Live.Song.CaptureDestination.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `auto=auto`, `session=session`, `arrangement=arrangement`
 
 ### Live.Song.CaptureMode
 
 > The capture mode that is used for capture and insert scene.
 
-- **Live.Song.CaptureMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.CaptureMode.all** _Value_
-  > The capture mode that is used for capture and insert scene.
-- **Live.Song.CaptureMode.all_except_selected** _Value_
-  > The capture mode that is used for capture and insert scene.
-- **Live.Song.CaptureMode.name** _Value_
-- **Live.Song.CaptureMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.CaptureMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (2): `all=all`, `all_except_selected=all_except_selected`
 
 ### Live.Song.CuePoint
 
@@ -2806,59 +2474,15 @@
 
 ### Live.Song.Quantization
 
-- **Live.Song.Quantization.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.Quantization.name** _Value_
-- **Live.Song.Quantization.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.Quantization.q_2_bars** _Value_
-- **Live.Song.Quantization.q_4_bars** _Value_
-- **Live.Song.Quantization.q_8_bars** _Value_
-- **Live.Song.Quantization.q_bar** _Value_
-- **Live.Song.Quantization.q_eight** _Value_
-- **Live.Song.Quantization.q_eight_triplet** _Value_
-- **Live.Song.Quantization.q_half** _Value_
-- **Live.Song.Quantization.q_half_triplet** _Value_
-- **Live.Song.Quantization.q_no_q** _Value_
-- **Live.Song.Quantization.q_quarter** _Value_
-- **Live.Song.Quantization.q_quarter_triplet** _Value_
-- **Live.Song.Quantization.q_sixtenth** _Value_
-- **Live.Song.Quantization.q_sixtenth_triplet** _Value_
-- **Live.Song.Quantization.q_thirtytwoth** _Value_
-- **Live.Song.Quantization.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (14): `q_no_q=q_no_q`, `q_8_bars=q_8_bars`, `q_4_bars=q_4_bars`, `q_2_bars=q_2_bars`, `q_bar=q_bar`, `q_half=q_half`, `q_half_triplet=q_half_triplet`, `q_quarter=q_quarter`, `q_quarter_triplet=q_quarter_triplet`, `q_eight=q_eight`, `q_eight_triplet=q_eight_triplet`, `q_sixtenth=q_sixtenth`, `q_sixtenth_triplet=q_sixtenth_triplet`, `q_thirtytwoth=q_thirtytwoth`
 
 ### Live.Song.RecordingQuantization
 
-- **Live.Song.RecordingQuantization.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.RecordingQuantization.name** _Value_
-- **Live.Song.RecordingQuantization.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.RecordingQuantization.rec_q_eight** _Value_
-- **Live.Song.RecordingQuantization.rec_q_eight_eight_triplet** _Value_
-- **Live.Song.RecordingQuantization.rec_q_eight_triplet** _Value_
-- **Live.Song.RecordingQuantization.rec_q_no_q** _Value_
-- **Live.Song.RecordingQuantization.rec_q_quarter** _Value_
-- **Live.Song.RecordingQuantization.rec_q_sixtenth** _Value_
-- **Live.Song.RecordingQuantization.rec_q_sixtenth_sixtenth_triplet** _Value_
-- **Live.Song.RecordingQuantization.rec_q_sixtenth_triplet** _Value_
-- **Live.Song.RecordingQuantization.rec_q_thirtysecond** _Value_
-- **Live.Song.RecordingQuantization.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (9): `rec_q_no_q=rec_q_no_q`, `rec_q_quarter=rec_q_quarter`, `rec_q_eight=rec_q_eight`, `rec_q_eight_triplet=rec_q_eight_triplet`, `rec_q_eight_eight_triplet=rec_q_eight_eight_triplet`, `rec_q_sixtenth=rec_q_sixtenth`, `rec_q_sixtenth_triplet=rec_q_sixtenth_triplet`, `rec_q_sixtenth_sixtenth_triplet=rec_q_sixtenth_sixtenth_triplet`, `rec_q_thirtysecond=rec_q_thirtysecond`
 
 ### Live.Song.SessionRecordStatus
 
-- **Live.Song.SessionRecordStatus.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.SessionRecordStatus.name** _Value_
-- **Live.Song.SessionRecordStatus.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.SessionRecordStatus.off** _Value_
-- **Live.Song.SessionRecordStatus.on** _Value_
-- **Live.Song.SessionRecordStatus.transition** _Value_
-- **Live.Song.SessionRecordStatus.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `off=off`, `on=on`, `transition=transition`
 
 ### Live.Song.SmptTime
 
@@ -3097,19 +2721,7 @@
 
 ### Live.Song.TimeFormat
 
-- **Live.Song.TimeFormat.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Song.TimeFormat.ms_time** _Value_
-- **Live.Song.TimeFormat.name** _Value_
-- **Live.Song.TimeFormat.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Song.TimeFormat.smpte_24** _Value_
-- **Live.Song.TimeFormat.smpte_25** _Value_
-- **Live.Song.TimeFormat.smpte_29** _Value_
-- **Live.Song.TimeFormat.smpte_30** _Value_
-- **Live.Song.TimeFormat.smpte_30_drop** _Value_
-- **Live.Song.TimeFormat.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (6): `ms_time=ms_time`, `smpte_24=smpte_24`, `smpte_25=smpte_25`, `smpte_30=smpte_30`, `smpte_30_drop=smpte_30_drop`, `smpte_29=smpte_29`
 
 ## Live.SpectralResonatorDevice
 
@@ -3212,17 +2824,7 @@
 
 ### Live.Track.DeviceInsertMode
 
-- **Live.Track.DeviceInsertMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Track.DeviceInsertMode.count** _Value_
-- **Live.Track.DeviceInsertMode.default** _Value_
-- **Live.Track.DeviceInsertMode.name** _Value_
-- **Live.Track.DeviceInsertMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Track.DeviceInsertMode.selected_left** _Value_
-- **Live.Track.DeviceInsertMode.selected_right** _Value_
-- **Live.Track.DeviceInsertMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (4): `default=default`, `selected_left=selected_left`, `selected_right=selected_right`, `count=count`
 
 ### Live.Track.RoutingChannel
 
@@ -3235,16 +2837,7 @@
 
 ### Live.Track.RoutingChannelLayout
 
-- **Live.Track.RoutingChannelLayout.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Track.RoutingChannelLayout.midi** _Value_
-- **Live.Track.RoutingChannelLayout.mono** _Value_
-- **Live.Track.RoutingChannelLayout.name** _Value_
-- **Live.Track.RoutingChannelLayout.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Track.RoutingChannelLayout.stereo** _Value_
-- **Live.Track.RoutingChannelLayout.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `midi=midi`, `mono=mono`, `stereo=stereo`
 
 ### Live.Track.RoutingChannelVector
 
@@ -3268,21 +2861,7 @@
 
 ### Live.Track.RoutingTypeCategory
 
-- **Live.Track.RoutingTypeCategory.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Track.RoutingTypeCategory.external** _Value_
-- **Live.Track.RoutingTypeCategory.invalid** _Value_
-- **Live.Track.RoutingTypeCategory.master** _Value_
-- **Live.Track.RoutingTypeCategory.name** _Value_
-- **Live.Track.RoutingTypeCategory.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Track.RoutingTypeCategory.none** _Value_
-- **Live.Track.RoutingTypeCategory.parent_group_track** _Value_
-- **Live.Track.RoutingTypeCategory.resampling** _Value_
-- **Live.Track.RoutingTypeCategory.rewire** _Value_
-- **Live.Track.RoutingTypeCategory.track** _Value_
-- **Live.Track.RoutingTypeCategory.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (8): `external=external`, `rewire=rewire`, `resampling=resampling`, `master=master`, `track=track`, `parent_group_track=parent_group_track`, `none=none`, `invalid=invalid`
 
 ### Live.Track.RoutingTypeVector
 
@@ -3440,16 +3019,7 @@
 
 #### Live.Track.Track.monitoring_states
 
-- **Live.Track.Track.monitoring_states.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.Track.Track.monitoring_states.AUTO** _Value_
-- **Live.Track.Track.monitoring_states.IN** _Value_
-- **Live.Track.Track.monitoring_states.OFF** _Value_
-- **Live.Track.Track.monitoring_states.name** _Value_
-- **Live.Track.Track.monitoring_states.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.Track.Track.monitoring_states.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `IN=IN`, `AUTO=AUTO`, `OFF=OFF`
 
 #### Live.Track.Track.View
 
@@ -3515,98 +3085,27 @@
 
 ### Live.WavetableDevice.EffectMode
 
-- **Live.WavetableDevice.EffectMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.EffectMode.frequency_modulation** _Value_
-- **Live.WavetableDevice.EffectMode.name** _Value_
-- **Live.WavetableDevice.EffectMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.EffectMode.none** _Value_
-- **Live.WavetableDevice.EffectMode.sync_and_pulse_width** _Value_
-- **Live.WavetableDevice.EffectMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.EffectMode.warp_and_fold** _Value_
+  - Enum (4): `none=none`, `frequency_modulation=frequency_modulation`, `sync_and_pulse_width=sync_and_pulse_width`, `warp_and_fold=warp_and_fold`
 
 ### Live.WavetableDevice.FilterRouting
 
-- **Live.WavetableDevice.FilterRouting.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.FilterRouting.name** _Value_
-- **Live.WavetableDevice.FilterRouting.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.FilterRouting.parallel** _Value_
-- **Live.WavetableDevice.FilterRouting.serial** _Value_
-- **Live.WavetableDevice.FilterRouting.split** _Value_
-- **Live.WavetableDevice.FilterRouting.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (3): `serial=serial`, `parallel=parallel`, `split=split`
 
 ### Live.WavetableDevice.ModulationSource
 
-- **Live.WavetableDevice.ModulationSource.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.ModulationSource.amp_envelope** _Value_
-- **Live.WavetableDevice.ModulationSource.envelope_2** _Value_
-- **Live.WavetableDevice.ModulationSource.envelope_3** _Value_
-- **Live.WavetableDevice.ModulationSource.lfo_1** _Value_
-- **Live.WavetableDevice.ModulationSource.lfo_2** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_channel_pressure** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_mod_wheel** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_note** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_pitch_bend** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_random** _Value_
-- **Live.WavetableDevice.ModulationSource.midi_velocity** _Value_
-- **Live.WavetableDevice.ModulationSource.name** _Value_
-- **Live.WavetableDevice.ModulationSource.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.ModulationSource.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (11): `amp_envelope=amp_envelope`, `envelope_2=envelope_2`, `envelope_3=envelope_3`, `lfo_1=lfo_1`, `lfo_2=lfo_2`, `midi_velocity=midi_velocity`, `midi_note=midi_note`, `midi_pitch_bend=midi_pitch_bend`, `midi_channel_pressure=midi_channel_pressure`, `midi_mod_wheel=midi_mod_wheel`, `midi_random=midi_random`
 
 ### Live.WavetableDevice.UnisonMode
 
-- **Live.WavetableDevice.UnisonMode.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.UnisonMode.classic** _Value_
-- **Live.WavetableDevice.UnisonMode.fast_shimmer** _Value_
-- **Live.WavetableDevice.UnisonMode.name** _Value_
-- **Live.WavetableDevice.UnisonMode.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.UnisonMode.none** _Value_
-- **Live.WavetableDevice.UnisonMode.phase_sync** _Value_
-- **Live.WavetableDevice.UnisonMode.position_spread** _Value_
-- **Live.WavetableDevice.UnisonMode.random_note** _Value_
-- **Live.WavetableDevice.UnisonMode.slow_shimmer** _Value_
-- **Live.WavetableDevice.UnisonMode.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (7): `none=none`, `classic=classic`, `slow_shimmer=slow_shimmer`, `fast_shimmer=fast_shimmer`, `phase_sync=phase_sync`, `position_spread=position_spread`, `random_note=random_note`
 
 ### Live.WavetableDevice.VoiceCount
 
-- **Live.WavetableDevice.VoiceCount.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.VoiceCount.eight** _Value_
-- **Live.WavetableDevice.VoiceCount.five** _Value_
-- **Live.WavetableDevice.VoiceCount.four** _Value_
-- **Live.WavetableDevice.VoiceCount.name** _Value_
-- **Live.WavetableDevice.VoiceCount.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.VoiceCount.seven** _Value_
-- **Live.WavetableDevice.VoiceCount.six** _Value_
-- **Live.WavetableDevice.VoiceCount.sixteen** _Value_
-- **Live.WavetableDevice.VoiceCount.three** _Value_
-- **Live.WavetableDevice.VoiceCount.two** _Value_
-- **Live.WavetableDevice.VoiceCount.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (8): `two=two`, `three=three`, `four=four`, `five=five`, `six=six`, `seven=seven`, `eight=eight`, `sixteen=sixteen`
 
 ### Live.WavetableDevice.Voicing
 
-- **Live.WavetableDevice.Voicing.from_bytes()** _Built-In_
-  > Return the integer represented by the given array of bytes.  bytes Holds the array of bytes to convert.  The argument must either support the buffer protocol or be an iterable object producing bytes. Bytes and bytearray are examples of built-in objects that support the buffer protocol.  byteorder The byte order used to represent the integer.  If byteorder is 'big', the most significant byte is at the beginning of the byte array.  If byteorder is 'little', the most significant byte is at the end of the byte array.  To request the native byte order of the host system, use `sys.byteorder' as the byte order value.  Default is to use 'big'.  signed Indicates whether two's complement is used to represent the integer.
-- **Live.WavetableDevice.Voicing.mono** _Value_
-- **Live.WavetableDevice.Voicing.name** _Value_
-- **Live.WavetableDevice.Voicing.names** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
-- **Live.WavetableDevice.Voicing.poly** _Value_
-- **Live.WavetableDevice.Voicing.values** _Value_
-  > dict() -> new empty dictionarydict(mapping) -> new dictionary initialized from a mapping object's (key, value) pairsdict(iterable) -> new dictionary initialized as if via: d = {} for k, v in iterable:  d[k] = vdict(**kwargs) -> new dictionary initialized with the name=value pairs in the keyword argument list.  For example:  dict(one=1, two=2)
+  - Enum (2): `mono=mono`, `poly=poly`
 
 ### Live.WavetableDevice.WavetableDevice
 

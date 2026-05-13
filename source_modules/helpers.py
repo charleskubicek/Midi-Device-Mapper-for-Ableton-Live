@@ -35,8 +35,9 @@ class ParameterMapping:
 @dataclass
 class SwitchSlotMapping:
     switch_idx: int
-    d_idx: int
-    alias: str
+    d_idx: Optional[int] = None
+    alias: str = ''
+    payload: Optional[SlotPayload] = None  # set for LOM-kind entries
 
 
 def _overlay_labels(payloads, labels, kind):
@@ -165,11 +166,37 @@ class Helpers:
         entry = self._device_table.get(device.class_name)
         if entry and idx < len(entry['buttons']):
             b = entry['buttons'][idx]
+            btype = b.get('type', 'param')
+            if btype == 'enum':
+                prop = b['lom_property']
+                return {
+                    'kind': 'enum',
+                    'device': device,
+                    'prop': prop,
+                    'alias': b.get('display') or prop,
+                }
+            if btype == 'bool':
+                prop = b['lom_property']
+                return {
+                    'kind': 'bool',
+                    'device': device,
+                    'prop': prop,
+                    'alias': b.get('display') or prop,
+                }
+            if btype == 'function':
+                fn = b['lom_function']
+                return {
+                    'kind': 'function',
+                    'device': device,
+                    'fn': fn,
+                    'alias': b.get('display') or fn,
+                }
             d_idx = int(b['number'])
             if d_idx >= len(device.parameters):
                 return None
-            has_range = 'min' in b and 'max' in b
+            has_range = 'min' in b and 'max' in b and b.get('min') is not None and b.get('max') is not None
             return {
+                'kind': 'param',
                 'param': device.parameters[d_idx],
                 'alias': b.get('display') or b.get('name'),
                 'd_idx': d_idx,
@@ -182,6 +209,7 @@ class Helpers:
             return None
         d_idx, p = quantized[idx]
         return {
+            'kind': 'param',
             'param': p, 'alias': p.name, 'd_idx': d_idx,
             'has_range': True, 'min': int(p.min), 'max': int(p.max),
         }
@@ -258,6 +286,18 @@ class Helpers:
         if info is None:
             self.log_message(f"[switch] {slot_name} not resolvable on {device.class_name}")
             return
+        kind = info.get('kind', 'param')
+        if kind == 'enum':
+            self._cycle_enum_property(info['device'], info['prop'])
+            self.update_remote_parameters()
+            return
+        if kind == 'bool':
+            self._toggle_bool_property(info['device'], info['prop'])
+            self.update_remote_parameters()
+            return
+        if kind == 'function':
+            self._call_device_function(info['device'], info['fn'])
+            return
         p = info['param']
         before = p.value
         is_q = getattr(p, 'is_quantized', False)
@@ -276,6 +316,150 @@ class Helpers:
             self._pulse(p)
             mode = "pulse"
         self.log_message(f"[switch] applied mode={mode} before={before} after={p.value}")
+
+    def _enum_members(self, current_value, device=None, prop=None):
+        """Return ordered list of enum members for an LOM enum property.
+
+        Three discovery paths, tried in order:
+          1. `type(current_value).values` (Boost.Python enum returned as its
+             own type, e.g. Device.DeviceType.instrument).
+          2. `iter(type(current_value))` (stdlib Enum etc).
+          3. Live module lookup: many Live properties (Simpler.playback_mode,
+             etc.) return a plain `int`, while the enum class lives at
+             `Live.<DeviceModule>.<CamelCaseProperty>`. We resolve that class
+             and use its `.values` dict, returning the integer members so they
+             can be assigned back via `setattr(device, prop, int_value)`.
+        Returns None if every path fails."""
+        cls = type(current_value)
+        values = getattr(cls, 'values', None)
+        if isinstance(values, dict) and values:
+            try:
+                return sorted(values.values(), key=lambda m: int(m))
+            except (TypeError, ValueError):
+                return list(values.values())
+        try:
+            members = list(cls)
+            if members:
+                return members
+        except TypeError:
+            pass
+
+        if device is not None and prop is not None:
+            resolved = self._resolve_live_enum_class(device, prop)
+            if resolved is not None:
+                vals = getattr(resolved, 'values', None)
+                if isinstance(vals, dict) and vals:
+                    try:
+                        return sorted(vals.values(), key=lambda m: int(m))
+                    except (TypeError, ValueError):
+                        return list(vals.values())
+                try:
+                    members = list(resolved)
+                    if members:
+                        return members
+                except TypeError:
+                    pass
+        return None
+
+    @staticmethod
+    def _resolve_live_enum_class(device, prop):
+        """Look up `Live.<device_module>.<CamelCaseProp>` — the convention
+        Live uses for enum classes belonging to a device. Returns the class
+        or None."""
+        try:
+            import Live
+        except ImportError:
+            return None
+        module_name = type(device).__module__
+        cls_name = ''.join(part.capitalize() for part in prop.split('_'))
+        module = getattr(Live, module_name, None)
+        if module is None:
+            return None
+        return getattr(module, cls_name, None)
+
+    def _cycle_enum_property(self, device, prop):
+        try:
+            current = getattr(device, prop)
+            members = self._enum_members(current, device, prop)
+            if not members:
+                self.log_message(f"[enum] no members discovered for {prop} on {device.class_name}")
+                return
+            idx = self._enum_index_of(members, current)
+            nxt = members[(idx + 1) % len(members)]
+            try:
+                setattr(device, prop, nxt)
+            except (TypeError, Exception):
+                try:
+                    setattr(device, prop, int(nxt))
+                except Exception:
+                    raise
+            self.log_message(f"[enum] {device.class_name}.{prop}: {current} -> {nxt}")
+        except Exception as ex:
+            self.log_message(f"[enum] failed to cycle {prop} on {getattr(device,'class_name','?')}: {ex}")
+
+    @staticmethod
+    def _enum_index_of(members, current):
+        """Find current's position in `members`. Tries equality first, then
+        falls back to comparing int casts (covers the case where the property
+        returns a plain int but members are enum objects)."""
+        try:
+            return members.index(current)
+        except ValueError:
+            pass
+        try:
+            cur_int = int(current)
+            for i, m in enumerate(members):
+                try:
+                    if int(m) == cur_int:
+                        return i
+                except (TypeError, ValueError):
+                    continue
+        except (TypeError, ValueError):
+            pass
+        return -1
+
+    def _toggle_bool_property(self, device, prop):
+        try:
+            current = getattr(device, prop)
+            setattr(device, prop, not current)
+            self.log_message(f"[bool] {device.class_name}.{prop}: {current} -> {not current}")
+        except Exception as ex:
+            self.log_message(f"[bool] failed to toggle {prop} on {getattr(device,'class_name','?')}: {ex}")
+
+    def _lom_slot_payload(self, info):
+        kind = info['kind']
+        alias = info.get('alias') or ''
+        device = info['device']
+        try:
+            if kind == 'enum':
+                current = getattr(device, info['prop'])
+                members = self._enum_members(current, device, info['prop']) or []
+                idx = self._enum_index_of(members, current) if members else 0
+                if idx < 0:
+                    idx = 0
+                vmax = max(0, len(members) - 1)
+                current_label = members[idx] if members else current
+                label = f"{alias}: {current_label}" if alias else str(current_label)
+                return SlotPayload(label, float(idx), 0.0, float(vmax) if vmax > 0 else 1.0)
+            if kind == 'bool':
+                current = bool(getattr(device, info['prop']))
+                return SlotPayload(alias, 1.0 if current else 0.0, 0.0, 1.0)
+            if kind == 'function':
+                return SlotPayload(alias, 0.0, 0.0, 1.0)
+        except Exception as ex:
+            self.log_message(f"[lom-hud] failed to build payload for {info}: {ex}")
+        return None
+
+    def _call_device_function(self, device, fn_name):
+        try:
+            fn = getattr(device, fn_name, None)
+            if fn is None or not callable(fn):
+                self.log_message(f"[fn] {device.class_name} has no callable {fn_name}")
+                return
+            fn()
+            self.log_message(f"[fn] called {device.class_name}.{fn_name}()")
+        except Exception as ex:
+            self.log_message(f"[fn] failed to call {fn_name} on {getattr(device,'class_name','?')}: {ex}")
 
     def _cycle(self, parameter, cmin, cmax):
         steps = cmax - cmin + 1
@@ -340,8 +524,16 @@ class Helpers:
             # resolution; wire_idx is the HUD button index assigned at codegen.
             logical_idx = int(slot.replace('switch', '')) - 1
             info = self._resolve_switch(device, logical_idx)
-            if info is not None:
-                switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], info.get('alias') or ''))
+            if info is None:
+                continue
+            kind = info.get('kind', 'param')
+            alias = info.get('alias') or ''
+            if kind == 'param':
+                switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], alias))
+            else:
+                payload = self._lom_slot_payload(info)
+                if payload is not None:
+                    switch_entries.append(SwitchSlotMapping(wire_idx, None, alias, payload))
         info_text = f"e{self._encoder_page}/b{self._button_page}"
         mode_labels = self._mode_hud_labels.get(self._current_mode_name)
         enc_total = self._encoder_pages_count(device)
@@ -507,13 +699,17 @@ class Remote:
             for i in range(count):
                 wire_idx = start + i
                 entry = switch_by_idx.get(wire_idx)
-                if entry is not None and device_parameters:
-                    try:
-                        p = device_parameters[entry.d_idx]
-                        payloads.append((wire_idx, SlotPayload(entry.alias or p.name, p.value, p.min, p.max)))
+                if entry is not None:
+                    if entry.payload is not None:
+                        payloads.append((wire_idx, entry.payload))
                         continue
-                    except IndexError:
-                        pass
+                    if entry.d_idx is not None and device_parameters:
+                        try:
+                            p = device_parameters[entry.d_idx]
+                            payloads.append((wire_idx, SlotPayload(entry.alias or p.name, p.value, p.min, p.max)))
+                            continue
+                        except IndexError:
+                            pass
                 payloads.append((wire_idx, EMPTY_SLOT))
         return payloads
 
