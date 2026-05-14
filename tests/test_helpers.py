@@ -1044,5 +1044,38 @@ class TestBankResolveLogsAvailableNames(unittest.TestCase):
         self.assertIn("Real", log_msg)
 
 
+class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
+    """A Rack BOB entry with only buttons (no encoders) must NOT push Macro
+    banks onto page 2 — encoders should still resolve to Macros on page 1."""
+
+    def test_buttons_only_bob_does_not_shift_encoders(self):
+        mappings = {"devices": [{
+            "className": "AudioEffectGroupDevice",
+            "deviceName": "MyRack",
+            "encoders": [],
+            "buttons": [{"name": "Macro 5", "min_max": True}],
+        }]}
+        params = [FakeParameter(name="Device On", original_name="Device On")]
+        for i in range(1, 9):
+            params.append(FakeParameter(name=f"Macro {i}", original_name=f"Macro {i}",
+                                        min=0, max=127, value=0))
+        device = FakeDevice(class_name="AudioEffectGroupDevice", name="MyRack",
+                            parameters=params)
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[(0, 'switch1')],
+            parameter_mappings_raw=mappings,
+            device_banks={"AudioEffectGroupDevice": (
+                ("Macro 1", "Macro 2", "Macro 3", "Macro 4",
+                 "Macro 5", "Macro 6", "Macro 7", "Macro 8"),)},
+            bank_names={},
+        )
+        rp = helpers._resolve_encoder(device, 1)
+        self.assertIsNotNone(rp, "encoder 1 should resolve to Macro 1 on page 1")
+        self.assertIs(rp.param, params[1])
+        self.assertEqual(helpers._encoder_pages_count(device), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

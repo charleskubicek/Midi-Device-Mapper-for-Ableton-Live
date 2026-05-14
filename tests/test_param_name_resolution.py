@@ -184,40 +184,31 @@ class TestBobPageEncoderResolution(unittest.TestCase):
 class TestStandardBankPages(unittest.TestCase):
     """Pages 2+ pull from bundled Ableton banks, paired 2-banks-per-page."""
 
-    def test_page_2_slot_1_is_bank1_slot_0(self):
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+    def test_page_1_slot_1_is_bank1_slot_0(self):
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         helpers.selected_device_changed(device)
-        helpers.parameter_page_inc('encoder')
-        self.assertEqual(helpers._encoder_page, 2)
+        self.assertEqual(helpers._encoder_page, 1)
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         ve_attack = next(p for p in device.parameters if p.original_name == 'Ve Attack')
         self.assertAlmostEqual(ve_attack.value, 1.0, places=2)
 
-    def test_page_2_slot_9_is_bank2_slot_0(self):
+    def test_page_1_slot_9_is_bank2_slot_0(self):
         """On a 16-encoder controller, slot 9 is the first slot of the second
-        bank paired onto page 2."""
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+        bank paired onto page 1."""
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         helpers.selected_device_changed(device)
-        helpers.parameter_page_inc('encoder')
         helpers.device_parameter_action(device, 9, 22, 127.0, "fn")
         fe_attack = next(p for p in device.parameters if p.original_name == 'Fe Attack')
         self.assertAlmostEqual(fe_attack.value, 1.0, places=2)
 
-    def test_page_3_uses_banks_3_and_4(self):
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+    def test_page_2_uses_banks_3_and_4(self):
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         helpers.selected_device_changed(device)
         helpers.parameter_page_inc('encoder')
-        helpers.parameter_page_inc('encoder')
-        self.assertEqual(helpers._encoder_page, 3)
+        self.assertEqual(helpers._encoder_page, 2)
         # slot 1 -> L Attack (bank3 slot 0)
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         # slot 9 -> Pe Attack (bank4 slot 0)
@@ -228,12 +219,9 @@ class TestStandardBankPages(unittest.TestCase):
         self.assertAlmostEqual(pe_attack.value, 1.0, places=2)
 
     def test_standard_bank_missing_name_does_not_resolve(self):
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device(missing=('Ve Attack',))
         helpers.selected_device_changed(device)
-        helpers.parameter_page_inc('encoder')
         before = [p.value for p in device.parameters]
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         self.assertEqual([p.value for p in device.parameters], before)
@@ -278,12 +266,10 @@ class TestPageCount(unittest.TestCase):
     """Pages = 1 (BOB) + ceil(len(banks) / 2)."""
 
     def test_known_device_page_count(self):
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
-        # SIM has 4 banks -> 1 BOB + ceil(4/2) = 3
-        self.assertEqual(helpers._encoder_pages_count(device), 3)
+        # SIM has 4 banks, 2 banks per page, no BOB -> ceil(4/2) = 2
+        self.assertEqual(helpers._encoder_pages_count(device), 2)
 
     def test_unknown_device_falls_back_to_chunked_pages(self):
         helpers = _helpers(parameter_mappings_raw=None, slot_count=16)
@@ -386,13 +372,11 @@ class TestBankHudLabels(unittest.TestCase):
         self.assertEqual(helpers._page_label_for(device, 1), 'Best of')
 
     def test_standard_page_label_pairs_bank_names(self):
-        helpers = _helpers(parameter_mappings_raw={"devices": [{
-            "className": "OriginalSimpler", "encoders": [], "buttons": [],
-        }]})
+        helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
-        # page 2 -> bank 0 + bank 1
-        self.assertEqual(helpers._page_label_for(device, 2), 'Amplitude / Filter')
-        self.assertEqual(helpers._page_label_for(device, 3), 'LFO / Pitch Modifiers')
+        # No BOB -> page 1 = bank 0 + bank 1
+        self.assertEqual(helpers._page_label_for(device, 1), 'Amplitude / Filter')
+        self.assertEqual(helpers._page_label_for(device, 2), 'LFO / Pitch Modifiers')
 
 
 class TestLiveDeviceBanksSnapshot(unittest.TestCase):

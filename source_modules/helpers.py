@@ -62,6 +62,14 @@ def _overlay_labels(payloads, labels, kind):
 # are keyed by (class_name, None) and resolve regardless of device.name.
 M4L_CLASSES = ('MxDeviceMidiEffect', 'MxDeviceAudioEffect', 'MxDeviceInstrument')
 
+# Racks share a className across all instances, so BOB entries targeting a
+# specific Rack must be disambiguated by device.name (same scheme as M4L).
+# Standard Macro banks still resolve by className alone — see _standard_banks.
+RACK_CLASSES = ('AudioEffectGroupDevice', 'InstrumentGroupDevice',
+                'MidiEffectGroupDevice', 'DrumGroupDevice')
+
+NAME_DISAMBIGUATED_CLASSES = M4L_CLASSES + RACK_CLASSES
+
 
 def _build_device_table(raw):
     table = {}
@@ -69,7 +77,7 @@ def _build_device_table(raw):
         return table
     for d in raw.get('devices', []):
         cn = d['className']
-        key = (cn, d.get('deviceName')) if cn in M4L_CLASSES else (cn, None)
+        key = (cn, d.get('deviceName')) if cn in NAME_DISAMBIGUATED_CLASSES else (cn, None)
         table[key] = {
             'encoders': d.get('encoders', []) or [],
             'buttons': d.get('buttons', []) or [],
@@ -79,7 +87,7 @@ def _build_device_table(raw):
 
 def _device_table_key(device):
     cn = getattr(device, 'class_name', None)
-    if cn in M4L_CLASSES:
+    if cn in NAME_DISAMBIGUATED_CLASSES:
         return (cn, getattr(device, 'name', None))
     return (cn, None)
 
@@ -245,10 +253,16 @@ class Helpers:
     def _has_bob(self, device):
         return self._device_entry(device) is not None
 
+    def _has_bob_encoders(self, device):
+        """BOB takes encoder page 1 only if it actually defines encoders.
+        A buttons-only BOB (e.g. a Rack with `min_max` switches) must not
+        push standard Macro banks off page 1."""
+        return bool(self._bob_encoders(device))
+
     def _first_standard_page(self, device):
-        """Page index where standard banks start. 2 if a BOB is authored
-        (BOB takes page 1); 1 if there is no BOB so banks lead."""
-        return 2 if self._has_bob(device) else 1
+        """Page index where standard banks start. 2 if BOB has encoders
+        (encoder page 1 is BOB); 1 otherwise so banks lead."""
+        return 2 if self._has_bob_encoders(device) else 1
 
     def _standard_bank_name_for(self, device, page, slot_in_page):
         """Page is 1-based. Standard banks are paired self._banks_per_page
@@ -274,7 +288,7 @@ class Helpers:
     def _encoder_pages_count(self, device):
         if device is None:
             return 1
-        bob_pages = 1 if self._has_bob(device) else 0
+        bob_pages = 1 if self._has_bob_encoders(device) else 0
         banks = self._standard_banks(device)
         if banks:
             std_pages = (len(banks) + self._banks_per_page - 1) // self._banks_per_page
@@ -300,7 +314,7 @@ class Helpers:
         if device is None:
             return ''
         class_name = getattr(device, 'class_name', None)
-        if page == 1 and self._has_bob(device):
+        if page == 1 and self._has_bob_encoders(device):
             return 'Best of'
         names = self._bank_names.get(class_name)
         banks = self._standard_banks(device)
@@ -324,7 +338,7 @@ class Helpers:
         class_name = getattr(device, 'class_name', None)
         known = self._has_bob(device) or bool(self._standard_banks(device))
 
-        if page == 1 and self._has_bob(device):
+        if page == 1 and self._has_bob_encoders(device):
             encoders = self._bob_encoders(device)
             if slot_in_page < len(encoders):
                 e = encoders[slot_in_page]
@@ -429,6 +443,7 @@ class Helpers:
                 'has_range': has_range,
                 'min': int(b['min']) if has_range else None,
                 'max': int(b['max']) if has_range else None,
+                'min_max': bool(b.get('min_max')),
             }
         # Unknown-class fallback: existing quantized chunking.
         idx = (self._button_page - 1) * self._button_slot_count + switch_idx
@@ -557,7 +572,15 @@ class Helpers:
         p = info['param']
         before = p.value
         is_q = getattr(p, 'is_quantized', False)
-        self.log_message(f"[switch] resolved d_idx={info['d_idx']} alias={info.get('alias')} has_range={info['has_range']} json_min={info.get('min')} json_max={info.get('max')} param.min={p.min} param.max={p.max} param.value={before} is_quantized={is_q}")
+        self.log_message(f"[switch] resolved d_idx={info['d_idx']} alias={info.get('alias')} has_range={info['has_range']} json_min={info.get('min')} json_max={info.get('max')} min_max={info.get('min_max')} param.min={p.min} param.max={p.max} param.value={before} is_quantized={is_q}")
+        if info.get('min_max'):
+            if is_q:
+                self.log_message(f"[switch] min_max requested on quantized param {info.get('alias')} — skipping")
+                return
+            p.value = p.min
+            p.value = p.max
+            self.log_message(f"[switch] applied mode=min_max before={before} after={p.value}")
+            return
         if info['has_range']:
             self._cycle(p, info['min'], info['max'])
             mode = "cycle(json)"

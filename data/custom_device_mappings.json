@@ -623,40 +623,23 @@
       "className": "MxDeviceMidiEffect",
       "deviceName": "SQ Sequencer",
       "encoders": [
-        { "name": "PStep1",   "display": "Note 1"
-        },
-        { "name": "PStep2",   "display": "Note 2"
-        },
-        { "name": "PStep3",   "display": "Note 3"
-        },
-        { "name": "PStep4",   "display": "Note 4"
-        },
-        { "name": "PStep5",   "display": "Note 5"
-        },
-        { "name": "PStep6",   "display": "Note 6"
-        },
-        { "name": "PStep7",   "display": "Note 7"
-        },
-        { "name": "PStep8",   "display": "Note 8"
-        },
-        { "name": "VelStep1",   "display": "Vel 1"
-        },
-        { "name": "VelStep2",   "display": "Vel 2"
-        },
-        { "name": "VelStep3",   "display": "Vel 3"
-        },
-        { "name": "VelStep4",   "display": "Vel 4"
-        },
-        { "name": "VelStep5",   "display": "Vel 5"
-        },
-        { "name": "VelStep6",   "display": "Vel 6"
-        },
-        { "name": "VelStep7",   "display": "Vel 7"
-        },
-        { "name": "VelStep8",   "display": "Vel 8"
-        },
-        { "name": "SQMax",   "display": "Seq length"
-        },
+        { "name": "PStep1",   "display": "Note 1" },
+        { "name": "PStep2",   "display": "Note 2" },
+        { "name": "PStep3",   "display": "Note 3" },
+        { "name": "PStep4",   "display": "Note 4" },
+        { "name": "PStep5",   "display": "Note 5" },
+        { "name": "PStep6",   "display": "Note 6" },
+        { "name": "PStep7",   "display": "Note 7" },
+        { "name": "PStep8",   "display": "Note 8" },
+        { "name": "VelStep1",   "display": "Vel 1" },
+        { "name": "VelStep2",   "display": "Vel 2" },
+        { "name": "VelStep3",   "display": "Vel 3" },
+        { "name": "VelStep4",   "display": "Vel 4" },
+        { "name": "VelStep5",   "display": "Vel 5" },
+        { "name": "VelStep6",   "display": "Vel 6" },
+        { "name": "VelStep7",   "display": "Vel 7" },
+        { "name": "VelStep8",   "display": "Vel 8" },
+        { "name": "SQMax",   "display": "Seq length" },
         { "name": "Swing" },
         { "name": "LStep1" },
         { "name": "LStep2" },
@@ -867,6 +850,14 @@
         { "name": "DotSync", "type": "param" },
         { "name": "Triplet", "type": "param" }
       ]
-    }
+    },
+    {
+      "className": "InstrumentGroupDevice",
+      "deviceName": "SHED SKIN - LOW END GENERATOR RACK",
+        "encoders": [],
+        "buttons": [
+          { "name": "Macro 1", "min_max": true }
+        ]
+     }
   ]
 }

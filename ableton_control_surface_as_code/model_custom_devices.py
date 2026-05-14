@@ -52,6 +52,7 @@ class CustomButtonEntry(BaseModel):
     display: Optional[str] = None
     min: Optional[int] = None
     max: Optional[int] = None
+    min_max: Optional[bool] = None
 
 
 class LomEnumButtonEntry(BaseModel):
