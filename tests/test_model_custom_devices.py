@@ -9,7 +9,7 @@ from ableton_control_surface_as_code.model_custom_devices import (
 
 class TestCustomDeviceMappings(unittest.TestCase):
     def test_plain_encoder_parses(self):
-        raw = {"devices": [{"className": "Amp", "encoders": [{"number": 1, "name": "Bass"}], "buttons": []}]}
+        raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass"}], "buttons": []}]}
         self.assertEqual(validate_custom_device_mappings(raw), raw)
 
     def test_grouped_encoder_parses(self):
@@ -18,10 +18,10 @@ class TestCustomDeviceMappings(unittest.TestCase):
             "encoders": [{
                 "controlledBy": "LFO T Mode",
                 "group": [
-                    {"number": 15, "activeWhen": [0]},
-                    {"number": 16, "activeWhen": [1]},
-                    {"number": 17, "activeWhen": [2, 3]},
-                    {"number": 18, "activeWhen": [4]},
+                    {"name": "LFO Rate", "activeWhen": [0]},
+                    {"name": "LFO Attack", "activeWhen": [1]},
+                    {"name": "LFO Sample & Hold", "activeWhen": [2, 3]},
+                    {"name": "LFO Stereo", "activeWhen": [4]},
                 ],
             }],
             "buttons": [],
@@ -34,8 +34,8 @@ class TestCustomDeviceMappings(unittest.TestCase):
             "encoders": [{
                 "controlledBy": "Mode",
                 "group": [
-                    {"number": 10, "activeWhen": [0, 1]},
-                    {"number": 11, "activeWhen": [1, 2]},
+                    {"name": "A", "activeWhen": [0, 1]},
+                    {"name": "B", "activeWhen": [1, 2]},
                 ],
             }],
             "buttons": [],
@@ -77,11 +77,11 @@ class TestCustomDeviceMappings(unittest.TestCase):
         }]}
         validate_custom_device_mappings(raw)
 
-    def test_legacy_number_button_still_parses(self):
+    def test_named_param_button_parses(self):
         raw = {"devices": [{
             "className": "Amp",
             "encoders": [],
-            "buttons": [{"number": 1, "name": "Amp Type"}],
+            "buttons": [{"name": "Amp Type"}],
         }]}
         validate_custom_device_mappings(raw)
 
@@ -107,7 +107,7 @@ class TestCustomDeviceMappings(unittest.TestCase):
             "className": "X",
             "encoders": [{
                 "controlledBy": "Mode",
-                "group": [{"number": 10}],
+                "group": [{"name": "Foo"}],
             }],
             "buttons": [],
         }]}

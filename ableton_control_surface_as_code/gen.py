@@ -326,6 +326,13 @@ def generate(mapping_file_path):
         else:
             shutil.copytree(file, target_dir / vars['surface_name'] / "modules" / file.name, dirs_exist_ok=True)
 
+    # Bundle the Ableton stock-device parameter banks alongside helpers so
+    # name-based resolution works in the generated surface (no `data` package
+    # is on sys.path inside Live).
+    banks_src = Path('data/live_device_banks.py')
+    if banks_src.exists():
+        shutil.copy(banks_src, target_dir / vars['surface_name'] / "modules" / banks_src.name)
+
     print("Finished generating code.")
     print()
     print_hud_layout(code_vars['_hud_cells_raw'])

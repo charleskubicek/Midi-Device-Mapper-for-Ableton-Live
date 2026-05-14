@@ -80,14 +80,14 @@ class DeviceEntry:
     class_name: str
     device_name: str
     fixed: bool = False
-    encoders: list = field(default_factory=list)  # [{"number": int, "name": str}]
-    buttons: list = field(default_factory=list)   # [{"number": int, "name": str, "min": int, "max": int}]
+    encoders: list = field(default_factory=list)  # [{"name": str, "display"?: str}]
+    buttons: list = field(default_factory=list)   # [{"name": str, "min"?: int, "max"?: int}]
 
-    def encoder_numbers(self) -> set:
-        return {e["number"] for e in self.encoders}
+    def encoder_names(self) -> set:
+        return {e["name"] for e in self.encoders if "name" in e}
 
-    def button_numbers(self) -> set:
-        return {b["number"] for b in self.buttons}
+    def button_names(self) -> set:
+        return {b["name"] for b in self.buttons if "name" in b}
 
 
 class CustomJsonGatherer:
@@ -185,19 +185,19 @@ class CustomJsonGatherer:
         ))
 
         if param.is_quantized:
-            if param.index in entry.button_numbers():
+            if param.name in entry.button_names():
                 return
-            btn: dict = {"number": param.index, "name": param.name}
+            btn: dict = {"name": param.name}
             if int(param.max_value) > 1:
                 btn["min"] = int(param.min_value)
                 btn["max"] = int(param.max_value)
             entry.buttons.append(btn)
-            print(f"  button[{len(entry.buttons) - 1}] → [{param.index}] {param.name!r}")
+            print(f"  button[{len(entry.buttons) - 1}] → {param.name!r}")
         else:
-            if param.index in entry.encoder_numbers():
+            if param.name in entry.encoder_names():
                 return
-            entry.encoders.append({"number": param.index, "name": param.name})
-            print(f"  encoder[{len(entry.encoders) - 1}] → [{param.index}] {param.name!r}")
+            entry.encoders.append({"name": param.name})
+            print(f"  encoder[{len(entry.encoders) - 1}] → {param.name!r}")
 
         self._save()
 

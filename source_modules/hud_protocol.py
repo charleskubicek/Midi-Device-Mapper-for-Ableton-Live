@@ -67,8 +67,14 @@ def encode_ping() -> str:
     return "PING"
 
 
-def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int) -> str:
-    return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}"
+def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int,
+                     enc_label: str = '', btn_label: str = '') -> str:
+    # Labels carry the standard-bank page name (e.g. "Amplitude / Filter") or
+    # "Best of" for page 1 of a known device. Additive: when both labels are
+    # empty we emit the legacy 5-field form so older parsers still accept it.
+    if not enc_label and not btn_label:
+        return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}"
+    return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}|{enc_label}|{btn_label}"
 
 
 def encode_mode(is_shift: bool) -> str:
@@ -122,6 +128,8 @@ class PageMsg:
     enc_total: int
     btn_page: int
     btn_total: int
+    enc_label: str = ''
+    btn_label: str = ''
 
 
 @dataclass(frozen=True)
@@ -211,12 +219,15 @@ def parse(line: str) -> Message:
         return UnknownMsg(line)
 
     if verb == 'PAGE':
-        if len(fields) != 5:
+        if len(fields) not in (5, 7):
             return UnknownMsg(line)
         try:
-            return PageMsg(int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4]))
+            counts = (int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4]))
         except ValueError:
             return UnknownMsg(line)
+        if len(fields) == 7:
+            return PageMsg(*counts, enc_label=fields[5], btn_label=fields[6])
+        return PageMsg(*counts)
 
     return UnknownMsg(line)
 

@@ -1,22 +1,26 @@
 from typing import List, Literal, Optional, Union
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CustomEncoderEntry(BaseModel):
-    number: int
-    name: Optional[str] = None
+    model_config = ConfigDict(extra='forbid')
+
+    name: str
     display: Optional[str] = None
     button: Optional[str] = None
 
 
 class GroupMember(BaseModel):
-    number: int
-    name: Optional[str] = None
+    model_config = ConfigDict(extra='forbid')
+
+    name: str
     display: Optional[str] = None
     activeWhen: List[int]
 
 
 class GroupedEncoderEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     controlledBy: str
     group: List[GroupMember]
     name: Optional[str] = None
@@ -29,9 +33,9 @@ class GroupedEncoderEntry(BaseModel):
                 if v in seen:
                     raise ValueError(
                         f"group controlledBy={self.controlledBy!r}: selector value {v} "
-                        f"appears in activeWhen of both number={seen[v]} and number={m.number}"
+                        f"appears in activeWhen of both name={seen[v]!r} and name={m.name!r}"
                     )
-                seen[v] = m.number
+                seen[v] = m.name
         if not self.group:
             raise ValueError(f"group controlledBy={self.controlledBy!r} has no members")
         return self
@@ -41,27 +45,34 @@ EncoderEntry = Union[GroupedEncoderEntry, CustomEncoderEntry]
 
 
 class CustomButtonEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type: Literal['param'] = 'param'
-    number: int
-    name: Optional[str] = None
+    name: str
     display: Optional[str] = None
     min: Optional[int] = None
     max: Optional[int] = None
 
 
 class LomEnumButtonEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type: Literal['enum']
     lom_property: str
     display: Optional[str] = None
 
 
 class LomBoolButtonEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type: Literal['bool']
     lom_property: str
     display: Optional[str] = None
 
 
 class LomFunctionButtonEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     type: Literal['function']
     lom_function: str
     display: Optional[str] = None
@@ -76,6 +87,8 @@ ButtonEntry = Union[
 
 
 class CustomDeviceEntry(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
     className: str
     deviceName: Optional[str] = None
     fixed: Optional[bool] = None
@@ -100,15 +113,12 @@ class CustomDeviceMappings(BaseModel):
     @model_validator(mode='after')
     def _check_group_selectors_resolve(self):
         for d in self.devices:
-            encoder_names = {e.name for e in d.encoders if isinstance(e, CustomEncoderEntry) and e.name}
-            button_names = {b.name for b in d.buttons if isinstance(b, CustomButtonEntry) and b.name}
+            encoder_names = {e.name for e in d.encoders if isinstance(e, CustomEncoderEntry)}
+            button_names = {b.name for b in d.buttons if isinstance(b, CustomButtonEntry)}
             known = encoder_names | button_names
             for e in d.encoders:
                 if isinstance(e, GroupedEncoderEntry):
                     if known and e.controlledBy not in known:
-                        # We can't fully validate against the live device here,
-                        # but we can warn if the selector isn't named anywhere
-                        # in the JSON (likely a typo). Soft check — print only.
                         import sys
                         print(
                             f"[custom_device_mappings] warning: device {d.className!r} "

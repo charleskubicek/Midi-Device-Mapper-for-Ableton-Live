@@ -12,7 +12,12 @@ class FakeParameter:
     max: float = 127
     value: float = 0
     name: str = "p1"
+    original_name: str = ""
     is_quantized: bool = False
+
+    def __post_init__(self):
+        if not self.original_name:
+            self.original_name = self.name
 
 
 @dataclass
@@ -30,6 +35,7 @@ def _build_named_params(entries, total=50, min=0.0, max=1.0, value=0.0):
     for num, nm in entries:
         if num < total:
             params[num].name = nm
+            params[num].original_name = nm
     return params
 
 
@@ -369,14 +375,14 @@ class TestGroupedEncoder(unittest.TestCase):
             "devices": [{
                 "className": "AutoFilter2",
                 "encoders": [
-                    {"number": 1, "name": "Frequency"},
+                    {"name": "Frequency"},
                     {
                         "controlledBy": "LFO T Mode",
                         "group": [
-                            {"number": 15, "activeWhen": [0]},
-                            {"number": 16, "activeWhen": [1]},
-                            {"number": 17, "activeWhen": [2, 3]},
-                            {"number": 18, "activeWhen": [4]},
+                            {"name": "p15", "activeWhen": [0]},
+                            {"name": "p16", "activeWhen": [1]},
+                            {"name": "p17", "activeWhen": [2, 3]},
+                            {"name": "p18", "activeWhen": [4]},
                         ],
                     },
                 ],
@@ -388,6 +394,7 @@ class TestGroupedEncoder(unittest.TestCase):
         # parameters[0] = on/off, [1] = Frequency, [14] = "LFO T Mode" selector,
         # [15..18] = the four group members.
         params = [FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(20)]
+        params[1] = FakeParameter(name="Frequency", min=0.0, max=1.0)
         params[14] = FakeParameter(name="LFO T Mode", value=selector_value, min=0, max=4, is_quantized=True)
         return FakeDevice(class_name="AutoFilter2", parameters=params)
 
@@ -427,6 +434,7 @@ class TestGroupedEncoder(unittest.TestCase):
         # Use a real-ish param with listener support via Mock
         selector = Mock()
         selector.name = "LFO T Mode"
+        selector.original_name = "LFO T Mode"
         selector.value = 0
         selector.min = 0
         selector.max = 4
@@ -443,17 +451,19 @@ class TestGroupedEncoder(unittest.TestCase):
 
     def test_grouped_encoder_uses_active_member_name_in_remote_update(self):
         device = self._make_device(selector_value=2)
-        device.parameters[17].name = "LFO Rate"
+        # The group member's `name` field doubles as the original_name lookup
+        # AND the alias on the resolved RealParameter.
         remote = self.helpers._remote
         self.helpers.device_parameter_action(device, 2, 22, 64.0, "fn")
         rp = remote.parameter_updated.call_args[0][0]
-        # No alias from JSON → fall through to live param name
-        self.assertEqual(rp.alias, None)
-        self.assertEqual(rp.param.name, "LFO Rate")
+        self.assertEqual(rp.alias, "p17")
+        self.assertEqual(rp.param.original_name, "p17")
 
 
 class TestPager(unittest.TestCase):
     def setUp(self):
+        # Two-bank fake device on an 8-slot controller: 1 BOB page + 1 standard
+        # bank page = 2 pages total (banks_per_page=1 when slot_count<16).
         self.helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[(1, 'slot1'), (2, 'slot2')],
@@ -461,11 +471,13 @@ class TestPager(unittest.TestCase):
             parameter_mappings_raw={
                 "devices": [{
                     "className": "Big",
-                    "encoders": [{"number": i, "name": f"n{i}"} for i in range(1, 17)],
+                    "encoders": [{"name": "p1"}],
                     "buttons": [],
                 }]
             },
             encoder_slot_count=8,
+            device_banks={'Big': (('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'),)},
+            bank_names={'Big': ('Main',)},
         )
 
     def test_encoder_page_inc_dec_within_bounds(self):

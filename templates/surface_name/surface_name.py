@@ -64,7 +64,7 @@ class $surface_name(ControlSurface):
 
         self.log_message("Dumping parameters for device; name:" + device.name+", class_name: " + device.class_name)
 
-        params_formated = "\n            - ".join([p.name for p in device.parameters])
+        params_formated = "\n            - ".join([p.original_name for p in device.parameters])
 
         res = f"""\n
     -
@@ -89,18 +89,18 @@ class $surface_name(ControlSurface):
             i = str(i).zfill(2)
             msg = {
                 'no': i,
-                'name': p.name,
+                'original_name': p.original_name,
+                'display_name': p.name,
                 'value': p.value,
                 'min': p.min,
                 'max': p.max
             }
-            # self.log_message(str(msg)+", ")
             parameters.append(msg)
 
         result_obj = { "class_name" : device.class_name,"name": device.name,  "parameters": parameters }
         self.log_message('\n' + str(result_obj).replace('\n', ' '))
 
-        string_params = [f"""{{"no": {i}, "name": "{p.name}", "min": {p.min}, "max": {p.max}}}""" for i, p in enumerate(device.parameters)]
+        string_params = [f"""{{"no": {i}, "name": "{p.original_name}", "min": {p.min}, "max": {p.max}}}""" for i, p in enumerate(device.parameters)]
         joined = ",\n        ".join(string_params)
 
         res = f"""    {{
@@ -126,7 +126,7 @@ class $surface_name(ControlSurface):
         for i, p in enumerate(device.parameters):
             msg = {
                 'no': i,
-                'name': p.name,
+                'name': p.original_name,
             }
 
             if p.is_quantized:
@@ -137,10 +137,10 @@ class $surface_name(ControlSurface):
         result_obj = { "class_name" : device.class_name,"name": device.name,  "encoders": encoders }
         self.log_message('\n' + str(result_obj).replace('\n', ' '))
 
-        string_enc_params = [f"""{{"number": {p['no']}, "name": "{p['name']}"}}""" for i, p in enumerate(encoders)]
+        string_enc_params = [f"""{{"name": "{p['name']}"}}""" for i, p in enumerate(encoders)]
         joined_encoders = ",\n          ".join(string_enc_params)
 
-        string_button_params = [f"""{{"number": {p['no']}, "name": "{p['name']}"}}""" for i, p in enumerate(buttons)]
+        string_button_params = [f"""{{"name": "{p['name']}"}}""" for i, p in enumerate(buttons)]
         joined_buttons = ",\n          ".join(string_button_params)
 
         res = f"""    
@@ -259,7 +259,7 @@ class $surface_name(ControlSurface):
                 if device and len(parts) >= 3:
                     start, count = int(parts[1]), int(parts[2])
                     chunk = device.parameters[start:start + count]
-                    entries = ';'.join(f'{start + i},{p.name},{p.min},{p.max},{1 if p.is_quantized else 0}' for i, p in enumerate(chunk))
+                    entries = ';'.join(f'{start + i},{p.original_name},{p.min},{p.max},{1 if p.is_quantized else 0}' for i, p in enumerate(chunk))
                     response = f'PARAMS|{entries}'.encode('utf-8')
                 else:
                     response = b'PARAMS|'
