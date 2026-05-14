@@ -12,6 +12,9 @@ public class DeviceState: ObservableObject {
     @Published public var isShiftMode: Bool = false
     @Published public var encoderPage: Int = 1
     @Published public var pageTotal: Int = 1
+    /// Bank title for the current encoder page (e.g. "Amplitude / Filter" or
+    /// "Best of"). Empty when the page has no label.
+    @Published public var bankLabel: String = ""
 
     private var pendingDials: [Int: Slot] = [:]
     private var pendingButtons: [Int: Slot] = [:]
@@ -21,6 +24,7 @@ public class DeviceState: ObservableObject {
     private var pendingEncoderTotal: Int = 1
     private var pendingButtonPage: Int = 1
     private var pendingButtonTotal: Int = 1
+    private var pendingBankLabel: String = ""
 
     public let commitReceived = PassthroughSubject<Void, Never>()
 
@@ -37,6 +41,7 @@ public class DeviceState: ObservableObject {
             pendingEncoderTotal = 1
             pendingButtonPage = 1
             pendingButtonTotal = 1
+            pendingBankLabel = ""
 
         case .slot(let kind, let index, let slot):
             guard index >= 0 else { return }
@@ -60,6 +65,7 @@ public class DeviceState: ObservableObject {
             deviceName = pendingName
             encoderPage = pendingEncoderPage
             pageTotal = max(pendingEncoderTotal, pendingButtonTotal)
+            bankLabel = pendingBankLabel
             let totalDials = pendingCells.filter { $0.kind == .dial }.reduce(0) { $0 + $1.count }
             let totalButtons = pendingCells.filter { $0.kind == .button }.reduce(0) { $0 + $1.count }
             dialSlots = (0..<totalDials).map { pendingDials[$0] }
@@ -72,11 +78,15 @@ public class DeviceState: ObservableObject {
         case .mode(let isShift):
             isShiftMode = isShift
 
-        case .page(let encPage, let encTotal, let btnPage, let btnTotal):
+        case .page(let encPage, let encTotal, let btnPage, let btnTotal,
+                   let encLabel, let btnLabel):
             pendingEncoderPage = encPage
             pendingEncoderTotal = encTotal
             pendingButtonPage = btnPage
             pendingButtonTotal = btnTotal
+            // Encoder label is the primary HUD title; fall back to the button
+            // label if the encoder page has none but a button page does.
+            pendingBankLabel = !encLabel.isEmpty ? encLabel : btnLabel
 
         case .unknown:
             break

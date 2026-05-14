@@ -5,651 +5,224 @@
       "deviceName": "Amp",
       "fixed": true,
       "encoders": [
-        {
-          "name": "Bass"
-        },
-        {
-          "name": "Middle"
-        },
-        {
-          "name": "Treble"
-        },
-        {
-          "name": "Presence"
-        },
-        {
-          "name": "Gain"
-        },
-        {
-          "name": "Volume"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Dry/Wet"
-        }
+        { "name": "Bass" },
+        { "name": "Middle" },
+        { "name": "Treble" },
+        { "name": "Presence" },
+        { "name": "Gain" },
+        { "name": "Volume" },
+        { "name": "Dry/Wet" },
+        { "name": "Dry/Wet" }
       ],
       "buttons": [
-        {
-          "name": "Amp Type",
-          "type": "param"
-        },
-        {
-          "name": "Dual Mono",
-          "type": "param"
-        }
+        { "name": "Amp Type", "type": "param" },
+        { "name": "Dual Mono", "type": "param" }
       ]
     },
     {
       "className": "AutoPan2",
       "deviceName": "Auto Pan-Tremolo",
       "encoders": [
-        {
-          "name": "Amount"
-        },
-        {
-          "name": "Frequency"
-        },
-        {
-          "name": "Panning Shape"
-        },
-        {
-          "name": "Tremolo Shape"
-        },
-        {
-          "name": "Time"
-        },
-        {
-          "name": "Rate"
-        },
-        {
-          "name": "16th"
-        },
-        {
-          "name": "Phase"
-        },
-        {
-          "name": "Offset"
-        },
-        {
-          "name": "Spin"
-        },
-        {
-          "name": "Attack Time"
-        },
-        {
-          "name": "Dyn Mod"
-        }
+        { "name": "Amount" },
+        { "name": "Frequency" },
+        { "name": "Panning Shape" },
+        { "name": "Tremolo Shape" },
+        { "name": "Time" },
+        { "name": "Rate" },
+        { "name": "16th" },
+        { "name": "Phase" },
+        { "name": "Offset" },
+        { "name": "Spin" },
+        { "name": "Attack Time" },
+        { "name": "Dyn Mod" }
       ],
       "buttons": [
-        {
-          "name": "Mode",
-          "type": "param"
-        },
-        {
-          "name": "Invert",
-          "type": "param"
-        },
-        {
-          "name": "Harmonic",
-          "type": "param"
-        },
-        {
-          "name": "Vintage",
-          "type": "param"
-        },
-        {
-          "name": "Time Mode",
-          "type": "param"
-        },
-        {
-          "name": "Stereo Mode",
-          "type": "param"
-        },
-        {
-          "name": "Waveform",
-          "type": "param"
-        }
+        { "name": "Mode", "type": "param" },
+        { "name": "Invert", "type": "param" },
+        { "name": "Harmonic", "type": "param" },
+        { "name": "Vintage", "type": "param" },
+        { "name": "Time Mode", "type": "param" },
+        { "name": "Stereo Mode", "type": "param" },
+        { "name": "Waveform", "type": "param" }
       ]
     },
     {
       "className": "OriginalSimpler",
       "deviceName": "stb_dark solo stab",
       "encoders": [
-        {
-          "name": "S Start",
-          "display": "Start"
-        },
-        {
-          "name": "S Length",
-          "display": "Length"
-        },
-        {
-          "name": "Transpose"
-        },
-        {
-          "name": "Detune"
-        },
-        {
-          "name": "Ve Attack",
-          "display": "Attack"
-        },
-        {
-          "name": "Ve Decay",
-          "display": "Decay"
-        },
-        {
-          "name": "Ve Sustain",
-          "display": "Sustain"
-        },
-        {
-          "name": "Ve Release",
-          "display": "Release"
-        },
-        {
-          "name": "Filter Freq"
-        },
-        {
-          "name": "Filter Res"
-        },
-        {
-          "name": "Filter Morph"
-        },
-        {
-          "name": "Filter Drive"
-        },
-        {
-          "name": "Volume"
-        },
-        {
-          "name": "Fade In"
-        },
-        {
-          "name": "Fade Out"
-        },
-        {
-          "name": "Spread"
-        },
-        {
-          "name": "Vol < Vel"
-        },
-        {
-          "name": "Filt < Vel"
-        },
-        {
-          "name": "Vol < LFO"
-        },
-        {
-          "name": "Filt < LFO"
-        },
-        {
-          "name": "Fe Attack"
-        },
-        {
-          "name": "Fe Decay"
-        },
-        {
-          "name": "Fe Sustain"
-        },
-        {
-          "name": "Fe Release"
-        },
-        {
-          "name": "Pitch < LFO"
-        },
-        {
-          "name": "S Loop Length"
-        },
-        {
-          "name": "S Loop Fade"
-        },
-        {
-          "name": "Glide Time"
-        },
-        {
-          "name": "Pan"
-        },
-        {
-          "name": "Pan < Rnd"
-        },
-        {
-          "name": "Pan < LFO"
-        },
-        {
-          "name": "Ve Loop"
-        },
-        {
-          "name": "Ve Retrig"
-        },
-        {
-          "name": "Sample Selector"
-        },
-        {
-          "name": "Fe < Env"
-        },
-        {
-          "name": "Filt < Key"
-        }
+        { "name": "S Start",   "display": "Start" },
+        { "name": "S Length",   "display": "Length" },
+        { "name": "Transpose" },
+        { "name": "Detune" },
+        { "name": "Ve Attack",   "display": "Attack" },
+        { "name": "Ve Decay",   "display": "Decay" },
+        { "name": "Ve Sustain",   "display": "Sustain" },
+        { "name": "Ve Release",   "display": "Release" },
+        { "name": "Filter Freq" },
+        { "name": "Filter Res" },
+        { "name": "Filter Morph" },
+        { "name": "Filter Drive" },
+        { "name": "Volume" },
+        { "name": "Fade In" },
+        { "name": "Fade Out" },
+        { "name": "Spread" },
+        { "name": "Vol < Vel" },
+        { "name": "Filt < Vel" },
+        { "name": "Vol < LFO" },
+        { "name": "Filt < LFO" },
+        { "name": "Fe Attack" },
+        { "name": "Fe Decay" },
+        { "name": "Fe Sustain" },
+        { "name": "Fe Release" },
+        { "name": "Pitch < LFO" },
+        { "name": "S Loop Length" },
+        { "name": "S Loop Fade" },
+        { "name": "Glide Time" },
+        { "name": "Pan" },
+        { "name": "Pan < Rnd" },
+        { "name": "Pan < LFO" },
+        { "name": "Ve Loop" },
+        { "name": "Ve Retrig" },
+        { "name": "Sample Selector" },
+        { "name": "Fe < Env" },
+        { "name": "Filt < Key" }
       ],
       "buttons": [
-        {
-          "lom_property": "playback_mode",
-          "type": "enum"
-        },
-        {
-          "name": "Trigger Mode",
-          "type": "param"
-        },
-        {
-          "name": "Filter Type",
-          "type": "param"
-        },
-        {
-          "name": "Filter Slope",
-          "type": "param"
-        },
-        {
-          "name": "Filter Circuit - LP/HP",
-          "type": "param"
-        },
-        {
-          "name": "F On",
-          "type": "param"
-        },
-        {
-          "name": "Filter Circuit - BP/NO/Morph",
-          "type": "param"
-        },
-        {
-          "name": "Snap",
-          "type": "param"
-        },
-        {
-          "name": "S Loop On",
-          "type": "param"
-        },
-        {
-          "name": "Glide Mode",
-          "type": "param"
-        },
-        {
-          "name": "Pe On",
-          "type": "param"
-        },
-        {
-          "name": "Ve Mode",
-          "type": "param"
-        },
-        {
-          "name": "Fe On",
-          "type": "param"
-        },
-        {
-          "name": "L On",
-          "type": "param"
-        }
+        { "lom_property": "playback_mode", "type": "enum" },
+        { "name": "Trigger Mode", "type": "param" },
+        { "name": "Filter Type", "type": "param" },
+        { "name": "Filter Slope", "type": "param" },
+        { "name": "Filter Circuit - LP/HP", "type": "param" },
+        { "name": "F On", "type": "param" },
+        { "name": "Filter Circuit - BP/NO/Morph", "type": "param" },
+        { "name": "Snap", "type": "param" },
+        { "name": "S Loop On", "type": "param" },
+        { "name": "Glide Mode", "type": "param" },
+        { "name": "Pe On", "type": "param" },
+        { "name": "Ve Mode", "type": "param" },
+        { "name": "Fe On", "type": "param" },
+        { "name": "L On", "type": "param" }
       ]
     },
     {
       "className": "Hybrid",
       "deviceName": "Hybrid Reverb",
       "encoders": [
-        {
-          "name": "Blend"
-        },
-        {
-          "name": "Decay"
-        },
-        {
-          "name": "Size"
-        },
-        {
-          "name": "Damping"
-        },
-        {
-          "name": "Width"
-        },
-        {
-          "name": "Diffusion"
-        },
-        {
-          "name": "Modulation"
-        },
-        {
-          "name": "Dry/Wet"
-        },
+        { "name": "Blend" },
+        { "name": "Decay" },
+        { "name": "Size" },
+        { "name": "Damping" },
+        { "name": "Width" },
+        { "name": "Diffusion" },
+        { "name": "Modulation" },
+        { "name": "Dry/Wet" },
         {
           "controlledBy": "Algo Type",
           "group": [
-            {
-              "name": "DH Shape",
-              "activeWhen": [
-                0
-              ]
-            },
-            {
-              "name": "Qz Low Damp",
-              "activeWhen": [
-                1
-              ]
-            },
-            {
-              "name": "Sh Pitch Shift",
-              "activeWhen": [
-                2
-              ]
-            },
-            {
-              "name": "Ti Tide",
-              "activeWhen": [
-                3
-              ]
-            },
-            {
-              "name": "Pr High Mult",
-              "activeWhen": [
-                4
-              ]
-            }
+            { "name": "DH Shape", "activeWhen": [ 0 ] },
+            { "name": "Qz Low Damp", "activeWhen": [ 1 ] },
+            { "name": "Sh Pitch Shift", "activeWhen": [ 2 ] },
+            { "name": "Ti Tide", "activeWhen": [ 3 ] },
+            { "name": "Pr High Mult", "activeWhen": [ 4 ] }
           ]
         },
         {
           "controlledBy": "Algo Type",
           "group": [
-            {
-              "name": "DH BassMult",
-              "activeWhen": [
-                0
-              ]
-            },
-            {
-              "name": "Qz Distance",
-              "activeWhen": [
-                1
-              ]
-            },
-            {
-              "name": "Sh Shimmer",
-              "activeWhen": [
-                2
-              ]
-            },
-            {
-              "name": "Ti Rate",
-              "activeWhen": [
-                3
-              ]
-            },
-            {
-              "name": "Pr X Over",
-              "activeWhen": [
-                4
-              ]
-            }
+            { "name": "DH BassMult", "activeWhen": [ 0 ] },
+            { "name": "Qz Distance", "activeWhen": [ 1 ] },
+            { "name": "Sh Shimmer", "activeWhen": [ 2 ] },
+            { "name": "Ti Rate", "activeWhen": [ 3 ] },
+            { "name": "Pr X Over", "activeWhen": [ 4 ] }
           ]
         },
-        {
-          "name": "Algo Delay"
-        },
-        {
-          "name": "Predelay"
-        },
-        {
-          "name": "Predelay 16th"
-        },
-        {
-          "name": "Predelay FB"
-        },
-        {
-          "name": "Predel. FB 16th"
-        },
-        {
-          "name": "Vintage"
-        },
-        {
-          "name": "Sh Pitch Shift"
-        },
-        {
-          "name": "Ti Rate"
-        },
-        {
-          "name": "Ti Waveform"
-        },
-        {
-          "name": "Qz Low Damp"
-        },
-        {
-          "name": "Qz Distance"
-        },
-        {
-          "name": "Pr High Mult"
-        },
-        {
-          "name": "Pr Low Mult"
-        },
-        {
-          "name": "Pr X Over"
-        },
-        {
-          "name": "Pr Sixth"
-        },
-        {
-          "name": "Pr Seventh"
-        },
-        {
-          "name": "EQ Lo Freq"
-        },
-        {
-          "name": "EQ Lo Gain"
-        },
-        {
-          "name": "EQ Lo Slope"
-        },
-        {
-          "name": "EQ Peak 1 Freq"
-        },
-        {
-          "name": "EQ Peak 1 Gain"
-        },
-        {
-          "name": "EQ Peak 1 Q"
-        },
-        {
-          "name": "EQ Peak 2 Freq"
-        },
-        {
-          "name": "EQ Peak 2 Gain"
-        },
-        {
-          "name": "EQ Peak 2 Q"
-        },
-        {
-          "name": "EQ Hi Freq"
-        },
-        {
-          "name": "EQ Hi Gain"
-        },
-        {
-          "name": "EQ Hi Slope"
-        },
-        {
-          "name": "Send Gain"
-        }
+        { "name": "Algo Delay" },
+        { "name": "Predelay" },
+        { "name": "Predelay 16th" },
+        { "name": "Predelay FB" },
+        { "name": "Predel. FB 16th" },
+        { "name": "Vintage" },
+        { "name": "Sh Pitch Shift" },
+        { "name": "Ti Rate" },
+        { "name": "Ti Waveform" },
+        { "name": "Qz Low Damp" },
+        { "name": "Qz Distance" },
+        { "name": "Pr High Mult" },
+        { "name": "Pr Low Mult" },
+        { "name": "Pr X Over" },
+        { "name": "Pr Sixth" },
+        { "name": "Pr Seventh" },
+        { "name": "EQ Lo Freq" },
+        { "name": "EQ Lo Gain" },
+        { "name": "EQ Lo Slope" },
+        { "name": "EQ Peak 1 Freq" },
+        { "name": "EQ Peak 1 Gain" },
+        { "name": "EQ Peak 1 Q" },
+        { "name": "EQ Peak 2 Freq" },
+        { "name": "EQ Peak 2 Gain" },
+        { "name": "EQ Peak 2 Q" },
+        { "name": "EQ Hi Freq" },
+        { "name": "EQ Hi Gain" },
+        { "name": "EQ Hi Slope" },
+        { "name": "Send Gain" }
       ],
       "buttons": [
-        {
-          "name": "Algo Type",
-          "type": "param"
-        },
-        {
-          "name": "Predelay Sync",
-          "type": "param"
-        },
-        {
-          "name": "Freeze",
-          "type": "param"
-        },
-        {
-          "name": "Bass Mono",
-          "type": "param"
-        },
-        {
-          "name": "Freeze In",
-          "type": "param"
-        },
-        {
-          "name": "EQ On",
-          "type": "param"
-        },
-        {
-          "name": "EQ Pre Algo",
-          "type": "param"
-        },
-        {
-          "name": "EQ Lo Type",
-          "type": "param"
-        },
-        {
-          "name": "EQ Hi Type",
-          "type": "param"
-        },
-        {
-          "name": "Routing",
-          "type": "param"
-        }
+        { "name": "Algo Type", "type": "param" },
+        { "name": "Predelay Sync", "type": "param" },
+        { "name": "Freeze", "type": "param" },
+        { "name": "Bass Mono", "type": "param" },
+        { "name": "Freeze In", "type": "param" },
+        { "name": "EQ On", "type": "param" },
+        { "name": "EQ Pre Algo", "type": "param" },
+        { "name": "EQ Lo Type", "type": "param" },
+        { "name": "EQ Hi Type", "type": "param" },
+        { "name": "Routing", "type": "param" }
       ]
     },
     {
       "className": "Corpus",
       "deviceName": "Corpus",
       "encoders": [
-        {
-          "name": "Tune"
-        },
-        {
-          "name": "Transpose"
-        },
-        {
-          "name": "Fine"
-        },
-        {
-          "name": "Spread"
-        },
-        {
-          "name": "Decay"
-        },
-        {
-          "name": "Material"
-        },
-        {
-          "name": "Radius"
-        },
-        {
-          "name": "Dry Wet"
-        },
-        {
-          "name": "Brightness"
-        },
-        {
-          "name": "Inharmonics"
-        },
-        {
-          "name": "Opening"
-        },
-        {
-          "name": "Ratio"
-        },
-        {
-          "name": "Hit"
-        },
-        {
-          "name": "Listening L"
-        },
-        {
-          "name": "Listening R"
-        },
-        {
-          "name": "LFO Rate"
-        },
-        {
-          "name": "LFO Sync Rate"
-        },
-        {
-          "name": "Spin"
-        },
-        {
-          "name": "Phase"
-        },
-        {
-          "name": "Offset"
-        },
-        {
-          "name": "LFO Amount"
-        },
-        {
-          "name": "Mid Freq"
-        },
-        {
-          "name": "Width"
-        },
-        {
-          "name": "PB Range"
-        },
-        {
-          "name": "Off Decay"
-        },
-        {
-          "name": "Gain"
-        },
-        {
-          "name": "Width"
-        },
-        {
-          "name": "Bleed"
-        }
+        { "name": "Tune" },
+        { "name": "Transpose" },
+        { "name": "Fine" },
+        { "name": "Spread" },
+        { "name": "Decay" },
+        { "name": "Material" },
+        { "name": "Radius" },
+        { "name": "Dry Wet" },
+        { "name": "Brightness" },
+        { "name": "Inharmonics" },
+        { "name": "Opening" },
+        { "name": "Ratio" },
+        { "name": "Hit" },
+        { "name": "Listening L" },
+        { "name": "Listening R" },
+        { "name": "LFO Rate" },
+        { "name": "LFO Sync Rate" },
+        { "name": "Spin" },
+        { "name": "Phase" },
+        { "name": "Offset" },
+        { "name": "LFO Amount" },
+        { "name": "Mid Freq" },
+        { "name": "Width" },
+        { "name": "PB Range" },
+        { "name": "Off Decay" },
+        { "name": "Gain" },
+        { "name": "Width" },
+        { "name": "Bleed" }
       ],
       "buttons": [
-        {
-          "name": "Resonance Type",
-          "type": "param"
-        },
-        {
-          "name": "Resonator Quality",
-          "type": "param"
-        },
-        {
-          "name": "Filter On/Off",
-          "type": "param"
-        },
-        {
-          "name": "LFO On/Off",
-          "type": "param"
-        },
-        {
-          "name": "LFO Shape",
-          "type": "param"
-        },
-        {
-          "name": "LFO Sync",
-          "type": "param"
-        },
-        {
-          "name": "LFO Stereo Mode",
-          "type": "param"
-        },
-        {
-          "name": "MIDI Frequency",
-          "type": "param"
-        },
-        {
-          "name": "MIDI Mode",
-          "type": "param"
-        },
-        {
-          "name": "Note Off",
-          "type": "param"
-        }
+        { "name": "Resonance Type", "type": "param" },
+        { "name": "Resonator Quality", "type": "param" },
+        { "name": "Filter On/Off", "type": "param" },
+        { "name": "LFO On/Off", "type": "param" },
+        { "name": "LFO Shape", "type": "param" },
+        { "name": "LFO Sync", "type": "param" },
+        { "name": "LFO Stereo Mode", "type": "param" },
+        { "name": "MIDI Frequency", "type": "param" },
+        { "name": "MIDI Mode", "type": "param" },
+        { "name": "Note Off", "type": "param" }
       ]
     },
     {
@@ -657,1801 +230,642 @@
       "deviceName": "Auto Filter",
       "fixed": true,
       "encoders": [
-        {
-          "name": "Frequency"
-        },
-        {
-          "name": "Resonance"
-        },
-        {
-          "name": "LFO Amount"
-        },
-        {
-          "name": "LFO Wave"
-        },
+        { "name": "Frequency" },
+        { "name": "Resonance" },
+        { "name": "LFO Amount" },
+        { "name": "LFO Wave" },
         {
           "controlledBy": "LFO T Mode",
           "group": [
             {
               "name": "LFO Freq",
-              "activeWhen": [
-                0
+              "activeWhen": [ 0
               ]
             },
             {
               "name": "LFO Time",
-              "activeWhen": [
-                1
+              "activeWhen": [ 1
               ]
             },
             {
               "name": "LFO Rate",
-              "activeWhen": [
-                2,
+              "activeWhen": [ 2,
                 3,
                 4
               ]
             },
             {
               "name": "LFO 16th",
-              "activeWhen": [
-                5
+              "activeWhen": [ 5
               ]
             }
           ]
         },
-        {
-          "name": "Drive"
-        },
-        {
-          "name": "Env Amount"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Morph Slope"
-        },
-        {
-          "name": "Filter Morph"
-        },
-        {
-          "name": "Control"
-        },
-        {
-          "name": "Pitch"
-        },
-        {
-          "name": "Formant"
-        },
-        {
-          "name": "LFO Phase"
-        },
-        {
-          "name": "LFO Offset"
-        },
-        {
-          "name": "LFO S Mode"
-        },
-        {
-          "name": "LFO Spin"
-        },
-        {
-          "name": "LFO Morph"
-        },
-        {
-          "name": "LFO Smoothing"
-        },
-        {
-          "name": "LFO Q Mode"
-        },
-        {
-          "name": "LFO Steps"
-        },
-        {
-          "name": "LFO S&H"
-        },
-        {
-          "name": "Env Attack"
-        },
-        {
-          "name": "Env Hold On"
-        },
-        {
-          "name": "Env Release"
-        },
-        {
-          "name": "Env S&H On"
-        },
-        {
-          "name": "Env S&H"
-        },
-        {
-          "name": "S/C EQ On"
-        },
-        {
-          "name": "S/C EQ Type"
-        },
-        {
-          "name": "S/C EQ Freq"
-        },
-        {
-          "name": "S/C EQ Q"
-        },
-        {
-          "name": "S/C EQ Gain"
-        },
-        {
-          "name": "S/C On"
-        },
-        {
-          "name": "S/C Gain"
-        },
-        {
-          "name": "S/C Mix"
-        }
+        { "name": "Drive" },
+        { "name": "Env Amount" },
+        { "name": "Dry/Wet" },
+        { "name": "Output" },
+        { "name": "Morph Slope" },
+        { "name": "Filter Morph" },
+        { "name": "Control" },
+        { "name": "Pitch" },
+        { "name": "Formant" },
+        { "name": "LFO Phase" },
+        { "name": "LFO Offset" },
+        { "name": "LFO S Mode" },
+        { "name": "LFO Spin" },
+        { "name": "LFO Morph" },
+        { "name": "LFO Smoothing" },
+        { "name": "LFO Q Mode" },
+        { "name": "LFO Steps" },
+        { "name": "LFO S&H" },
+        { "name": "Env Attack" },
+        { "name": "Env Hold On" },
+        { "name": "Env Release" },
+        { "name": "Env S&H On" },
+        { "name": "Env S&H" },
+        { "name": "S/C EQ On" },
+        { "name": "S/C EQ Type" },
+        { "name": "S/C EQ Freq" },
+        { "name": "S/C EQ Q" },
+        { "name": "S/C EQ Gain" },
+        { "name": "S/C On" },
+        { "name": "S/C Gain" },
+        { "name": "S/C Mix" }
       ],
       "buttons": [
-        {
-          "name": "Filter Type",
-          "type": "param"
-        },
-        {
-          "name": "Filter Slope",
-          "type": "param"
-        },
-        {
-          "name": "LFO T Mode",
-          "type": "param"
-        },
-        {
-          "name": "Circuit",
-          "type": "param"
-        },
-        {
-          "name": "Soft Clip On",
-          "type": "param"
-        }
+        { "name": "Filter Type", "type": "param" },
+        { "name": "Filter Slope", "type": "param" },
+        { "name": "LFO T Mode", "type": "param" },
+        { "name": "Circuit", "type": "param" },
+        { "name": "Soft Clip On", "type": "param" }
       ]
     },
     {
       "className": "Delay",
       "deviceName": "Delay",
       "encoders": [
-        {
-          "name": "L 16th"
-        },
-        {
-          "name": "R 16th"
-        },
-        {
-          "name": "Filter Freq"
-        },
-        {
-          "name": "Filter Width"
-        },
-        {
-          "name": "Feedback"
-        },
-        {
-          "name": "L Offset"
-        },
-        {
-          "name": "R Offset"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "LFO Freq"
-        },
-        {
-          "name": "LFO Time"
-        },
-        {
-          "name": "LFO Synced"
-        },
-        {
-          "name": "LFO 16th"
-        },
-        {
-          "name": "LFO Morph"
-        },
-        {
-          "name": "LFO > Delay"
-        },
-        {
-          "name": "LFO > Filter"
-        },
-        {
-          "name": "L Time"
-        },
-        {
-          "name": "R Time"
-        }
+        { "name": "L 16th" },
+        { "name": "R 16th" },
+        { "name": "Filter Freq" },
+        { "name": "Filter Width" },
+        { "name": "Feedback" },
+        { "name": "L Offset" },
+        { "name": "R Offset" },
+        { "name": "Dry/Wet" },
+        { "name": "LFO Freq" },
+        { "name": "LFO Time" },
+        { "name": "LFO Synced" },
+        { "name": "LFO 16th" },
+        { "name": "LFO Morph" },
+        { "name": "LFO > Delay" },
+        { "name": "LFO > Filter" },
+        { "name": "L Time" },
+        { "name": "R Time" }
       ],
       "buttons": [
-        {
-          "name": "Link",
-          "type": "param"
-        },
-        {
-          "name": "Smoothing",
-          "type": "param"
-        },
-        {
-          "name": "Ping Pong",
-          "type": "param"
-        },
-        {
-          "name": "L Sync",
-          "type": "param"
-        },
-        {
-          "name": "R Sync",
-          "type": "param"
-        },
-        {
-          "name": "Freeze",
-          "type": "param"
-        },
-        {
-          "name": "Filter On",
-          "type": "param"
-        },
-        {
-          "name": "LFO Mode",
-          "type": "param"
-        },
-        {
-          "name": "LFO Wave",
-          "type": "param"
-        }
+        { "name": "Link", "type": "param" },
+        { "name": "Smoothing", "type": "param" },
+        { "name": "Ping Pong", "type": "param" },
+        { "name": "L Sync", "type": "param" },
+        { "name": "R Sync", "type": "param" },
+        { "name": "Freeze", "type": "param" },
+        { "name": "Filter On", "type": "param" },
+        { "name": "LFO Mode", "type": "param" },
+        { "name": "LFO Wave", "type": "param" }
       ]
     },
     {
       "className": "Compressor2",
       "deviceName": "Compressor",
       "encoders": [
-        {
-          "name": "Threshold"
-        },
-        {
-          "name": "Ratio"
-        },
-        {
-          "name": "Attack"
-        },
-        {
-          "name": "Release"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Knee"
-        },
-        {
-          "name": "Expansion Ratio"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "S/C EQ Freq"
-        },
-        {
-          "name": "S/C EQ Q"
-        },
-        {
-          "name": "S/C EQ Gain"
-        },
-        {
-          "name": "S/C Gain"
-        },
-        {
-          "name": "S/C Mix"
-        }
+        { "name": "Threshold" },
+        { "name": "Ratio" },
+        { "name": "Attack" },
+        { "name": "Release" },
+        { "name": "Output" },
+        { "name": "Knee" },
+        { "name": "Expansion Ratio" },
+        { "name": "Dry/Wet" },
+        { "name": "S/C EQ Freq" },
+        { "name": "S/C EQ Q" },
+        { "name": "S/C EQ Gain" },
+        { "name": "S/C Gain" },
+        { "name": "S/C Mix" }
       ],
       "buttons": [
-        {
-          "name": "Model",
-          "type": "param"
-        },
-        {
-          "name": "Auto Release On/Off",
-          "type": "param"
-        },
-        {
-          "name": "Makeup",
-          "type": "param"
-        },
-        {
-          "name": "LookAhead",
-          "type": "param"
-        },
-        {
-          "name": "Env Mode",
-          "type": "param"
-        },
-        {
-          "name": "S/C On",
-          "type": "param"
-        },
-        {
-          "name": "S/C Listen",
-          "type": "param"
-        },
-        {
-          "name": "S/C EQ On",
-          "type": "param"
-        },
-        {
-          "name": "S/C EQ Type",
-          "type": "param"
-        }
+        { "name": "Model", "type": "param" },
+        { "name": "Auto Release On/Off", "type": "param" },
+        { "name": "Makeup", "type": "param" },
+        { "name": "LookAhead", "type": "param" },
+        { "name": "Env Mode", "type": "param" },
+        { "name": "S/C On", "type": "param" },
+        { "name": "S/C Listen", "type": "param" },
+        { "name": "S/C EQ On", "type": "param" },
+        { "name": "S/C EQ Type", "type": "param" }
       ]
     },
     {
       "className": "GlueCompressor",
       "deviceName": "Glue Compressor",
       "encoders": [
-        {
-          "name": "Threshold"
-        },
-        {
-          "name": "Range"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Attack"
-        },
-        {
-          "name": "Ratio"
-        },
-        {
-          "name": "Release"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "S/C Gain"
-        },
-        {
-          "name": "S/C Mix"
-        },
-        {
-          "name": "S/C EQ Freq"
-        },
-        {
-          "name": "S/C EQ Gain"
-        },
-        {
-          "name": "S/C EQ Q"
-        }
+        { "name": "Threshold" },
+        { "name": "Range" },
+        { "name": "Output" },
+        { "name": "Attack" },
+        { "name": "Ratio" },
+        { "name": "Release" },
+        { "name": "Dry/Wet" },
+        { "name": "Dry/Wet" },
+        { "name": "S/C Gain" },
+        { "name": "S/C Mix" },
+        { "name": "S/C EQ Freq" },
+        { "name": "S/C EQ Gain" },
+        { "name": "S/C EQ Q" }
       ],
       "buttons": [
-        {
-          "name": "Peak Clip In",
-          "type": "param"
-        },
-        {
-          "name": "S/C On",
-          "type": "param"
-        },
-        {
-          "name": "S/C EQ Type",
-          "type": "param"
-        },
-        {
-          "name": "S/C EQ On",
-          "type": "param"
-        }
+        { "name": "Peak Clip In", "type": "param" },
+        { "name": "S/C On", "type": "param" },
+        { "name": "S/C EQ Type", "type": "param" },
+        { "name": "S/C EQ On", "type": "param" }
       ]
     },
     {
       "className": "StereoGain",
       "deviceName": "Utility",
       "encoders": [
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Balance"
-        },
-        {
-          "name": "Stereo Width"
-        },
-        {
-          "name": "Bass Freq"
-        }
+        { "name": "Output" },
+        { "name": "Balance" },
+        { "name": "Stereo Width" },
+        { "name": "Bass Freq" }
       ],
       "buttons": [
-        {
-          "name": "Mono",
-          "type": "param"
-        },
-        {
-          "name": "Bass Mono",
-          "type": "param"
-        },
-        {
-          "name": "Left Inv",
-          "type": "param"
-        },
-        {
-          "name": "Right Inv",
-          "type": "param"
-        },
-        {
-          "name": "Channel Mode",
-          "type": "param"
-        },
-        {
-          "name": "Mute",
-          "type": "param"
-        },
-        {
-          "name": "DC Filter",
-          "type": "param"
-        }
+        { "name": "Mono", "type": "param" },
+        { "name": "Bass Mono", "type": "param" },
+        { "name": "Left Inv", "type": "param" },
+        { "name": "Right Inv", "type": "param" },
+        { "name": "Channel Mode", "type": "param" },
+        { "name": "Mute", "type": "param" },
+        { "name": "DC Filter", "type": "param" }
       ]
     },
     {
       "className": "Echo",
       "deviceName": "Echo",
       "encoders": [
-        {
-          "name": "L 16th"
-        },
-        {
-          "name": "R 16th"
-        },
-        {
-          "name": "L Synced"
-        },
-        {
-          "name": "R Synced"
-        },
-        {
-          "name": "Feedback"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Reverb Level"
-        },
-        {
-          "name": "Dry Wet"
-        },
-        {
-          "name": "Reverb Decay"
-        },
-        {
-          "name": "Input Gain"
-        },
-        {
-          "name": "Repitch Smoothing Time"
-        },
-        {
-          "name": "Stereo Width"
-        },
-        {
-          "name": "Gate Thr"
-        },
-        {
-          "name": "Gate Release"
-        },
-        {
-          "name": "Duck Thr"
-        },
-        {
-          "name": "Duck Release"
-        },
-        {
-          "name": "HP Freq"
-        },
-        {
-          "name": "HP Res"
-        },
-        {
-          "name": "L Time"
-        },
-        {
-          "name": "R Time"
-        },
-        {
-          "name": "L Offset"
-        },
-        {
-          "name": "R Offset"
-        },
-        {
-          "name": "LP Freq"
-        },
-        {
-          "name": "Wobble Mrph"
-        },
-        {
-          "name": "LP Res"
-        },
-        {
-          "name": "Mod Freq"
-        },
-        {
-          "name": "Mod Rate"
-        },
-        {
-          "name": "Mod Phase"
-        },
-        {
-          "name": "Env Mix"
-        },
-        {
-          "name": "Dly < Mod"
-        },
-        {
-          "name": "Flt < Mod"
-        },
-        {
-          "name": "Noise Amt"
-        },
-        {
-          "name": "Noise Mrph"
-        },
-        {
-          "name": "Wobble Amt"
-        }
+        { "name": "L 16th" },
+        { "name": "R 16th" },
+        { "name": "L Synced" },
+        { "name": "R Synced" },
+        { "name": "Feedback" },
+        { "name": "Output" },
+        { "name": "Reverb Level" },
+        { "name": "Dry Wet" },
+        { "name": "Reverb Decay" },
+        { "name": "Input Gain" },
+        { "name": "Repitch Smoothing Time" },
+        { "name": "Stereo Width" },
+        { "name": "Gate Thr" },
+        { "name": "Gate Release" },
+        { "name": "Duck Thr" },
+        { "name": "Duck Release" },
+        { "name": "HP Freq" },
+        { "name": "HP Res" },
+        { "name": "L Time" },
+        { "name": "R Time" },
+        { "name": "L Offset" },
+        { "name": "R Offset" },
+        { "name": "LP Freq" },
+        { "name": "Wobble Mrph" },
+        { "name": "LP Res" },
+        { "name": "Mod Freq" },
+        { "name": "Mod Rate" },
+        { "name": "Mod Phase" },
+        { "name": "Env Mix" },
+        { "name": "Dly < Mod" },
+        { "name": "Flt < Mod" },
+        { "name": "Noise Amt" },
+        { "name": "Noise Mrph" },
+        { "name": "Wobble Amt" }
       ],
       "buttons": [
-        {
-          "name": "Link",
-          "type": "param"
-        },
-        {
-          "name": "Channel Mode",
-          "type": "param"
-        },
-        {
-          "name": "L Sync Mode",
-          "type": "param"
-        },
-        {
-          "name": "R Sync Mode",
-          "type": "param"
-        },
-        {
-          "name": "Gate On",
-          "type": "param"
-        },
-        {
-          "name": "Duck On",
-          "type": "param"
-        },
-        {
-          "name": "Noise On",
-          "type": "param"
-        },
-        {
-          "name": "Wobble On",
-          "type": "param"
-        },
-        {
-          "name": "L Sync",
-          "type": "param"
-        },
-        {
-          "name": "R Sync",
-          "type": "param"
-        },
-        {
-          "name": "Repitch",
-          "type": "param"
-        },
-        {
-          "name": "FB Invert",
-          "type": "param"
-        },
-        {
-          "name": "Clip Dry",
-          "type": "param"
-        },
-        {
-          "name": "Filter On",
-          "type": "param"
-        },
-        {
-          "name": "Mod Wave",
-          "type": "param"
-        },
-        {
-          "name": "Mod Sync",
-          "type": "param"
-        },
-        {
-          "name": "Mod 4x",
-          "type": "param"
-        },
-        {
-          "name": "Reverb Loc",
-          "type": "param"
-        }
+        { "name": "Link", "type": "param" },
+        { "name": "Channel Mode", "type": "param" },
+        { "name": "L Sync Mode", "type": "param" },
+        { "name": "R Sync Mode", "type": "param" },
+        { "name": "Gate On", "type": "param" },
+        { "name": "Duck On", "type": "param" },
+        { "name": "Noise On", "type": "param" },
+        { "name": "Wobble On", "type": "param" },
+        { "name": "L Sync", "type": "param" },
+        { "name": "R Sync", "type": "param" },
+        { "name": "Repitch", "type": "param" },
+        { "name": "FB Invert", "type": "param" },
+        { "name": "Clip Dry", "type": "param" },
+        { "name": "Filter On", "type": "param" },
+        { "name": "Mod Wave", "type": "param" },
+        { "name": "Mod Sync", "type": "param" },
+        { "name": "Mod 4x", "type": "param" },
+        { "name": "Reverb Loc", "type": "param" }
       ]
     },
     {
       "className": "DrumBuss",
       "deviceName": "Drum Buss",
       "encoders": [
-        {
-          "name": "Drive"
-        },
-        {
-          "name": "Crunch"
-        },
-        {
-          "name": "Damping Freq"
-        },
-        {
-          "name": "Transients"
-        },
-        {
-          "name": "Boom Freq"
-        },
-        {
-          "name": "Boom Amt"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Trim"
-        },
-        {
-          "name": "Boom Decay"
-        }
+        { "name": "Drive" },
+        { "name": "Crunch" },
+        { "name": "Damping Freq" },
+        { "name": "Transients" },
+        { "name": "Boom Freq" },
+        { "name": "Boom Amt" },
+        { "name": "Output" },
+        { "name": "Dry/Wet" },
+        { "name": "Trim" },
+        { "name": "Boom Decay" }
       ],
       "buttons": [
-        {
-          "name": "Compressor On",
-          "type": "param"
-        },
-        {
-          "name": "Drive Type",
-          "type": "param"
-        },
-        {
-          "name": "Boom Audition",
-          "type": "param"
-        }
+        { "name": "Compressor On", "type": "param" },
+        { "name": "Drive Type", "type": "param" },
+        { "name": "Boom Audition", "type": "param" }
       ]
     },
     {
       "className": "MxDeviceAudioEffect",
       "deviceName": "LFO",
       "encoders": [
-        {
-          "name": "Rate"
-        },
-        {
-          "name": "Depth"
-        },
-        {
-          "name": "Jitter"
-        },
-        {
-          "name": "Offset"
-        },
-        {
-          "name": "Phase"
-        },
-        {
-          "name": "Smooth"
-        },
-        {
-          "name": "Wave Shape"
-        }
+        { "name": "Rate" },
+        { "name": "Depth" },
+        { "name": "Jitter" },
+        { "name": "Offset" },
+        { "name": "Phase" },
+        { "name": "Smooth" },
+        { "name": "Wave Shape" }
       ],
       "buttons": [
-        {
-          "name": "Time Mode",
-          "type": "param"
-        },
-        {
-          "name": "Shape",
-          "type": "param"
-        },
-        {
-          "name": "Steps",
-          "type": "param"
-        },
-        {
-          "name": "Rate",
-          "type": "param"
-        },
-        {
-          "name": "x10",
-          "type": "param"
-        },
-        {
-          "name": "Hold",
-          "type": "param"
-        },
-        {
-          "name": "Re-Trigger",
-          "type": "param"
-        }
+        { "name": "Time Mode", "type": "param" },
+        { "name": "Shape", "type": "param" },
+        { "name": "Steps", "type": "param" },
+        { "name": "Rate", "type": "param" },
+        { "name": "x10", "type": "param" },
+        { "name": "Hold", "type": "param" },
+        { "name": "Re-Trigger", "type": "param" }
       ]
     },
     {
       "className": "PhaserNew",
       "deviceName": "Phaser-Flanger",
       "encoders": [
-        {
-          "name": "Mod Freq"
-        },
-        {
-          "name": "Mod Rate"
-        },
-        {
-          "name": "Amount"
-        },
-        {
-          "name": "Feedback"
-        },
-        {
-          "name": "Warmth"
-        },
-        {
-          "name": "Spread"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Flanger Time"
-        },
-        {
-          "name": "Doubler Time"
-        },
-        {
-          "name": "Mod Phase"
-        },
-        {
-          "name": "Spin"
-        },
-        {
-          "name": "Duty Cycle"
-        },
-        {
-          "name": "Lfo Blend"
-        },
-        {
-          "name": "Env Amount"
-        },
-        {
-          "name": "Env Attack"
-        },
-        {
-          "name": "Env Release"
-        },
-        {
-          "name": "Notches"
-        },
-        {
-          "name": "Mod Blend"
-        },
-        {
-          "name": "Center Freq"
-        },
-        {
-          "name": "Safe Freq"
-        },
-        {
-          "name": "Mod Freq 2"
-        },
-        {
-          "name": "Mod Rate 2"
-        }
+        { "name": "Mod Freq" },
+        { "name": "Mod Rate" },
+        { "name": "Amount" },
+        { "name": "Feedback" },
+        { "name": "Warmth" },
+        { "name": "Spread" },
+        { "name": "Output" },
+        { "name": "Dry/Wet" },
+        { "name": "Flanger Time" },
+        { "name": "Doubler Time" },
+        { "name": "Mod Phase" },
+        { "name": "Spin" },
+        { "name": "Duty Cycle" },
+        { "name": "Lfo Blend" },
+        { "name": "Env Amount" },
+        { "name": "Env Attack" },
+        { "name": "Env Release" },
+        { "name": "Notches" },
+        { "name": "Mod Blend" },
+        { "name": "Center Freq" },
+        { "name": "Safe Freq" },
+        { "name": "Mod Freq 2" },
+        { "name": "Mod Rate 2" }
       ],
       "buttons": [
-        {
-          "name": "Mode",
-          "type": "param"
-        },
-        {
-          "name": "Mod Sync",
-          "type": "param"
-        },
-        {
-          "name": "Mod Wave",
-          "type": "param"
-        },
-        {
-          "name": "Mod Sync 2",
-          "type": "param"
-        },
-        {
-          "name": "Spin Enabled",
-          "type": "param"
-        },
-        {
-          "name": "Env Enabled",
-          "type": "param"
-        },
-        {
-          "name": "FB Invert",
-          "type": "param"
-        }
+        { "name": "Mode", "type": "param" },
+        { "name": "Mod Sync", "type": "param" },
+        { "name": "Mod Wave", "type": "param" },
+        { "name": "Mod Sync 2", "type": "param" },
+        { "name": "Spin Enabled", "type": "param" },
+        { "name": "Env Enabled", "type": "param" },
+        { "name": "FB Invert", "type": "param" }
       ]
     },
     {
       "className": "Saturator",
       "deviceName": "Saturator",
       "encoders": [
-        {
-          "name": "Drive"
-        },
-        {
-          "name": "Output"
-        },
-        {
-          "name": "Threshold"
-        },
-        {
-          "name": "Color Amt Low"
-        },
-        {
-          "name": "Color Freq"
-        },
-        {
-          "name": "Color Width"
-        },
-        {
-          "name": "Color Amt Hi"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "WS Drive"
-        },
-        {
-          "name": "WS Linearity"
-        },
-        {
-          "name": "WS Curve"
-        },
-        {
-          "name": "WS Damp"
-        },
-        {
-          "name": "WS Period"
-        },
-        {
-          "name": "WS Depth"
-        }
+        { "name": "Drive" },
+        { "name": "Output" },
+        { "name": "Threshold" },
+        { "name": "Color Amt Low" },
+        { "name": "Color Freq" },
+        { "name": "Color Width" },
+        { "name": "Color Amt Hi" },
+        { "name": "Dry/Wet" },
+        { "name": "WS Drive" },
+        { "name": "WS Linearity" },
+        { "name": "WS Curve" },
+        { "name": "WS Damp" },
+        { "name": "WS Period" },
+        { "name": "WS Depth" }
       ],
       "buttons": [
-        {
-          "name": "Type",
-          "type": "param"
-        },
-        {
-          "name": "Pre Dc Filter",
-          "type": "param"
-        },
-        {
-          "name": "Color On",
-          "type": "param"
-        },
-        {
-          "name": "Post Clip Mode",
-          "type": "param"
-        }
+        { "name": "Type", "type": "param" },
+        { "name": "Pre Dc Filter", "type": "param" },
+        { "name": "Color On", "type": "param" },
+        { "name": "Post Clip Mode", "type": "param" }
       ]
     },
     {
       "className": "Shifter",
       "deviceName": "Shifter",
       "encoders": [
-        {
-          "name": "Pitch Fine"
-        },
-        {
-          "name": "Pitch Coarse"
-        },
-        {
-          "name": "Tone"
-        },
-        {
-          "name": "Delay Time"
-        },
-        {
-          "name": "FShift Coarse"
-        },
-        {
-          "name": "Delay Synced"
-        },
-        {
-          "name": "Delay Feedback"
-        },
-        {
-          "name": "Dry/Wet"
-        },
-        {
-          "name": "Lfo Amount Hz"
-        },
-        {
-          "name": "Lfo Amount St"
-        },
-        {
-          "name": "Lfo Rate Hz"
-        },
-        {
-          "name": "Lfo S. Rate"
-        },
-        {
-          "name": "Lfo Phase"
-        },
-        {
-          "name": "Lfo Spin Amount"
-        },
-        {
-          "name": "Lfo Offset"
-        },
-        {
-          "name": "Lfo Width"
-        },
-        {
-          "name": "Lfo Duty Cycle"
-        },
-        {
-          "name": "Pitch Window"
-        },
-        {
-          "name": "Mod Fine"
-        },
-        {
-          "name": "RM Coarse"
-        },
-        {
-          "name": "RM Drive Gain"
-        },
-        {
-          "name": "MidiPitch Glide"
-        },
-        {
-          "name": "Env Attack"
-        },
-        {
-          "name": "Env Release"
-        },
-        {
-          "name": "Env Amount Hz"
-        },
-        {
-          "name": "Env Amount St"
-        }
+        { "name": "Pitch Fine" },
+        { "name": "Pitch Coarse" },
+        { "name": "Tone" },
+        { "name": "Delay Time" },
+        { "name": "FShift Coarse" },
+        { "name": "Delay Synced" },
+        { "name": "Delay Feedback" },
+        { "name": "Dry/Wet" },
+        { "name": "Lfo Amount Hz" },
+        { "name": "Lfo Amount St" },
+        { "name": "Lfo Rate Hz" },
+        { "name": "Lfo S. Rate" },
+        { "name": "Lfo Phase" },
+        { "name": "Lfo Spin Amount" },
+        { "name": "Lfo Offset" },
+        { "name": "Lfo Width" },
+        { "name": "Lfo Duty Cycle" },
+        { "name": "Pitch Window" },
+        { "name": "Mod Fine" },
+        { "name": "RM Coarse" },
+        { "name": "RM Drive Gain" },
+        { "name": "MidiPitch Glide" },
+        { "name": "Env Attack" },
+        { "name": "Env Release" },
+        { "name": "Env Amount Hz" },
+        { "name": "Env Amount St" }
       ],
       "buttons": [
-        {
-          "name": "Mode",
-          "type": "param"
-        },
-        {
-          "name": "Delay On",
-          "type": "param"
-        },
-        {
-          "name": "Delay Sync",
-          "type": "param"
-        },
-        {
-          "name": "Env On",
-          "type": "param"
-        },
-        {
-          "name": "Lfo Waveform",
-          "type": "param"
-        },
-        {
-          "name": "Lfo Sync",
-          "type": "param"
-        },
-        {
-          "name": "Lfo Spin",
-          "type": "param"
-        },
-        {
-          "name": "RM Drive",
-          "type": "param"
-        },
-        {
-          "name": "Wide",
-          "type": "param"
-        }
+        { "name": "Mode", "type": "param" },
+        { "name": "Delay On", "type": "param" },
+        { "name": "Delay Sync", "type": "param" },
+        { "name": "Env On", "type": "param" },
+        { "name": "Lfo Waveform", "type": "param" },
+        { "name": "Lfo Sync", "type": "param" },
+        { "name": "Lfo Spin", "type": "param" },
+        { "name": "RM Drive", "type": "param" },
+        { "name": "Wide", "type": "param" }
       ]
     },
     {
       "className": "MxDeviceMidiEffect",
       "deviceName": "SQ Sequencer",
       "encoders": [
-        {
-          "name": "PStep1",
-          "display": "Note 1"
-        },
-        {
-          "name": "PStep2",
-          "display": "Note 2"
-        },
-        {
-          "name": "PStep3",
-          "display": "Note 3"
-        },
-        {
-          "name": "PStep4",
-          "display": "Note 4"
-        },
-        {
-          "name": "PStep5",
-          "display": "Note 5"
-        },
-        {
-          "name": "PStep6",
-          "display": "Note 6"
-        },
-        {
-          "name": "PStep7",
-          "display": "Note 7"
-        },
-        {
-          "name": "PStep8",
-          "display": "Note 8"
-        },
-        {
-          "name": "VelStep1",
-          "display": "Vel 1"
-        },
-        {
-          "name": "VelStep2",
-          "display": "Vel 2"
-        },
-        {
-          "name": "VelStep3",
-          "display": "Vel 3"
-        },
-        {
-          "name": "VelStep4",
-          "display": "Vel 4"
-        },
-        {
-          "name": "VelStep5",
-          "display": "Vel 5"
-        },
-        {
-          "name": "VelStep6",
-          "display": "Vel 6"
-        },
-        {
-          "name": "VelStep7",
-          "display": "Vel 7"
-        },
-        {
-          "name": "VelStep8",
-          "display": "Vel 8"
-        },
-        {
-          "name": "SQMax",
-          "display": "Seq length"
-        },
-        {
-          "name": "Swing"
-        },
-        {
-          "name": "LStep1"
-        },
-        {
-          "name": "LStep2"
-        },
-        {
-          "name": "LStep3"
-        },
-        {
-          "name": "LStep4"
-        },
-        {
-          "name": "LStep5"
-        },
-        {
-          "name": "LStep6"
-        },
-        {
-          "name": "VelStep9"
-        },
-        {
-          "name": "VelStep10"
-        },
-        {
-          "name": "VelStep11"
-        },
-        {
-          "name": "VelStep12"
-        },
-        {
-          "name": "VelStep13"
-        },
-        {
-          "name": "VelStep14"
-        },
-        {
-          "name": "VelStep15"
-        },
-        {
-          "name": "VelStep16"
-        },
-        {
-          "name": "LStep9"
-        },
-        {
-          "name": "LStep10"
-        },
-        {
-          "name": "LStep11"
-        },
-        {
-          "name": "LStep12"
-        },
-        {
-          "name": "LStep13"
-        },
-        {
-          "name": "LStep14"
-        },
-        {
-          "name": "LStep15"
-        },
-        {
-          "name": "LStep16"
-        },
-        {
-          "name": "PStep10"
-        },
-        {
-          "name": "PStep11"
-        },
-        {
-          "name": "PStep12"
-        },
-        {
-          "name": "PStep13"
-        },
-        {
-          "name": "PStep14"
-        },
-        {
-          "name": "PStep15"
-        },
-        {
-          "name": "PStep16"
-        },
-        {
-          "name": "PStep9"
-        },
-        {
-          "name": "LStep7"
-        },
-        {
-          "name": "LStep8"
-        },
-        {
-          "name": "BPM"
-        },
-        {
-          "name": "ConStep1"
-        },
-        {
-          "name": "ConStep10"
-        },
-        {
-          "name": "ConStep11"
-        },
-        {
-          "name": "ConStep12"
-        },
-        {
-          "name": "ConStep13"
-        },
-        {
-          "name": "ConStep14"
-        },
-        {
-          "name": "ConStep15"
-        },
-        {
-          "name": "ConStep16"
-        },
-        {
-          "name": "ConStep2"
-        },
-        {
-          "name": "ConStep3"
-        },
-        {
-          "name": "ConStep4"
-        },
-        {
-          "name": "ConStep5"
-        },
-        {
-          "name": "ConStep6"
-        },
-        {
-          "name": "ConStep7"
-        },
-        {
-          "name": "ConStep8"
-        },
-        {
-          "name": "ConStep9"
-        },
-        {
-          "name": "ConditionAll"
-        },
-        {
-          "name": "ConditionMax1"
-        },
-        {
-          "name": "ConditionMax2"
-        },
-        {
-          "name": "ConditionMin1"
-        },
-        {
-          "name": "ConditionMin2"
-        },
-        {
-          "name": "CondRandRange"
-        },
-        {
-          "name": "LengthMax1"
-        },
-        {
-          "name": "LengthMax2"
-        },
-        {
-          "name": "LengthMin2"
-        },
-        {
-          "name": "LengthAll"
-        },
-        {
-          "name": "LengthRandRange"
-        },
-        {
-          "name": "LengthMin1"
-        },
-        {
-          "name": "OStep1"
-        },
-        {
-          "name": "OStep10"
-        },
-        {
-          "name": "OStep11"
-        },
-        {
-          "name": "OStep12"
-        },
-        {
-          "name": "OStep13"
-        },
-        {
-          "name": "OStep14"
-        },
-        {
-          "name": "OStep15"
-        },
-        {
-          "name": "OStep16"
-        },
-        {
-          "name": "OStep2"
-        },
-        {
-          "name": "OStep3"
-        },
-        {
-          "name": "OStep4"
-        },
-        {
-          "name": "OStep5"
-        },
-        {
-          "name": "OStep6"
-        },
-        {
-          "name": "OStep7"
-        },
-        {
-          "name": "OStep8"
-        },
-        {
-          "name": "OStep9"
-        },
-        {
-          "name": "OctaveMax1"
-        },
-        {
-          "name": "OctaveMax2"
-        },
-        {
-          "name": "OctaveMin1"
-        },
-        {
-          "name": "OctaveMin2"
-        },
-        {
-          "name": "OctaveAll"
-        },
-        {
-          "name": "OctaveRandRange"
-        },
-        {
-          "name": "PitchMax1"
-        },
-        {
-          "name": "PitchMax2"
-        },
-        {
-          "name": "PitchMin1"
-        },
-        {
-          "name": "PitchMin2"
-        },
-        {
-          "name": "PitchAll"
-        },
-        {
-          "name": "PitchRandRange"
-        },
-        {
-          "name": "RatchetAll"
-        },
-        {
-          "name": "RatchetMax1"
-        },
-        {
-          "name": "RatchetMax2"
-        },
-        {
-          "name": "RatchetMin1"
-        },
-        {
-          "name": "RatchetMin2"
-        },
-        {
-          "name": "RatStep1"
-        },
-        {
-          "name": "RatStep10"
-        },
-        {
-          "name": "RatStep11"
-        },
-        {
-          "name": "RatStep12"
-        },
-        {
-          "name": "RatStep13"
-        },
-        {
-          "name": "RatStep14"
-        },
-        {
-          "name": "RatStep15"
-        },
-        {
-          "name": "RatStep16"
-        },
-        {
-          "name": "RatStep2"
-        },
-        {
-          "name": "RatStep3"
-        },
-        {
-          "name": "RatStep4"
-        },
-        {
-          "name": "RatStep5"
-        },
-        {
-          "name": "RatStep6"
-        },
-        {
-          "name": "RatStep7"
-        },
-        {
-          "name": "RatStep8"
-        },
-        {
-          "name": "RatStep9"
-        },
-        {
-          "name": "RatchetRandRange"
-        },
-        {
-          "name": "SQMax"
-        },
-        {
-          "name": "SQMax2"
-        },
-        {
-          "name": "SQMin"
-        },
-        {
-          "name": "SQMin2"
-        },
-        {
-          "name": "StepNumber"
-        },
-        {
-          "name": "TimeShiftAll"
-        },
-        {
-          "name": "TimeShiftMax1"
-        },
-        {
-          "name": "TimeShiftMax2"
-        },
-        {
-          "name": "TimeShiftMin1"
-        },
-        {
-          "name": "TimeShiftMin2"
-        },
-        {
-          "name": "TSRandRange"
-        },
-        {
-          "name": "TShift1"
-        },
-        {
-          "name": "TShift10"
-        },
-        {
-          "name": "TShift11"
-        },
-        {
-          "name": "TShift12"
-        },
-        {
-          "name": "TShift13"
-        },
-        {
-          "name": "TShift14"
-        },
-        {
-          "name": "TShift15"
-        },
-        {
-          "name": "TShift16"
-        },
-        {
-          "name": "TShift2"
-        },
-        {
-          "name": "TShift3"
-        },
-        {
-          "name": "TShift4"
-        },
-        {
-          "name": "TShift5"
-        },
-        {
-          "name": "TShift6"
-        },
-        {
-          "name": "TShift7"
-        },
-        {
-          "name": "TShift8"
-        },
-        {
-          "name": "TShift9"
-        },
-        {
-          "name": "Tab"
-        },
-        {
-          "name": "VelocityAll"
-        },
-        {
-          "name": "VelocityMax1"
-        },
-        {
-          "name": "VelocityMax2"
-        },
-        {
-          "name": "VelocityMin1"
-        },
-        {
-          "name": "VelocityMin2"
-        },
-        {
-          "name": "VelRandRange"
-        }
+        { "name": "PStep1",   "display": "Note 1"
+        },
+        { "name": "PStep2",   "display": "Note 2"
+        },
+        { "name": "PStep3",   "display": "Note 3"
+        },
+        { "name": "PStep4",   "display": "Note 4"
+        },
+        { "name": "PStep5",   "display": "Note 5"
+        },
+        { "name": "PStep6",   "display": "Note 6"
+        },
+        { "name": "PStep7",   "display": "Note 7"
+        },
+        { "name": "PStep8",   "display": "Note 8"
+        },
+        { "name": "VelStep1",   "display": "Vel 1"
+        },
+        { "name": "VelStep2",   "display": "Vel 2"
+        },
+        { "name": "VelStep3",   "display": "Vel 3"
+        },
+        { "name": "VelStep4",   "display": "Vel 4"
+        },
+        { "name": "VelStep5",   "display": "Vel 5"
+        },
+        { "name": "VelStep6",   "display": "Vel 6"
+        },
+        { "name": "VelStep7",   "display": "Vel 7"
+        },
+        { "name": "VelStep8",   "display": "Vel 8"
+        },
+        { "name": "SQMax",   "display": "Seq length"
+        },
+        { "name": "Swing" },
+        { "name": "LStep1" },
+        { "name": "LStep2" },
+        { "name": "LStep3" },
+        { "name": "LStep4" },
+        { "name": "LStep5" },
+        { "name": "LStep6" },
+        { "name": "VelStep9" },
+        { "name": "VelStep10" },
+        { "name": "VelStep11" },
+        { "name": "VelStep12" },
+        { "name": "VelStep13" },
+        { "name": "VelStep14" },
+        { "name": "VelStep15" },
+        { "name": "VelStep16" },
+        { "name": "LStep9" },
+        { "name": "LStep10" },
+        { "name": "LStep11" },
+        { "name": "LStep12" },
+        { "name": "LStep13" },
+        { "name": "LStep14" },
+        { "name": "LStep15" },
+        { "name": "LStep16" },
+        { "name": "PStep10" },
+        { "name": "PStep11" },
+        { "name": "PStep12" },
+        { "name": "PStep13" },
+        { "name": "PStep14" },
+        { "name": "PStep15" },
+        { "name": "PStep16" },
+        { "name": "PStep9" },
+        { "name": "LStep7" },
+        { "name": "LStep8" },
+        { "name": "BPM" },
+        { "name": "ConStep1" },
+        { "name": "ConStep10" },
+        { "name": "ConStep11" },
+        { "name": "ConStep12" },
+        { "name": "ConStep13" },
+        { "name": "ConStep14" },
+        { "name": "ConStep15" },
+        { "name": "ConStep16" },
+        { "name": "ConStep2" },
+        { "name": "ConStep3" },
+        { "name": "ConStep4" },
+        { "name": "ConStep5" },
+        { "name": "ConStep6" },
+        { "name": "ConStep7" },
+        { "name": "ConStep8" },
+        { "name": "ConStep9" },
+        { "name": "ConditionAll" },
+        { "name": "ConditionMax1" },
+        { "name": "ConditionMax2" },
+        { "name": "ConditionMin1" },
+        { "name": "ConditionMin2" },
+        { "name": "CondRandRange" },
+        { "name": "LengthMax1" },
+        { "name": "LengthMax2" },
+        { "name": "LengthMin2" },
+        { "name": "LengthAll" },
+        { "name": "LengthRandRange" },
+        { "name": "LengthMin1" },
+        { "name": "OStep1" },
+        { "name": "OStep10" },
+        { "name": "OStep11" },
+        { "name": "OStep12" },
+        { "name": "OStep13" },
+        { "name": "OStep14" },
+        { "name": "OStep15" },
+        { "name": "OStep16" },
+        { "name": "OStep2" },
+        { "name": "OStep3" },
+        { "name": "OStep4" },
+        { "name": "OStep5" },
+        { "name": "OStep6" },
+        { "name": "OStep7" },
+        { "name": "OStep8" },
+        { "name": "OStep9" },
+        { "name": "OctaveMax1" },
+        { "name": "OctaveMax2" },
+        { "name": "OctaveMin1" },
+        { "name": "OctaveMin2" },
+        { "name": "OctaveAll" },
+        { "name": "OctaveRandRange" },
+        { "name": "PitchMax1" },
+        { "name": "PitchMax2" },
+        { "name": "PitchMin1" },
+        { "name": "PitchMin2" },
+        { "name": "PitchAll" },
+        { "name": "PitchRandRange" },
+        { "name": "RatchetAll" },
+        { "name": "RatchetMax1" },
+        { "name": "RatchetMax2" },
+        { "name": "RatchetMin1" },
+        { "name": "RatchetMin2" },
+        { "name": "RatStep1" },
+        { "name": "RatStep10" },
+        { "name": "RatStep11" },
+        { "name": "RatStep12" },
+        { "name": "RatStep13" },
+        { "name": "RatStep14" },
+        { "name": "RatStep15" },
+        { "name": "RatStep16" },
+        { "name": "RatStep2" },
+        { "name": "RatStep3" },
+        { "name": "RatStep4" },
+        { "name": "RatStep5" },
+        { "name": "RatStep6" },
+        { "name": "RatStep7" },
+        { "name": "RatStep8" },
+        { "name": "RatStep9" },
+        { "name": "RatchetRandRange" },
+        { "name": "SQMax" },
+        { "name": "SQMax2" },
+        { "name": "SQMin" },
+        { "name": "SQMin2" },
+        { "name": "StepNumber" },
+        { "name": "TimeShiftAll" },
+        { "name": "TimeShiftMax1" },
+        { "name": "TimeShiftMax2" },
+        { "name": "TimeShiftMin1" },
+        { "name": "TimeShiftMin2" },
+        { "name": "TSRandRange" },
+        { "name": "TShift1" },
+        { "name": "TShift10" },
+        { "name": "TShift11" },
+        { "name": "TShift12" },
+        { "name": "TShift13" },
+        { "name": "TShift14" },
+        { "name": "TShift15" },
+        { "name": "TShift16" },
+        { "name": "TShift2" },
+        { "name": "TShift3" },
+        { "name": "TShift4" },
+        { "name": "TShift5" },
+        { "name": "TShift6" },
+        { "name": "TShift7" },
+        { "name": "TShift8" },
+        { "name": "TShift9" },
+        { "name": "Tab" },
+        { "name": "VelocityAll" },
+        { "name": "VelocityMax1" },
+        { "name": "VelocityMax2" },
+        { "name": "VelocityMin1" },
+        { "name": "VelocityMin2" },
+        { "name": "VelRandRange" }
       ],
       "buttons": [
-        {
-          "name": "RandPitch",
-          "display": "Random Pitch",
-          "type": "param"
-        },
-        {
-          "name": "VelRandom",
-          "display": "Random Velocity",
-          "type": "param"
-        },
-        {
-          "name": "RandLength",
-          "display": "Random Length",
-          "type": "param"
-        },
-        {
-          "name": "RandSteps",
-          "display": "Random Steps",
-          "type": "param"
-        },
-        {
-          "name": "ResetPitch",
-          "display": "Reset Pitch",
-          "type": "param"
-        },
-        {
-          "name": "ResetVelocity",
-          "display": "Reset Velocity",
-          "type": "param"
-        },
-        {
-          "name": "ResetLength",
-          "display": "Reset Length",
-          "type": "param"
-        },
-        {
-          "name": "ResetSteps",
-          "display": "Reset Steps",
-          "type": "param"
-        },
-        {
-          "name": "Scale",
-          "type": "param"
-        },
-        {
-          "name": "ResetOctave",
-          "type": "param"
-        },
-        {
-          "name": "ResetRatchet",
-          "type": "param"
-        },
-        {
-          "name": "ResetTS",
-          "type": "param"
-        },
-        {
-          "name": "RandOct",
-          "type": "param"
-        },
-        {
-          "name": "ClockSource",
-          "type": "param"
-        },
-        {
-          "name": "ConditionDirection",
-          "type": "param"
-        },
-        {
-          "name": "ConditionLock",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleCond",
-          "type": "param"
-        },
-        {
-          "name": "ConditionRand",
-          "type": "param"
-        },
-        {
-          "name": "Division",
-          "type": "param"
-        },
-        {
-          "name": "FollowRoot",
-          "type": "param"
-        },
-        {
-          "name": "FollowScales",
-          "type": "param"
-        },
-        {
-          "name": "LaneLock",
-          "type": "param"
-        },
-        {
-          "name": "LengthDirection",
-          "type": "param"
-        },
-        {
-          "name": "LengthLock",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleLength",
-          "type": "param"
-        },
-        {
-          "name": "LockSelect",
-          "type": "param"
-        },
-        {
-          "name": "MIDItrnsp",
-          "type": "param"
-        },
-        {
-          "name": "OctaveDirection",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleOct",
-          "type": "param"
-        },
-        {
-          "name": "OctaveLock",
-          "type": "param"
-        },
-        {
-          "name": "PitchDirection",
-          "type": "param"
-        },
-        {
-          "name": "ScramblePitch",
-          "type": "param"
-        },
-        {
-          "name": "PitchLock",
-          "type": "param"
-        },
-        {
-          "name": "RandTS",
-          "type": "param"
-        },
-        {
-          "name": "RandomSelect",
-          "type": "param"
-        },
-        {
-          "name": "RatchetDirection",
-          "type": "param"
-        },
-        {
-          "name": "RatchetLock",
-          "type": "param"
-        },
-        {
-          "name": "RatchetRand",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleRatchet",
-          "type": "param"
-        },
-        {
-          "name": "ResetCond",
-          "type": "param"
-        },
-        {
-          "name": "SQ Run",
-          "type": "param"
-        },
-        {
-          "name": "SQDirection",
-          "type": "param"
-        },
-        {
-          "name": "ShiftDown",
-          "type": "param"
-        },
-        {
-          "name": "ShiftLeft",
-          "type": "param"
-        },
-        {
-          "name": "ShiftRight",
-          "type": "param"
-        },
-        {
-          "name": "ShiftUp",
-          "type": "param"
-        },
-        {
-          "name": "StepMode",
-          "type": "param"
-        },
-        {
-          "name": "On/Off",
-          "type": "param"
-        },
-        {
-          "name": "StepRecord",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleSteps",
-          "type": "param"
-        },
-        {
-          "name": "TimeShiftDirection",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleTS",
-          "type": "param"
-        },
-        {
-          "name": "Time/MIDI",
-          "type": "param"
-        },
-        {
-          "name": "TimeShiftLock",
-          "type": "param"
-        },
-        {
-          "name": "VelocityDirection",
-          "type": "param"
-        },
-        {
-          "name": "VelocityLock",
-          "type": "param"
-        },
-        {
-          "name": "ScrambleVel",
-          "type": "param"
-        },
-        {
-          "name": "View",
-          "type": "param"
-        },
-        {
-          "name": "TimeMode",
-          "type": "param"
-        },
-        {
-          "name": "DotSync",
-          "type": "param"
-        },
-        {
-          "name": "Triplet",
-          "type": "param"
-        }
+        { "name": "RandPitch",   "display": "Random Pitch", "type": "param" },
+        { "name": "VelRandom",   "display": "Random Velocity", "type": "param" },
+        { "name": "RandLength",   "display": "Random Length", "type": "param" },
+        { "name": "RandSteps",   "display": "Random Steps", "type": "param" },
+        { "name": "ResetPitch",   "display": "Reset Pitch", "type": "param" },
+        { "name": "ResetVelocity",   "display": "Reset Velocity", "type": "param" },
+        { "name": "ResetLength",   "display": "Reset Length", "type": "param" },
+        { "name": "ResetSteps",   "display": "Reset Steps", "type": "param" },
+        { "name": "Scale", "type": "param" },
+        { "name": "ResetOctave", "type": "param" },
+        { "name": "ResetRatchet", "type": "param" },
+        { "name": "ResetTS", "type": "param" },
+        { "name": "RandOct", "type": "param" },
+        { "name": "ClockSource", "type": "param" },
+        { "name": "ConditionDirection", "type": "param" },
+        { "name": "ConditionLock", "type": "param" },
+        { "name": "ScrambleCond", "type": "param" },
+        { "name": "ConditionRand", "type": "param" },
+        { "name": "Division", "type": "param" },
+        { "name": "FollowRoot", "type": "param" },
+        { "name": "FollowScales", "type": "param" },
+        { "name": "LaneLock", "type": "param" },
+        { "name": "LengthDirection", "type": "param" },
+        { "name": "LengthLock", "type": "param" },
+        { "name": "ScrambleLength", "type": "param" },
+        { "name": "LockSelect", "type": "param" },
+        { "name": "MIDItrnsp", "type": "param" },
+        { "name": "OctaveDirection", "type": "param" },
+        { "name": "ScrambleOct", "type": "param" },
+        { "name": "OctaveLock", "type": "param" },
+        { "name": "PitchDirection", "type": "param" },
+        { "name": "ScramblePitch", "type": "param" },
+        { "name": "PitchLock", "type": "param" },
+        { "name": "RandTS", "type": "param" },
+        { "name": "RandomSelect", "type": "param" },
+        { "name": "RatchetDirection", "type": "param" },
+        { "name": "RatchetLock", "type": "param" },
+        { "name": "RatchetRand", "type": "param" },
+        { "name": "ScrambleRatchet", "type": "param" },
+        { "name": "ResetCond", "type": "param" },
+        { "name": "SQ Run", "type": "param" },
+        { "name": "SQDirection", "type": "param" },
+        { "name": "ShiftDown", "type": "param" },
+        { "name": "ShiftLeft", "type": "param" },
+        { "name": "ShiftRight", "type": "param" },
+        { "name": "ShiftUp", "type": "param" },
+        { "name": "StepMode", "type": "param" },
+        { "name": "On/Off", "type": "param" },
+        { "name": "StepRecord", "type": "param" },
+        { "name": "ScrambleSteps", "type": "param" },
+        { "name": "TimeShiftDirection", "type": "param" },
+        { "name": "ScrambleTS", "type": "param" },
+        { "name": "Time/MIDI", "type": "param" },
+        { "name": "TimeShiftLock", "type": "param" },
+        { "name": "VelocityDirection", "type": "param" },
+        { "name": "VelocityLock", "type": "param" },
+        { "name": "ScrambleVel", "type": "param" },
+        { "name": "View", "type": "param" },
+        { "name": "TimeMode", "type": "param" },
+        { "name": "DotSync", "type": "param" },
+        { "name": "Triplet", "type": "param" }
       ]
     }
   ]

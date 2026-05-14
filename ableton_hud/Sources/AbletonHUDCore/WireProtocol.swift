@@ -41,7 +41,8 @@ public enum WireMessage: Equatable {
 /// Keepalive — resets the HUD dismiss timer without changing display state.
     case ping
     case mode(isShift: Bool)
-    case page(encPage: Int, encTotal: Int, btnPage: Int, btnTotal: Int)
+    case page(encPage: Int, encTotal: Int, btnPage: Int, btnTotal: Int,
+              encLabel: String, btnLabel: String)
     case unknown
 }
 
@@ -96,20 +97,20 @@ public enum WireProtocol {
                  : .unknown
 
         case "PAGE":
-            guard fields.count == 5,
+            // Accept legacy 5-field form (counts only) and 7-field form
+            // (counts + enc_label + btn_label). Labels carry "Best of" on
+            // page 1 of a known device or the standard-bank name(s) for
+            // higher pages — empty string means "no label this page".
+            guard fields.count == 5 || fields.count == 7,
                   let encPage = Int(fields[1]),
                   let encTotal = Int(fields[2]),
                   let btnPage = Int(fields[3]),
                   let btnTotal = Int(fields[4]) else { return .unknown }
-            return .page(encPage: encPage, encTotal: encTotal, btnPage: btnPage, btnTotal: btnTotal)
-
-        case "PAGE":
-            guard fields.count == 5,
-                  let encPage = Int(fields[1]),
-                  let encTotal = Int(fields[2]),
-                  let btnPage = Int(fields[3]),
-                  let btnTotal = Int(fields[4]) else { return .unknown }
-            return .page(encPage: encPage, encTotal: encTotal, btnPage: btnPage, btnTotal: btnTotal)
+            let encLabel = fields.count == 7 ? fields[5] : ""
+            let btnLabel = fields.count == 7 ? fields[6] : ""
+            return .page(encPage: encPage, encTotal: encTotal,
+                         btnPage: btnPage, btnTotal: btnTotal,
+                         encLabel: encLabel, btnLabel: btnLabel)
 
         default:
             return .unknown

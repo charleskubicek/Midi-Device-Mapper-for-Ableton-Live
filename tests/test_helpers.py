@@ -705,5 +705,344 @@ class TestRefreshBurst(unittest.TestCase):
         self.assertFalse(self.remote._in_burst)
 
 
+def _simpler_with_4_switches(buttons):
+    """Helper: Helpers instance with 4 physical switches, matching the LC setup."""
+    return Helpers(
+        Mock(), Mock(),
+        slot_assignments=[],
+        switch_slot_assignments=[(4, 'switch1'), (5, 'switch2'), (6, 'switch3'), (7, 'switch4')],
+        parameter_mappings_raw={"devices": [{
+            "className": "OriginalSimpler",
+            "encoders": [],
+            "buttons": buttons,
+        }]},
+    )
+
+
+def _simpler_device(param_names):
+    """FakeSimpler with named parameters matching the given list."""
+    params = [FakeParameter(name=n, original_name=n, is_quantized=True, min=0, max=2, value=0)
+              for n in param_names]
+    return FakeSimpler(parameters=params)
+
+
+class TestButtonPaging(unittest.TestCase):
+    """Button paging for known-class devices (BOB table)."""
+
+    BUTTONS_8 = [{"name": f"btn{i}", "type": "param"} for i in range(8)]
+
+    def _make_device(self):
+        params = [FakeParameter(name=f"btn{i}", original_name=f"btn{i}",
+                                is_quantized=True, min=0, max=1, value=0)
+                  for i in range(8)]
+        return FakeDevice(class_name="OriginalSimpler", parameters=params)
+
+    def test_button_pages_count_known_class(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        # 8 buttons, 4 switches per page → 2 pages
+        self.assertEqual(helpers._button_pages_count(device), 2)
+
+    def test_button_pages_count_one_page_when_few_buttons(self):
+        helpers = _simpler_with_4_switches([{"name": "btn0", "type": "param"}])
+        device = FakeDevice(
+            class_name="OriginalSimpler",
+            parameters=[FakeParameter(name="btn0", original_name="btn0")],
+        )
+        self.assertEqual(helpers._button_pages_count(device), 1)
+
+    def test_page1_shows_first_4_buttons(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        helpers.selected_device_changed(device)
+        # switch_idx 0..3 on page 1 → buttons 0..3
+        for switch_idx in range(4):
+            info = helpers._resolve_switch(device, switch_idx)
+            self.assertIsNotNone(info, f"page 1 switch {switch_idx} should resolve")
+            self.assertEqual(info['alias'], f"btn{switch_idx}")
+
+    def test_page2_shows_next_4_buttons(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        helpers.selected_device_changed(device)
+        helpers._button_page = 2
+        # switch_idx 0..3 on page 2 → buttons 4..7
+        for switch_idx in range(4):
+            info = helpers._resolve_switch(device, switch_idx)
+            self.assertIsNotNone(info, f"page 2 switch {switch_idx} should resolve")
+            self.assertEqual(info['alias'], f"btn{switch_idx + 4}")
+
+    def test_encoder_pager_also_advances_button_page(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        helpers.selected_device_changed(device)
+        # Add some encoder pages so pager has something to advance
+        helpers._encoder_page = 1
+        # Directly call inc with target='encoder'
+        helpers._last_selected_device = device
+        helpers.parameter_page_inc('encoder')
+        self.assertEqual(helpers._button_page, 2,
+                         "Button page should advance in sync with encoder page")
+
+    def test_encoder_pager_dec_also_decrements_button_page(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        helpers.selected_device_changed(device)
+        helpers._button_page = 2
+        helpers._encoder_page = 2
+        helpers._last_selected_device = device
+        helpers.parameter_page_dec('encoder')
+        self.assertEqual(helpers._button_page, 1)
+
+    def test_button_page_capped_at_max(self):
+        helpers = _simpler_with_4_switches(self.BUTTONS_8)
+        device = self._make_device()
+        helpers.selected_device_changed(device)
+        helpers._button_page = 2
+        helpers._encoder_page = 2
+        helpers._last_selected_device = device
+        # Only 2 button pages — inc should not go to page 3
+        helpers.parameter_page_inc('encoder')
+        self.assertEqual(helpers._button_page, 2)
+
+
+class TestButtonPagingUnknownClass(unittest.TestCase):
+    """Button paging for unknown-class devices (quantized fallback) is unchanged."""
+
+    def test_unknown_class_still_uses_button_slot_count(self):
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[],
+            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            button_slot_count=2,
+        )
+        params = [FakeParameter(name="q0", is_quantized=True, min=0, max=1),
+                  FakeParameter(name="q1", is_quantized=True, min=0, max=1),
+                  FakeParameter(name="q2", is_quantized=True, min=0, max=1),
+                  FakeParameter(name="q3", is_quantized=True, min=0, max=1)]
+        device = FakeDevice(class_name="Unknown", parameters=params)
+        self.assertEqual(helpers._button_pages_count(device), 2)
+
+
+class TestSimplerParamButtonDebugLogging(unittest.TestCase):
+    """When a param button name isn't found, a log message is emitted."""
+
+    def test_missing_param_button_logs_name(self):
+        manager = Mock()
+        helpers = _simpler_with_4_switches([
+            {"lom_property": "playback_mode", "type": "enum"},
+            {"name": "NonExistentParam", "type": "param"},
+        ])
+        helpers._manager = manager
+        device = FakeSimpler(parameters=[FakeParameter(name="p0", original_name="p0")])
+        helpers.selected_device_changed(device)
+        # switch1 (enum) resolves fine; switch2 (bad param name) should log
+        info1 = helpers._resolve_switch(device, 0)
+        self.assertIsNotNone(info1, "lom_property button should still resolve")
+        info2 = helpers._resolve_switch(device, 1)
+        self.assertIsNone(info2, "bad param should not resolve")
+        manager.log_message.assert_called()
+        log_msg = manager.log_message.call_args[0][0]
+        self.assertIn("NonExistentParam", log_msg)
+
+
+class TestM4LDeviceDisambiguation(unittest.TestCase):
+    """All Max-for-Live plugins share class_name='MxDeviceMidiEffect' (or
+    -AudioEffect). The custom-mapping table must match on device.name so an
+    entry for 'SQ Sequencer' is not applied to every M4L plugin loaded."""
+
+    def _mappings(self):
+        return {"devices": [
+            {
+                "className": "MxDeviceMidiEffect",
+                "deviceName": "SQ Sequencer",
+                "encoders": [{"name": "PStep1"}],
+                "buttons": [{"name": "FollowRoot", "type": "param"}],
+            },
+            {
+                "className": "MxDeviceMidiEffect",
+                "deviceName": "Other M4L",
+                "encoders": [{"name": "Aux1"}],
+                "buttons": [],
+            },
+        ]}
+
+    def test_matching_m4l_device_resolves_to_its_own_entry(self):
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[(0, 'switch1')],
+            parameter_mappings_raw=self._mappings(),
+        )
+        device = FakeDevice(
+            class_name="MxDeviceMidiEffect", name="Other M4L",
+            parameters=[
+                FakeParameter(name="Device On"),
+                FakeParameter(name="Aux1", min=0, max=1, value=0),
+            ],
+        )
+        # encoder 1 should resolve to "Aux1" via the "Other M4L" entry,
+        # not to "PStep1" from the SQ Sequencer entry.
+        rp = helpers._resolve_encoder(device, 1)
+        self.assertIsNotNone(rp)
+        self.assertIs(rp.param, device.parameters[1])
+
+    def test_unmatched_m4l_device_falls_back_to_unknown_class(self):
+        """An M4L device with no JSON entry must not pick up another M4L
+        device's mapping. It should be treated as unknown."""
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[(0, 'switch1')],
+            parameter_mappings_raw=self._mappings(),
+        )
+        device = FakeDevice(
+            class_name="MxDeviceMidiEffect", name="Yet Another M4L",
+            parameters=[
+                FakeParameter(name="Device On"),
+                FakeParameter(name="Random", min=0, max=1, value=0),
+            ],
+        )
+        self.assertFalse(helpers.has_user_defined_parameters(device))
+        # _resolve_switch on unknown class falls back to quantized chunking,
+        # which finds nothing here — and crucially does not try "FollowRoot".
+        info = helpers._resolve_switch(device, 0)
+        self.assertIsNone(info)
+
+    def test_standard_banks_skipped_for_m4l_classes(self):
+        """Even if a class_name collision existed in DEVICE_BANKS, no M4L
+        plugin should ever receive standard-bank pages."""
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=None,
+            device_banks={"MxDeviceMidiEffect": (("X", "Y", "Z", "W", "V", "U", "T", "S"),)},
+            bank_names={},
+        )
+        device = FakeDevice(class_name="MxDeviceMidiEffect", name="Anything")
+        self.assertEqual(helpers._standard_banks(device), ())
+
+
+class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
+    """If `_resolve_encoder` returns None for one encoder, subsequent encoders
+    must NOT shift left on the HUD wire. Each c_idx maps to a fixed wire
+    position; a failed resolve renders EMPTY_SLOT in that position."""
+
+    def test_missing_encoder_leaves_empty_slot_not_shifted_neighbour(self):
+        # Reverb-shape mock: standard banks define names, but the first
+        # parameter's original_name does NOT match the bank, simulating a
+        # bank-data mismatch. Encoder 13 (slot 12, bank 1 slot 4) should
+        # still appear at wire_idx 12, not shifted to wire_idx 11.
+        params = [FakeParameter(name="Device On", original_name="Device On")]
+        # 16 params, names match bank slots 1..15 but slot 0 does NOT match
+        bank_names_in_order = [
+            "WRONG_NAME", "B", "C", "D", "E", "F", "G", "H",
+            "I", "J", "K", "L", "HiShelf Gain", "N", "O", "P",
+        ]
+        for i, nm in enumerate(bank_names_in_order):
+            real_name = nm if nm != "WRONG_NAME" else "ActualParamName"
+            params.append(FakeParameter(name=real_name, original_name=real_name, min=0, max=1))
+        device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
+
+        banks = {"Reverb": (tuple(bank_names_in_order[:8]), tuple(bank_names_in_order[8:]))}
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=None,
+            encoder_slot_count=16,
+            hud_cells=[(0, 0, 'dial', 16, 0)],
+            device_banks=banks, bank_names={},
+        )
+        # encoder 1 fails to resolve (bank says "In Filter Freq" — i.e. WRONG_NAME);
+        # encoder 13 resolves to "HiShelf Gain"
+        self.assertIsNone(helpers._resolve_encoder(device, 1))
+        self.assertIsNotNone(helpers._resolve_encoder(device, 13))
+
+        # Now drive the full burst and verify wire_idx 12 carries HiShelf Gain
+        hud = Mock()
+        helpers._remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=hud)
+        helpers.selected_device_changed(device)
+        dial_calls = [c for c in hud.send_slot.call_args_list if c[0][0] == 'dial']
+        self.assertEqual(len(dial_calls), 16)
+        # wire_idx 0 (encoder 1) is empty due to failed resolve
+        self.assertEqual(dial_calls[0][0][2], EMPTY_SLOT.name)
+        # wire_idx 12 (encoder 13) still shows HiShelf Gain — no left shift
+        self.assertEqual(dial_calls[12][0][2], "HiShelf Gain")
+
+
+class TestBankResolverFallsBackToDisplayName(unittest.TestCase):
+    """Standard-bank lookup uses `_resolve_bank_param`, which falls back to
+    `Parameter.name` when `original_name` doesn't match. The bank data was
+    scraped from Live's display-name table (`_Generic/Devices.py`); a
+    handful of built-in params (e.g. Reverb's filter cluster) expose a
+    different `original_name`, so the strict-only lookup blanks them.
+
+    The strict resolver `_resolve_param_by_name` stays original_name-only
+    so user-renamed Rack macros don't hijack BOB/switch lookups."""
+
+    def test_bank_resolves_via_display_name_when_original_name_differs(self):
+        params = [
+            FakeParameter(name="Device On", original_name="Device On"),
+            # Display name matches the bank entry; original_name does not.
+            FakeParameter(name="In Filter Freq", original_name="HpLpFreq",
+                          min=0, max=1, value=0),
+        ]
+        device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
+        helpers = Helpers(
+            Mock(), Mock(),
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=None,
+            encoder_slot_count=16,
+            device_banks={"Reverb": (("In Filter Freq", "x", "x", "x", "x", "x", "x", "x"),)},
+            bank_names={},
+        )
+        rp = helpers._resolve_encoder(device, 1)
+        self.assertIsNotNone(rp, "bank resolver should fall back to Parameter.name")
+        self.assertIs(rp.param, params[1])
+
+    def test_strict_resolver_still_ignores_display_name_collisions(self):
+        # Rack: original_name='Macro 1' on the authored param, but another
+        # param happens to have display name='Macro 1'. Strict lookup of
+        # 'Macro 1' must return the original_name match, not the rename.
+        authored = FakeParameter(name="Brightness", original_name="Macro 1",
+                                 min=0, max=1, value=0)
+        collider = FakeParameter(name="Macro 1", original_name="something_else",
+                                 min=0, max=1, value=0)
+        params = [FakeParameter(name="Device On", original_name="Device On"),
+                  authored, collider]
+        device = FakeDevice(class_name="Rack", name="Rack", parameters=params)
+        helpers = Helpers(Mock(), Mock(), parameter_mappings_raw=None)
+        self.assertIs(helpers._resolve_param_by_name(device, "Macro 1"), authored)
+
+
+class TestBankResolveLogsAvailableNames(unittest.TestCase):
+    """When a standard-bank name doesn't match any original_name, log the
+    available names so the bank data can be diagnosed."""
+
+    def test_logs_available_names_on_miss(self):
+        manager = Mock()
+        params = [FakeParameter(name="Device On", original_name="Device On"),
+                  FakeParameter(name="Real", original_name="Real")]
+        device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
+        helpers = Helpers(
+            manager, Mock(),
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[],
+            parameter_mappings_raw=None,
+            encoder_slot_count=16,
+            device_banks={"Reverb": (("Not Real", "x", "x", "x", "x", "x", "x", "x"),)},
+            bank_names={},
+        )
+        rp = helpers._resolve_encoder(device, 1)
+        self.assertIsNone(rp)
+        manager.log_message.assert_called()
+        log_msg = manager.log_message.call_args[0][0]
+        self.assertIn("Not Real", log_msg)
+        self.assertIn("Real", log_msg)
+
+
 if __name__ == '__main__':
     unittest.main()

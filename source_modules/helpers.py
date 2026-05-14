@@ -57,16 +57,31 @@ def _overlay_labels(payloads, labels, kind):
     return out
 
 
+# Max-for-Live wrappers: every M4L plugin reports the same class_name, so
+# entries for these must be disambiguated by device.name. Non-M4L entries
+# are keyed by (class_name, None) and resolve regardless of device.name.
+M4L_CLASSES = ('MxDeviceMidiEffect', 'MxDeviceAudioEffect', 'MxDeviceInstrument')
+
+
 def _build_device_table(raw):
     table = {}
     if not raw:
         return table
     for d in raw.get('devices', []):
-        table[d['className']] = {
+        cn = d['className']
+        key = (cn, d.get('deviceName')) if cn in M4L_CLASSES else (cn, None)
+        table[key] = {
             'encoders': d.get('encoders', []) or [],
             'buttons': d.get('buttons', []) or [],
         }
     return table
+
+
+def _device_table_key(device):
+    cn = getattr(device, 'class_name', None)
+    if cn in M4L_CLASSES:
+        return (cn, getattr(device, 'name', None))
+    return (cn, None)
 
 
 def _load_bundled_banks():
@@ -121,8 +136,16 @@ class Helpers:
         self._encoder_page = 1
         self._button_page = 1
         self._last_selected_device = None
-        self._name_index = None  # {original_name: param}, rebuilt on device focus change
+        self._name_index = None  # {original_name: (idx, param)}, rebuilt on device focus change
+        self._display_name_index = None  # {name: (idx, param)}, bank fallback only
         self._group_selector_listeners = []  # [(param, callback)] for teardown
+        # Number of distinct physical button switches: max switch number from assignments.
+        # Used as the per-page stride when paging BOB buttons for known devices.
+        self._button_switch_count = (
+            max((int(slot.replace('switch', ''))
+                 for _, slot in self._switch_slot_assignments), default=0)
+            if self._switch_slot_assignments else 0
+        )
 
     def show_message(self, message):
         self._manager.show_message(message)
@@ -131,13 +154,27 @@ class Helpers:
         self._manager.log_message(message)
 
     def has_user_defined_parameters(self, device):
-        return device is not None and device.class_name in self._device_table
+        return device is not None and _device_table_key(device) in self._device_table
+
+    def _device_entry(self, device):
+        if device is None:
+            return None
+        return self._device_table.get(_device_table_key(device))
 
     def _ensure_name_index(self, device):
+        """Builds a strict `original_name` index used by BOB and switch
+        resolvers — keeps user-renamed Rack macros from hijacking lookups.
+        Also builds a secondary `name` (display-name) index, consulted only
+        by the standard-bank resolver via `_resolve_bank_param`."""
         if self._name_index is None and device is not None:
             self._name_index = {
-                getattr(p, 'original_name', getattr(p, 'name', '')): p
-                for p in device.parameters
+                getattr(p, 'original_name', getattr(p, 'name', '')): (i, p)
+                for i, p in enumerate(device.parameters)
+            }
+            self._display_name_index = {
+                getattr(p, 'name', ''): (i, p)
+                for i, p in enumerate(device.parameters)
+                if getattr(p, 'name', '')
             }
 
     def _resolve_param_by_name(self, device, name):
@@ -148,16 +185,48 @@ class Helpers:
         if device is None or not name:
             return None
         self._ensure_name_index(device)
-        return (self._name_index or {}).get(name)
+        entry = (self._name_index or {}).get(name)
+        return entry[1] if entry is not None else None
+
+    def _resolve_bank_param(self, device, name):
+        """Standard-bank lookup: prefers `original_name` like the strict
+        resolver, but falls back to `Parameter.name` because the scrape in
+        `data/live_device_banks.py` was generated from Live's display-name
+        table (`_Generic/Devices.py`). For most built-in params the two
+        match; for a handful (e.g. Reverb's filter cluster) they don't, and
+        the strict-only lookup blanks them on the HUD."""
+        if device is None or not name:
+            return None
+        self._ensure_name_index(device)
+        entry = (self._name_index or {}).get(name)
+        if entry is not None:
+            return entry[1]
+        entry = (self._display_name_index or {}).get(name)
+        return entry[1] if entry is not None else None
+
+    def _resolve_param_d_idx(self, device, name):
+        """Return device.parameters index for the named param, or None."""
+        if device is None or not name:
+            return None
+        self._ensure_name_index(device)
+        entry = (self._name_index or {}).get(name)
+        return entry[0] if entry is not None else None
 
     def _bob_encoders(self, device):
-        return self._device_table.get(getattr(device, 'class_name', None), {}).get('encoders', [])
+        entry = self._device_entry(device)
+        return entry.get('encoders', []) if entry else []
 
     def _bob_buttons(self, device):
-        return self._device_table.get(getattr(device, 'class_name', None), {}).get('buttons', [])
+        entry = self._device_entry(device)
+        return entry.get('buttons', []) if entry else []
 
     def _standard_banks(self, device):
-        return self._device_banks.get(getattr(device, 'class_name', None), ())
+        # Standard banks are keyed by class_name only and only apply to
+        # built-in devices; M4L plugins (one shared class) never get banks.
+        cn = getattr(device, 'class_name', None)
+        if cn in M4L_CLASSES:
+            return ()
+        return self._device_banks.get(cn, ())
 
     def _fallback_continuous(self, device):
         """Unknown-class identity fallback list: skip on/off and quantized,
@@ -173,14 +242,23 @@ class Helpers:
         return [(i, p) for i, p in enumerate(device.parameters)
                 if i > 0 and getattr(p, 'is_quantized', False)]
 
+    def _has_bob(self, device):
+        return self._device_entry(device) is not None
+
+    def _first_standard_page(self, device):
+        """Page index where standard banks start. 2 if a BOB is authored
+        (BOB takes page 1); 1 if there is no BOB so banks lead."""
+        return 2 if self._has_bob(device) else 1
+
     def _standard_bank_name_for(self, device, page, slot_in_page):
-        """Page is 1-based. Page 1 is BOB; page >= 2 reads standard banks
-        paired self._banks_per_page at a time."""
+        """Page is 1-based. Standard banks are paired self._banks_per_page
+        at a time, starting at _first_standard_page(device)."""
         banks = self._standard_banks(device)
-        if not banks or page < 2:
+        first_std = self._first_standard_page(device)
+        if not banks or page < first_std:
             return None
         per_page = self._banks_per_page
-        first_bank_idx = (page - 2) * per_page
+        first_bank_idx = (page - first_std) * per_page
         which = slot_in_page // 8
         within = slot_in_page % 8
         if which >= per_page:
@@ -196,8 +274,7 @@ class Helpers:
     def _encoder_pages_count(self, device):
         if device is None:
             return 1
-        class_name = getattr(device, 'class_name', None)
-        bob_pages = 1 if class_name in self._device_table else 0
+        bob_pages = 1 if self._has_bob(device) else 0
         banks = self._standard_banks(device)
         if banks:
             std_pages = (len(banks) + self._banks_per_page - 1) // self._banks_per_page
@@ -210,13 +287,12 @@ class Helpers:
         return max(1, (n + params_per_page - 1) // params_per_page)
 
     def _button_pages_count(self, device):
-        """Buttons live on the BOB page only for known classes. Unknown
-        classes keep the quantized-chunking fallback."""
         if device is None:
             return 1
-        class_name = getattr(device, 'class_name', None)
-        if class_name in self._device_table:
-            return 1
+        if self._has_bob(device):
+            stride = self._button_switch_count or self._button_slot_count
+            n = len(self._bob_buttons(device))
+            return max(1, (n + stride - 1) // stride)
         n = len(self._fallback_quantized(device))
         return max(1, (n + self._button_slot_count - 1) // self._button_slot_count)
 
@@ -224,14 +300,15 @@ class Helpers:
         if device is None:
             return ''
         class_name = getattr(device, 'class_name', None)
-        if page == 1:
-            return 'Best of' if class_name in self._device_table else ''
+        if page == 1 and self._has_bob(device):
+            return 'Best of'
         names = self._bank_names.get(class_name)
         banks = self._standard_banks(device)
-        if not names or not banks:
+        first_std = self._first_standard_page(device)
+        if not names or not banks or page < first_std:
             return ''
         per_page = self._banks_per_page
-        first = (page - 2) * per_page
+        first = (page - first_std) * per_page
         labels = []
         for offset in range(per_page):
             idx = first + offset
@@ -245,9 +322,9 @@ class Helpers:
         page = self._encoder_page
         slot_in_page = c_idx - 1
         class_name = getattr(device, 'class_name', None)
-        known = class_name in self._device_table or bool(self._standard_banks(device))
+        known = self._has_bob(device) or bool(self._standard_banks(device))
 
-        if page == 1 and class_name in self._device_table:
+        if page == 1 and self._has_bob(device):
             encoders = self._bob_encoders(device)
             if slot_in_page < len(encoders):
                 e = encoders[slot_in_page]
@@ -258,16 +335,28 @@ class Helpers:
                 name = e.get('name')
                 p = self._resolve_param_by_name(device, name)
                 if p is None:
+                    available = list((self._name_index or {}).keys())[:30]
+                    self.log_message(
+                        f"[bob] '{name}' not found in {getattr(device,'class_name','?')} "
+                        f"({getattr(device,'name','?')}) original_names. "
+                        f"Available (first 30): {available}"
+                    )
                     return None
                 return RealParameter(p, e.get('display') or name, e.get('button'))
             return None
 
-        if page >= 2 and self._standard_banks(device):
+        if page >= self._first_standard_page(device) and self._standard_banks(device):
             name = self._standard_bank_name_for(device, page, slot_in_page)
             if name is None:
                 return None
-            p = self._resolve_param_by_name(device, name)
+            p = self._resolve_bank_param(device, name)
             if p is None:
+                available = list((self._name_index or {}).keys())[:30]
+                self.log_message(
+                    f"[bank] '{name}' (slot {slot_in_page}, page {page}) not found in "
+                    f"{getattr(device,'class_name','?')} original_names. "
+                    f"Available (first 30): {available}"
+                )
                 return None
             return RealParameter(p, None, None)
 
@@ -302,14 +391,13 @@ class Helpers:
         if device is None:
             return None
         class_name = getattr(device, 'class_name', None)
-        # Buttons are BOB-only for known classes; only page 1 surfaces them.
-        if class_name in self._device_table:
-            if self._button_page != 1:
-                return None
+        if self._has_bob(device):
             buttons = self._bob_buttons(device)
-            if switch_idx >= len(buttons):
+            stride = self._button_switch_count or self._button_slot_count
+            actual_idx = (self._button_page - 1) * stride + switch_idx
+            if actual_idx >= len(buttons):
                 return None
-            b = buttons[switch_idx]
+            b = buttons[actual_idx]
             btype = b.get('type', 'param')
             if btype == 'enum':
                 prop = b['lom_property']
@@ -326,13 +414,18 @@ class Helpers:
             name = b.get('name')
             p = self._resolve_param_by_name(device, name)
             if p is None:
+                available = list((self._name_index or {}).keys())[:20]
+                self.log_message(
+                    f"[switch] '{name}' not found in {class_name} params. "
+                    f"Available (first 20): {available}"
+                )
                 return None
             has_range = b.get('min') is not None and b.get('max') is not None
             return {
                 'kind': 'param',
                 'param': p,
                 'alias': b.get('display') or name,
-                'd_idx': self._param_index_in_device(device, p),
+                'd_idx': self._resolve_param_d_idx(device, name),
                 'has_range': has_range,
                 'min': int(b['min']) if has_range else None,
                 'max': int(b['max']) if has_range else None,
@@ -349,31 +442,48 @@ class Helpers:
             'has_range': True, 'min': int(p.min), 'max': int(p.max),
         }
 
-    @staticmethod
-    def _param_index_in_device(device, param):
-        try:
-            for i, p in enumerate(device.parameters):
-                if p is param:
-                    return i
-        except Exception:
-            pass
-        return None
-
     def selected_device_changed(self, device):
         if device is None or device == self._last_selected_device:
             return
         self._teardown_group_selector_listeners()
         self._last_selected_device = device
         self._name_index = None
+        self._display_name_index = None
         self._encoder_page = 1
         self._button_page = 1
         self._attach_group_selector_listeners(device)
+        self._log_device_focus(device)
         self.update_remote_parameters()
         if self.has_user_defined_parameters(device):
             self.show_message(f"{device.class_name}")
 
+    def _log_device_focus(self, device):
+        """Single line at focus-change summarising what the runtime will and
+        won't do for this device: BOB match? Standard banks? M4L collision?
+        Reading this in tail_logs.sh tells you in one glance which branch of
+        the resolver every subsequent knob/button event will hit."""
+        cn = getattr(device, 'class_name', '?')
+        dn = getattr(device, 'name', '?')
+        key = _device_table_key(device)
+        bob = self._device_entry(device) is not None
+        banks = self._standard_banks(device)
+        bank_count = len(banks) if banks else 0
+        nparams = len(getattr(device, 'parameters', []) or [])
+        is_m4l = cn in M4L_CLASSES
+        m4l_note = ''
+        if is_m4l and not bob:
+            # List the M4L deviceNames present in the JSON for the same class
+            # so a missing entry is obvious from the log alone.
+            siblings = [k[1] for k in self._device_table.keys() if k[0] == cn]
+            m4l_note = f" m4l_no_match available_deviceNames={siblings}"
+        self.log_message(
+            f"[focus] class={cn!r} name={dn!r} params={nparams} "
+            f"bob={'yes' if bob else 'no'} key={key} "
+            f"std_banks={bank_count}{m4l_note}"
+        )
+
     def _attach_group_selector_listeners(self, device):
-        entry = self._device_table.get(getattr(device, 'class_name', None))
+        entry = self._device_entry(device)
         if not entry:
             return
         seen = set()
@@ -623,36 +733,72 @@ class Helpers:
     def parameter_page_inc(self, target):
         device = self._last_selected_device
         if device is None:
+            self.log_message(f"[page] inc target={target} ignored: no focused device")
             return
         if target == 'encoder':
-            count = self._encoder_pages_count(device)
-            if self._encoder_page < count:
+            enc_count = self._encoder_pages_count(device)
+            btn_count = self._button_pages_count(device)
+            changed = False
+            if self._encoder_page < enc_count:
                 self._encoder_page += 1
-                self.show_message(f"Enc page {self._encoder_page}/{count}")
+                changed = True
+            if self._button_page < btn_count:
+                self._button_page += 1
+                changed = True
+            self.log_message(
+                f"[page] inc enc enc={self._encoder_page}/{enc_count} "
+                f"btn={self._button_page}/{btn_count} changed={changed} "
+                f"class={getattr(device,'class_name','?')}"
+            )
+            if changed:
+                self.show_message(f"Enc page {self._encoder_page}/{enc_count}")
                 self.update_remote_parameters()
         else:
             count = self._button_pages_count(device)
-            if self._button_page < count:
+            changed = self._button_page < count
+            if changed:
                 self._button_page += 1
                 self.show_message(f"Btn page {self._button_page}/{count}")
                 self.update_remote_parameters()
+            self.log_message(
+                f"[page] inc btn btn={self._button_page}/{count} changed={changed} "
+                f"class={getattr(device,'class_name','?')}"
+            )
 
     def parameter_page_dec(self, target):
         device = self._last_selected_device
         if device is None:
+            self.log_message(f"[page] dec target={target} ignored: no focused device")
             return
         if target == 'encoder':
+            enc_count = self._encoder_pages_count(device)
+            btn_count = self._button_pages_count(device)
+            changed = False
             if self._encoder_page > 1:
                 self._encoder_page -= 1
-                count = self._encoder_pages_count(device)
-                self.show_message(f"Enc page {self._encoder_page}/{count}")
-                self.update_remote_parameters()
-        else:
+                changed = True
             if self._button_page > 1:
                 self._button_page -= 1
-                count = self._button_pages_count(device)
+                changed = True
+            self.log_message(
+                f"[page] dec enc enc={self._encoder_page}/{enc_count} "
+                f"btn={self._button_page}/{btn_count} changed={changed} "
+                f"class={getattr(device,'class_name','?')}"
+            )
+            if changed:
+                self.show_message(f"Enc page {self._encoder_page}/{enc_count}")
+                self.update_remote_parameters()
+        else:
+            count = self._button_pages_count(device)
+            changed = self._button_page > 1
+            if changed:
+                self._button_page -= 1
                 self.show_message(f"Btn page {self._button_page}/{count}")
                 self.update_remote_parameters()
+            self.log_message(
+                f"[page] dec btn btn={self._button_page}/{count} changed={changed} "
+                f"class={getattr(device,'class_name','?')}"
+            )
 
     def update_remote_parameters(self):
         device = self._last_selected_device
@@ -660,10 +806,23 @@ class Helpers:
             return
         on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
         real_params = [on_off]
+        # Append unconditionally — a None placeholder for a failed resolve
+        # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
+        # Nones here shifts every later encoder one slot left on the HUD.
+        missing_c_idxs = []
         for c_idx, _slot in sorted(self._slot_assignments):
             rp = self._resolve_encoder(device, c_idx)
-            if rp is not None:
-                real_params.append(rp)
+            real_params.append(rp)
+            if rp is None:
+                missing_c_idxs.append(c_idx)
+        if missing_c_idxs:
+            # One summary line per burst makes mis-resolved encoders trivial
+            # to spot in tail_logs.sh — individual `[bank]`/`[bob]` lines
+            # explain *why*, this line tells you *how many* and *which*.
+            self.log_message(
+                f"[burst] {getattr(device,'class_name','?')} "
+                f"enc_page={self._encoder_page} unresolved_c_idxs={missing_c_idxs}"
+            )
         switch_entries = []
         for wire_idx, slot in self._switch_slot_assignments:
             # slot_name ("switch1", "switch2", …) drives JSON-table parameter
@@ -685,7 +844,7 @@ class Helpers:
         enc_total = self._encoder_pages_count(device)
         btn_total = self._button_pages_count(device)
         enc_label = self._page_label_for(device, self._encoder_page)
-        btn_label = self._page_label_for(device, self._button_page) if btn_total > 1 else ''
+        btn_label = ''  # button pages don't use named banks
         self._remote.device_update(
             device.name, real_params, info_text, switch_entries, device.parameters,
             hud_layout=self._hud_cells, mode_labels=mode_labels,
@@ -810,6 +969,8 @@ class Remote:
         self._in_burst = True
         try:
             for i, pm in enumerate(real_parameters):
+                if pm is None:
+                    continue
                 self.parameter_updated(pm, i)
         finally:
             self._in_burst = False
@@ -838,6 +999,9 @@ class Remote:
                 rp_idx = wire_idx + 1
                 if rp_idx < len(real_parameters):
                     pm = real_parameters[rp_idx]
+                    if pm is None:
+                        payloads.append((wire_idx, EMPTY_SLOT))
+                        continue
                     p = pm.param
                     name = p.name if pm.alias is None else pm.alias
                     payloads.append((wire_idx, SlotPayload(name, p.value, p.min, p.max)))

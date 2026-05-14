@@ -8,9 +8,19 @@ private struct ContentSizeKey: PreferenceKey {
     }
 }
 
+/// Captures the grid's intrinsic width so the device title can shrink/truncate
+/// against it without itself driving the panel width.
+private struct GridWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct HUDView: View {
     @ObservedObject var state: DeviceState
     @ObservedObject var chrome: HUDChrome
+    @State private var gridWidth: CGFloat = 0
 
     private var grid: [[HudCell?]] {
         guard !state.hudCells.isEmpty else { return [] }
@@ -25,23 +35,53 @@ struct HUDView: View {
         let scale = CGFloat(chrome.zoom)
 
         ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 10 * scale) {
-                Text(state.deviceName.isEmpty ? "—" : state.deviceName)
-                    .font(.system(size: 12 * scale, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
+            VStack(alignment: .center, spacing: 6 * scale) {
+                // Header: device name shrinks-to-fit, truncates; bank label
+                // (e.g. "Best of" or "Amplitude / Filter") rendered small,
+                // centered, beneath it. The header width is pinned to the
+                // grid width below so the title has a real budget to shrink
+                // into instead of expanding the panel on long names.
+                VStack(spacing: 1 * scale) {
+                    Text(state.deviceName.isEmpty ? "—" : state.deviceName)
+                        .font(.system(size: 12 * scale, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.5)
+                        .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
 
-                ForEach(Array(grid.enumerated()), id: \.offset) { _, row in
-                    HStack(alignment: .top, spacing: 10 * scale) {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                            if let cell = cell {
-                                cellView(cell, zoom: chrome.zoom)
-                            } else {
-                                Color.clear.frame(width: 0)
+                    if !state.bankLabel.isEmpty {
+                        Text(state.bankLabel)
+                            .font(.system(size: 9 * scale, weight: .regular, design: .rounded))
+                            .foregroundColor(.white.opacity(0.6))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .minimumScaleFactor(0.6)
+                            .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
+                    }
+                }
+                .padding(.bottom, 4 * scale)
+
+                VStack(alignment: .leading, spacing: 10 * scale) {
+                    ForEach(Array(grid.enumerated()), id: \.offset) { _, row in
+                        HStack(alignment: .top, spacing: 10 * scale) {
+                            ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                                if let cell = cell {
+                                    cellView(cell, zoom: chrome.zoom)
+                                } else {
+                                    Color.clear.frame(width: 0)
+                                }
                             }
                         }
                     }
                 }
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.preference(key: GridWidthKey.self, value: geo.size.width)
+                    }
+                )
             }
+            .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
             .padding(.horizontal, 16 * scale)
             .padding(.vertical, 12 * scale)
             .fixedSize()

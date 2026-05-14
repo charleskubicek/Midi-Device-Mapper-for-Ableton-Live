@@ -110,9 +110,16 @@ func test_mode_missing_arg() {
 
     // MARK: - PAGE
 
-    func test_page_message() {
+    func test_page_message_legacy_5_fields() {
         let msg = WireProtocol.parse(line: "PAGE|2|4|1|2")
-        XCTAssertEqual(msg, .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2))
+        XCTAssertEqual(msg, .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2,
+                                  encLabel: "", btnLabel: ""))
+    }
+
+    func test_page_message_with_labels() {
+        let msg = WireProtocol.parse(line: "PAGE|2|3|1|1|Amplitude / Filter|")
+        XCTAssertEqual(msg, .page(encPage: 2, encTotal: 3, btnPage: 1, btnTotal: 1,
+                                  encLabel: "Amplitude / Filter", btnLabel: ""))
     }
 
     func test_page_too_few_fields() {
@@ -319,18 +326,44 @@ final class DeviceStateBurstTests: XCTestCase {
         let state = makeState()
         state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
         state.apply(message: .device("Dev"))
-        state.apply(message: .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2))
+        state.apply(message: .page(encPage: 2, encTotal: 4, btnPage: 1, btnTotal: 2,
+                                   encLabel: "", btnLabel: ""))
         state.apply(message: .commit(0))
 
         XCTAssertEqual(state.encoderPage, 2)
         XCTAssertEqual(state.pageTotal, 4) // max(encTotal=4, btnTotal=2)
     }
 
+    func test_bank_label_published_on_commit_and_reset_on_device() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
+        state.apply(message: .device("Simpler"))
+        state.apply(message: .page(encPage: 2, encTotal: 3, btnPage: 1, btnTotal: 1,
+                                   encLabel: "Amplitude / Filter", btnLabel: ""))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.bankLabel, "Amplitude / Filter")
+
+        state.apply(message: .device("Other"))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.bankLabel, "")
+    }
+
+    func test_bank_label_falls_back_to_btn_label_when_enc_empty() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .button, count: 4, startIndex: 0)]))
+        state.apply(message: .device("Dev"))
+        state.apply(message: .page(encPage: 1, encTotal: 1, btnPage: 2, btnTotal: 3,
+                                   encLabel: "", btnLabel: "Routing"))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.bankLabel, "Routing")
+    }
+
     func test_page_resets_on_device() async {
         let state = makeState()
         state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 3, startIndex: 0)]))
         state.apply(message: .device("Dev"))
-        state.apply(message: .page(encPage: 2, encTotal: 3, btnPage: 1, btnTotal: 1))
+        state.apply(message: .page(encPage: 2, encTotal: 3, btnPage: 1, btnTotal: 1,
+                                   encLabel: "Amplitude / Filter", btnLabel: ""))
         state.apply(message: .commit(0))
         XCTAssertEqual(state.encoderPage, 2)
 
@@ -345,7 +378,8 @@ final class DeviceStateBurstTests: XCTestCase {
         state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0)]))
         state.apply(message: .device("Dev"))
         // 3 encoder pages, 5 button pages → total should show 5
-        state.apply(message: .page(encPage: 1, encTotal: 3, btnPage: 1, btnTotal: 5))
+        state.apply(message: .page(encPage: 1, encTotal: 3, btnPage: 1, btnTotal: 5,
+                                   encLabel: "", btnLabel: ""))
         state.apply(message: .commit(0))
 
         XCTAssertEqual(state.encoderPage, 1)

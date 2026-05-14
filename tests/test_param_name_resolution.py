@@ -239,6 +239,41 @@ class TestStandardBankPages(unittest.TestCase):
         self.assertEqual([p.value for p in device.parameters], before)
 
 
+class TestBankOnlyDevice(unittest.TestCase):
+    """When a device has standard banks but no BOB authored in
+    custom_device_mappings.json, page 1 shows the first standard bank
+    (no empty 'placeholder' BOB page)."""
+
+    def test_page_1_resolves_to_bank0_when_no_bob(self):
+        helpers = _helpers(parameter_mappings_raw=None)
+        device = _simpler_device()
+        helpers.selected_device_changed(device)
+        self.assertEqual(helpers._encoder_page, 1)
+        helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
+        ve_attack = next(p for p in device.parameters if p.original_name == 'Ve Attack')
+        self.assertAlmostEqual(ve_attack.value, 1.0, places=2)
+
+    def test_page_1_slot_9_is_bank1_when_no_bob(self):
+        helpers = _helpers(parameter_mappings_raw=None)
+        device = _simpler_device()
+        helpers.selected_device_changed(device)
+        helpers.device_parameter_action(device, 9, 22, 127.0, "fn")
+        fe_attack = next(p for p in device.parameters if p.original_name == 'Fe Attack')
+        self.assertAlmostEqual(fe_attack.value, 1.0, places=2)
+
+    def test_page_count_when_no_bob_omits_bob_page(self):
+        helpers = _helpers(parameter_mappings_raw=None)
+        device = _simpler_device()
+        # 4 banks paired 2-per-page → 2 pages, no extra BOB page.
+        self.assertEqual(helpers._encoder_pages_count(device), 2)
+
+    def test_page_1_label_pairs_first_two_bank_names_when_no_bob(self):
+        helpers = _helpers(parameter_mappings_raw=None)
+        device = _simpler_device()
+        self.assertEqual(helpers._page_label_for(device, 1), 'Amplitude / Filter')
+        self.assertEqual(helpers._page_label_for(device, 2), 'LFO / Pitch Modifiers')
+
+
 class TestPageCount(unittest.TestCase):
     """Pages = 1 (BOB) + ceil(len(banks) / 2)."""
 
