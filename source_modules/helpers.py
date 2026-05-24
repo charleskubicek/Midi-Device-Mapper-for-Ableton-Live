@@ -574,8 +574,14 @@ class Helpers:
         is_q = getattr(p, 'is_quantized', False)
         self.log_message(f"[switch] resolved d_idx={info['d_idx']} alias={info.get('alias')} has_range={info['has_range']} json_min={info.get('min')} json_max={info.get('max')} min_max={info.get('min_max')} param.min={p.min} param.max={p.max} param.value={before} is_quantized={is_q}")
         if info.get('min_max'):
+            steps = None
             if is_q:
-                self.log_message(f"[switch] min_max requested on quantized param {info.get('alias')} — skipping")
+                try:
+                    steps = int(round(p.max)) - int(round(p.min)) + 1
+                except (TypeError, ValueError):
+                    steps = None
+            if is_q and steps != 2:
+                self.log_message(f"[switch] min_max requested on quantized param {info.get('alias')} with steps={steps} — skipping")
                 return
             p.value = p.min
             p.value = p.max

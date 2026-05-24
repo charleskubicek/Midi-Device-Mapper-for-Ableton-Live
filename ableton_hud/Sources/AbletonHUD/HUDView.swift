@@ -36,19 +36,27 @@ struct HUDView: View {
 
         ZStack(alignment: .topTrailing) {
             VStack(alignment: .center, spacing: 6 * scale) {
-                // Header: device name shrinks-to-fit, truncates; bank label
-                // (e.g. "Best of" or "Amplitude / Filter") rendered small,
-                // centered, beneath it. The header width is pinned to the
-                // grid width below so the title has a real budget to shrink
-                // into instead of expanding the panel on long names.
-                VStack(spacing: 1 * scale) {
-                    Text(state.deviceName.isEmpty ? "—" : state.deviceName)
-                        .font(.system(size: 12 * scale, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .minimumScaleFactor(0.5)
-                        .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
+                // Header row: device name (top-left), bank label, page indicator
+                // (top-right) all on the same line. Pinned to the grid width
+                // below so long device names truncate instead of expanding the
+                // panel.
+                ZStack {
+                    HStack(spacing: 6 * scale) {
+                        Text(state.deviceName.isEmpty ? "—" : state.deviceName)
+                            .font(.system(size: 10 * scale, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .minimumScaleFactor(0.5)
+
+                        Spacer(minLength: 4 * scale)
+
+                        if state.pageTotal > 1 {
+                            Text("\(state.encoderPage)/\(state.pageTotal)")
+                                .font(.system(size: 9 * scale, weight: .medium, design: .rounded))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                    }
 
                     if !state.bankLabel.isEmpty {
                         Text(state.bankLabel)
@@ -57,9 +65,9 @@ struct HUDView: View {
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .minimumScaleFactor(0.6)
-                            .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
                     }
                 }
+                .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
                 .padding(.bottom, 4 * scale)
 
                 VStack(alignment: .leading, spacing: 10 * scale) {
@@ -100,19 +108,11 @@ struct HUDView: View {
                                           height: newSize.height / chrome.zoom)
             }
 
-            HStack(spacing: 6 * scale) {
-                if chrome.isMouseOver {
-                    ConfigBar(chrome: chrome)
-                }
-
-                if state.pageTotal > 1 {
-                    Text("\(state.encoderPage)/\(state.pageTotal)")
-                        .font(.system(size: 10 * scale, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.5))
-                }
+            if chrome.isMouseOver {
+                ConfigBar(chrome: chrome)
+                    .padding(.trailing, 8 * scale)
+                    .padding(.top, 8 * scale)
             }
-            .padding(.trailing, 8 * scale)
-            .padding(.top, 8 * scale)
         }
         .frame(width: max(1, chrome.baseSize.width) * chrome.zoom,
                height: max(1, chrome.baseSize.height) * chrome.zoom)
