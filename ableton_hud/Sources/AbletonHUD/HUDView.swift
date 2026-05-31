@@ -42,6 +42,17 @@ struct HUDView: View {
                 // panel.
                 ZStack {
                     HStack(spacing: 6 * scale) {
+                        Button {
+                            DeviceState.shared.apply(message: .hide)
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 8 * scale, weight: .medium))
+                                .foregroundColor(.white.opacity(0.45))
+                                .frame(width: 12 * scale, height: 12 * scale)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+
                         Text(state.deviceName.isEmpty ? "—" : state.deviceName)
                             .font(.system(size: 10 * scale, weight: .semibold, design: .rounded))
                             .foregroundColor(.white)
