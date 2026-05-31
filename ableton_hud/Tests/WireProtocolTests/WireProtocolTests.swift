@@ -132,6 +132,18 @@ func test_mode_missing_arg() {
         XCTAssertEqual(msg, .unknown)
     }
 
+    // MARK: - HIDE
+
+    func test_hide() {
+        let msg = WireProtocol.parse(line: "HIDE")
+        XCTAssertEqual(msg, .hide)
+    }
+
+    func test_hide_with_trailing_field_is_unknown() {
+        let msg = WireProtocol.parse(line: "HIDE|x")
+        XCTAssertEqual(msg, .unknown)
+    }
+
     // MARK: - Unknown commands
 
     func test_unknown_command_ignored() {
@@ -395,5 +407,44 @@ XCTAssertEqual(state.pageTotal, 5)
         XCTAssertTrue(state.isShiftMode)
         state.apply(message: .mode(isShift: false))
         XCTAssertFalse(state.isShiftMode)
+    }
+
+    // MARK: - HIDE / sticky dismiss
+
+    func test_hide_sets_dismissed_and_fires_hideRequested() async {
+        let state = makeState()
+        var fired = 0
+        let cancellable = state.hideRequested.sink { fired += 1 }
+        defer { cancellable.cancel() }
+
+        XCTAssertFalse(state.dismissed)
+        state.apply(message: .hide)
+        XCTAssertTrue(state.dismissed)
+        XCTAssertEqual(fired, 1)
+    }
+
+    func test_device_clears_dismissed() async {
+        let state = makeState()
+        state.apply(message: .hide)
+        XCTAssertTrue(state.dismissed)
+        state.apply(message: .device("Dev"))
+        XCTAssertFalse(state.dismissed)
+    }
+
+    func test_commit_clears_dismissed() async {
+        let state = makeState()
+        state.apply(message: .hide)
+        XCTAssertTrue(state.dismissed)
+        state.apply(message: .commit(0))
+        XCTAssertFalse(state.dismissed)
+    }
+
+    func test_update_and_ping_leave_dismissed_set() async {
+        let state = makeState()
+        state.apply(message: .hide)
+        state.apply(message: .update(.dial, 0, Slot(name: "X", value: 0.5, min: 0, max: 1)))
+        XCTAssertTrue(state.dismissed)
+        state.apply(message: .ping)
+        XCTAssertTrue(state.dismissed)
     }
 }

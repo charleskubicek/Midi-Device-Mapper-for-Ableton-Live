@@ -30,9 +30,17 @@ class HUDOverlayManager {
                 let focused = AbletonFocusMonitor.shared.isAbletonFrontmost
                 os_log("commitReceived — focused=%{public}d", log: log, type: .info, focused)
                 hudLog("commitReceived: device=\(DeviceState.shared.deviceName) focused=\(focused)")
-                if focused {
+                if focused && !DeviceState.shared.dismissed {
                     self.show()
                 }
+            }
+            .store(in: &cancellables)
+
+        DeviceState.shared.hideRequested
+            .receive(on: RunLoop.main)
+            .sink { [weak self] in
+                hudLog("hideRequested — user navigated away in Live")
+                self?.hide()
             }
             .store(in: &cancellables)
 
@@ -41,7 +49,7 @@ class HUDOverlayManager {
             .sink { [weak self] isFront in
                 if !isFront {
                     self?.hide()
-                } else if !DeviceState.shared.deviceName.isEmpty {
+                } else if !DeviceState.shared.deviceName.isEmpty && !DeviceState.shared.dismissed {
                     self?.show()
                 }
             }

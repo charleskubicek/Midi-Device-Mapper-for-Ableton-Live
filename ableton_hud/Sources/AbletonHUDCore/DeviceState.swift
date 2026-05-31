@@ -16,6 +16,12 @@ public class DeviceState: ObservableObject {
     /// "Best of"). Empty when the page has no label.
     @Published public var bankLabel: String = ""
 
+    /// Sticky dismiss flag. Set by `HIDE` when the user navigates away from the
+    /// device in Live; cleared by the next device burst (`DEVICE`/`COMMIT`).
+    /// While true, the overlay manager suppresses every show path so routine
+    /// `UPDATE`/`PING`/refocus traffic can't resurrect the HUD.
+    @Published public var dismissed: Bool = false
+
     private var pendingDials: [Int: Slot] = [:]
     private var pendingButtons: [Int: Slot] = [:]
     private var pendingName: String = ""
@@ -27,6 +33,7 @@ public class DeviceState: ObservableObject {
     private var pendingBankLabel: String = ""
 
     public let commitReceived = PassthroughSubject<Void, Never>()
+    public let hideRequested = PassthroughSubject<Void, Never>()
 
     public func apply(message: WireMessage) {
         switch message {
@@ -34,6 +41,9 @@ public class DeviceState: ObservableObject {
             pendingCells = cells
 
         case .device(let name):
+            // A new device burst means the user (re)selected a device — clear the
+            // sticky dismiss so the upcoming COMMIT is allowed to show the HUD.
+            dismissed = false
             pendingDials = [:]
             pendingButtons = [:]
             pendingName = name
@@ -61,6 +71,7 @@ public class DeviceState: ObservableObject {
             commitReceived.send()
 
         case .commit:
+            dismissed = false
             hudCells = pendingCells
             deviceName = pendingName
             encoderPage = pendingEncoderPage
@@ -74,6 +85,10 @@ public class DeviceState: ObservableObject {
 
         case .ping:
             commitReceived.send()
+
+        case .hide:
+            dismissed = true
+            hideRequested.send()
 
         case .mode(let isShift):
             isShiftMode = isShift

@@ -67,6 +67,10 @@ def encode_ping() -> str:
     return "PING"
 
 
+def encode_hide() -> str:
+    return "HIDE"
+
+
 def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int,
                      enc_label: str = '', btn_label: str = '') -> str:
     # Labels carry the standard-bank page name (e.g. "Amplitude / Filter") or
@@ -118,6 +122,11 @@ class PingMsg:
 
 
 @dataclass(frozen=True)
+class HideMsg:
+    pass
+
+
+@dataclass(frozen=True)
 class ModeMsg:
     is_shift: bool
 
@@ -137,7 +146,7 @@ class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, ModeMsg, PageMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, PageMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -211,7 +220,14 @@ def parse(line: str) -> Message:
             return UnknownMsg(line)
 
     if verb == 'PING':
+        if len(fields) != 1:
+            return UnknownMsg(line)
         return PingMsg()
+
+    if verb == 'HIDE':
+        if len(fields) != 1:
+            return UnknownMsg(line)
+        return HideMsg()
 
     if verb == 'MODE':
         if len(fields) >= 2:

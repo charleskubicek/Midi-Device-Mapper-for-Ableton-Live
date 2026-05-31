@@ -71,6 +71,66 @@ class MainComponent(ControlSurfaceComponent):
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 
+        # Dismiss the HUD when the user navigates away from the device (browser,
+        # Session/Arrangement switch, leaving the device chain). We over-index on
+        # hiding: only a fresh device burst re-shows the HUD. Callbacks are
+        # directional so they can't race our own show burst.
+        self._app_view = Live.Application.get_application().view
+        self._register_app_view_listeners()
+
+    def _register_app_view_listeners(self):
+        try:
+            self._app_view.add_focused_document_view_listener(self._on_doc_view_changed)
+        except Exception as e:
+            self.log_message(f"HUD dismiss: failed to add focused_document_view listener: {e}")
+        try:
+            self._app_view.add_is_view_visible_listener('Browser', self._on_browser_visibility_changed)
+        except Exception as e:
+            self.log_message(f"HUD dismiss: failed to add Browser visibility listener: {e}")
+        try:
+            self._app_view.add_is_view_visible_listener('Detail/DeviceChain', self._on_detail_changed)
+        except Exception as e:
+            self.log_message(f"HUD dismiss: failed to add Detail/DeviceChain visibility listener: {e}")
+
+    def remove_app_view_listeners(self):
+        try:
+            self._app_view.remove_focused_document_view_listener(self._on_doc_view_changed)
+        except Exception:
+            pass
+        try:
+            self._app_view.remove_is_view_visible_listener('Browser', self._on_browser_visibility_changed)
+        except Exception:
+            pass
+        try:
+            self._app_view.remove_is_view_visible_listener('Detail/DeviceChain', self._on_detail_changed)
+        except Exception:
+            pass
+
+    def _on_doc_view_changed(self):
+        # Session <-> Arrangement switch. Device selection never changes this, so
+        # an unconditional hide can't race our show burst. Note: Live emits this
+        # redundantly (several times per change); HIDE is idempotent so that's fine.
+        self._hud_client.send_hide()
+
+    def _on_browser_visibility_changed(self):
+        # Hide only when the browser becomes visible (the user opened it). Fires
+        # on show/hide toggle only — clicking into an already-open browser is not
+        # observable in the Live API, so that case won't dismiss.
+        try:
+            if self._app_view.is_view_visible('Browser'):
+                self._hud_client.send_hide()
+        except Exception as e:
+            self.log_message(f"HUD dismiss: Browser visibility check failed: {e}")
+
+    def _on_detail_changed(self):
+        # Hide only when the device chain becomes hidden. Selecting a device makes
+        # it visible, so this won't fire a hide on selection.
+        try:
+            if not self._app_view.is_view_visible('Detail/DeviceChain'):
+                self._hud_client.send_hide()
+        except Exception as e:
+            self.log_message(f"HUD dismiss: Detail/DeviceChain visibility check failed: {e}")
+
     def button_handler(self, button, send_value):
         value = 127 if send_value > 0.0 else 0
 

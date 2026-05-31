@@ -348,6 +348,10 @@ class $surface_name(ControlSurface):
 
     def disconnect(self):
         self.show_message("Disconnecting...")
+        try:
+            self.main_component.remove_app_view_listeners()
+        except Exception as e:
+            self.log_message(f"Error removing app view listeners: {e}")
         self._socket.close()
         super().disconnect()
         # def _setup_session(self):

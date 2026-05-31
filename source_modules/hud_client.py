@@ -43,6 +43,9 @@ class HudClient:
     def send_ping(self):
         self._send(hud_protocol.encode_ping())
 
+    def send_hide(self):
+        self._send(hud_protocol.encode_hide())
+
     def send_mode(self, is_shift: bool):
         self._send(hud_protocol.encode_mode(is_shift))
 
@@ -59,5 +62,6 @@ class NullHudClient:
     def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def commit(self, count: int): pass
     def send_ping(self): pass
+    def send_hide(self): pass
     def send_mode(self, is_shift: bool): pass
     def send_page_info(self, enc_page, enc_total, btn_page, btn_total, enc_label='', btn_label=''): pass

@@ -31,7 +31,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are seven message types.
+There are eight message types.
 
 ### `LAYOUT`
 
@@ -149,6 +149,27 @@ PING
   `ableton_control_surface_as_code/gen_code.py`).
 - **Receiver effect:** resets the auto-dismiss timer. Does not change displayed
   state.
+
+### `HIDE`
+
+Explicit dismiss. Sent when the Live API shows the user has navigated away from
+the focused device (opened the browser, switched Session ↔ Arrangement, left the
+device chain).
+
+```
+HIDE
+```
+
+- **Emitted:** by `application.view` listeners in the generated surface
+  (`main_component.py`: `_on_doc_view_changed`, `_on_browser_visibility_changed`,
+  `_on_detail_changed`) via `HudClient.send_hide()`. Callbacks are directional —
+  they only fire on the away-transition, never on selecting a device.
+- **Receiver effect:** sets the **sticky** `dismissed` flag and hides the
+  overlay. While `dismissed` is set, every show path is suppressed
+  (`COMMIT`/`UPDATE`/`PING` and app-refocus) so routine traffic — e.g. an
+  automated parameter emitting `UPDATE` during playback — cannot resurrect the
+  HUD. The flag is cleared only by the next device burst (`DEVICE` or `COMMIT`),
+  i.e. the user reselecting a device.
 
 ### `PAGE`
 
@@ -411,6 +432,11 @@ pending dict are an error condition rather than the normal case.
 
 The dismiss timer is reset on `COMMIT`, `UPDATE`, and `PING`. If none of those
 arrive within the dismiss window, the HUD hides itself.
+
+`HIDE` is an out-of-band dismiss orthogonal to the timer: it sets the sticky
+`dismissed` flag (in `DeviceState`) and hides immediately. While set, the overlay
+manager gates every show path on `!dismissed`, so the HUD stays hidden through
+`UPDATE`/`PING`/refocus until a `DEVICE`/`COMMIT` burst clears the flag.
 
 ---
 

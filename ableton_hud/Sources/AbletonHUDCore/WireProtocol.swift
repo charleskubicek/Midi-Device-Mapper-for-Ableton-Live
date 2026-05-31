@@ -40,6 +40,9 @@ public enum WireMessage: Equatable {
     case commit(Int)
 /// Keepalive — resets the HUD dismiss timer without changing display state.
     case ping
+    /// Explicit dismiss — the user navigated away from the device in Live.
+    /// Hides the HUD and stays hidden until a new device burst arrives.
+    case hide
     case mode(isShift: Bool)
     case page(encPage: Int, encTotal: Int, btnPage: Int, btnTotal: Int,
               encLabel: String, btnLabel: String)
@@ -55,6 +58,10 @@ public enum WireProtocol {
         case "PING":
             guard fields.count == 1 else { return .unknown }
             return .ping
+
+        case "HIDE":
+            guard fields.count == 1 else { return .unknown }
+            return .hide
 
         case "LAYOUT":
             guard fields.count >= 2, let n = Int(fields[1]) else { return .unknown }

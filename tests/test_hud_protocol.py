@@ -9,6 +9,7 @@ from source_modules.hud_protocol import (
     UpdateMsg,
     CommitMsg,
     PingMsg,
+    HideMsg,
     PageMsg,
     UnknownMsg,
     encode_layout,
@@ -18,6 +19,7 @@ from source_modules.hud_protocol import (
     encode_update,
     encode_commit,
     encode_ping,
+    encode_hide,
     encode_page_info,
     parse,
     parse_all,
@@ -64,6 +66,9 @@ class TestEncodeBytes(unittest.TestCase):
     def test_ping(self):
         self.assertEqual(encode_ping(), "PING")
 
+    def test_hide(self):
+        self.assertEqual(encode_hide(), "HIDE")
+
     def test_page_info(self):
         self.assertEqual(encode_page_info(1, 3, 1, 2), "PAGE|1|3|1|2")
 
@@ -104,6 +109,9 @@ class TestParseRoundtrip(unittest.TestCase):
     def test_ping_roundtrip(self):
         self.assertEqual(parse(encode_ping()), PingMsg())
 
+    def test_hide_roundtrip(self):
+        self.assertEqual(parse(encode_hide()), HideMsg())
+
     def test_page_info_roundtrip(self):
         line = encode_page_info(2, 4, 1, 2)
         self.assertEqual(parse(line), PageMsg(2, 4, 1, 2))
@@ -137,6 +145,9 @@ class TestParseAll(unittest.TestCase):
 class TestMalformed(unittest.TestCase):
     def test_unknown_verb(self):
         self.assertEqual(parse("WHAT|1|2"), UnknownMsg("WHAT|1|2"))
+
+    def test_hide_with_trailing_field_is_unknown(self):
+        self.assertEqual(parse("HIDE|x"), UnknownMsg("HIDE|x"))
 
     def test_layout_field_count_mismatch(self):
         # claims 2 cells but only 1 cell of fields follows
