@@ -3,9 +3,9 @@ import re
 from dataclasses import dataclass
 from typing import Literal, List, Optional, Dict, Tuple
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2
+from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2, parse_multiple_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
@@ -120,6 +120,14 @@ class ModeButtonMidiMapping(BaseModel):
         return self.midi_coords.controller_listener_fn_name(f"_mode_{mode_name}_{self.slot}")
 
 
+class SwitchListEntry(BaseModel):
+    range_raw: str = Field(alias='range')
+
+    @property
+    def encoder_coords_list(self) -> List[EncoderCoords]:
+        return parse_multiple_coords(self.range_raw)
+
+
 class DeviceWithMidi(BaseModel):
     type: Literal['device'] = 'device'
     track: TrackInfo
@@ -145,12 +153,23 @@ class DeviceEncoderMappings(BaseModel):
     switch6: Optional[EncoderCoords] = Field(None, alias='switch6')
     switch7: Optional[EncoderCoords] = Field(None, alias='switch7')
     switch8: Optional[EncoderCoords] = Field(None, alias='switch8')
+    switch_list: List[SwitchListEntry] = Field(default_factory=list, alias='switch-list')
 
     @field_validator('switch1', 'switch2', 'switch3', 'switch4',
                      'switch5', 'switch6', 'switch7', 'switch8', mode='before')
     @classmethod
     def parse_switch(cls, value):
         return parse_coords(value) if value is not None else None
+
+    @model_validator(mode='after')
+    def _no_mix_switch_list_and_explicit(self):
+        if self.switch_list:
+            explicit = [name for name, coord in self.switch_entries() if coord is not None]
+            if explicit:
+                raise ValueError(
+                    f"Cannot mix 'switch-list' with explicit switch entries: {explicit}"
+                )
+        return self
 
     def switch_entries(self) -> List[Tuple[str, Optional[EncoderCoords]]]:
         return [(f"switch{i}", getattr(self, f"switch{i}")) for i in range(1, 9)]
@@ -236,6 +255,17 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
                 midi_coords=midi_coord,
                 slot=slot_name,
             ))
+    if device.mappings.switch_list:
+        switch_index = 1
+        for entry in device.mappings.switch_list:
+            for ec in entry.encoder_coords_list:
+                midis, _ = controller.build_midi_coords(ec)
+                for midi_coord in midis:
+                    mode_button_maps.append(ModeButtonMidiMapping(
+                        midi_coords=midi_coord,
+                        slot=f"switch{switch_index}",
+                    ))
+                    switch_index += 1
 
     slot_groups = [e for e in device.mappings.encoders_all() if e.uses_slots]
     total_slots = sum(len(e.slots) for e in slot_groups)
@@ -254,13 +284,18 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
 
     switch_maps = [m for m in mode_button_maps if m.slot.startswith('switch')]
     if switch_maps:
-        # Find the controller row for the first switch
-        first_switch = device.mappings.switch_entries()
-        for slot_name, coord in first_switch:
+        switch_row = None
+        for slot_name, coord in device.mappings.switch_entries():
             if coord is not None and slot_name.startswith('switch'):
-                gr, gc = controller.grid_position_for(int(coord.row))
-                hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='button', count=len(switch_maps), start_index=0))
+                switch_row = int(coord.row)
                 break
+        if switch_row is None and device.mappings.switch_list:
+            m = re.match(r'row-(\d+)', device.mappings.switch_list[0].range_raw)
+            if m:
+                switch_row = int(m.group(1))
+        if switch_row is not None:
+            gr, gc = controller.grid_position_for(switch_row)
+            hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='button', count=len(switch_maps), start_index=0))
 
     return DeviceWithMidi(
         track=device.track,
