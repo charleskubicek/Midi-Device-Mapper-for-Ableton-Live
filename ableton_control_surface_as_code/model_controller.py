@@ -194,6 +194,11 @@ class ControllerV2:
 
                     for col in coords.range_inclusive:
                         midi_range_index = col - 1
+                        if midi_range_index < 0 or midi_range_index >= len(group.midi_coords):
+                            raise ValueError(
+                                f"Coordinate row-{coords.row}:{col} is out of range — "
+                                f"row {group.number} has {len(group.midi_coords)} item(s) (valid cols: 1–{len(group.midi_coords)})"
+                            )
                         midi_coords = group.midi_item_at(midi_range_index)
                         res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
 

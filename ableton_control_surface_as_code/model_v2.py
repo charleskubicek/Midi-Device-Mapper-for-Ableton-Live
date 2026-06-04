@@ -116,7 +116,7 @@ class RootV2ModesOrModeless(BaseModel):
 
 
 class ModeButtonWithMidi(BaseModel):
-    on_colors: List[Tuple[str, int]]
+    on_colors: List[Tuple[str, Optional[int]]]
     button: MidiCoords
     type: ModeType = ModeType.Switch
 
@@ -148,8 +148,9 @@ class ModeGroupWithMidi(BaseModel):
             for i, (name, clr) in enumerate(self.mode_button.on_colors)]
 
 
-def validate_mappings(mappings: AllMappingWithMidiTypes):
+def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = ""):
     seen = {}
+    mode_prefix = f" in mode '{mode_name}'" if mode_name else ""
     for withMidi in mappings:
         for midi_maps in withMidi.midi_maps:
             mcs = midi_maps.midi_coords
@@ -157,7 +158,7 @@ def validate_mappings(mappings: AllMappingWithMidiTypes):
                 if mc.ch_num in seen:
                     (pmc, previous) = seen[mc.ch_num]
                     raise GenError(
-                        f"Clashing mappings in {withMidi.type} and {previous.type} to chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
+                        f"Clashing mappings{mode_prefix}: {withMidi.type} and {previous.type} both use chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
                         + f"\n from source 1: {mc.source_info}"
                         + f"\n from source 2: {pmc.source_info}", 1)
                 else:
@@ -195,7 +196,7 @@ def print_model_with_mappings(model: ControllerV2, mappings):
 
 
 def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
-    mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir))
+    mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir, mode_name=mode_dev.name))
                 for mode_dev in root.modes]
 
     if root.mode_button is None:
@@ -213,7 +214,7 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> Mode
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
-                            root_dir: Path) -> AllMappingWithMidiTypes:
+                            root_dir: Path, mode_name: str = "") -> AllMappingWithMidiTypes:
     """
     Returns a model of the mapping with midi info attached
 
@@ -242,7 +243,7 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
             mappings_with_midi.append(build_parameter_pager_model_v2(controller, mapping))
 
     print_model_with_mappings(controller, mappings_with_midi)
-    validate_mappings(mappings_with_midi)
+    validate_mappings(mappings_with_midi, mode_name=mode_name)
 
     return mappings_with_midi
 

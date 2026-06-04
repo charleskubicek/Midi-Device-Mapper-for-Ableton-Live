@@ -22,11 +22,16 @@ def tabs(n):
     return tab * n
 
 
-def setup_template(mode_name):
+def setup_template(mode_name, mode_button_midi=None):
+    if mode_button_midi is not None:
+        midi_type = 'MIDI_NOTE_TYPE' if mode_button_midi.type.is_note() else 'MIDI_CC_TYPE'
+        btn_line = f"self.mode_button = ConfigurableButtonElement(True, {midi_type}, {mode_button_midi.ableton_channel()}, {mode_button_midi.number})"
+    else:
+        btn_line = "self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)"
     return f"""
         self.current_mode = None
         self._first_mode = '{mode_name}'
-        self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)    
+        {btn_line}
     """
 
 
@@ -129,7 +134,8 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
     if modes.has_modes():
         creation.append(creation_template(first_mode_name))
         codes.remove_listeners.append(remove_listeners_template())
-        codes.init.append(setup_template(first_mode_name))
+        mode_btn_midi = modes.mode_button.button if modes.mode_button else None
+        codes.init.append(setup_template(first_mode_name, mode_button_midi=mode_btn_midi))
 
         for mode in modes.fsm():
             codes.init.append(state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))

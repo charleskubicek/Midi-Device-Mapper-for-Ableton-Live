@@ -123,7 +123,7 @@ class MidiCoords(BaseModel):
 
     @property
     def ch_num(self):
-        return f"{self.channel}_{self.number}"
+        return f"{self.channel}_{self.number}_{self.type.value}"
 
     def ableton_channel(self):
         return self.channel - 1

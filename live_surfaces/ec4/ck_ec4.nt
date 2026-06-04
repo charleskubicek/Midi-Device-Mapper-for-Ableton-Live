@@ -1,0 +1,87 @@
+controller: ec4.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+#ableton_dir: /Applications/Ableton Live 12 Beta.app
+parameter_mappings_file: ../../data/custom_device_mappings.json
+
+remote_on: false
+hud: device_only
+
+mode-button:
+    button: row-8:4
+    type: shift
+modes:
+    -
+        name: main_mode
+        mappings:
+            -
+                type: device
+                track: selected
+                device: selected
+                mappings:
+                    encoder-list:
+                        -
+                            range: row-1:1-4
+                            slots: 1-4
+                        -
+                            range: row-2:1-4
+                            slots: 5-8
+                        -
+                            range: row-3:1-4
+                            slots: 9-12
+                        -
+                            range: row-4:1-4
+                            slots: 13-16
+                    on-off: row-5:4 toggle
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    mute: row-5:2
+                    solo: row-5:3
+            -
+                type: functions
+                mappings:
+                    iterate_midi_pattern: row-6:1
+                    back8: row-6:2
+                    update_colors: row-6:3
+                    press_rack_random_button: row-6:4
+    -
+        name: shift_mode
+        mappings:
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    volume: row-1:4
+                    pan: row-1:3
+                    sends: row-2:1-4,row-3:1-4
+    #               arm: row-3:3
+            -
+                type: device
+                track: selected
+                device: selected
+                mappings:
+                    switch1: row-5:1
+                    switch2: row-5:2
+                    switch3: row-5:3
+                    switch4: row-5:4
+            -
+                type: functions
+                mappings:
+                    record_midi_from_track_to_new_track: row-5:2 toggle
+                    create_audio_track_taking_input_from_selected_track: row-5:3 toggle
+                    selected_audio_to_simpler_in_new_track: row-5:4
+#                    sequencer_random_notes: row-3:5
+#                    sequencer_random_velocity: row-3:6
+#                    sequencer_random_length: row-3:7
+#                    sequencer_shift_right: row-3:8
+
+    #                shift_clip_notes_left: row-4:1
+    #                shift_clip_notes_right: row-4:2
+                    clip_extend: row-6:2
+                    clip_delete_end: row-6:1
+            -
+                type: parameter-pager
+                encoders:
+                    inc: row-8:2
+                    dec: row-8:3
