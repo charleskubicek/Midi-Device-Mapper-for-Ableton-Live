@@ -137,4 +137,7 @@ def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
     if t == 'parameter-pager':
         return [(mm.only_midi_coord, f"page {mm.direction}") for mm in mapping.midi_maps]
 
+    if t == 'clip':
+        return [(mm.only_midi_coord, f"clip: {mm.spec.hud_label}") for mm in mapping.midi_maps]
+
     return []

@@ -8,6 +8,7 @@ from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
 from .helpers import Helpers, OSCMultiClient, OSCClient, Remote, NullOSCClient
 from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
+from .clip_actions import ClipActions
 from .listener import OSCListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
@@ -38,6 +39,7 @@ class MainComponent(ControlSurfaceComponent):
         self._modes = {}
         self._song = self.manager.song()
         self._nav = Nav(self.manager)
+        self.clip_actions = ClipActions(self.manager)
 
         self._osc_client = NullOSCClient()
 

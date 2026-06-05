@@ -20,6 +20,7 @@ from ableton_control_surface_as_code.model_parameter_pager import (
 from ableton_control_surface_as_code.model_track_nav import TrackNav, TrackNavWithMidi, \
     build_track_nav_model_v2
 from ableton_control_surface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
+from ableton_control_surface_as_code.model_clip import Clip, ClipWithMidi, build_clip_model_v2
 
 AllMappingTypes = List[Union[
     MixerV2,
@@ -29,6 +30,7 @@ AllMappingTypes = List[Union[
     Functions,
     Transport,
     ParameterPagerV2,
+    Clip,
 ]]
 
 AllMappingWithMidiTypes = List[Union[
@@ -39,6 +41,7 @@ AllMappingWithMidiTypes = List[Union[
     FunctionsWithMidi,
     TransportWithMidi,
     ParameterPagerWithMidi,
+    ClipWithMidi,
 ]]
 
 
@@ -261,6 +264,8 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
             mappings_with_midi.append(build_transport_model(controller, mapping))
         if mapping.type == "parameter-pager":
             mappings_with_midi.append(build_parameter_pager_model_v2(controller, mapping))
+        if mapping.type == "clip":
+            mappings_with_midi.append(build_clip_model_v2(controller, mapping))
 
     print_model_with_mappings(controller, mappings_with_midi)
     validate_mappings(mappings_with_midi, mode_name=mode_name)

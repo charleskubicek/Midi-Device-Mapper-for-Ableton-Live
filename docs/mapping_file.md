@@ -40,7 +40,7 @@ UDP. The `hud` attribute decides what gets sent:
 
 | Value         | Behavior |
 | ------------- | -------- |
-| `on`          | Default. All mappings render in the HUD: device parameters (live values), plus static labels for `mixer`, `functions`, `track-nav`, `device-nav`, `transport`, `parameter-pager`. |
+| `on`          | Default. All mappings render in the HUD: device parameters (live values), plus static labels for `mixer`, `functions`, `track-nav`, `device-nav`, `transport`, `parameter-pager`, `clip`. |
 | `off`         | The generated surface uses `NullHudClient` — no UDP traffic at all. Use this if you don't run the HUD app. |
 | `device_only` | The HUD client is live, but only `device`-mapped slots show content. Static labels for non-device mappings are suppressed; those slots stay blank. Useful when you only care about seeing the focused device's parameter names/values and find the static labels for buttons noisy. |
 
@@ -205,6 +205,43 @@ button page totals — so if a device has 5 encoder pages and 2 button pages, th
 indicator reads e.g. "1/5". When the encoder page exceeds the button page count
 (e.g. page 3 of 5), the button slots display their last defined page
 (page 2).
+
+### `clip` — edit the currently-detailed clip
+
+Binds controls to attributes of the clip shown in Live's detail view
+(`song().view.detail_clip`). Each listener acts on whatever clip is detailed at
+the time, and is a no-op when none is. Audio-only attributes (`gain`, `pitch-*`,
+`warping`) silently do nothing on MIDI clips.
+
+```nt
+- type: clip
+  mappings:
+      gain: row-1:1               # absolute encoder, 0..1
+      pitch-coarse: row-1:2       # absolute encoder, -48..48 semitones
+      pitch-fine: row-1:3         # absolute encoder, -50..50
+      loop-start-inc: row-2:1     # button, +1 beat per press
+      loop-start-dec: row-2:2     # button, -1 beat
+      loop-end-inc: row-2:3
+      loop-end-dec: row-2:4
+      start-marker-inc: row-2:5
+      start-marker-dec: row-2:6
+      end-marker-inc: row-2:7
+      end-marker-dec: row-2:8
+      looping: row-2:9            # button, toggle on/off
+      warping: row-2:10           # button, toggle on/off (audio only)
+      duplicate-loop: row-2:11    # button
+      sync-loop-and-markers: row-2:12   # button: start/end markers := loop start/end
+      move-loop-forward: row-2:13       # button: shift loop region +1 beat (size kept)
+      move-loop-backward: row-2:14      # button: shift loop region -1 beat
+```
+
+Encoders map an **absolute** 0..127 value onto the property's bounded range, so
+they suit controllers whose encoders send absolute values (the default). The
+unbounded loop/marker positions (in beats) use inc/dec **button** pairs that
+nudge one beat per press. Clip controls must be **dedicated** — a clip control
+sharing a MIDI coord with another mapping in the same mode is a generate-time
+error (the standard clash check). The HUD shows each clip control's name
+prefixed with `clip: ` (e.g. `clip: gain`).
 
 ## How the file is processed
 

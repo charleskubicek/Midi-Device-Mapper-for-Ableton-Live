@@ -11,7 +11,7 @@ from ableton_control_surface_as_code.gen_code import class_function_body_code_bl
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
     functions_templates, mixer_templates, track_nav_templates, device_nav_templates, \
     transport_templates, dict_variable_decleration_block, GeneratedCodes, \
-    parameter_pager_templates
+    parameter_pager_templates, clip_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode
 
@@ -199,6 +199,7 @@ template_to_code = {
     'functions': functions_templates,
     'transport': transport_templates,
     'parameter-pager': parameter_pager_templates,
+    'clip': clip_templates,
 }
 
 def build_mode_code(mode_mappings, name, controller=None, hud_cells=None) -> list[GeneratedCode]:

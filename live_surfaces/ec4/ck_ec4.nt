@@ -58,8 +58,7 @@ modes:
                 mappings:
                     volume: row-1:4
                     pan: row-1:3
-                    sends: row-2:1-4,row-3:1-4
-    #               arm: row-3:3
+                    sends: row-1:1-2,row-2:1-4
             -
                 type: device
                 track: selected
@@ -94,3 +93,10 @@ modes:
                 encoders:
                     inc: row-8:2
                     dec: row-8:3
+            -
+                type: clip
+                mappings:
+                    gain: row-4:1
+                    pitch-coarse: row-4:2
+                    move-loop: row-4:3
+                    loop-start: row-4:4

@@ -310,6 +310,90 @@ def functions_templates(functions_with_midi: FunctionsWithMidi, mode_name) -> [G
     return map_controllers(mode_name, functions_with_midi.midi_maps)
 
 
+def generate_clip_encoder_listener_action(fn_name, call, debug_st) -> [str]:
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
+    return Template("""
+# $comment
+def ${fn_name}(self, value):
+    self.clip_actions.${call}(value)
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, call=call, comment=debug_st).split("\n")
+
+
+def generate_clip_button_listener_action(fn_name, call, debug_st) -> [str]:
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
+    return Template("""
+# $comment
+def ${fn_name}(self, value):
+    previous_value = self._previous_values['$fn_name']
+    self._previous_values['$fn_name'] = value
+    if self._helpers.value_is_max(value, 127):
+        self.clip_actions.${call}()
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, call=call, comment=debug_st).split("\n")
+
+
+def generate_clip_nudge_listener_action(fn_name, call, step, debug_st) -> [str]:
+    """A 'nudge' encoder turns an absolute knob into a relative stepper: each
+    value change moves the property one `step` in the direction of the change.
+    Works with absolute controllers (no relative MIDI mode needed).
+
+    The baseline starts as None so the *first* event after load only records the
+    reference position (it must not be read as a direction — the encoder could
+    be sitting anywhere)."""
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
+    return Template("""
+# $comment
+def ${fn_name}(self, value):
+    previous_value = self._previous_values['$fn_name']
+    self._previous_values['$fn_name'] = value
+    if previous_value is None:
+        return
+    if value > previous_value:
+        self.clip_actions.${call}($step)
+    elif value < previous_value:
+        self.clip_actions.${call}(-$step)
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, call=call, step=step, comment=debug_st).split("\n")
+
+
+def clip_templates(clip_with_midi: 'ClipWithMidi', mode_name) -> [GeneratedCode]:
+    codes = []
+    for mm in clip_with_midi.midi_maps:
+        var_name = mm.controller_variable_name()
+        listener_name = mm.controller_listener_fn_name(mode_name)
+
+        if mm.kind == 'encoder':
+            listener_fns = generate_clip_encoder_listener_action(
+                listener_name, mm.runtime_call(), mm.info_string())
+            initial_previous = "0"
+        elif mm.kind == 'nudge':
+            listener_fns = generate_clip_nudge_listener_action(
+                listener_name, mm.runtime_call(), mm.nudge_step(), mm.info_string())
+            # None so the first event only establishes the reference position.
+            initial_previous = "None"
+        else:
+            listener_fns = generate_clip_button_listener_action(
+                listener_name, mm.runtime_call(), mm.info_string())
+            initial_previous = "0"
+
+        codes.append(GeneratedCode(
+            control_defs=[mm.only_midi_coord],
+            setup_listeners=[f"self.{var_name}.add_value_listener(self.{listener_name})",
+                             f"self._previous_values['{listener_name}'] = {initial_previous}"],
+            remove_listeners=[f"self.{var_name}.remove_value_listener(self.{listener_name})"],
+            listener_fns=listener_fns,
+        ))
+
+    return codes
+
+
 def parameter_pager_templates(pager_with_midi, mode_name) -> [GeneratedCode]:
     return map_controllers(mode_name, pager_with_midi.midi_maps)
 
