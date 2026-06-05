@@ -104,7 +104,6 @@ class RootV2(BaseModel):
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
-    shift_dismisses_hud: bool = Field(default=False)
 
     class Config:
         extra = 'forbid'
@@ -120,7 +119,6 @@ class RootV2ModesOrModeless(BaseModel):
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
-    shift_dismisses_hud: bool = Field(default=False)
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -134,7 +132,6 @@ class RootV2ModesOrModeless(BaseModel):
             parameter_mappings_file=self.parameter_mappings_file,
             hud=self.hud,
             feedback=self.feedback,
-            shift_dismisses_hud=self.shift_dismisses_hud,
         )
 
 

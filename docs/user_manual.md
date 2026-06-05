@@ -128,7 +128,6 @@ ableton_dir: /Applications/Ableton Live 12 Suite.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
 remote_on: false
 hud: device_only
-shift_dismisses_hud: true
 
 mode-button:
     button: row-3:1
@@ -167,7 +166,7 @@ modes:
     *   `on`: Render all mapped elements (mixer, device, functions, etc.).
     *   `off`: Disable UDP HUD communication.
     *   `device_only`: Only show device-mapped slots. Static labels for mixer or function parameters are hidden.
-*   **`shift_dismisses_hud`**: When `true`, pressing the mode-shift button immediately hides the HUD. It remains hidden until another device is selected.
+    *   To dismiss the HUD on demand from the controller, bind the reserved `hud_toggle` action under a `functions` mapping (see [`functions`](#functions)). The HUD also auto-dismisses on inactivity and when you navigate away from the focused device.
 *   **`mode-button`**: Wire a physical button to drive the mode state machine.
     *   `type: switch`: Pressing the button cycles through the declared modes.
     *   `type: shift`: The second mode is active only *while held*; releasing returns to the first mode.
@@ -222,6 +221,8 @@ Maps buttons or encoders to custom Python methods written in a sidecar `function
     *   `def my_func(self)`: Simple trigger (fired on button down/CC trigger).
     *   `def my_func(self, value)`: Receives the current MIDI value (0–127).
     *   `def my_func(self, value, previous_value)`: Receives current and prior MIDI values (ideal for encoder direction detection or scaling).
+
+**Reserved built-in `hud_toggle`**: bind `hud_toggle: <coord>` and the button toggles the floating HUD on/off (first press dismisses, next press re-shows with the current device/mode labels). It is intercepted by the generator and needs no entry in `functions.py`.
 
 ### `track-nav` & `device-nav`
 Moves selection focus.

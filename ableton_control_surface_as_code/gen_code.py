@@ -277,6 +277,11 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
     enc_refs = EncoderRefinements(midi_map.only_midi_coord.encoder_refs)
 
+    # Built-in actions (e.g. hud_toggle) must fire on press only — without the
+    # max-value guard the callee fires on both press (127) and release (0),
+    # flipping a toggle twice per press and netting no change.
+    press_only = enc_refs.has_toggle() or getattr(midi_map, 'builtin', False)
+
     return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],
         setup_listeners=[f"self.{button_name}.add_value_listener(self.{button_listener_name})",
@@ -285,7 +290,7 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
         listener_fns=generate_control_value_listener_function_action(button_listener_name,
                                                                      midi_map.controller_variable_name(),
                                                                      midi_map.template_function_call(),
-                                                                     enc_refs.has_toggle(),
+                                                                     press_only,
                                                                      midi_map.info_string())
     )
 

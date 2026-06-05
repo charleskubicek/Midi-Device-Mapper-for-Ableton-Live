@@ -28,7 +28,6 @@ modes:
 | `parameter_mappings_file`  | no       | none          | Path to the custom device-mapping JSON. See [`custom_device_mappings.md`](./custom_device_mappings.md). When omitted, the surface falls back to identity parameter mapping. |
 | `remote_on`                | no       | `false`       | When `true`, the generated surface emits OSC parameter updates to a multi-client target (localhost + a hard-coded LAN IP). When `false`, OSC is a no-op (`NullOSCClient`). |
 | `hud`                      | no       | `on`          | Controls the floating HUD overlay. See [HUD modes](#hud-modes). |
-| `shift_dismisses_hud`      | no       | `false`       | When `true`, pressing the `mode-button` also dismisses the HUD. The HUD stays hidden until a new device is selected. The button keeps its normal mode-switching role. No effect when `hud: off`. |
 | `mode-button`              | no       | none          | Declares a physical button that drives the mode FSM. See [Modes](#modes). |
 | `modes`                    | no       | none          | Named list of modes, each with its own mappings. If omitted, you can use a flat top-level `mappings:` instead and the generator wraps it in a single anonymous mode. |
 
@@ -152,6 +151,23 @@ The function names must match methods exposed by a `Functions` class in a
 `functions.py` file sitting next to the mapping file. The generator copies that
 file into the generated surface. `toggle` makes a button latch instead of fire
 on press.
+
+**Reserved built-in: `hud_toggle`.** One name is intercepted and does *not* need an
+entry in `functions.py`:
+
+```nt
+- type: functions
+  mappings:
+      hud_toggle: row-4:8
+```
+
+Pressing the bound button toggles the floating HUD: the first press dismisses it
+(sticky HIDE), the next press re-shows it with the current device/mode labels. Use
+this when you want to clear the overlay on demand from the controller rather than
+reaching for the `Esc` key. The HUD also auto-dismisses after a period of inactivity
+and when you navigate away from the focused device, so the binding is optional. No
+effect when `hud: off`. (If the auto-dismiss timer already hid the HUD, the first
+press may be a no-op HIDE — press again to re-show.)
 
 ### `track-nav` — move the selected-track cursor
 

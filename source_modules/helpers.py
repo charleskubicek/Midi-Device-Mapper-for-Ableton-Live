@@ -142,6 +142,12 @@ class Helpers:
         # appear here. _current_mode_name tracks which overlay is active.
         self._mode_hud_labels = mode_hud_labels or {}
         self._current_mode_name = None
+        # Local HUD dismiss *intent* for the hud_toggle binding. The Swift side
+        # auto-clears its sticky dismissed flag on every device/mode burst, so we
+        # mirror that by resetting this to False at each burst emit site (see
+        # update_remote_parameters / refresh_hud_for_mode). Otherwise the toggle
+        # direction would invert after any device change.
+        self._hud_dismissed = False
         self._remote.init_layout(self._hud_cells)
         self._encoder_page = 1
         self._button_page = 1
@@ -883,6 +889,8 @@ class Helpers:
             btn_page=self._button_page, btn_total=btn_total,
             enc_label=enc_label, btn_label=btn_label,
         )
+        # This burst clears the Swift sticky dismissed flag — re-sync intent.
+        self._hud_dismissed = False
 
     def refresh_hud_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the
@@ -892,16 +900,34 @@ class Helpers:
         self._current_mode_name = mode_name
         if device is not None:
             self._last_selected_device = device
+        self._emit_current_burst()
+
+    def _emit_current_burst(self):
+        """Re-emit the HUD burst for the active mode + focused device. If a
+        device is focused, reuse the device path; otherwise emit a label-only
+        burst. Either way the burst clears the Swift sticky dismissed flag, so
+        intent is re-synced to False."""
         if self._last_selected_device is not None:
             self.update_remote_parameters()
         else:
-# No focused device yet — emit a label-only burst.
-            mode_labels = self._mode_hud_labels.get(mode_name) or {}
+            # No focused device yet — emit a label-only burst.
+            mode_labels = self._mode_hud_labels.get(self._current_mode_name) or {}
             self._remote.device_update(
                 '', [], info_text='', switch_entries=[], device_parameters=[],
                 hud_layout=self._hud_cells, mode_labels=mode_labels,
                 enc_page=1, enc_total=1, btn_page=1, btn_total=1,
             )
+            self._hud_dismissed = False
+
+    def toggle_hud(self):
+        """Bound to a `functions: hud_toggle` button. Flips the HUD between
+        hidden and shown. Hiding sends a sticky HIDE; showing re-emits the
+        current burst (which clears the HIDE and repaints the active mode)."""
+        self._hud_dismissed = not self._hud_dismissed
+        if self._hud_dismissed:
+            self._remote.hide()
+        else:
+            self._emit_current_burst()
 
     def value_is_max(self, value, max):
         return value == max
@@ -956,6 +982,10 @@ class Remote:
     def init_layout(self, cells):
         if cells:
             self._hud_client.send_layout(cells)
+
+    def hide(self):
+        """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
+        self._hud_client.send_hide()
 
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):

@@ -43,7 +43,7 @@ Let the user redeploy so that they can restart ableton live too.
 
 ## Planning
 
-- If an existing feature or constraint appears to be contradictory to a new requirement, flag the issue to the user, and ask clarifying questions to resolve the ambiguity before proceeding.
+- If an existing feature or constraint appears to be contradictory to a new requirement, flag the issue to the user, and ask clarifying questions to resolve the ambiguity before proceeding. This includes product/UX intent, not just technical constraints: before implementing a feature, reason about who sees its output and when it fires, and flag it if the behavior would defeat the purpose it is meant to serve (e.g. dismissing the HUD at the moment the user needs to read it).
 - Always save plans to ai-coding/plans/<feature-name>-plan.md before implementing
 
 

@@ -8,6 +8,18 @@ from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 _SWITCH_KEYS = {'switch1', 'switch2'}
 
+# Reserved function names that route to a built-in surface method instead of the
+# user's functions.py class. `hud_toggle` toggles the HUD's dismiss state — it lives
+# on the surface (which holds the HUD client / helpers), so it is intercepted here
+# rather than looked up in functions.py.
+RESERVED_BUILTIN_FUNCTIONS = {'hud_toggle'}
+
+# Maps a reserved builtin name to the call expression emitted into the generated
+# listener. These run on main_component, which exposes self._helpers.
+_BUILTIN_CALLS = {
+    'hud_toggle': 'self._helpers.toggle_hud()',
+}
+
 
 class Functions(BaseModel):
     type: Literal['functions'] = "functions"
@@ -33,6 +45,7 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     midi_coords: List[MidiCoords]
     function_name: str
     parameter_len:int = 0
+    builtin: bool = False
 
     def info_string(self):
         return f"function_{self.function_name}_{self.only_midi_coord.info_string()}"
@@ -50,6 +63,9 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
         return self.midi_coords[0]
 
     def template_function_call(self):
+        if self.builtin:
+            return _BUILTIN_CALLS[self.function_name]
+
         fn = self.function_name
         if self.parameter_len == 2:
             fn = f"{fn}(value, previous_value)"
@@ -111,6 +127,13 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> F
     midi_maps = []
     for fn, enc in mapping.mappings.items():
         midi_coords, _ = controller.build_midi_coords(enc)
+
+        if fn in RESERVED_BUILTIN_FUNCTIONS:
+            # Built-in: no entry in functions.py — skip the user-file lookup and
+            # route to a surface method (see _BUILTIN_CALLS / template_function_call).
+            midi_maps.append(FunctionsMidiMapping(midi_coords=midi_coords, function_name=fn,
+                                                  parameter_len=0, builtin=True))
+            continue
 
         function_param_count = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
         midi_maps.append(FunctionsMidiMapping(midi_coords=midi_coords, function_name=fn, parameter_len=function_param_count))
