@@ -5,6 +5,9 @@ parameter_mappings_file: ../../data/custom_device_mappings.json
 
 remote_on: false
 hud: device_only
+feedback:
+    -
+        type: ec4_text
 
 mode-button:
     button: row-8:4

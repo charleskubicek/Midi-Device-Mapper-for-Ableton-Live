@@ -7,6 +7,8 @@ from .hud_client import HudClient, NullHudClient
 from .hud_protocol import SlotPayload, EMPTY_SLOT
 import logging
 
+logger = logging.getLogger("helpers")
+
 
 @dataclass
 class RealParameter:
@@ -941,10 +943,14 @@ class Helpers:
 
 
 class Remote:
-    def __init__(self, manager, osc_client, hud_client=None):
+    def __init__(self, manager, osc_client, hud_client=None, feedback_sinks=None):
         self._manager = manager
         self._osc_client = osc_client
         self._hud_client = hud_client if hud_client is not None else NullHudClient()
+        # Generic feedback sinks (e.g. Ec4Client) driven off the same burst as
+        # the HUD. The HUD keeps its own bespoke wire protocol; these consume
+        # the dense dial/button payloads.
+        self._feedback_sinks = list(feedback_sinks) if feedback_sinks else []
         self._in_burst = False  # suppresses UPDATE during device_update burst
 
     def init_layout(self, cells):
@@ -987,6 +993,19 @@ class Remote:
                 self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
                 count += 1
             self._hud_client.commit(count)
+            # Fan the same payloads out to generic feedback sinks (EC4 readouts,
+            # etc.). dial_payloads/button_payloads are re-iterable lists here.
+            for sink in self._feedback_sinks:
+                try:
+                    sink.on_device_burst(device_name, dial_payloads, button_payloads)
+                except Exception as e:
+                    # Surface log so a sink mismatch is visible in tail_logs.sh
+                    # rather than silently swallowed during a burst.
+                    try:
+                        self._manager.log_message(
+                            f"feedback sink {type(sink).__name__} failed: {e}")
+                    except Exception:
+                        logger.error(f"feedback sink {type(sink).__name__} failed: {e}")
         finally:
             self._in_burst = False
 

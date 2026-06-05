@@ -7,6 +7,7 @@ from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
 from .helpers import Helpers, OSCMultiClient, OSCClient, Remote, NullOSCClient
 from .hud_client import HudClient, NullHudClient
+from .ec4_client import Ec4Client, NullEc4Client
 from .listener import OSCListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
@@ -47,7 +48,8 @@ class MainComponent(ControlSurfaceComponent):
             ])
 
         self._hud_client = $hud_client_class()
-        self._remote = Remote(self.manager, self._osc_client, self._hud_client)
+        self._feedback_sinks = [$feedback_sinks]
+        self._remote = Remote(self.manager, self._osc_client, self._hud_client, self._feedback_sinks)
 
         $code_setup
 

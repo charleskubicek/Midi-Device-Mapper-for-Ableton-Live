@@ -78,6 +78,20 @@ class ModeDef(BaseModel, frozen=True):
         return cls(name="fake_mode", on_color="0", mappings=mappings, is_fake_wrapper_mode=True)
 
 
+class FeedbackSinkType(str, Enum):
+    Ec4Text = 'ec4_text'
+
+
+class FeedbackSinkDef(BaseModel, frozen=True):
+    """A generic runtime feedback sink — an output target driven on device /
+    mode / control-remap changes (e.g. the EC4 text readouts). The HUD has its
+    own dedicated path; these are additional sinks listed under `feedback:`."""
+    type: FeedbackSinkType
+
+    class Config:
+        extra = 'forbid'
+
+
 class RootV2(BaseModel):
     controller: str
     mode_button: Optional[ModeButton]
@@ -86,6 +100,7 @@ class RootV2(BaseModel):
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
+    feedback: List[FeedbackSinkDef] = Field(default_factory=list)
 
     class Config:
         extra = 'forbid'
@@ -100,6 +115,7 @@ class RootV2ModesOrModeless(BaseModel):
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
+    feedback: List[FeedbackSinkDef] = Field(default_factory=list)
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -112,6 +128,7 @@ class RootV2ModesOrModeless(BaseModel):
             remote_on=self.remote_on,
             parameter_mappings_file=self.parameter_mappings_file,
             hud=self.hud,
+            feedback=self.feedback,
         )
 
 

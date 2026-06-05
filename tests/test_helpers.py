@@ -549,6 +549,40 @@ class TestRemoteBurstSuppression(unittest.TestCase):
         self.hud.send_device.assert_called_once_with("EQ Eight")
 
 
+class TestFeedbackSinkFanout(unittest.TestCase):
+    """Generic feedback sinks (e.g. the EC4 text readouts) ride the same burst
+    as the HUD: Remote fans the dial/button payloads out to every sink so an
+    additional display stays in lock-step with the HUD without its own path."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.sink = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(),
+                             hud_client=self.hud, feedback_sinks=[self.sink])
+
+    def test_burst_fans_out_to_sink_with_device_name(self):
+        params = [_make_real_param(_make_param("On/Off")),
+                  _make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0))]
+        self.remote.device_update("EQ Eight", params,
+                                  hud_layout=[(0, 0, 'dial', 8, 0)])
+        self.sink.on_device_burst.assert_called_once()
+        args = self.sink.on_device_burst.call_args[0]
+        self.assertEqual(args[0], "EQ Eight")
+
+    def test_sink_receives_dial_payload_for_mapped_slot(self):
+        params = [_make_real_param(_make_param("On/Off")),
+                  _make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0))]
+        self.remote.device_update("Dev", params, hud_layout=[(0, 0, 'dial', 8, 0)])
+        dial_payloads = dict(self.sink.on_device_burst.call_args[0][1])
+        self.assertEqual(dial_payloads[0].name, "Freq")
+
+    def test_no_sinks_is_safe(self):
+        remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+        remote.device_update("Dev", [_make_real_param(_make_param("On/Off"))])
+        # HUD still driven, no error without feedback sinks
+        self.hud.commit.assert_called_once()
+
+
 class TestHudLayoutSeparation(unittest.TestCase):
     """
     LAYOUT describes the physical controller — it never changes between devices.
