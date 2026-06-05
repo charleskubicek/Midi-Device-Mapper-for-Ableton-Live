@@ -28,6 +28,7 @@ modes:
 | `parameter_mappings_file`  | no       | none          | Path to the custom device-mapping JSON. See [`custom_device_mappings.md`](./custom_device_mappings.md). When omitted, the surface falls back to identity parameter mapping. |
 | `remote_on`                | no       | `false`       | When `true`, the generated surface emits OSC parameter updates to a multi-client target (localhost + a hard-coded LAN IP). When `false`, OSC is a no-op (`NullOSCClient`). |
 | `hud`                      | no       | `on`          | Controls the floating HUD overlay. See [HUD modes](#hud-modes). |
+| `shift_dismisses_hud`      | no       | `false`       | When `true`, pressing the `mode-button` also dismisses the HUD. The HUD stays hidden until a new device is selected. The button keeps its normal mode-switching role. No effect when `hud: off`. |
 | `mode-button`              | no       | none          | Declares a physical button that drives the mode FSM. See [Modes](#modes). |
 | `modes`                    | no       | none          | Named list of modes, each with its own mappings. If omitted, you can use a flat top-level `mappings:` instead and the generator wraps it in a single anonymous mode. |
 

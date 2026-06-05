@@ -233,9 +233,15 @@ $code_setup_listeners
 
         if value == 127:# and self._modes[current_mode['next_mode_name']]['is_shift'] is not True:
             self.goto_mode(self.current_mode['next_mode_name'])
+            # Dismiss AFTER goto_mode: its mode-refresh burst ends in COMMIT,
+            # which clears the HUD's sticky dismissed flag. HIDE must come last.
+            $shift_dismiss_hud_call
         elif value == 0 and self.current_mode['is_shift']:
             self.goto_mode(self.current_mode['next_mode_name'])
             self._hud_client.send_mode(False)
+            # Shift release re-bursts (back to base mode) and would resurrect the
+            # HUD; re-send HIDE last so it stays dismissed for the whole gesture.
+            $shift_dismiss_hud_call
 
     def on_device_selected(self):
         self._helpers.selected_device_changed(self.selected_device())

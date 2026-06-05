@@ -327,6 +327,7 @@ def generate(mapping_file_path):
         'ableton_dir': validate_path(mappings.ableton_dir),
         'remote_on': mappings.remote_on,
         'parameter_mappings_raw': repr(parameter_mappings_raw),
+        'shift_dismiss_hud_call': 'self._hud_client.send_hide()' if mappings.shift_dismisses_hud else 'pass',
     }
 
     code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, feedback=mappings.feedback)

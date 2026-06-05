@@ -5,6 +5,7 @@ parameter_mappings_file: ../../data/custom_device_mappings.json
 
 remote_on: false
 hud: device_only
+shift_dismisses_hud: true
 feedback:
     -
         type: ec4_text
