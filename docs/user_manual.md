@@ -167,6 +167,9 @@ modes:
     *   `off`: Disable UDP HUD communication.
     *   `device_only`: Only show device-mapped slots. Static labels for mixer or function parameters are hidden.
     *   To dismiss the HUD on demand from the controller, bind the reserved `hud_toggle` action under a `functions` mapping (see [`functions`](#functions)). The HUD also auto-dismisses on inactivity and when you navigate away from the focused device.
+*   **`show-hud-on`**: Controls *when* the HUD pops up (orthogonal to `hud` content selection).
+    *   `controller-nav` (**Default**): The HUD burst fires **only** on controller device-nav actions (`device_nav_left/right/first/last`). Mouse selection and track navigation update control remappings and OSC values, but keep the HUD hidden (the HUD is explicitly hidden so encoder adjustments don't wake the HUD on stale devices). This can be paired with the reserved `hud_toggle` function to summon/hide the HUD manually.
+    *   `selection`: The HUD follows Live's selected device. Any device selection change (mouse click, track select, device-nav, poll etc.) triggers a full HUD burst.
 *   **`mode-button`**: Wire a physical button to drive the mode state machine.
     *   `type: switch`: Pressing the button cycles through the declared modes.
     *   `type: shift`: The second mode is active only *while held*; releasing returns to the first mode.
