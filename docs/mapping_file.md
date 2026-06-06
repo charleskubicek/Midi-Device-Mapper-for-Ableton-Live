@@ -45,6 +45,25 @@ UDP. The `hud` attribute decides what gets sent:
 
 The choice is baked in at codegen — change it and regenerate to switch.
 
+### `show-hud-on` — when the HUD appears
+
+`hud:` controls *what content* shows; `show-hud-on:` controls *when the HUD pops up*.
+They are orthogonal — `hud: off` is still the master kill switch.
+
+| Value           | Behavior |
+| --------------- | -------- |
+| `controller-nav`| **Default.** The HUD burst fires **only** on a controller device-nav action (device-nav left/right/first/last). Selecting a device by mouse or track navigation still remaps the encoders and pushes OSC, but the HUD is hidden (a `HIDE` is sent so turning a knob can't wake it on a stale device). Pair with a `hud_toggle` binding to summon the HUD on demand for a mouse-selected device. |
+| `selection`     | The HUD follows Live's selected device: whenever the focused device changes (mouse click, track select, device-nav), a burst shows the HUD. This was the behavior before `show-hud-on` existed. |
+
+```
+show-hud-on: controller-nav
+```
+
+Note: `controller-nav` covers device-nav buttons only — **track-nav is excluded** (stepping
+tracks via the controller stays silent). `show-hud-on` does not affect the HUD's
+*dismiss*/auto-hide behavior, which is a separate concern (auto-timer, navigate-away HIDE,
+the `hud_toggle` binding).
+
 ## Modes
 
 A mapping file is either modeless (flat `mappings:`) or has explicit `modes:`.

@@ -64,6 +64,16 @@ class HudMode(str, Enum):
     DeviceOnly = 'device_only'
 
 
+class HudTrigger(str, Enum):
+    """When the HUD burst is allowed to fire. Orthogonal to HudMode (which is
+    *content*): this is *when it shows*.
+      - Selection: follows Live's selected device (the 1.5s poll) — the default.
+      - ControllerNav: only a controller device-nav action shows the HUD;
+        selection changes from the mouse / track-select stay silent."""
+    Selection = 'selection'
+    ControllerNav = 'controller-nav'
+
+
 class ModeButton(BaseModel):
     button: str
     type: ModeType = ModeType.Switch
@@ -103,6 +113,7 @@ class RootV2(BaseModel):
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
+    show_hud_on: HudTrigger = HudTrigger.ControllerNav
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
 
     class Config:
@@ -118,6 +129,7 @@ class RootV2ModesOrModeless(BaseModel):
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
+    show_hud_on: HudTrigger = Field(default=HudTrigger.ControllerNav, alias='show-hud-on')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
 
     def buildRootV2(self):
@@ -131,6 +143,7 @@ class RootV2ModesOrModeless(BaseModel):
             remote_on=self.remote_on,
             parameter_mappings_file=self.parameter_mappings_file,
             hud=self.hud,
+            show_hud_on=self.show_hud_on,
             feedback=self.feedback,
         )
 

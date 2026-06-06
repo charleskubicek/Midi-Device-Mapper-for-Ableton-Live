@@ -63,7 +63,7 @@ class MainComponent(ControlSurfaceComponent):
             $code_switch_parameter_mappings
         ]
 
-        self._helpers = Helpers(self.manager, self._remote, code_slot_assignments, code_switch_slot_assignments, parameter_mappings_raw=$parameter_mappings_raw, encoder_slot_count=$encoder_slot_count, hud_cells=$hud_cells, mode_hud_labels=$mode_hud_labels)
+        self._helpers = Helpers(self.manager, self._remote, code_slot_assignments, code_switch_slot_assignments, parameter_mappings_raw=$parameter_mappings_raw, encoder_slot_count=$encoder_slot_count, hud_cells=$hud_cells, mode_hud_labels=$mode_hud_labels, hud_trigger=$hud_trigger)
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 
@@ -172,13 +172,16 @@ $code_setup_listeners
     def selected_device(self):
         return self._song.view.selected_track.view.selected_device
 
+    # device-nav handlers pass source='nav' so the HUD shows even under
+    # show-hud-on='controller-nav'. track-nav keeps the default 'selection'
+    # source (silent in controller-nav mode, per the show-hud-on contract).
     def device_nav_left(self):
         self._nav.device_nav_left()
-        self._helpers.selected_device_changed(self.selected_device())
+        self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def device_nav_right(self):
         self._nav.device_nav_right()
-        self._helpers.selected_device_changed(self.selected_device())
+        self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def track_nav_inc(self):
         self._nav.track_nav_inc()
@@ -193,11 +196,11 @@ $code_setup_listeners
 
     def device_nav_first(self):
         self._nav.device_nav_first()
-        self._helpers.selected_device_changed(self.selected_device())
+        self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def device_nav_last(self):
         self._nav.device_nav_last()
-        self._helpers.selected_device_changed(self.selected_device())
+        self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     $code_listener_fns
 

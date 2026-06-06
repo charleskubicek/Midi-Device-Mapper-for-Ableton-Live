@@ -124,9 +124,13 @@ class Helpers:
                  parameter_mappings_raw=None,
                  encoder_slot_count=8, button_slot_count=8,
                  hud_cells=None, mode_hud_labels=None,
-                 device_banks=None, bank_names=None):
+                 device_banks=None, bank_names=None,
+                 hud_trigger='controller-nav'):
         self._manager = manager
         self._remote = remote
+        # show-hud-on trigger: 'selection' (HUD follows Live's selected device)
+        # or 'controller-nav' (HUD only on controller device-nav actions).
+        self._hud_trigger = hud_trigger
         self._slot_assignments = list(slot_assignments or [])
         self._switch_slot_assignments = list(switch_slot_assignments or [])
         self._device_table = _build_device_table(parameter_mappings_raw)
@@ -465,7 +469,7 @@ class Helpers:
             'has_range': True, 'min': int(p.min), 'max': int(p.max),
         }
 
-    def selected_device_changed(self, device):
+    def selected_device_changed(self, device, source='selection'):
         if device is None or device == self._last_selected_device:
             return
         self._teardown_group_selector_listeners()
@@ -476,7 +480,13 @@ class Helpers:
         self._button_page = 1
         self._attach_group_selector_listeners(device)
         self._log_device_focus(device)
-        self.update_remote_parameters()
+        # show-hud-on gating: in 'controller-nav' mode only an explicit nav
+        # action (source='nav') shows the HUD. Mouse / track-select selection
+        # changes (source='selection', the 1.5s poll) still remap the encoders
+        # and push OSC, but the HUD burst is suppressed. 'selection' mode (the
+        # default) never suppresses.
+        suppress_hud = (self._hud_trigger == 'controller-nav' and source != 'nav')
+        self.update_remote_parameters(suppress_hud=suppress_hud)
         if self.has_user_defined_parameters(device):
             self.show_message(f"{device.class_name}")
 
@@ -837,7 +847,7 @@ class Helpers:
                 f"class={getattr(device,'class_name','?')}"
             )
 
-    def update_remote_parameters(self):
+    def update_remote_parameters(self, suppress_hud=False):
         device = self._last_selected_device
         if device is None:
             return
@@ -888,9 +898,22 @@ class Helpers:
             enc_page=self._encoder_page, enc_total=enc_total,
             btn_page=self._button_page, btn_total=btn_total,
             enc_label=enc_label, btn_label=btn_label,
+            suppress_hud=suppress_hud,
         )
-        # This burst clears the Swift sticky dismissed flag — re-sync intent.
-        self._hud_dismissed = False
+        if not suppress_hud:
+            # A real burst clears the Swift sticky dismissed flag — re-sync intent.
+            self._hud_dismissed = False
+        else:
+            # Suppressed (controller-nav mode, non-nav selection change). The
+            # device_update above kept OSC + feedback sinks flowing but emitted
+            # no HUD burst. We must also send HIDE: otherwise the next live
+            # `send_update` (turning a knob) would wake the HUD — UPDATE is a
+            # show path while the Swift `dismissed` flag is clear — and patch the
+            # now-stale slots by index. HIDE sets the sticky flag so UPDATE/PING
+            # can't resurrect it; the next device-nav burst clears it and
+            # repaints fresh. Mirror the intent locally so hud_toggle re-syncs.
+            self._remote.hide()
+            self._hud_dismissed = True
 
     def refresh_hud_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the
@@ -997,32 +1020,37 @@ class Remote:
         if parameter_no > 0 and not self._in_burst:
             self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
 
-    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=(), page_info=None):
+    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=(), page_info=None, suppress_hud=False):
         """Generic dense burst. dial_payloads / button_payloads are iterables
         of (wire_idx, SlotPayload). Caller is responsible for filling empty
         slots with hud_protocol.EMPTY_SLOT — the wire is sender-dense.
 
         page_info accepts either a 4-tuple (counts only) or a 6-tuple
-        (counts + enc_label + btn_label)."""
+        (counts + enc_label + btn_label).
+
+        suppress_hud skips the HUD wire (show-hud-on='controller-nav' on a
+        non-nav selection change). Feedback sinks (EC4 readouts) still fire —
+        they reflect device state regardless of the HUD trigger."""
         self._in_burst = True
         try:
-            self._hud_client.send_device(device_name)
-            if page_info is not None:
-                if len(page_info) == 6:
-                    enc_page, enc_total, btn_page, btn_total, enc_label, btn_label = page_info
-                else:
-                    enc_page, enc_total, btn_page, btn_total = page_info
-                    enc_label, btn_label = '', ''
-                self._hud_client.send_page_info(
-                    enc_page, enc_total, btn_page, btn_total, enc_label, btn_label)
-            count = 0
-            for idx, p in dial_payloads:
-                self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
-                count += 1
-            for idx, p in button_payloads:
-                self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
-                count += 1
-            self._hud_client.commit(count)
+            if not suppress_hud:
+                self._hud_client.send_device(device_name)
+                if page_info is not None:
+                    if len(page_info) == 6:
+                        enc_page, enc_total, btn_page, btn_total, enc_label, btn_label = page_info
+                    else:
+                        enc_page, enc_total, btn_page, btn_total = page_info
+                        enc_label, btn_label = '', ''
+                    self._hud_client.send_page_info(
+                        enc_page, enc_total, btn_page, btn_total, enc_label, btn_label)
+                count = 0
+                for idx, p in dial_payloads:
+                    self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
+                    count += 1
+                for idx, p in button_payloads:
+                    self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
+                    count += 1
+                self._hud_client.commit(count)
             # Fan the same payloads out to generic feedback sinks (EC4 readouts,
             # etc.). dial_payloads/button_payloads are re-iterable lists here.
             for sink in self._feedback_sinks:
@@ -1039,7 +1067,7 @@ class Remote:
         finally:
             self._in_burst = False
 
-    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, enc_page=1, enc_total=1, btn_page=1, btn_total=1, enc_label='', btn_label=''):
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, enc_page=1, enc_total=1, btn_page=1, btn_total=1, enc_label='', btn_label='', suppress_hud=False):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
         # HUD burst: suppress live UPDATE calls while we build the full snapshot.
@@ -1059,7 +1087,8 @@ class Remote:
             dial_payloads = _overlay_labels(dial_payloads, mode_labels, 'dial')
             button_payloads = _overlay_labels(button_payloads, mode_labels, 'button')
         self.refresh_burst(device_name, dial_payloads, button_payloads,
-                           page_info=(enc_page, enc_total, btn_page, btn_total, enc_label, btn_label))
+                           page_info=(enc_page, enc_total, btn_page, btn_total, enc_label, btn_label),
+                           suppress_hud=suppress_hud)
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 

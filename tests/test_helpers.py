@@ -994,10 +994,12 @@ class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
         self.assertIsNone(helpers._resolve_encoder(device, 1))
         self.assertIsNotNone(helpers._resolve_encoder(device, 13))
 
-        # Now drive the full burst and verify wire_idx 12 carries HiShelf Gain
+        # Now drive the full burst and verify wire_idx 12 carries HiShelf Gain.
+        # source='nav' so the burst actually fires (default show-hud-on is
+        # controller-nav, which suppresses non-nav selection changes).
         hud = Mock()
         helpers._remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=hud)
-        helpers.selected_device_changed(device)
+        helpers.selected_device_changed(device, source='nav')
         dial_calls = [c for c in hud.send_slot.call_args_list if c[0][0] == 'dial']
         self.assertEqual(len(dial_calls), 16)
         # wire_idx 0 (encoder 1) is empty due to failed resolve
