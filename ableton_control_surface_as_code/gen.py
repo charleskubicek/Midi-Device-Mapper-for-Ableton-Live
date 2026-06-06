@@ -322,10 +322,10 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
     if not functions_path.exists():
         functions_path = None
 
-    mappings = read_root(mapping_file_path.read_text())
+    mappings = read_root(mapping_file_path.read_text(), source=mapping_file_path.name)
 
     controller_path = mapping_file_path.parent / mappings.controller
-    controller = read_controller(controller_path.read_text())
+    controller = read_controller(controller_path.read_text(), source=controller_path.name)
     mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
 
     parameter_mappings_raw = None

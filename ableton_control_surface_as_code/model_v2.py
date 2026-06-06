@@ -1,15 +1,16 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Union, List, Optional, Tuple
+from typing import Union, List, Optional, Tuple, Annotated, get_args
 
 from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
-from pydantic import BaseModel, model_validator, Extra, Field
+from pydantic import BaseModel, model_validator, Extra, Field, ValidationError
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
-from ableton_control_surface_as_code.gen_error import GenError
-from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2
+from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
+from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2, \
+    validate_controller_semantics
 from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV2, build_device_model_v2_1
 from ableton_control_surface_as_code.model_device_nav import DeviceNav, DeviceNavWithMidi, build_device_nav_model_v2
 from ableton_control_surface_as_code.model_functions import build_functions_model_v2, Functions, FunctionsWithMidi
@@ -22,7 +23,7 @@ from ableton_control_surface_as_code.model_track_nav import TrackNav, TrackNavWi
 from ableton_control_surface_as_code.model_transport import Transport, TransportWithMidi, build_transport_model
 from ableton_control_surface_as_code.model_clip import Clip, ClipWithMidi, build_clip_model_v2
 
-AllMappingTypes = List[Union[
+AllMappingTypes = List[Annotated[Union[
     MixerV2,
     DeviceV2,
     TrackNav,
@@ -31,7 +32,7 @@ AllMappingTypes = List[Union[
     Transport,
     ParameterPagerV2,
     Clip,
-]]
+], Field(discriminator='type')]]
 
 AllMappingWithMidiTypes = List[Union[
     DeviceWithMidi,
@@ -283,17 +284,75 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
     return mappings_with_midi
 
 
-def read_root(mapping_path) -> RootV2:
+# Mapping union members — derived so the error text can never drift from the
+# actual set of supported mapping types. AllMappingTypes is
+# List[Annotated[Union[...], Field(discriminator='type')]].
+_MAPPING_MEMBERS = get_args(get_args(get_args(AllMappingTypes)[0])[0])
+KNOWN_MAPPING_TYPES = [m.model_fields['type'].default for m in _MAPPING_MEMBERS]
+
+
+def _format_validation_error(e: ValidationError, source: str) -> GenError:
+    """Turn a raw Pydantic ValidationError into a readable, deduplicated summary.
+
+    The mapping field is a discriminated union on `type`, so a wrong/missing type
+    collapses to a single tag error instead of one error per union member.
+    """
+    valid = ", ".join(KNOWN_MAPPING_TYPES)
+    lines = []
+    for err in e.errors():
+        loc = ".".join(str(p) for p in err['loc'])
+        etype = err['type']
+        if etype == 'union_tag_invalid':
+            bad = err.get('ctx', {}).get('tag', err.get('input'))
+            lines.append(f"  - {loc}.type: unknown mapping type {bad!r} — expected one of: {valid}")
+        elif etype == 'union_tag_not_found':
+            lines.append(f"  - {loc}: missing required key 'type' (expected one of: {valid})")
+        else:
+            lines.append(f"  - {loc or '(top level)'}: {err['msg']}")
+
+    body = "\n".join(dict.fromkeys(lines)) or "  - (validation failed)"
+    return GenError(f"Invalid config in {source}:\n{body}", ErrorCode.CONFIG_VALIDATION)
+
+
+def _validate_mode_names(root: RootV2) -> None:
+    seen, dupes = set(), []
+    for mode in root.modes:
+        if mode.name in seen:
+            dupes.append(mode.name)
+        seen.add(mode.name)
+    if dupes:
+        raise GenError(
+            f"Duplicate mode name(s): {', '.join(sorted(set(dupes)))} — "
+            f"each mode must have a unique name.", ErrorCode.SEMANTIC_VALIDATION)
+
+
+def read_root(mapping_path, source: str = "mapping file") -> RootV2:
     try:
         data = nt.loads(mapping_path)
-        return RootV2ModesOrModeless(**data).buildRootV2()
+        if not isinstance(data, dict):
+            raise GenError(
+                f"Invalid config in {source}: expected a mapping (key: value) at the "
+                f"top level, got a {type(data).__name__}.", ErrorCode.CONFIG_VALIDATION)
+        root = RootV2ModesOrModeless(**data).buildRootV2()
     except nt.NestedTextError as e:
         e.terminate()
+    except ValidationError as e:
+        raise _format_validation_error(e, source) from e
+    _validate_mode_names(root)
+    return root
 
 
-def read_controller(controller_path) -> ControllerV2:
+def read_controller(controller_path, source: str = "controller file") -> ControllerV2:
     try:
         data = nt.loads(controller_path)
-        return ControllerV2.build_from(ControllerRawV2.model_validate(data))
+        if not isinstance(data, dict):
+            raise GenError(
+                f"Invalid config in {source}: expected a mapping (key: value) at the "
+                f"top level, got a {type(data).__name__}.", ErrorCode.CONFIG_VALIDATION)
+        raw = ControllerRawV2.model_validate(data)
     except nt.NestedTextError as e:
         e.terminate()
+    except ValidationError as e:
+        raise _format_validation_error(e, source) from e
+    validate_controller_semantics(raw)
+    return ControllerV2.build_from(raw)

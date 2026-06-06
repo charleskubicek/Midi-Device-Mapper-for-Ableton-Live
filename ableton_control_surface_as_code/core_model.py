@@ -4,9 +4,11 @@ from abc import ABC
 from enum import Enum
 from typing import Literal, Optional, List
 
+from lark.exceptions import UnexpectedInput
 from pydantic import BaseModel, Field, model_validator
 
 from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple, EncoderRefinements
+from .gen_error import GenError, ErrorCode
 
 
 def make_valid_identifier(name):
@@ -275,20 +277,56 @@ class ButtonProviderBaseModel(ABC, BaseModel):
         return f"self.{self.controller_variable_name()} = {self.create_controller_element()}"
 
 
+_COORD_HELP = (
+    "Expected a coordinate like 'row-1:3', a range like 'row-1:1-8', or 'col-2:3', "
+    "optionally followed by a refinement (toggle, mode-2, map_mode_absolute). "
+    "Example: 'row-1:1-8 toggle'."
+)
+
+
+def _coord_syntax_error(raw, e: Exception) -> GenError:
+    column = getattr(e, "column", None)
+    where = f" (at column {column})" if column else ""
+    return GenError(
+        f"Could not parse coordinate '{raw}'{where}. {_COORD_HELP}",
+        ErrorCode.COORD_SYNTAX,
+    )
+
+
+def _validate_encoder_coords(raw, coords_list: List[EncoderCoords]):
+    """Catch coordinates that parse but are nonsensical (caught at gen time,
+    not at Ableton load time)."""
+    problems = []
+    for c in coords_list:
+        if c.row < 1:
+            problems.append(f"axis number must be >= 1 (got {c.row})")
+        lo, hi = c.range_
+        if lo < 1:
+            problems.append(f"range start must be >= 1 (got {lo})")
+        if lo > hi:
+            problems.append(f"range must run low-to-high (got {lo}-{hi})")
+    if problems:
+        raise GenError(
+            f"Invalid coordinate '{raw}': " + "; ".join(problems),
+            ErrorCode.SEMANTIC_VALIDATION)
+
+
 def parse_coords(raw) -> EncoderCoords:
     try:
-        return parse(raw)
-    except Exception as e:
-        print(f"Failed to parse '{raw}' due to {e}")
-        raise e
+        result = parse(raw)
+    except UnexpectedInput as e:
+        raise _coord_syntax_error(raw, e) from e
+    _validate_encoder_coords(raw, [result])
+    return result
 
 
 def parse_multiple_coords(raw) -> List[EncoderCoords]:
     try:
-        return parse_multiple(raw)
-    except Exception as e:
-        print(f"Failed to parse '{raw}' due to {e}")
-        raise e
+        result = parse_multiple(raw)
+    except UnexpectedInput as e:
+        raise _coord_syntax_error(raw, e) from e
+    _validate_encoder_coords(raw, result)
+    return result
 
 
 class RangeV2(BaseModel):

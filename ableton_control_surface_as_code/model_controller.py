@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords, \
     EncoderMode
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
+from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 
 
 class ControlGroupPartV2(BaseModel):
@@ -73,6 +74,29 @@ class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
     light_colors: dict[str, int] = dict()
     encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Absolute)
+
+
+def validate_controller_semantics(raw: ControllerRawV2) -> None:
+    """Catch out-of-spec MIDI values at generation time, accumulating every
+    problem into one error rather than failing on the first."""
+    problems = []
+    for g in raw.control_groups:
+        where = g.info_string()
+        if not (1 <= g.midi_channel <= 16):
+            problems.append(
+                f"{where}: MIDI channel {g.midi_channel} out of range (must be 1-16)")
+        try:
+            numbers = g._midi_list
+        except Exception:
+            numbers = []  # invalid note names etc. are reported by their own path
+        bad = [n for n in numbers if not (0 <= n <= 127)]
+        if bad:
+            problems.append(
+                f"{where}: MIDI number(s) {bad} out of range (must be 0-127)")
+    if problems:
+        raise GenError(
+            "Invalid controller:\n" + "\n".join(f"  - {p}" for p in problems),
+            ErrorCode.SEMANTIC_VALIDATION)
 
 
 class ControlGroup:

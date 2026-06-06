@@ -1,6 +1,8 @@
 import unittest
 from ableton_control_surface_as_code.core_model import parse_coords, parse_multiple_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, Toggle
+from ableton_control_surface_as_code.gen_error import ErrorCode
+from tests.custom_assertions import CustomAssertions
 
 
 class TestEncoderCoords(unittest.TestCase):
@@ -38,3 +40,48 @@ class TestEncoderCoords(unittest.TestCase):
         expected = EncoderCoords(row=3, range_=(4, 4), encoder_refs=[Toggle.instance()])
 
         self.assertEqual(expected, parse_coords(input))
+
+
+class TestEncoderCoordErrors(unittest.TestCase, CustomAssertions):
+    """Bad coordinate strings must raise a readable GenError, not a raw Lark dump."""
+
+    def _assert_coord_syntax_error(self, raw, *fragments):
+        self.assert_gen_error(
+            lambda: parse_coords(raw), ErrorCode.COORD_SYNTAX, raw, *fragments)
+
+    def test_A1_space_instead_of_dash(self):
+        # 'row 1:1-8' — space where the axis separator '-' should be
+        self._assert_coord_syntax_error("row 1:1-8", "row-")
+
+    def test_A2_double_dot_range(self):
+        self._assert_coord_syntax_error("row-1:1..8")
+
+    def test_A3_capitalised_axis(self):
+        self._assert_coord_syntax_error("Row-1:1-8")
+
+    def test_A4_missing_range(self):
+        self._assert_coord_syntax_error("row-1")
+
+    def test_A5_empty_range(self):
+        self._assert_coord_syntax_error("row-1:")
+
+    def test_A7_misspelled_refinement(self):
+        self._assert_coord_syntax_error("row-1:1-8 togle")
+
+    def test_A11_empty_string(self):
+        self._assert_coord_syntax_error("")
+
+    def test_A12_negative_axis(self):
+        self._assert_coord_syntax_error("row--1:1")
+
+    def test_message_includes_an_example(self):
+        # The whole point: the message teaches the correct syntax.
+        e = self.assert_gen_error(
+            lambda: parse_coords("row 1:1-8"), ErrorCode.COORD_SYNTAX)
+        self.assertIn("toggle", str(e))  # lists valid refinements
+        self.assertIn("row-1", str(e))   # shows a correct example
+
+    def test_col_axis_still_parses(self):
+        self.assertEqual(
+            EncoderCoords(row=2, range_=(3, 3), encoder_refs=[]),
+            parse_coords("col-2:3"))
