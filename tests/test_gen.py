@@ -74,5 +74,54 @@ def fn(self, value):
         self.assertEqual(len(result["mode_2"][0].control_defs), 1)
         self.assertEqual(len(result["mode_2"][1].control_defs), 0)
 
-        if __name__ == '__main__':
-            unittest.main()
+
+class TestGenerateComposition(unittest.TestCase):
+    """End-to-end: generating the lc_parks composition emits TWO surfaces —
+    the compositor (combined grid + region listener, talks to the HUD) and the
+    forwarder (HudClient retargeted at the shared region port). Writes the
+    normal (untracked) build artifacts under live_surfaces/."""
+
+    def test_emits_compositor_and_forwarder(self):
+        from pathlib import Path
+        from ableton_control_surface_as_code.gen import generate
+
+        repo = Path(__file__).resolve().parent.parent
+        generate(repo / "live_surfaces" / "lc_parks" / "lc_parks.nt")
+
+        # Both surfaces are namespaced and emitted INTO the composition folder,
+        # so the secondary can never collide with a standalone ck_parkstool_buttons.
+        comp = repo / "live_surfaces" / "lc_parks"
+        compositor = comp / "ck_lc_parks__launch_control" / "modules" / "main_component.py"
+        forwarder = comp / "ck_lc_parks__parks" / "modules" / "main_component.py"
+        self.assertTrue(compositor.exists())
+        self.assertTrue(forwarder.exists())
+
+        comp_src = compositor.read_text()
+        fwd_src = forwarder.read_text()
+
+        # Compositor talks to the real HUD and runs a region listener.
+        self.assertIn("self._hud_client = HudClient()", comp_src)
+        self.assertIn("RegionState(self._hud_client, dial_offset=16, button_offset=8", comp_src)
+        self.assertIn("self._remote.set_region_state(self._region_state)", comp_src)
+        # The region re-emit must bypass the primary's show-hud-on gate, so it
+        # routes through reemit_combined_burst (not the trigger-gated
+        # selected_device_changed). Otherwise the parks region never shows under
+        # launch_control's 'controller-nav' trigger.
+        self.assertIn("on_commit=self._helpers.reemit_combined_burst", comp_src)
+        # The compositor must NOT inherit launch_control's 'controller-nav'
+        # trigger: that suppresses + sends HIDE on selection, which races the
+        # parks-driven combined COMMIT and makes values flash then vanish.
+        self.assertIn("hud_trigger='selection'", comp_src)
+
+        # The two surfaces agree on the region port; the forwarder targets it.
+        import re
+        port = re.search(r"RegionListener\(.*port=(\d+)", comp_src).group(1)
+        self.assertIn(f"self._hud_client = HudClient(host='127.0.0.1', port={port})", fwd_src)
+
+        # Combined grid: parks buttons are offset past launch_control's (button
+        # start indices 8-15), and live to the right (grid_col 2).
+        self.assertIn("(0, 2, 'button', 2, 8)", comp_src)
+
+
+if __name__ == '__main__':
+    unittest.main()

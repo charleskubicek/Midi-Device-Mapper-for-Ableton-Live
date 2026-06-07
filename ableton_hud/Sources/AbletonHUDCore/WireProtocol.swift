@@ -49,119 +49,91 @@ public enum WireMessage: Equatable {
     case unknown
 }
 
-/// A parsed line plus the identity fields carried on every message:
-/// `source` (which surface sent it) and, for `LAYOUT`, the merge `group` and
-/// display `order`. Non-layout messages report the defaults for group/order.
-public struct ParsedMessage: Equatable {
-    public let message: WireMessage
-    public let source: String
-    public let group: String
-    public let order: Int
-    public init(_ message: WireMessage, source: String = "main",
-                group: String = "main", order: Int = 0) {
-        self.message = message
-        self.source = source
-        self.group = group
-        self.order = order
-    }
-}
-
 public enum WireProtocol {
-    /// Convenience for callers (and tests) that only care about the message
-    /// body, not its source/group/order.
+    /// Single-source parser: the HUD has exactly one sender (a standalone
+    /// surface, or the `lc_parks` compositor which merges any secondary region
+    /// itself before emitting). No source/group/order on the wire.
     public static func parse(line: String) -> WireMessage {
-        return parseLine(line: line).message
-    }
-
-    public static func parseLine(line: String) -> ParsedMessage {
         let fields = line.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard !fields.isEmpty else { return ParsedMessage(.unknown) }
-        // fields[1] is the source id on every message.
-        let source = fields.count >= 2 ? fields[1] : "main"
+        guard !fields.isEmpty else { return .unknown }
 
         switch fields[0] {
         case "PING":
-            guard fields.count == 2 else { return ParsedMessage(.unknown) }
-            return ParsedMessage(.ping, source: source)
+            guard fields.count == 1 else { return .unknown }
+            return .ping
 
         case "HIDE":
-            guard fields.count == 2 else { return ParsedMessage(.unknown) }
-            return ParsedMessage(.hide, source: source)
+            guard fields.count == 1 else { return .unknown }
+            return .hide
 
         case "LAYOUT":
-            // LAYOUT|<src>|<group>|<order>|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
-            guard fields.count >= 5,
-                  let order = Int(fields[3]),
-                  let n = Int(fields[4]) else { return ParsedMessage(.unknown) }
-            let group = fields[2]
-            guard fields.count == 5 + n * 5 else { return ParsedMessage(.unknown) }
+            // LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
+            guard fields.count >= 2, let n = Int(fields[1]) else { return .unknown }
+            guard fields.count == 2 + n * 5 else { return .unknown }
             var cells: [HudCell] = []
             for i in 0..<n {
-                let base = 5 + i * 5
+                let base = 2 + i * 5
                 guard let gr = Int(fields[base]),
                       let gc = Int(fields[base+1]),
                       let kind = SlotKind(rawValue: fields[base+2]),
                       let count = Int(fields[base+3]),
-                      let start = Int(fields[base+4]) else { return ParsedMessage(.unknown) }
+                      let start = Int(fields[base+4]) else { return .unknown }
                 cells.append(HudCell(gridRow: gr, gridCol: gc, kind: kind, count: count, startIndex: start))
             }
-            return ParsedMessage(.layout(cells), source: source, group: group, order: order)
+            return .layout(cells)
 
         case "DEVICE":
-            guard fields.count >= 3 else { return ParsedMessage(.unknown) }
-            return ParsedMessage(.device(fields[2]), source: source)
+            guard fields.count >= 2 else { return .unknown }
+            return .device(fields[1])
 
         case "SLOT", "UPDATE":
-            guard fields.count == 8 else { return ParsedMessage(.unknown) }
-            guard let kind = SlotKind(rawValue: fields[2]) else { return ParsedMessage(.unknown) }
-            guard let index = Int(fields[3]) else { return ParsedMessage(.unknown) }
-            let name = fields[4]
-            guard let value = Float(fields[5]),
-                  let vmin = Float(fields[6]),
-                  let vmax = Float(fields[7]) else { return ParsedMessage(.unknown) }
+            guard fields.count == 7 else { return .unknown }
+            guard let kind = SlotKind(rawValue: fields[1]) else { return .unknown }
+            guard let index = Int(fields[2]) else { return .unknown }
+            let name = fields[3]
+            guard let value = Float(fields[4]),
+                  let vmin = Float(fields[5]),
+                  let vmax = Float(fields[6]) else { return .unknown }
             let slot = Slot(name: name, value: value, min: vmin, max: vmax)
-            let msg: WireMessage = fields[0] == "UPDATE" ? .update(kind, index, slot) : .slot(kind, index, slot)
-            return ParsedMessage(msg, source: source)
+            return fields[0] == "UPDATE" ? .update(kind, index, slot) : .slot(kind, index, slot)
 
         case "COMMIT":
-            guard fields.count == 3, let count = Int(fields[2]) else { return ParsedMessage(.unknown) }
-            return ParsedMessage(.commit(count), source: source)
+            guard fields.count == 2, let count = Int(fields[1]) else { return .unknown }
+            return .commit(count)
 
         case "MODE":
-            guard fields.count >= 3 else { return ParsedMessage(.unknown) }
-            let m: WireMessage = fields[2] == "shift" ? .mode(isShift: true)
-                 : fields[2] == "normal" ? .mode(isShift: false)
+            guard fields.count == 2 else { return .unknown }
+            return fields[1] == "shift" ? .mode(isShift: true)
+                 : fields[1] == "normal" ? .mode(isShift: false)
                  : .unknown
-            return ParsedMessage(m, source: source)
 
         case "PAGE":
-            // Accept short 6-field form (counts only) and 8-field form
+            // Accept short 5-field form (counts only) and 7-field form
             // (counts + enc_label + btn_label). Labels carry "Best of" on
             // page 1 of a known device or the standard-bank name(s) for
             // higher pages — empty string means "no label this page".
-            guard fields.count == 6 || fields.count == 8,
-                  let encPage = Int(fields[2]),
-                  let encTotal = Int(fields[3]),
-                  let btnPage = Int(fields[4]),
-                  let btnTotal = Int(fields[5]) else { return ParsedMessage(.unknown) }
-            let encLabel = fields.count == 8 ? fields[6] : ""
-            let btnLabel = fields.count == 8 ? fields[7] : ""
-            return ParsedMessage(.page(encPage: encPage, encTotal: encTotal,
-                                       btnPage: btnPage, btnTotal: btnTotal,
-                                       encLabel: encLabel, btnLabel: btnLabel),
-                                 source: source)
+            guard fields.count == 5 || fields.count == 7,
+                  let encPage = Int(fields[1]),
+                  let encTotal = Int(fields[2]),
+                  let btnPage = Int(fields[3]),
+                  let btnTotal = Int(fields[4]) else { return .unknown }
+            let encLabel = fields.count == 7 ? fields[5] : ""
+            let btnLabel = fields.count == 7 ? fields[6] : ""
+            return .page(encPage: encPage, encTotal: encTotal,
+                         btnPage: btnPage, btnTotal: btnTotal,
+                         encLabel: encLabel, btnLabel: btnLabel)
 
         default:
-            return ParsedMessage(.unknown)
+            return .unknown
         }
     }
 
-    public static func parseAll(data: Data) -> [ParsedMessage] {
+    public static func parseAll(data: Data) -> [WireMessage] {
         guard let text = String(data: data, encoding: .utf8) else { return [] }
         return text
             .components(separatedBy: "\n")
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }
-            .map { parseLine(line: $0) }
+            .map { parse(line: $0) }
     }
 }

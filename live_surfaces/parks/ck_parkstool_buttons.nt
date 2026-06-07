@@ -1,18 +1,19 @@
-# Cut-down parks surface: exports ONLY the buttons (rows 2 & 3) to the HUD, so
-# it can be composed beside launch_control in one overlay (see
-# ../_Global/merged_controllers.nt, group lc_parks). Load THIS surface in
-# Ableton for the parks controller when running it merged with launch_control.
+# Cut-down parks surface: exports the parks buttons to the HUD. Generated as
+# the FORWARDER half of the lc_parks composition (see
+# ../lc_parks/lc_parks.nt): its HudClient is retargeted at lc_parks' region
+# port, so it forwards its resolved region to the compositor rather than to the
+# HUD directly. Load THIS surface in Ableton on the parks MIDI port.
 #
 # It is an ordinary device mapping — buttons reflect the same globally-focused
-# device's parameters (a different window than launch_control's), updating live
-# on device change.
+# device's parameters as launch_control, updating live on device change.
 
 controller: parks_controller.nt
 ableton_dir: /Applications/Ableton Live 12 Suite.app
-hud-source: parks_btns
 # Follow Live's selected device: this surface has no device-nav control of its
 # own, so without this it would never burst (controller-nav suppresses every
 # burst that isn't nav-sourced) and its HUD region would stay empty.
+parameter_mappings_file: ../../data/custom_device_mappings.json
+remote_on: false
 show-hud-on: selection
 
 mappings:
@@ -20,14 +21,8 @@ mappings:
         type: device
         track: selected
         device: selected
-        parameter-mappings-file: parks_device_parameters.nt
         mappings:
-            encoder-list:
-                -
-                    name: buttons1
-                    range: row-2:1-8
-                    parameters: 40-49
-                -
-                    name: buttons2
-                    range: row-3:1-8
-                    parameters: 50-59
+            switch1: row-1:1
+            switch2: row-1:2
+            switch3: row-2:1
+            switch4: row-2:2

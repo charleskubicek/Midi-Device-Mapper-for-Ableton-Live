@@ -8,7 +8,7 @@ This is a code generator that takes NestedText (`.nt`) config files describing a
 
 **Pipeline:** `.nt` mapping file → `gen.py` → Python control surface directory → `deploy.sh` → Ableton Live
 
-A companion native macOS app (`/Users/ck/current/ableton_hud`) renders a floating HUD overlay showing the control parameter names. These change may dynamically as different devices are selected. The Python side pushes mapping data over UDP on every device focus change.
+A companion native macOS app in @ableton_hud renders a floating HUD overlay showing the control parameter names. These change may dynamically as different devices are selected. The Python side pushes mapping data over UDP on every device focus change.
 
 ## Docs
 

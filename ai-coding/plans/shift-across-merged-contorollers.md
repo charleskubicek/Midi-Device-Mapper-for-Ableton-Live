@@ -1,0 +1,1 @@
+shift on the primary shoudl trigger the secondary's mode. This way, the user can hold shift on the primary to access the secondary functions, and the HUD will update accordingly.

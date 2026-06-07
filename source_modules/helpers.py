@@ -915,6 +915,16 @@ class Helpers:
             self._remote.hide()
             self._hud_dismissed = True
 
+    def reemit_combined_burst(self):
+        """Compositor hook (lc_parks): the secondary region changed, so re-emit
+        a full combined burst for the current device with the parks region
+        appended. Bypasses the show-hud-on gate (always suppress_hud=False) and
+        the same-device guard in selected_device_changed — otherwise the parks
+        region would never reach the HUD under the primary's 'controller-nav'
+        trigger or when the focused device is unchanged."""
+        if self._last_selected_device is not None:
+            self.update_remote_parameters(suppress_hud=False)
+
     def refresh_hud_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the
         active overlay and re-emits a burst so the HUD reflects the new
@@ -1001,6 +1011,13 @@ class Remote:
         # the dense dial/button payloads.
         self._feedback_sinks = list(feedback_sinks) if feedback_sinks else []
         self._in_burst = False  # suppresses UPDATE during device_update burst
+        # Optional secondary-region cache (lc_parks compositor). When set, its
+        # cached dial/button payloads are appended to the HUD burst so the parks
+        # region rides along in the single combined stream.
+        self._region_state = None
+
+    def set_region_state(self, region_state):
+        self._region_state = region_state
 
     def init_layout(self, cells):
         if cells:
@@ -1043,11 +1060,21 @@ class Remote:
                         enc_label, btn_label = '', ''
                     self._hud_client.send_page_info(
                         enc_page, enc_total, btn_page, btn_total, enc_label, btn_label)
+                # Append the secondary region's cached slots (lc_parks). These
+                # carry combined wire indices already; sent after the primary's
+                # so any same-index empty placeholder is overridden on the
+                # receiver (last-write-wins per index).
+                hud_dials = list(dial_payloads)
+                hud_buttons = list(button_payloads)
+                if self._region_state is not None:
+                    hud_dials += self._region_state.dial_payloads()
+                    hud_buttons += self._region_state.button_payloads()
+
                 count = 0
-                for idx, p in dial_payloads:
+                for idx, p in hud_dials:
                     self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
                     count += 1
-                for idx, p in button_payloads:
+                for idx, p in hud_buttons:
                     self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
                     count += 1
                 self._hud_client.commit(count)

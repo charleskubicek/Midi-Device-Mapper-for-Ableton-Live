@@ -1,24 +1,56 @@
 control_groups:
 
   # Each group contains one row or column of controllers and a range of MIDI CC numbers,
+#    -
+#        layout: row
+#        number: 1
+#        type: knob
+#        midi_channel: 2
+#        midi_type: CC
+#        midi_range: 0-8
+#    -
+#        layout: row
+#        number: 1
+#        type: button
+#        midi_channel: 1
+#        midi_type: note
+#        midi_range: C2, D2, E2, FS2, GS2, AS2, C3, D3, F3
+#    -
+#        layout: row
+#        number: 3
+#        type: button
+#        midi_channel: 1
+#        midi_type: note
+#        midi_range: CS2, DS2, F2, G2, A3, B3, CS3, DS3, E3
+#        under: 1
     -
         layout: row
         number: 1
-        type: knob
-        midi_channel: 2
-        midi_type: CC
-        midi_range: 0-8
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C2, CS2
     -
         layout: row
         number: 2
         type: button
         midi_channel: 1
         midi_type: note
-        midi_range: C2, D2, E2, FS2, GS2, AS2, C3, D3, F3
+        midi_range: D2, DS2
+        under: 1
     -
         layout: row
         number: 3
         type: button
         midi_channel: 1
         midi_type: note
-        midi_range: CS2, DS2, F2, G2, A3, B3, CS3, DS3, E3
+        midi_range: E2, F2
+        under: 2
+    -
+        layout: row
+        number: 4
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: FS2, G2
+        under: 3

@@ -1,0 +1,17 @@
+# Composition: launch_control (primary) drives the whole HUD; the parks
+# (secondary) surface forwards its resolved region to the primary over UDP.
+#
+# Generating this file emits TWO namespaced surfaces INTO this folder:
+#   - ck_lc_parks__launch_control/  compositor (load on launch_control's port)
+#   - ck_lc_parks__parks/           forwarder  (load on parks' port)
+#
+# Load ONLY these two in Ableton for the merged setup — not the standalone
+# ck_launch_control_16 / ck_parkstool_buttons (those also send to the HUD and
+# would clobber it). Only ck_lc_parks__launch_control talks to the HUD (single
+# source); the parks region sits to the right in one combined grid.
+
+ableton-dir: /Applications/Ableton Live 12 Suite.app
+primary: ../launch_control/ck_launch_control_16.nt
+secondary:
+    mapping: ../parks/ck_parkstool_buttons.nt
+    placement: right

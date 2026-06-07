@@ -115,10 +115,6 @@ class RootV2(BaseModel):
     hud: HudMode = HudMode.On
     show_hud_on: HudTrigger = HudTrigger.ControllerNav
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
-    # Source id this surface stamps on every HUD message. Defaults to the
-    # mapping-file stem at generation time. Referenced by merge topologies in
-    # live_surfaces/_Global/merged_controllers.nt.
-    hud_source: Optional[str] = None
 
     class Config:
         extra = 'forbid'
@@ -135,7 +131,6 @@ class RootV2ModesOrModeless(BaseModel):
     hud: HudMode = HudMode.On
     show_hud_on: HudTrigger = Field(default=HudTrigger.ControllerNav, alias='show-hud-on')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
-    hud_source: Optional[str] = Field(default=None, alias='hud-source')
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
@@ -150,7 +145,6 @@ class RootV2ModesOrModeless(BaseModel):
             hud=self.hud,
             show_hud_on=self.show_hud_on,
             feedback=self.feedback,
-            hud_source=self.hud_source,
         )
 
 

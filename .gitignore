@@ -12,3 +12,7 @@ live_surfaces/ec4
 .stignore
 .stglobalignore
 .stfolder/
+# Generated control-surface output (regenerable via gen.py)
+live_surfaces/lc_parks/ck_lc_parks__launch_control
+live_surfaces/lc_parks/ck_lc_parks__parks
+live_surfaces/parks/ck_parkstool_buttons

@@ -47,6 +47,52 @@ def allocate_global_layout(controller) -> List[LayoutCell]:
     return cells
 
 
+def dial_count(cells: List[LayoutCell]) -> int:
+    """Total dial slots across all dial cells (= the dial wire-index space)."""
+    return sum(c[3] for c in cells if c[2] == 'dial')
+
+
+def button_count(cells: List[LayoutCell]) -> int:
+    """Total button slots across all button cells (= the button wire-index space)."""
+    return sum(c[3] for c in cells if c[2] == 'button')
+
+
+def grid_width(cells: List[LayoutCell]) -> int:
+    """Number of grid columns the layout spans (max grid_col + 1)."""
+    if not cells:
+        return 0
+    return max(c[1] for c in cells) + 1
+
+
+def offset_layout(cells: List[LayoutCell], col_offset: int,
+                  dial_offset: int, button_offset: int) -> List[LayoutCell]:
+    """Return a copy of `cells` shifted right by `col_offset` grid columns, with
+    each cell's wire `start` bumped by `dial_offset` / `button_offset` per kind.
+    Used by the lc_parks compositor to place a secondary controller's region to
+    the right of the primary without colliding in the dial/button index spaces."""
+    out: List[LayoutCell] = []
+    for gr, gc, kind, count, start in cells:
+        bump = dial_offset if kind == 'dial' else button_offset
+        out.append((gr, gc + col_offset, kind, count, start + bump))
+    return out
+
+
+def combine_layouts(primary: List[LayoutCell], secondary: List[LayoutCell],
+                    col_gap: int = 1):
+    """Concatenate two per-controller layouts into one combined grid: the
+    secondary is offset to the right of the primary (by primary width + gap) and
+    its wire indices are bumped past the primary's dial/button counts.
+
+    Returns (combined_cells, dial_offset, button_offset). The offsets are what
+    the RegionListener adds to incoming secondary slot indices to remap them
+    into the combined wire space."""
+    dial_offset = dial_count(primary)
+    button_offset = button_count(primary)
+    col_offset = grid_width(primary) + col_gap
+    shifted = offset_layout(secondary, col_offset, dial_offset, button_offset)
+    return list(primary) + shifted, dial_offset, button_offset
+
+
 def _kind_for(group_type) -> str:
     if group_type == EncoderType.knob:
         return 'dial'

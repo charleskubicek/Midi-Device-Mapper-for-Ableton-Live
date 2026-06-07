@@ -23,20 +23,14 @@ struct HUDView: View {
 
     var body: some View {
         let scale = CGFloat(chrome.zoom)
-        // Snapshot each member into an Equatable value. SourceState is a
-        // reference type, so passing it directly would let SwiftUI diff regions
-        // by pointer identity and skip re-rendering on in-place mutation (stale
-        // regions). A value snapshot makes SwiftUI detect changes by value.
-        let members = state.activeMembers().map { RegionSnapshot(from: $0) }
+        // One region rendered from the single committed state. The `lc_parks`
+        // compositor merges any secondary controller's slots into this one grid
+        // (cells already carry their offset grid_col), so the view never needs
+        // to compose multiple sources.
+        let region = RegionSnapshot(from: state)
 
         ZStack(alignment: .topTrailing) {
-            // One region per active-group member, laid out left→right by `order`
-            // (primary first). A single-controller setup is just one region.
-            HStack(alignment: .top, spacing: 22 * scale) {
-                ForEach(members, id: \.id) { region in
-                    SourceRegionView(region: region, zoom: chrome.zoom)
-                }
-            }
+            SourceRegionView(region: region, zoom: chrome.zoom)
             .padding(.horizontal, 16 * scale)
             .padding(.vertical, 12 * scale)
             .fixedSize()
@@ -66,11 +60,9 @@ struct HUDView: View {
     }
 }
 
-/// Equatable value snapshot of one source's published HUD state. Passing this
-/// (rather than the `SourceState` reference) lets SwiftUI diff regions by value
-/// so a region re-renders whenever its content changes.
-private struct RegionSnapshot: Equatable, Identifiable {
-    let id: String
+/// Equatable value snapshot of the published HUD state, so the region view
+/// re-renders whenever its content changes.
+private struct RegionSnapshot: Equatable {
     let deviceName: String
     let dialSlots: [Slot?]
     let buttonSlots: [Slot?]
@@ -80,8 +72,8 @@ private struct RegionSnapshot: Equatable, Identifiable {
     let pageTotal: Int
     let bankLabel: String
 
-    init(from s: SourceState) {
-        id = s.id
+    @MainActor
+    init(from s: DeviceState) {
         deviceName = s.deviceName
         dialSlots = s.dialSlots
         buttonSlots = s.buttonSlots
@@ -116,7 +108,7 @@ private struct SourceRegionView: View {
             ZStack {
                 HStack(spacing: 6 * scale) {
                     Button {
-                        DeviceState.shared.apply(message: .hide, source: region.id)
+                        DeviceState.shared.apply(message: .hide)
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 8 * scale, weight: .medium))

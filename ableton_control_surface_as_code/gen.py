@@ -100,16 +100,21 @@ def validate_exports(export_targets, mode_codes):
                 if len(commmon) > 0:
                     raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None, hud_cells_override=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
     # Global wire-index allocation: every physical control on the surface
     # gets a wire slot, regardless of which mode binds it. Modes overlay
     # static labels onto these slots at runtime.
+    #
+    # The lc_parks compositor passes `hud_cells_override` = the combined grid
+    # (primary cells + offset secondary cells) so the LAYOUT it emits, and the
+    # slots it builds, span both controllers. Primary mappings still resolve to
+    # their original (unchanged) wire indices within that combined grid.
     from ableton_control_surface_as_code.hud_layout import (
         allocate_global_layout, collect_mode_labels,
     )
-    hud_cells_raw = allocate_global_layout(controller)
+    hud_cells_raw = hud_cells_override if hud_cells_override is not None else allocate_global_layout(controller)
 
     mode_codes = create_code_model(modes, controller=controller, hud_cells=hud_cells_raw)
 
@@ -294,31 +299,34 @@ def print_ascii_layout(controller):
         print('  |  '.join(parts))
 
 
-def generate(mapping_file_path):
-    functions_path = mapping_file_path.parent / "functions.py"
+def generate(input_path):
+    """Generate one or more surfaces from a config file. A composition config
+    (declares `primary:`/`secondary:`) emits the lc_parks compositor + the
+    secondary forwarder; any other config is a normal single surface."""
+    from ableton_control_surface_as_code.model_composition import is_composition_file
+    if is_composition_file(input_path):
+        generate_composition(input_path)
+    else:
+        target_dir = Path('out') if input_path == Path.cwd() else input_path.parent
+        _generate_surface(input_path, input_path.stem, target_dir)
 
+
+def _generate_surface(mapping_file_path, surface_name, target_dir,
+                      hud_client_args='', region_setup='pass', hud_cells_override=None,
+                      hud_trigger_override=None):
+    """Build and write a single surface directory named `surface_name` under
+    `target_dir`, from the mapping at `mapping_file_path`. Returns
+    (controller, code_vars). Overrides let the compositor inject the combined
+    layout + region wiring, and let the forwarder retarget its HUD client."""
+    functions_path = mapping_file_path.parent / "functions.py"
     if not functions_path.exists():
         functions_path = None
 
     mappings = read_root(mapping_file_path.read_text())
-    surface_name = mapping_file_path.stem
-
-    if mapping_file_path == Path.cwd():
-        target_dir = Path('out')
-    else:
-        target_dir = mapping_file_path.parent
 
     controller_path = mapping_file_path.parent / mappings.controller
     controller = read_controller(controller_path.read_text())
     mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
-
-    # HUD source identity + merge topology. The source defaults to the mapping
-    # stem; group/order come from live_surfaces/_Global/merged_controllers.nt
-    # (standalone → group == source, order 0). Baked into the surface so the HUD
-    # composes from what each surface advertises.
-    from ableton_control_surface_as_code.model_merges import resolve_group_order
-    hud_source = mappings.hud_source or surface_name
-    hud_group, hud_order = resolve_group_order(mapping_file_path.parent, hud_source)
 
     parameter_mappings_raw = None
     if mappings.parameter_mappings_file is not None:
@@ -340,12 +348,16 @@ def generate(mapping_file_path):
         'ableton_dir': validate_path(mappings.ableton_dir),
         'remote_on': mappings.remote_on,
         'parameter_mappings_raw': repr(parameter_mappings_raw),
-        'hud_source': repr(hud_source),
-        'hud_group': repr(hud_group),
-        'hud_order': hud_order,
+        # Constructor args for the HUD client. Empty for a standalone surface
+        # (defaults to the HUD on 127.0.0.1:5006). The parks forwarder overrides
+        # this to target the lc_parks compositor's region port.
+        'hud_client_args': hud_client_args,
+        # Compositor region wiring (lc_parks only). 'pass' for normal surfaces.
+        'region_setup': region_setup,
     }
 
-    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=mappings.show_hud_on, feedback=mappings.feedback)
+    hud_trigger = hud_trigger_override if hud_trigger_override is not None else mappings.show_hud_on
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, hud_cells_override=hud_cells_override)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
 
@@ -367,11 +379,82 @@ def generate(mapping_file_path):
     if banks_src.exists():
         shutil.copy(banks_src, target_dir / vars['surface_name'] / "modules" / banks_src.name)
 
-    print("Finished generating code.")
+    print(f"Finished generating {surface_name}.")
     print()
     print_hud_layout(code_vars['_hud_cells_raw'])
     print()
     print_ascii_layout(controller)
+    return controller, code_vars
+
+
+def _region_setup_code(dial_offset, button_offset, region_port, surface_name):
+    """Render the compositor's region wiring for main_component.py. Lines after
+    the first must carry their own 8-space indentation (the template substitutes
+    `$region_setup` at that indent)."""
+    indent = " " * 8
+    lines = [
+        f"self._region_state = RegionState(self._hud_client, dial_offset={dial_offset}, button_offset={button_offset}, on_commit=self._helpers.reemit_combined_burst)",
+        f"self._remote.set_region_state(self._region_state)",
+        f'self._region_listener = RegionListener(self.manager, self._region_state, port={region_port}, name="{surface_name}-region")',
+    ]
+    return ("\n" + indent).join(lines)
+
+
+def generate_composition(comp_path):
+    from ableton_control_surface_as_code.model_composition import read_composition
+    from ableton_control_surface_as_code.hud_layout import allocate_global_layout, combine_layouts
+
+    comp = read_composition(comp_path.read_text())
+    comp_dir = comp_path.parent
+    comp_stem = comp_path.stem  # e.g. lc_parks
+
+    primary_path = (comp_dir / comp.primary).resolve()
+    secondary_path = (comp_dir / comp.secondary.mapping).resolve()
+
+    # Both surfaces are emitted INTO the composition folder under unique,
+    # composition-namespaced names (no dashes — Ableton won't load those). This
+    # makes each surface unambiguously "part of lc_parks": the secondary here is
+    # always the forwarder, never confusable with a standalone build of the same
+    # mapping. Role = the referenced mapping's parent dir (launch_control/parks).
+    primary_name = f"ck_{comp_stem}__{primary_path.parent.name}"      # ck_lc_parks__launch_control
+    secondary_name = f"ck_{comp_stem}__{secondary_path.parent.name}"  # ck_lc_parks__parks
+
+    # Region port: single source of truth for both surfaces. Derived from the
+    # composition stem (offset +3 to dodge each surface's udp/osc ports) unless
+    # set explicitly.
+    region_port = comp.region_port if comp.region_port is not None else generate_5_digit_number(comp_stem) + 3
+
+    # Combined layout: primary cells + secondary cells offset to the right.
+    primary_ctrl = read_controller((primary_path.parent / read_root(primary_path.read_text(), source=primary_path.name).controller).read_text())
+    secondary_ctrl = read_controller((secondary_path.parent / read_root(secondary_path.read_text(), source=secondary_path.name).controller).read_text())
+    primary_cells = allocate_global_layout(primary_ctrl)
+    secondary_cells = allocate_global_layout(secondary_ctrl)
+    combined_cells, dial_offset, button_offset = combine_layouts(primary_cells, secondary_cells)
+
+    # 1. Compositor surface (the named lc_parks): primary mapping + combined
+    #    layout + region listener. Output lands in the composition folder.
+    # Force the compositor to show-hud-on='selection'. The primary mapping is
+    # often 'controller-nav' (launch_control is), which SUPPRESSES the burst on
+    # a plain selection AND sends HIDE. That HIDE races the parks-triggered
+    # combined COMMIT (two independent selection polls in two processes), so the
+    # values flash then vanish. Showing on selection removes the HIDE-on-select
+    # entirely; device-nav (source='nav') still shows as before.
+    from ableton_control_surface_as_code.model_v2 import HudTrigger
+    region_setup = _region_setup_code(dial_offset, button_offset, region_port, primary_name)
+    _generate_surface(primary_path, primary_name, comp_dir,
+                      region_setup=region_setup, hud_cells_override=combined_cells,
+                      hud_trigger_override=HudTrigger.Selection)
+
+    # 2. Secondary forwarder: a normal surface whose HudClient is redirected at
+    #    the compositor's region port instead of the HUD. Emitted into the
+    #    composition folder under the namespaced name (NOT next to its own
+    #    mapping), so it can't be confused with a standalone build.
+    forwarder_args = f"host='127.0.0.1', port={region_port}"
+    _generate_surface(secondary_path, secondary_name, comp_dir,
+                      hud_client_args=forwarder_args)
+
+    print(f"Composition {comp_stem}: {primary_name} (compositor) + {secondary_name} "
+          f"(forwarder) share region port {region_port}.")
 
 
 if __name__ == '__main__':

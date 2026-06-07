@@ -10,6 +10,8 @@ from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
 from .clip_actions import ClipActions
 from .listener import OSCListener
+from .region_state import RegionState
+from .region_listener import RegionListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
 
@@ -49,7 +51,7 @@ class MainComponent(ControlSurfaceComponent):
                 OSCClient(host='192.168.68.84', port=5005)
             ])
 
-        self._hud_client = $hud_client_class(source=$hud_source, group=$hud_group, order=$hud_order)
+        self._hud_client = $hud_client_class($hud_client_args)
         self._feedback_sinks = [$feedback_sinks]
         self._remote = Remote(self.manager, self._osc_client, self._hud_client, self._feedback_sinks)
 
@@ -72,6 +74,10 @@ class MainComponent(ControlSurfaceComponent):
         self._previous_values = {}
 
         self._lisetenr = OSCListener(self.manager, self.button_handler, port=$osc_listen_port, name="$surface_name")
+
+        # Compositor only: receive the secondary surface's forwarded HUD region
+        # and merge it into this surface's single combined HUD stream.
+        $region_setup
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 

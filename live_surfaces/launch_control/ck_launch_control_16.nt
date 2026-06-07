@@ -5,7 +5,6 @@ parameter_mappings_file: ../../data/custom_device_mappings.json
 
 remote_on: false
 hud: device_only
-hud-source: main
 
 mode-button:
     button: row-3:1

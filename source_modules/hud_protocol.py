@@ -36,68 +36,58 @@ EMPTY_SLOT = SlotPayload(EMPTY_NAME, EMPTY_VALUE, EMPTY_MIN, EMPTY_MAX)
 
 # ---- encode -----------------------------------------------------------------
 
-# Every message carries a `source` id as field[1] (right after the verb) so the
-# receiver can attribute interleaved datagrams from multiple surfaces to the
-# right per-source state. `LAYOUT` additionally carries the merge `group` and
-# display `order` (sent once; the receiver remembers them per source). Defaults
-# keep a single-controller surface on the wire as source/group 'main', order 0.
-DEFAULT_SOURCE = 'main'
-DEFAULT_GROUP = 'main'
-DEFAULT_ORDER = 0
+# Single-source protocol: the HUD has exactly one sender (a standalone surface,
+# or the `lc_parks` compositor which merges any secondary region itself before
+# emitting). No source/group/order on the wire.
 
 
-def encode_layout(cells: List[LayoutCell], source: str = DEFAULT_SOURCE,
-                  group: str = DEFAULT_GROUP, order: int = DEFAULT_ORDER) -> str:
-    parts = [source, group, str(order), str(len(cells))]
+def encode_layout(cells: List[LayoutCell]) -> str:
+    parts = [str(len(cells))]
     for gr, gc, kind, count, start in cells:
         parts += [str(gr), str(gc), kind, str(count), str(start)]
     return "LAYOUT|" + "|".join(parts)
 
 
-def encode_device(name: str, source: str = DEFAULT_SOURCE) -> str:
-    return f"DEVICE|{source}|{name}"
+def encode_device(name: str) -> str:
+    return f"DEVICE|{name}"
 
 
-def encode_slot(kind: str, index: int, name: str, value, vmin, vmax,
-                source: str = DEFAULT_SOURCE) -> str:
-    return f"SLOT|{source}|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+def encode_slot(kind: str, index: int, name: str, value, vmin, vmax) -> str:
+    return f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
 
 
-def encode_slot_payload(kind: str, index: int, payload: SlotPayload,
-                        source: str = DEFAULT_SOURCE) -> str:
-    return encode_slot(kind, index, payload.name, payload.value, payload.vmin, payload.vmax, source)
+def encode_slot_payload(kind: str, index: int, payload: SlotPayload) -> str:
+    return encode_slot(kind, index, payload.name, payload.value, payload.vmin, payload.vmax)
 
 
-def encode_update(kind: str, index: int, name: str, value, vmin, vmax,
-                  source: str = DEFAULT_SOURCE) -> str:
-    return f"UPDATE|{source}|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+def encode_update(kind: str, index: int, name: str, value, vmin, vmax) -> str:
+    return f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
 
 
-def encode_commit(count: int, source: str = DEFAULT_SOURCE) -> str:
-    return f"COMMIT|{source}|{count}"
+def encode_commit(count: int) -> str:
+    return f"COMMIT|{count}"
 
 
-def encode_ping(source: str = DEFAULT_SOURCE) -> str:
-    return f"PING|{source}"
+def encode_ping() -> str:
+    return "PING"
 
 
-def encode_hide(source: str = DEFAULT_SOURCE) -> str:
-    return f"HIDE|{source}"
+def encode_hide() -> str:
+    return "HIDE"
 
 
 def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int,
-                     enc_label: str = '', btn_label: str = '',
-                     source: str = DEFAULT_SOURCE) -> str:
+                     enc_label: str = '', btn_label: str = '') -> str:
     # Labels carry the standard-bank page name (e.g. "Amplitude / Filter") or
     # "Best of" for page 1 of a known device. Additive: when both labels are
     # empty we emit the short (counts-only) form.
     if not enc_label and not btn_label:
-        return f"PAGE|{source}|{enc_page}|{enc_total}|{btn_page}|{btn_total}"
-    return f"PAGE|{source}|{enc_page}|{enc_total}|{btn_page}|{btn_total}|{enc_label}|{btn_label}"
+        return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}"
+    return f"PAGE|{enc_page}|{enc_total}|{btn_page}|{btn_total}|{enc_label}|{btn_label}"
 
 
-def encode_mode(is_shift: bool, source: str = DEFAULT_SOURCE) -> str:
-    return f"MODE|{source}|shift" if is_shift else f"MODE|{source}|normal"
+def encode_mode(is_shift: bool) -> str:
+    return "MODE|shift" if is_shift else "MODE|normal"
 
 
 # ---- parse ------------------------------------------------------------------
@@ -105,15 +95,11 @@ def encode_mode(is_shift: bool, source: str = DEFAULT_SOURCE) -> str:
 @dataclass(frozen=True)
 class LayoutMsg:
     cells: List[LayoutCell]
-    source: str = DEFAULT_SOURCE
-    group: str = DEFAULT_GROUP
-    order: int = DEFAULT_ORDER
 
 
 @dataclass(frozen=True)
 class DeviceMsg:
     name: str
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
@@ -121,7 +107,6 @@ class SlotMsg:
     kind: str
     index: int
     payload: SlotPayload
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
@@ -129,29 +114,26 @@ class UpdateMsg:
     kind: str
     index: int
     payload: SlotPayload
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
 class CommitMsg:
     count: int
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
 class PingMsg:
-    source: str = DEFAULT_SOURCE
+    pass
 
 
 @dataclass(frozen=True)
 class HideMsg:
-    source: str = DEFAULT_SOURCE
+    pass
 
 
 @dataclass(frozen=True)
 class ModeMsg:
     is_shift: bool
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
@@ -162,7 +144,6 @@ class PageMsg:
     btn_total: int
     enc_label: str = ''
     btn_label: str = ''
-    source: str = DEFAULT_SOURCE
 
 
 @dataclass(frozen=True)
@@ -174,20 +155,20 @@ Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, Hi
 
 
 def _parse_slot_fields(fields):
-    # fields: [verb, source, kind, index, name, value, vmin, vmax]
-    if len(fields) != 8:
+    # fields: [verb, kind, index, name, value, vmin, vmax]
+    if len(fields) != 7:
         return None
-    kind = fields[2]
+    kind = fields[1]
     if kind not in ('dial', 'button'):
         return None
     try:
-        index = int(fields[3])
-        value = float(fields[5])
-        vmin = float(fields[6])
-        vmax = float(fields[7])
+        index = int(fields[2])
+        value = float(fields[4])
+        vmin = float(fields[5])
+        vmax = float(fields[6])
     except ValueError:
         return None
-    return kind, index, SlotPayload(fields[4], value, vmin, vmax)
+    return kind, index, SlotPayload(fields[3], value, vmin, vmax)
 
 
 def parse(line: str) -> Message:
@@ -196,26 +177,22 @@ def parse(line: str) -> Message:
         return UnknownMsg(line)
     fields = line.split('|')
     verb = fields[0]
-    # fields[1] is the source id on every message.
-    source = fields[1] if len(fields) >= 2 else DEFAULT_SOURCE
 
     if verb == 'LAYOUT':
-        # LAYOUT|<src>|<group>|<order>|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
-        if len(fields) < 5:
+        # LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
+        if len(fields) < 2:
             return UnknownMsg(line)
         try:
-            group = fields[2]
-            order = int(fields[3])
-            n = int(fields[4])
+            n = int(fields[1])
         except ValueError:
             return UnknownMsg(line)
-        expected = 5 + n * 5
+        expected = 2 + n * 5
         if len(fields) != expected:
             return UnknownMsg(line)
         cells: List[LayoutCell] = []
         try:
             for i in range(n):
-                base = 5 + i * 5
+                base = 2 + i * 5
                 cells.append((
                     int(fields[base]),
                     int(fields[base + 1]),
@@ -225,54 +202,54 @@ def parse(line: str) -> Message:
                 ))
         except ValueError:
             return UnknownMsg(line)
-        return LayoutMsg(cells, source=source, group=group, order=order)
+        return LayoutMsg(cells)
 
     if verb == 'DEVICE':
-        if len(fields) < 3:
+        if len(fields) < 2:
             return UnknownMsg(line)
-        return DeviceMsg(fields[2], source=source)
+        return DeviceMsg(fields[1])
 
     if verb in ('SLOT', 'UPDATE'):
         parsed = _parse_slot_fields(fields)
         if parsed is None:
             return UnknownMsg(line)
         kind, index, payload = parsed
-        return (SlotMsg(kind, index, payload, source=source) if verb == 'SLOT'
-                else UpdateMsg(kind, index, payload, source=source))
+        return (SlotMsg(kind, index, payload) if verb == 'SLOT'
+                else UpdateMsg(kind, index, payload))
 
     if verb == 'COMMIT':
-        if len(fields) != 3:
+        if len(fields) != 2:
             return UnknownMsg(line)
         try:
-            return CommitMsg(int(fields[2]), source=source)
+            return CommitMsg(int(fields[1]))
         except ValueError:
             return UnknownMsg(line)
 
     if verb == 'PING':
-        if len(fields) != 2:
+        if len(fields) != 1:
             return UnknownMsg(line)
-        return PingMsg(source=source)
+        return PingMsg()
 
     if verb == 'HIDE':
-        if len(fields) != 2:
+        if len(fields) != 1:
             return UnknownMsg(line)
-        return HideMsg(source=source)
+        return HideMsg()
 
     if verb == 'MODE':
-        if len(fields) >= 3:
-            return ModeMsg(is_shift=(fields[2] == 'shift'), source=source)
+        if len(fields) == 2:
+            return ModeMsg(is_shift=(fields[1] == 'shift'))
         return UnknownMsg(line)
 
     if verb == 'PAGE':
-        if len(fields) not in (6, 8):
+        if len(fields) not in (5, 7):
             return UnknownMsg(line)
         try:
-            counts = (int(fields[2]), int(fields[3]), int(fields[4]), int(fields[5]))
+            counts = (int(fields[1]), int(fields[2]), int(fields[3]), int(fields[4]))
         except ValueError:
             return UnknownMsg(line)
-        if len(fields) == 8:
-            return PageMsg(*counts, enc_label=fields[6], btn_label=fields[7], source=source)
-        return PageMsg(*counts, source=source)
+        if len(fields) == 7:
+            return PageMsg(*counts, enc_label=fields[5], btn_label=fields[6])
+        return PageMsg(*counts)
 
     return UnknownMsg(line)
 

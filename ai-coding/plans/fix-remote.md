@@ -1,0 +1,3 @@
+- fix 'remote_on' in config
+- Move all off the OSC sending stuff out of main_component
+- Extract EC4-specific code from `main_component` into a new `ec4_component` (requires @functions-and-code-infra)

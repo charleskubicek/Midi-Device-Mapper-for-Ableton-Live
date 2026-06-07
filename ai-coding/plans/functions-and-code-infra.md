@@ -1,0 +1,2 @@
+
+Recently we've seen the need to have a shared folder for the functions.py file and related files that it imports. We need to find a place for this and ensure it gets deployed along with the generated script

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(poetry run *)",
       "Bash(kill %1)",
-      "Bash(pkill -f \"tail -n 0 -f.*Log.txt\")"
+      "Bash(pkill -f \"tail -n 0 -f.*Log.txt\")",
+      "Bash(swift test *)"
     ]
   }
 }

@@ -15,9 +15,9 @@ class CapturingHudClient(HudClient):
         self.sent.append(line)
 
 
-class TestHudClientStampsSource(unittest.TestCase):
-    def test_every_message_carries_source(self):
-        c = CapturingHudClient(source='parks_btns', group='lc_parks', order=1)
+class TestHudClientWire(unittest.TestCase):
+    def test_single_source_lines(self):
+        c = CapturingHudClient()
         c.send_layout([(0, 0, 'button', 4, 0)])
         c.send_device("EQ Eight")
         c.send_slot('dial', 0, "Freq", 0.5, 0.0, 1.0)
@@ -28,24 +28,21 @@ class TestHudClientStampsSource(unittest.TestCase):
         c.send_mode(True)
         c.send_page_info(1, 2, 1, 1)
 
-        # Field[1] is the source on every line.
-        for line in c.sent:
-            self.assertEqual(line.split('|')[1], 'parks_btns', msg=line)
+        self.assertEqual(c.sent[0], "LAYOUT|1|0|0|button|4|0")
+        self.assertEqual(c.sent[1], "DEVICE|EQ Eight")
+        self.assertEqual(c.sent[2], "SLOT|dial|0|Freq|0.5|0.0|1.0")
+        self.assertEqual(c.sent[3], "UPDATE|dial|0|Freq|0.6|0.0|1.0")
+        self.assertEqual(c.sent[4], "COMMIT|1")
+        self.assertEqual(c.sent[5], "PING")
+        self.assertEqual(c.sent[6], "HIDE")
 
-    def test_layout_carries_group_and_order(self):
-        c = CapturingHudClient(source='parks_btns', group='lc_parks', order=1)
-        c.send_layout([(0, 0, 'button', 4, 0)])
-        self.assertEqual(c.sent[0], "LAYOUT|parks_btns|lc_parks|1|1|0|0|button|4|0")
+    def test_host_port_are_configurable(self):
+        # The parks forwarder points its client at the lc_parks region port.
+        c = CapturingHudClient(host='127.0.0.1', port=5023)
+        self.assertEqual(c._port, 5023)
 
-    def test_defaults_are_main(self):
-        c = CapturingHudClient()
-        c.send_ping()
-        self.assertEqual(c.sent[0], "PING|main")
-
-    def test_null_client_accepts_identity_kwargs(self):
-        # The template always constructs with source/group/order; NullHudClient
-        # must accept them without error.
-        NullHudClient(source='x', group='y', order=2)
+    def test_null_client_accepts_host_port(self):
+        NullHudClient(host='127.0.0.1', port=5023)
 
 
 if __name__ == '__main__':
