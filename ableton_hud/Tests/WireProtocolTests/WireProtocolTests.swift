@@ -601,6 +601,30 @@ final class MultiSourceStateTests: XCTestCase {
         XCTAssertFalse(state.anyActiveVisible)  // all dismissed → panel may hide
     }
 
+    func test_partner_hide_without_layout_does_not_hijack_active_group() async {
+        // Real-world regression: the partner surface's LAYOUT was lost (it is
+        // sent once at init, before the HUD app started), so the partner only
+        // ever emits HIDE. That HIDE must not become the active source nor pull
+        // the active group onto a phantom group that excludes the committed
+        // surface — otherwise the HUD never shows.
+        let state = makeState()
+        commitBurst(state, source: "main", group: "lc_parks", order: 0, device: "Auto Filter", dialName: "Freq")
+
+        // Partner sends only HIDE — never a LAYOUT or burst.
+        state.apply(message: .hide, source: "parks_btns")
+
+        XCTAssertTrue(state.anyActiveVisible, "main is committed and not dismissed")
+        XCTAssertTrue(state.activeMembers().contains { $0.id == "main" })
+    }
+
+    func test_commit_sets_active_source_not_hide() async {
+        let state = makeState()
+        commitBurst(state, source: "main", group: "lc_parks", order: 0, device: "D", dialName: "A")
+        state.apply(message: .hide, source: "parks_btns")
+        // The committed surface, not the HIDE-only partner, owns the active group.
+        XCTAssertEqual(state.activeSource, "main")
+    }
+
     func test_interleaved_bursts_keep_separate_pending_buffers() async {
         let state = makeState()
         // Two bursts interleaved at the datagram level (worst case under UDP).

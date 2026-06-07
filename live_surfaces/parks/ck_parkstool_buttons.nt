@@ -10,6 +10,10 @@
 controller: parks_controller.nt
 ableton_dir: /Applications/Ableton Live 12 Suite.app
 hud-source: parks_btns
+# Follow Live's selected device: this surface has no device-nav control of its
+# own, so without this it would never burst (controller-nav suppresses every
+# burst that isn't nav-sourced) and its HUD region would stay empty.
+show-hud-on: selection
 
 mappings:
     -

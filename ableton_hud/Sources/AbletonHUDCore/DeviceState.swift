@@ -75,6 +75,10 @@ public class DeviceState: ObservableObject {
         } else {
             s = SourceState()
             s.id = source
+            // Default a source's group to its own id, so a source that hasn't
+            // sent its LAYOUT yet forms its own singleton group rather than
+            // joining a phantom shared default. LAYOUT overrides this below.
+            s.group = source
             sources[source] = s
             sourceOrder.append(source)
         }
@@ -107,9 +111,6 @@ public class DeviceState: ObservableObject {
 
     public func apply(message: WireMessage, source: String = "main",
                       group: String = "main", order: Int = 0) {
-        if case .layout = message {} else if case .unknown = message {} else {
-            activeSource = source
-        }
         switch message {
         case .layout(let cells):
             // LAYOUT also establishes the source's group/order for composition.
@@ -149,6 +150,7 @@ public class DeviceState: ObservableObject {
                 if index < s.buttonSlots.count { s.buttonSlots[index] = slot }
             }
             mirror(s)
+            activeSource = source
             commitReceived.send()
 
         case .commit:
@@ -164,6 +166,10 @@ public class DeviceState: ObservableObject {
             s.dialSlots = (0..<totalDials).map { s.pendingDials[$0] }
             s.buttonSlots = (0..<totalButtons).map { s.pendingButtons[$0] }
             mirror(s)
+            // The committed surface owns the active group. Set this only on
+            // content (COMMIT/UPDATE), never on HIDE/PING — otherwise a
+            // partner's dismiss would hijack which group the panel renders.
+            activeSource = source
             commitReceived.send()
 
         case .ping:
