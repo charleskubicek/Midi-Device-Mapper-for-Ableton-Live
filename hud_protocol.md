@@ -12,6 +12,25 @@ the AbletonHUD macOS app (Swift, receiver).
 - **Field delimiter:** `|` (pipe)
 - **Direction:** sender → receiver only. There is no protocol-level ack.
 
+## Source identity & composition
+
+**Every message carries a `source` id as field[1]**, immediately after the verb:
+`VERB|<source>|<payload…>`. This lets one HUD compose several surfaces at once —
+each surface stamps its own source id on every datagram so the receiver can keep
+**per-source** state and never let one surface's burst clobber another's.
+
+`LAYOUT` additionally carries the merge `group` and display `order`
+(`LAYOUT|<source>|<group>|<order>|…`), sent once at init. The receiver groups
+sources by `group` and renders the members of the **active group** (the group of
+the most recently active source) as side-by-side regions ordered by `order`
+(ascending; primary = 0). A single-controller surface uses the defaults
+`source=main`, `group=main`, `order=0` and renders as one region exactly as
+before.
+
+The dismiss timer is global: any source's `COMMIT`/`UPDATE`/`PING` re-arms it.
+`HIDE` is per-source — the panel hides only once **every** active-group member is
+dismissed.
+
 ## Terminology
 
 **Burst** — a contiguous sequence of messages framed by `DEVICE` … `COMMIT` that
@@ -39,11 +58,14 @@ Describes the physical grid: which cells exist, where they sit, whether each
 cell is a bank of dials or a bank of buttons.
 
 ```
-LAYOUT|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<gr1>|<gc1>|<kind1>|<count1>|<start1>|...
+LAYOUT|<source>|<group>|<order>|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<gr1>|<gc1>|<kind1>|<count1>|<start1>|...
 ```
 
 | Field      | Type   | Meaning                                       |
 |------------|--------|-----------------------------------------------|
+| `source`   | string | sending surface id (composition key)          |
+| `group`    | string | merge group id                                |
+| `order`    | int    | left→right display order within the group     |
 | `n`        | int    | number of cells that follow                  |
 | `gr`       | int    | grid row of this cell                         |
 | `gc`       | int    | grid column of this cell                      |
@@ -54,7 +76,7 @@ LAYOUT|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<gr1>|<gc1>|<kind1>|<count1>|<s
 Example:
 
 ```
-LAYOUT|2|0|0|dial|8|0|2|0|button|4|0
+LAYOUT|main|main|0|2|0|0|dial|8|0|2|0|button|4|0
 ```
 
 - **Emitted:** once, at surface init, by `Remote.init_layout()` (`helpers.py:315`).
@@ -69,11 +91,12 @@ Burst start marker. Names the device that the following `SLOT` messages belong
 to.
 
 ```
-DEVICE|<name>
+DEVICE|<source>|<name>
 ```
 
 | Field   | Type   | Meaning                  |
 |---------|--------|--------------------------|
+| `source`| string | sending surface id       |
 | `name`  | string | device display name      |
 
 - **Emitted:** first message in every device-focus burst (`helpers.py:334`).
@@ -85,11 +108,12 @@ DEVICE|<name>
 A single slot's data, sent inside a burst.
 
 ```
-SLOT|<kind>|<index>|<name>|<value>|<min>|<max>
+SLOT|<source>|<kind>|<index>|<name>|<value>|<min>|<max>
 ```
 
 | Field    | Type   | Meaning                                   |
 |----------|--------|-------------------------------------------|
+| `source` | string | sending surface id                        |
 | `kind`   | string | `dial` or `button`                        |
 | `index`  | int    | slot index — see "Indexing" below         |
 | `name`   | string | parameter / button label (may be empty)   |
@@ -108,7 +132,7 @@ Single-slot live update outside any burst. Same wire shape as `SLOT`, different
 verb.
 
 ```
-UPDATE|<kind>|<index>|<name>|<value>|<min>|<max>
+UPDATE|<source>|<kind>|<index>|<name>|<value>|<min>|<max>
 ```
 
 - **Emitted:** when a parameter value changes after the initial burst, by
@@ -123,11 +147,12 @@ UPDATE|<kind>|<index>|<name>|<value>|<min>|<max>
 End-of-burst marker. Atomic swap from pending to published state.
 
 ```
-COMMIT|<count>
+COMMIT|<source>|<count>
 ```
 
 | Field    | Type | Meaning                                     |
 |----------|------|---------------------------------------------|
+| `source` | string | sending surface id                        |
 | `count`  | int  | number of `SLOT` lines in the burst         |
 
 - **Emitted:** last message of every device-focus burst (`helpers.py:364`).
@@ -141,7 +166,7 @@ COMMIT|<count>
 Keepalive.
 
 ```
-PING
+PING|<source>
 ```
 
 - **Emitted:** after device parameter actions and switch / button actions, from
@@ -157,7 +182,7 @@ the focused device (opened the browser, switched Session ↔ Arrangement, left t
 device chain).
 
 ```
-HIDE
+HIDE|<source>
 ```
 
 - **Emitted:** by `application.view` listeners in the generated surface
@@ -178,7 +203,7 @@ and `SLOT` messages. Not counted in the `COMMIT|<count>` value — it is metadat
 not a slot.
 
 ```
-PAGE|<enc_page>|<enc_total>|<btn_page>|<btn_total>
+PAGE|<source>|<enc_page>|<enc_total>|<btn_page>|<btn_total>
 ```
 
 | Field        | Type | Meaning                                |
@@ -206,7 +231,7 @@ and `SLOT` messages. Not counted in the `COMMIT|<count>` value — it is metadat
 not a slot.
 
 ```
-PAGE|<enc_page>|<enc_total>|<btn_page>|<btn_total>
+PAGE|<source>|<enc_page>|<enc_total>|<btn_page>|<btn_total>
 ```
 
 | Field        | Type | Meaning                                |
@@ -281,7 +306,7 @@ arrays.
 Positions that aren't bound to a real parameter carry the sentinel:
 
 ```
-SLOT|<kind>|<idx>||0|0|1
+SLOT|<source>|<kind>|<idx>||0|0|1
 ```
 
 (empty name, value `0`, min `0`, max `1`.) The single source of truth is
@@ -332,7 +357,7 @@ A burst fires on:
 ```
 sender                                       receiver
   |                                            |
-  | LAYOUT|2|0|0|dial|8|0|2|0|button|4|0       |
+  | LAYOUT|main|main|0|2|0|0|dial|8|0|2|0|button|4|0 |
   |------------------------------------------->|
   |                                  pendingCells = [...]
   |                                            |
@@ -348,7 +373,7 @@ sender                                       receiver
   |                                            |
   | _in_burst = True                           |
   |                                            |
-| DEVICE|EQ Eight                            |
+| DEVICE|main|EQ Eight                       |
   |------------------------------------------->|
   |                            pendingDials = {}, pendingButtons = {}
   |                            pendingName = "EQ Eight"
@@ -358,21 +383,21 @@ sender                                       receiver
   |                            pendingEncoderPage = 1, pendingEncoderTotal = 3
   |                            pendingButtonPage = 1, pendingButtonTotal = 2
   |                                            |
-  | SLOT|dial|0|Frequency|440.0|20.0|20000.0   |
+  | SLOT|main|dial|0|Frequency|440.0|20.0|20000.0 |
   |------------------------------------------->|
-  | SLOT|dial|1|Resonance|0.7|0.0|1.0          |
+  | SLOT|main|dial|1|Resonance|0.7|0.0|1.0     |
   |------------------------------------------->|
   | ... (one SLOT|dial per real parameter)     |
   |------------------------------------------->|
   |                                            |
-  | SLOT|button|0|Type|1.0|0.0|2.0             |
+  | SLOT|main|button|0|Type|1.0|0.0|2.0        |
   |------------------------------------------->|
-  | SLOT|button|1||0|0|1                       |  (empty-slot sentinel)
+  | SLOT|main|button|1||0|0|1                  |  (empty-slot sentinel)
   |------------------------------------------->|
   | ... (one SLOT|button per button cell slot) |
   |------------------------------------------->|
   |                                            |
-  | COMMIT|<count>                             |
+  | COMMIT|main|<count>                        |
   |------------------------------------------->|
 |                          atomic swap → published state
   |                          dialSlots / buttonSlots / deviceName / hudCells
@@ -393,14 +418,14 @@ sender                                       receiver
   |                                            |
   | (user turns a mapped knob)                 |
   |                                            |
-  | UPDATE|dial|2|Resonance|0.81|0.0|1.0       |
+  | UPDATE|main|dial|2|Resonance|0.81|0.0|1.0  |
   |------------------------------------------->|
   |                          dialSlots[2] = ... (immediate)
   |                          dismiss timer reset
   |                                            |
   | (user presses a switch button)             |
   |                                            |
-  | PING                                       |
+  | PING|main                                  |
   |------------------------------------------->|
   |                          dismiss timer reset
   |                                            |

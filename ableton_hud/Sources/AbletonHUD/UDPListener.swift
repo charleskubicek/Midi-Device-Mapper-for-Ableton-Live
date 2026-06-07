@@ -78,8 +78,9 @@ class UDPListener {
             hudLog("UDP recv \(n) bytes: \(text.prefix(120))")
             let messages = WireProtocol.parseAll(data: data)
             DispatchQueue.main.async {
-                for msg in messages {
-                    DeviceState.shared.apply(message: msg)
+                for pm in messages {
+                    DeviceState.shared.apply(message: pm.message,
+                                             source: pm.source, group: pm.group, order: pm.order)
                 }
             }
         }

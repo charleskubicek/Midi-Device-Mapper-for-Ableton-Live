@@ -29,8 +29,10 @@ class HUDOverlayManager {
                 guard let self else { return }
                 let focused = AbletonFocusMonitor.shared.isAbletonFrontmost
                 os_log("commitReceived — focused=%{public}d", log: log, type: .info, focused)
-                hudLog("commitReceived: device=\(DeviceState.shared.deviceName) focused=\(focused)")
-                if focused && !DeviceState.shared.dismissed {
+                hudLog("commitReceived: focused=\(focused) visible=\(DeviceState.shared.anyActiveVisible)")
+                // Any active-group member committing/pinging re-arms the single
+                // dismiss timer = "alive while either surface is active".
+                if focused && DeviceState.shared.anyActiveVisible {
                     self.show()
                 }
             }
@@ -39,8 +41,14 @@ class HUDOverlayManager {
         DeviceState.shared.hideRequested
             .receive(on: RunLoop.main)
             .sink { [weak self] in
-                hudLog("hideRequested — user navigated away in Live")
-                self?.hide()
+                // A single source's HIDE must not drop the whole composed panel.
+                // Hide only once every active-group member is dismissed/empty.
+                if !DeviceState.shared.anyActiveVisible {
+                    hudLog("hideRequested — all active sources dismissed, hiding")
+                    self?.hide()
+                } else {
+                    hudLog("hideRequested — other active source still visible, keeping panel")
+                }
             }
             .store(in: &cancellables)
 
@@ -49,7 +57,7 @@ class HUDOverlayManager {
             .sink { [weak self] isFront in
                 if !isFront {
                     self?.hide()
-                } else if !DeviceState.shared.deviceName.isEmpty && !DeviceState.shared.dismissed {
+                } else if DeviceState.shared.anyActiveVisible {
                     self?.show()
                 }
             }

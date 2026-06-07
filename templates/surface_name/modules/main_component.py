@@ -49,7 +49,7 @@ class MainComponent(ControlSurfaceComponent):
                 OSCClient(host='192.168.68.84', port=5005)
             ])
 
-        self._hud_client = $hud_client_class()
+        self._hud_client = $hud_client_class(source=$hud_source, group=$hud_group, order=$hud_order)
         self._feedback_sinks = [$feedback_sinks]
         self._remote = Remote(self.manager, self._osc_client, self._hud_client, self._feedback_sinks)
 

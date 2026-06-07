@@ -1,0 +1,24 @@
+# Merge topologies — which surfaces compose into ONE HUD overlay.
+#
+# Each `source` is a surface's hud-source id (set via `hud-source:` in its
+# mapping file, defaulting to the mapping-file stem). Members of a merge render
+# as side-by-side regions in one overlay, ordered left→right by `order`
+# (ascending; primary = 0). A surface whose source is not listed here is
+# standalone and renders on its own. ec4 is a feedback sink (not a HUD source),
+# so it is never composed.
+#
+# Consumed at generation time: gen.py stamps each surface with the group/order
+# it advertises on the wire, so the HUD itself needs no config.
+
+merges:
+    -
+        name: lc_parks
+        members:
+            # launch_control — ck_launch_control_16, hud-source: main
+            -
+                source: main
+                order: 0
+            # cut-down parks buttons surface — ck_parkstool_buttons
+            -
+                source: parks_btns
+                order: 1

@@ -20,87 +20,23 @@ private struct GridWidthKey: PreferenceKey {
 struct HUDView: View {
     @ObservedObject var state: DeviceState
     @ObservedObject var chrome: HUDChrome
-    @State private var gridWidth: CGFloat = 0
-
-    private var grid: [[HudCell?]] {
-        guard !state.hudCells.isEmpty else { return [] }
-        let maxRow = state.hudCells.map(\.gridRow).max()!
-        let maxCol = state.hudCells.map(\.gridCol).max()!
-        var g = Array(repeating: Array(repeating: HudCell?.none, count: maxCol + 1), count: maxRow + 1)
-        for cell in state.hudCells { g[cell.gridRow][cell.gridCol] = cell }
-        return g
-    }
 
     var body: some View {
         let scale = CGFloat(chrome.zoom)
+        // Snapshot each member into an Equatable value. SourceState is a
+        // reference type, so passing it directly would let SwiftUI diff regions
+        // by pointer identity and skip re-rendering on in-place mutation (stale
+        // regions). A value snapshot makes SwiftUI detect changes by value.
+        let members = state.activeMembers().map { RegionSnapshot(from: $0) }
 
         ZStack(alignment: .topTrailing) {
-            VStack(alignment: .center, spacing: 6 * scale) {
-                // Header row: device name (top-left), bank label, page indicator
-                // (top-right) all on the same line. Pinned to the grid width
-                // below so long device names truncate instead of expanding the
-                // panel.
-                ZStack {
-                    HStack(spacing: 6 * scale) {
-                        Button {
-                            DeviceState.shared.apply(message: .hide)
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 8 * scale, weight: .medium))
-                                .foregroundColor(.white.opacity(0.45))
-                                .frame(width: 12 * scale, height: 12 * scale)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.borderless)
-
-                        Text(state.deviceName.isEmpty ? "—" : state.deviceName)
-                            .font(.system(size: 10 * scale, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .minimumScaleFactor(0.5)
-
-                        Spacer(minLength: 4 * scale)
-
-                        if state.pageTotal > 1 {
-                            Text("\(state.encoderPage)/\(state.pageTotal)")
-                                .font(.system(size: 9 * scale, weight: .medium, design: .rounded))
-                                .foregroundColor(.white.opacity(0.5))
-                        }
-                    }
-
-                    if !state.bankLabel.isEmpty {
-                        Text(state.bankLabel)
-                            .font(.system(size: 9 * scale, weight: .regular, design: .rounded))
-                            .foregroundColor(.white.opacity(0.6))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .minimumScaleFactor(0.6)
-                    }
+            // One region per active-group member, laid out left→right by `order`
+            // (primary first). A single-controller setup is just one region.
+            HStack(alignment: .top, spacing: 22 * scale) {
+                ForEach(members, id: \.id) { region in
+                    SourceRegionView(region: region, zoom: chrome.zoom)
                 }
-                .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
-                .padding(.bottom, 4 * scale)
-
-                VStack(alignment: .leading, spacing: 10 * scale) {
-                    ForEach(Array(grid.enumerated()), id: \.offset) { _, row in
-                        HStack(alignment: .top, spacing: 10 * scale) {
-                            ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                                if let cell = cell {
-                                    cellView(cell, zoom: chrome.zoom)
-                                } else {
-                                    Color.clear.frame(width: 0)
-                                }
-                            }
-                        }
-                    }
-                }
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: GridWidthKey.self, value: geo.size.width)
-                    }
-                )
             }
-            .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
             .padding(.horizontal, 16 * scale)
             .padding(.vertical, 12 * scale)
             .fixedSize()
@@ -128,17 +64,127 @@ struct HUDView: View {
         .frame(width: max(1, chrome.baseSize.width) * chrome.zoom,
                height: max(1, chrome.baseSize.height) * chrome.zoom)
     }
+}
+
+/// Equatable value snapshot of one source's published HUD state. Passing this
+/// (rather than the `SourceState` reference) lets SwiftUI diff regions by value
+/// so a region re-renders whenever its content changes.
+private struct RegionSnapshot: Equatable, Identifiable {
+    let id: String
+    let deviceName: String
+    let dialSlots: [Slot?]
+    let buttonSlots: [Slot?]
+    let hudCells: [HudCell]
+    let isShiftMode: Bool
+    let encoderPage: Int
+    let pageTotal: Int
+    let bankLabel: String
+
+    init(from s: SourceState) {
+        id = s.id
+        deviceName = s.deviceName
+        dialSlots = s.dialSlots
+        buttonSlots = s.buttonSlots
+        hudCells = s.hudCells
+        isShiftMode = s.isShiftMode
+        encoderPage = s.encoderPage
+        pageTotal = s.pageTotal
+        bankLabel = s.bankLabel
+    }
+}
+
+/// Renders one sender's header + control grid from an Equatable snapshot.
+private struct SourceRegionView: View {
+    let region: RegionSnapshot
+    let zoom: Double
+    @State private var gridWidth: CGFloat = 0
+
+    private var scale: CGFloat { CGFloat(zoom) }
+
+    private var grid: [[HudCell?]] {
+        guard !region.hudCells.isEmpty else { return [] }
+        let maxRow = region.hudCells.map(\.gridRow).max()!
+        let maxCol = region.hudCells.map(\.gridCol).max()!
+        var g = Array(repeating: Array(repeating: HudCell?.none, count: maxCol + 1), count: maxRow + 1)
+        for cell in region.hudCells { g[cell.gridRow][cell.gridCol] = cell }
+        return g
+    }
+
+    var body: some View {
+        VStack(alignment: .center, spacing: 6 * scale) {
+            // Header: close (hides this source only), device name, page, bank.
+            ZStack {
+                HStack(spacing: 6 * scale) {
+                    Button {
+                        DeviceState.shared.apply(message: .hide, source: region.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 8 * scale, weight: .medium))
+                            .foregroundColor(.white.opacity(0.45))
+                            .frame(width: 12 * scale, height: 12 * scale)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.borderless)
+
+                    Text(region.deviceName.isEmpty ? "—" : region.deviceName)
+                        .font(.system(size: 10 * scale, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.5)
+
+                    Spacer(minLength: 4 * scale)
+
+                    if region.pageTotal > 1 {
+                        Text("\(region.encoderPage)/\(region.pageTotal)")
+                            .font(.system(size: 9 * scale, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                }
+
+                if !region.bankLabel.isEmpty {
+                    Text(region.bankLabel)
+                        .font(.system(size: 9 * scale, weight: .regular, design: .rounded))
+                        .foregroundColor(.white.opacity(0.6))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .minimumScaleFactor(0.6)
+                }
+            }
+            .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
+            .padding(.bottom, 4 * scale)
+
+            VStack(alignment: .leading, spacing: 10 * scale) {
+                ForEach(Array(grid.enumerated()), id: \.offset) { _, row in
+                    HStack(alignment: .top, spacing: 10 * scale) {
+                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                            if let cell = cell {
+                                cellView(cell)
+                            } else {
+                                Color.clear.frame(width: 0)
+                            }
+                        }
+                    }
+                }
+            }
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: GridWidthKey.self, value: geo.size.width)
+                }
+            )
+        }
+        .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
+    }
 
     @ViewBuilder
-    private func cellView(_ cell: HudCell, zoom: Double) -> some View {
-        let scale = CGFloat(zoom)
+    private func cellView(_ cell: HudCell) -> some View {
         switch cell.kind {
         case .dial:
             HStack(spacing: 8 * scale) {
                 ForEach(0..<cell.count, id: \.self) { i in
                     let idx = cell.startIndex + i
-                    let slot: Slot? = (cell.startIndex >= 0 && idx < state.dialSlots.count)
-                        ? state.dialSlots[idx] : nil
+                    let slot: Slot? = (cell.startIndex >= 0 && idx < region.dialSlots.count)
+                        ? region.dialSlots[idx] : nil
                     DialSlotView(slot: slot, zoom: zoom)
                 }
             }
@@ -146,9 +192,9 @@ struct HUDView: View {
             HStack(spacing: 8 * scale) {
                 ForEach(0..<cell.count, id: \.self) { i in
                     let idx = cell.startIndex + i
-                    let slot: Slot? = (cell.startIndex >= 0 && idx < state.buttonSlots.count)
-                        ? state.buttonSlots[idx] : nil
-                    ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: state.isShiftMode)
+                    let slot: Slot? = (cell.startIndex >= 0 && idx < region.buttonSlots.count)
+                        ? region.buttonSlots[idx] : nil
+                    ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: region.isShiftMode)
                 }
             }
         }

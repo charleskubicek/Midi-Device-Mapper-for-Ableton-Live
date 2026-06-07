@@ -1,0 +1,29 @@
+# Cut-down parks surface: exports ONLY the buttons (rows 2 & 3) to the HUD, so
+# it can be composed beside launch_control in one overlay (see
+# ../_Global/merged_controllers.nt, group lc_parks). Load THIS surface in
+# Ableton for the parks controller when running it merged with launch_control.
+#
+# It is an ordinary device mapping — buttons reflect the same globally-focused
+# device's parameters (a different window than launch_control's), updating live
+# on device change.
+
+controller: parks_controller.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+hud-source: parks_btns
+
+mappings:
+    -
+        type: device
+        track: selected
+        device: selected
+        parameter-mappings-file: parks_device_parameters.nt
+        mappings:
+            encoder-list:
+                -
+                    name: buttons1
+                    range: row-2:1-8
+                    parameters: 40-49
+                -
+                    name: buttons2
+                    range: row-3:1-8
+                    parameters: 50-59

@@ -312,6 +312,14 @@ def generate(mapping_file_path):
     controller = read_controller(controller_path.read_text())
     mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
 
+    # HUD source identity + merge topology. The source defaults to the mapping
+    # stem; group/order come from live_surfaces/_Global/merged_controllers.nt
+    # (standalone → group == source, order 0). Baked into the surface so the HUD
+    # composes from what each surface advertises.
+    from ableton_control_surface_as_code.model_merges import resolve_group_order
+    hud_source = mappings.hud_source or surface_name
+    hud_group, hud_order = resolve_group_order(mapping_file_path.parent, hud_source)
+
     parameter_mappings_raw = None
     if mappings.parameter_mappings_file is not None:
         pm_path = (mapping_file_path.parent / mappings.parameter_mappings_file).resolve()
@@ -329,6 +337,9 @@ def generate(mapping_file_path):
         'ableton_dir': validate_path(mappings.ableton_dir),
         'remote_on': mappings.remote_on,
         'parameter_mappings_raw': repr(parameter_mappings_raw),
+        'hud_source': repr(hud_source),
+        'hud_group': repr(hud_group),
+        'hud_order': hud_order,
     }
 
     code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=mappings.show_hud_on, feedback=mappings.feedback)
