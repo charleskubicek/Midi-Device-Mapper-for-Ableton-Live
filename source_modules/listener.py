@@ -13,27 +13,28 @@ class OSCListener:
     """
     A listener for OSC messages that sets up a UDP socket and processes received messages.
     """
-    def __init__(self, manager, button_handler, port=5015):
+    def __init__(self, manager, button_handler, port=5015, name="surface"):
         """
         Initialize the OSC listener.
-        
+
         Args:
             manager: The manager object that provides scheduling and logging functionality
             button_handler: The handler for button events
+            port: UDP port to bind for OSC button input. Must be unique per
+                surface so multiple surfaces can run at once (set by codegen).
+            name: surface name, for log messages.
         """
         self._manager = manager
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self._socket.setblocking(0)
             self._socket.bind(('0.0.0.0', port))
-            self.log_message(f"ck_launch_control_16: listening on port {port}")
+            self.log_message(f"{name}: OSC button listener on port {port}")
 
             self._manager.schedule_message(1, self.tick)
-        except socket.error as e:
-            self.log_message(f"ck_launch_control_16: Socket error: {traceback.format_exc()}")
-            self._manager.show_message(f"ck_launch_control_16: Socket error: {traceback.format_exc()}")
+        except Exception as e:
+            self.log_message(f"{name}: OSC listener socket error on port {port}: {traceback.format_exc()}")
         self.button_handler = button_handler
-        # self.show_message("Connected to ck_launch_control_16")
     
     def log_message(self, msg):
         """

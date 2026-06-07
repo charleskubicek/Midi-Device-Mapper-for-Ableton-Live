@@ -71,7 +71,7 @@ class MainComponent(ControlSurfaceComponent):
         self.log_message(f"main_component finish init.")
         self._previous_values = {}
 
-        self._lisetenr = OSCListener(self.manager, self.button_handler)
+        self._lisetenr = OSCListener(self.manager, self.button_handler, port=$osc_listen_port, name="$surface_name")
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 

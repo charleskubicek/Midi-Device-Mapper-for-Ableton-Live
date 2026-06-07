@@ -332,6 +332,9 @@ def generate(mapping_file_path):
     vars = {
         'surface_name': surface_name,
         'udp_port': generate_5_digit_number(surface_name) + 1,
+        # OSC button-input listener port — unique per surface so multiple
+        # surfaces can run at once (was a hardcoded 5015 that collided).
+        'osc_listen_port': generate_5_digit_number(surface_name) + 2,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings',
         'ableton_dir': validate_path(mappings.ableton_dir),
