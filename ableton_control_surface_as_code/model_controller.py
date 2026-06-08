@@ -76,9 +76,10 @@ class ControllerRawV2(BaseModel):
     encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Absolute)
 
 
-def validate_controller_semantics(raw: ControllerRawV2) -> None:
-    """Catch out-of-spec MIDI values at generation time, accumulating every
-    problem into one error rather than failing on the first."""
+def validate_controller_semantics(raw: ControllerRawV2, acc=None) -> None:
+    """Catch out-of-spec MIDI values at generation time. When an accumulator is
+    passed, append problems to it (the orchestrator raises once); otherwise
+    raise immediately so standalone callers still see the error."""
     problems = []
     for g in raw.control_groups:
         where = g.info_string()
@@ -93,7 +94,11 @@ def validate_controller_semantics(raw: ControllerRawV2) -> None:
         if bad:
             problems.append(
                 f"{where}: MIDI number(s) {bad} out of range (must be 0-127)")
-    if problems:
+    if not problems:
+        return
+    if acc is not None:
+        acc.extend(problems)
+    else:
         raise GenError(
             "Invalid controller:\n" + "\n".join(f"  - {p}" for p in problems),
             ErrorCode.SEMANTIC_VALIDATION)
@@ -219,16 +224,22 @@ class ControllerV2:
                     for col in coords.range_inclusive:
                         midi_range_index = col - 1
                         if midi_range_index < 0 or midi_range_index >= len(group.midi_coords):
-                            raise ValueError(
+                            raise GenError(
                                 f"Coordinate row-{coords.row}:{col} is out of range — "
-                                f"row {group.number} has {len(group.midi_coords)} item(s) (valid cols: 1–{len(group.midi_coords)})"
+                                f"row {group.number} has {len(group.midi_coords)} item(s) (valid cols: 1-{len(group.midi_coords)})",
+                                ErrorCode.SEMANTIC_VALIDATION
                             )
                         midi_coords = group.midi_item_at(midi_range_index)
                         res_midi.append(midi_coords.with_encoder_refs(coords.encoder_refs))
 
         if res_type is None:
-            print(f"Didn't find any coords for {coords} in {self.control_groups}")
-            sys.exit(1)
+            available = ", ".join(f"row-{g.number}" for g in self.control_groups)
+            lo, hi = coords.range_
+            range_str = f"{lo}" if lo == hi else f"{lo}-{hi}"
+            raise GenError(
+                f"Coordinate row-{coords.row}:{range_str} refers to row "
+                f"{coords.row}, which the controller does not have (available: {available})",
+                ErrorCode.SEMANTIC_VALIDATION)
         else:
             return res_midi, res_type
 

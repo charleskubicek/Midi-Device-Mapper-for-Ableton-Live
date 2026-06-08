@@ -13,7 +13,9 @@ from ableton_control_surface_as_code.gen_code import class_function_body_code_bl
     transport_templates, dict_variable_decleration_block, GeneratedCodes, \
     parameter_pager_templates, clip_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
-    read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode, HudTrigger
+    read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode, HudTrigger, \
+    build_validated_model
+from ableton_control_surface_as_code.gen_error import GenError
 
 tab = " " * 4
 
@@ -322,11 +324,15 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
     if not functions_path.exists():
         functions_path = None
 
-    mappings = read_root(mapping_file_path.read_text(), source=mapping_file_path.name)
+    def _resolve_controller(root):
+        controller_path = mapping_file_path.parent / root.controller
+        return controller_path.read_text(), controller_path.name
 
-    controller_path = mapping_file_path.parent / mappings.controller
-    controller = read_controller(controller_path.read_text(), source=controller_path.name)
-    mode_with_midi = read_root_v2(mappings, controller, mapping_file_path.parent)
+    mappings, controller, mode_with_midi = build_validated_model(
+        mapping_file_path.read_text(),
+        mapping_file_path.parent,
+        resolve_controller=_resolve_controller,
+        mapping_source=mapping_file_path.name)
 
     parameter_mappings_raw = None
     if mappings.parameter_mappings_file is not None:
@@ -458,19 +464,13 @@ def generate_composition(comp_path):
 
 
 if __name__ == '__main__':
-    # try:
-
     script_file = Path(sys.argv[1])
-    generate(script_file)
-
-    # script_file = Path(sys.argv[2])
-    # generate(script_file)
-
-    # # except GenError as e:
-    # #     print(f"Problem Generating: {e}")
-    # #     exit(-1)
-    # except Exception as e:
-    #     raise e
-    #     # print(f"Error: {e}")
+    try:
+        generate(script_file)
+    except GenError as e:
+        # Config problems are user errors, not bugs — print the readable
+        # message and exit non-zero, without a Python traceback.
+        print(f"\nCould not generate from {script_file}:\n{e}", file=sys.stderr)
+        sys.exit(1)
     #     # exit(-1)
     #     # sys.exit(e.error_code)

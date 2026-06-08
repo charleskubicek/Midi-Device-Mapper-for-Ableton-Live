@@ -174,12 +174,36 @@ def test_reports_all_problems_at_once(self):
 ---
 
 ## Implementation order (each step: failing tests → implement → green)
-1. **Shared test helper** `assert_gen_error` + stable error-code constants.
-2. **Workstream A** (coord grammar) — biggest felt win, self-contained.
-3. **Workstream B** (Pydantic wrap) — small change, big structural-error win.
+1. **Shared test helper** `assert_gen_error` + stable error-code constants. ✅ done (2c04de6)
+2. **Workstream A** (coord grammar) — biggest felt win, self-contained. ✅ done (2c04de6)
+3. **Workstream B** (Pydantic wrap) — small change, big structural-error win. ✅ done (2c04de6)
 4. **Workstream C** (semantic pass) — the architectural piece; build the accumulator first, migrate
-   existing checks into it, then add the new checks.
+   existing checks into it, then add the new checks. ✅ accumulator + migration + range-vs-slots done
+   (this commit). Deferred within C: param-index-vs-device-bank (needs curated bank data).
 5. **Workstream D** (JSON Schema) — if time allows in Phase 1; otherwise first task of Phase 2 prep.
+   ⏸️ deferred.
+
+### Progress log
+- **2c04de6** — foundation + Workstream A + B + first C checks (channel/number ranges, mode-name
+  uniqueness, coord descending/zero-axis).
+- **This commit** — Workstream C accumulator spine:
+  - `ProblemAccumulator` (`gen_error.py`) collects problems and raises once.
+  - `build_validated_model` (`model_v2.py`) is the top-level orchestrator: threads ONE accumulator
+    through `read_root` (mode names) → `read_controller` (controller MIDI semantics) →
+    `read_root_v2`/`build_mappings_model_v2` (per-mapping coord resolution + duplicate-mapping
+    clash). Parse failures (NestedText/Pydantic) still raise immediately — nothing left to validate.
+  - The three previously fail-fast raise-sites now append-to-accumulator when one is passed, and
+    keep their standalone raise behaviour when called directly (existing unit tests stay green).
+  - New check: device **range-length-vs-slots/parameters** mismatch was a silent `print`; now a named
+    `GenError` ("covers N control(s) but M parameter(s)…"). Parameter check fixed to compare TOTALs
+    across multi-coord ranges (was a per-group false positive that the silent print had masked).
+  - `build_midi_coords` out-of-range / row-not-found converted from raw `ValueError`/`sys.exit(1)`
+    to `GenError`, so they accumulate and read clearly.
+  - `gen.py __main__` now catches `GenError`, prints the readable message to stderr, exits 1 (no
+    Python traceback for user config errors).
+  - **Dropped** the plan's "duplicate coords across modes" row: reusing a control across modes is the
+    whole point of the mode FSM; the within-mode clash check (`validate_mappings`) already covers the
+    real bug. Confirmed with the user.
 
 ## Non-goals for Phase 1
 - No format migration (NestedText stays — see Context).

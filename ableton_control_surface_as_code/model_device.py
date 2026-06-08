@@ -1,4 +1,3 @@
-import itertools
 import re
 from dataclasses import dataclass
 from typing import Literal, List, Optional, Dict, Tuple
@@ -7,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2, parse_multiple_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
+from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 
 
 MODE_SLOT_NAMES = [f"switch{i}" for i in range(1, 9)]
@@ -208,9 +208,15 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             slot_list = encoders.slots
             for mcs in encoders.multi_encoder_coords:
                 midis, _ = controller.build_midi_coords(mcs)
+                # NOTE: per-group on purpose (unlike the parameters branch, which
+                # compares totals): the slot list restarts for each coord-group,
+                # so each group must match the slot count on its own.
                 if len(midis) != len(slot_list):
-                    print(
-                        f"Length of midis ({len(midis)}) and slots ({len(slot_list)}) don't match"
+                    raise GenError(
+                        f"device mapping for '{device.device}': the encoder range "
+                        f"covers {len(midis)} control(s) but {len(slot_list)} slot(s) "
+                        f"were listed — these counts must match",
+                        ErrorCode.SEMANTIC_VALIDATION,
                     )
                 for m, slot in zip(midis, slot_list):
                     encoder_index += 1
@@ -222,18 +228,25 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
                     slot_assignments.append((encoder_index, slot))
         else:
             param_list = encoders.parameters.as_inclusive_list()
-            iterator, _ = itertools.tee(param_list)
+            # A range may span several coord-groups (e.g. "row-1:2-5,row-2:2-5");
+            # the parameter list is shared across the whole span, so compare the
+            # TOTAL control count to the parameter count once, not per group.
+            all_midis = []
             for mcs in encoders.multi_encoder_coords:
                 midis, _ = controller.build_midi_coords(mcs)
-                if len(midis) != len(param_list):
-                    print(
-                        f"Length of midis ({len(midis)}) and parameters ({len(param_list)}) don't match"
-                    )
-                for m, p in zip(midis, iterator):
-                    midi_maps.append(DeviceParameterMidiMapping(
-                        midi_coords=[m],
-                        parameter=p,
-                    ))
+                all_midis.extend(midis)
+            if len(all_midis) != len(param_list):
+                raise GenError(
+                    f"device mapping for '{device.device}': the encoder range "
+                    f"covers {len(all_midis)} control(s) but {len(param_list)} "
+                    f"parameter(s) were listed — these counts must match",
+                    ErrorCode.SEMANTIC_VALIDATION,
+                )
+            for m, p in zip(all_midis, param_list):
+                midi_maps.append(DeviceParameterMidiMapping(
+                    midi_coords=[m],
+                    parameter=p,
+                ))
 
     if device.mappings.on_off:
         midi_maps.append(DeviceParameterMidiMapping(

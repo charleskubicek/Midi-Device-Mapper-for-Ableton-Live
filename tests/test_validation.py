@@ -1,9 +1,11 @@
 """Workstream C: semantic validation that today only fails at Ableton load time
 must instead fail at generation time, with all problems reported at once."""
 import unittest
+from pathlib import Path
 
 from ableton_control_surface_as_code.core_model import parse_coords
-from ableton_control_surface_as_code.model_v2 import read_root, read_controller
+from ableton_control_surface_as_code.model_v2 import (
+    read_root, read_controller, build_validated_model)
 from ableton_control_surface_as_code.gen_error import ErrorCode
 from tests.custom_assertions import CustomAssertions
 
@@ -94,3 +96,77 @@ class TestModeSemantics(unittest.TestCase, CustomAssertions):
     def test_distinct_mode_names_ok(self):
         root = read_root(_two_modes("main_mode", "shift_mode"))
         self.assertEqual(2, len(root.modes))
+
+
+class TestAccumulatingPass(unittest.TestCase, CustomAssertions):
+    """The whole-config pass must report EVERY problem at once, across both the
+    controller file and the mapping file — not fail on the first one found."""
+
+    def _build(self, mapping_text, controller_text):
+        return build_validated_model(
+            mapping_text, Path("/tmp"),
+            resolve_controller=lambda root: (controller_text, "ctrl.nt"),
+            mapping_source="mapping.nt")
+
+    def test_reports_problems_across_both_files_at_once(self):
+        # Controller file: channel 17 (out of range).
+        # Mapping file: duplicate mode name AND a coord on a non-existent row.
+        controller = _controller(channel="17")
+        mapping = (
+            _ROOT_BASE + "modes:\n"
+            "    -\n        name: main_mode\n"
+            "        mappings:\n"
+            "            -\n                type: track-nav\n"
+            "                mappings:\n"
+            "                    left: row-9:1\n"      # row 9 doesn't exist
+            "                    right: row-1:2\n"
+            "    -\n        name: main_mode\n"          # duplicate name
+            "        mappings:\n"
+            "            -\n                type: track-nav\n"
+            "                mappings:\n"
+            "                    left: row-1:1\n"
+            "                    right: row-1:2\n")
+        self.assert_gen_error(
+            lambda: self._build(mapping, controller),
+            ErrorCode.SEMANTIC_VALIDATION,
+            "17", "main_mode", "row-9")
+
+    def test_clean_config_builds(self):
+        controller = _controller(channel="3")
+        mapping = (
+            _ROOT_BASE + "modes:\n"
+            "    -\n        name: main_mode\n"
+            "        mappings:\n"
+            "            -\n                type: track-nav\n"
+            "                mappings:\n"
+            "                    left: row-1:1\n"
+            "                    right: row-1:2\n")
+        root, controller_v2, mode_with_midi = self._build(mapping, controller)
+        self.assertEqual(1, len(root.modes))
+
+
+class TestRangeVsSlots(unittest.TestCase, CustomAssertions):
+    """A device `range:` whose length doesn't match its `slots:`/`parameters:`
+    count silently truncated before; now it must be a named error."""
+
+    def _device_mapping(self, encoder_range, slots):
+        return (
+            _ROOT_BASE + "modes:\n"
+            "    -\n        name: m1\n"
+            "        mappings:\n"
+            "            -\n                type: device\n"
+            "                track: selected\n"
+            "                device: selected\n"
+            "                mappings:\n"
+            "                    encoders:\n"
+            f"                        range: {encoder_range}\n"
+            f"                        slots: {slots}\n")
+
+    def test_range_longer_than_slots_rejected(self):
+        # range covers 8 encoders but only 4 slots are listed.
+        controller = _controller(channel="3", midi_range="21-28")
+        self.assert_gen_error(
+            lambda: build_validated_model(
+                self._device_mapping("row-1:1-8", "1-4"), Path("/tmp"),
+                resolve_controller=lambda root: (controller, "ctrl.nt")),
+            ErrorCode.SEMANTIC_VALIDATION, "8", "4")

@@ -8,7 +8,7 @@ from prettytable import PrettyTable
 from pydantic import BaseModel, model_validator, Extra, Field, ValidationError
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
-from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
+from ableton_control_surface_as_code.gen_error import GenError, ErrorCode, ProblemAccumulator
 from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2, \
     validate_controller_semantics
 from ableton_control_surface_as_code.model_device import DeviceWithMidi, DeviceV2, build_device_model_v2_1
@@ -182,7 +182,7 @@ class ModeGroupWithMidi(BaseModel):
             for i, (name, clr) in enumerate(self.mode_button.on_colors)]
 
 
-def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = ""):
+def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = "", acc=None):
     seen = {}
     mode_prefix = f" in mode '{mode_name}'" if mode_name else ""
     for withMidi in mappings:
@@ -191,10 +191,14 @@ def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = ""):
             for mc in mcs:
                 if mc.ch_num in seen:
                     (pmc, previous) = seen[mc.ch_num]
-                    raise GenError(
+                    message = (
                         f"Clashing mappings{mode_prefix}: {withMidi.type} and {previous.type} both use chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
                         + f"\n from source 1: {mc.source_info}"
-                        + f"\n from source 2: {pmc.source_info}", 1)
+                        + f"\n from source 2: {pmc.source_info}")
+                    if acc is not None:
+                        acc.add(message)
+                    else:
+                        raise GenError(message, ErrorCode.CLASHING_MAPPINGS)
                 else:
                     seen[mc.ch_num] = (mc, withMidi)
 
@@ -229,17 +233,21 @@ def print_model_with_mappings(model: ControllerV2, mappings):
         print(table)
 
 
-def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> ModeGroupWithMidi:
-    mappings = [(mode_dev.name, build_mappings_model_v2(mode_dev.mappings, controller, root_dir, mode_name=mode_dev.name))
+def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=None) -> ModeGroupWithMidi:
+    mappings = [(mode_dev.name,
+                 build_mappings_model_v2(mode_dev.mappings, controller, root_dir,
+                                         mode_name=mode_dev.name, acc=acc))
                 for mode_dev in root.modes]
 
     if root.mode_button is None:
         mode_button = None
     else:
-        mode_button = ModeButtonWithMidi(
-            on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in root.modes],
-            button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
-            type=root.mode_button.type)
+        def _build_mode_button():
+            return ModeButtonWithMidi(
+                on_colors=[(mode_dev.name, controller.light_color_for(mode_dev.on_color)) for mode_dev in root.modes],
+                button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
+                type=root.mode_button.type)
+        mode_button = acc.capture(_build_mode_button) if acc is not None else _build_mode_button()
 
     return ModeGroupWithMidi(
         mappings=mappings,
@@ -247,39 +255,43 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path) -> Mode
     )
 
 
-def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
-                            root_dir: Path, mode_name: str = "") -> AllMappingWithMidiTypes:
-    """
-    Returns a model of the mapping with midi info attached
+_MAPPING_BUILDERS = {
+    "device": lambda c, m, d: build_device_model_v2_1(c, m, d),
+    "mixer": lambda c, m, d: build_mixer_model_v2(c, m),
+    "track-nav": lambda c, m, d: build_track_nav_model_v2(c, m),
+    "device-nav": lambda c, m, d: build_device_nav_model_v2(c, m),
+    "functions": lambda c, m, d: build_functions_model_v2(c, m, d),
+    "transport": lambda c, m, d: build_transport_model(c, m),
+    "parameter-pager": lambda c, m, d: build_parameter_pager_model_v2(c, m),
+    "clip": lambda c, m, d: build_clip_model_v2(c, m),
+}
 
-    :param mappings:
-    :param controller:
-    :return:
+
+def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
+                            root_dir: Path, mode_name: str = "", acc=None) -> AllMappingWithMidiTypes:
+    """
+    Returns a model of the mapping with midi info attached.
+
+    When an accumulator is passed, a per-mapping build failure (e.g. an
+    out-of-range coord) is recorded and that mapping is skipped, so sibling
+    mappings — and other modes/files — still get validated in the same pass.
     """
 
     mappings_with_midi = []
 
     for mapping in mappings:
-
-        if mapping.type == "device":
-            mappings_with_midi.append(build_device_model_v2_1(controller, mapping, root_dir))
-        if mapping.type == "mixer":
-            mappings_with_midi.append(build_mixer_model_v2(controller, mapping))
-        if mapping.type == "track-nav":
-            mappings_with_midi.append(build_track_nav_model_v2(controller, mapping))
-        if mapping.type == "device-nav":
-            mappings_with_midi.append(build_device_nav_model_v2(controller, mapping))
-        if mapping.type == "functions":
-            mappings_with_midi.append(build_functions_model_v2(controller, mapping, root_dir))
-        if mapping.type == "transport":
-            mappings_with_midi.append(build_transport_model(controller, mapping))
-        if mapping.type == "parameter-pager":
-            mappings_with_midi.append(build_parameter_pager_model_v2(controller, mapping))
-        if mapping.type == "clip":
-            mappings_with_midi.append(build_clip_model_v2(controller, mapping))
+        builder = _MAPPING_BUILDERS.get(mapping.type)
+        if builder is None:
+            continue
+        if acc is not None:
+            built = acc.capture(lambda: builder(controller, mapping, root_dir))
+            if built is not None:
+                mappings_with_midi.append(built)
+        else:
+            mappings_with_midi.append(builder(controller, mapping, root_dir))
 
     print_model_with_mappings(controller, mappings_with_midi)
-    validate_mappings(mappings_with_midi, mode_name=mode_name)
+    validate_mappings(mappings_with_midi, mode_name=mode_name, acc=acc)
 
     return mappings_with_midi
 
@@ -314,19 +326,23 @@ def _format_validation_error(e: ValidationError, source: str) -> GenError:
     return GenError(f"Invalid config in {source}:\n{body}", ErrorCode.CONFIG_VALIDATION)
 
 
-def _validate_mode_names(root: RootV2) -> None:
+def _validate_mode_names(root: RootV2, acc=None) -> None:
     seen, dupes = set(), []
     for mode in root.modes:
         if mode.name in seen:
             dupes.append(mode.name)
         seen.add(mode.name)
-    if dupes:
-        raise GenError(
-            f"Duplicate mode name(s): {', '.join(sorted(set(dupes)))} — "
-            f"each mode must have a unique name.", ErrorCode.SEMANTIC_VALIDATION)
+    if not dupes:
+        return
+    message = (f"Duplicate mode name(s): {', '.join(sorted(set(dupes)))} — "
+               f"each mode must have a unique name.")
+    if acc is not None:
+        acc.add(message)
+    else:
+        raise GenError(message, ErrorCode.SEMANTIC_VALIDATION)
 
 
-def read_root(mapping_path, source: str = "mapping file") -> RootV2:
+def read_root(mapping_path, source: str = "mapping file", acc=None) -> RootV2:
     try:
         data = nt.loads(mapping_path)
         if not isinstance(data, dict):
@@ -338,11 +354,11 @@ def read_root(mapping_path, source: str = "mapping file") -> RootV2:
         e.terminate()
     except ValidationError as e:
         raise _format_validation_error(e, source) from e
-    _validate_mode_names(root)
+    _validate_mode_names(root, acc=acc)
     return root
 
 
-def read_controller(controller_path, source: str = "controller file") -> ControllerV2:
+def read_controller(controller_path, source: str = "controller file", acc=None) -> ControllerV2:
     try:
         data = nt.loads(controller_path)
         if not isinstance(data, dict):
@@ -354,5 +370,31 @@ def read_controller(controller_path, source: str = "controller file") -> Control
         e.terminate()
     except ValidationError as e:
         raise _format_validation_error(e, source) from e
-    validate_controller_semantics(raw)
+    validate_controller_semantics(raw, acc=acc)
     return ControllerV2.build_from(raw)
+
+
+def build_validated_model(mapping_text, root_dir: Path, resolve_controller,
+                          mapping_source: str = "mapping file"):
+    """Top-level orchestrator for the validation pass.
+
+    Parses + builds the whole config through one shared accumulator so EVERY
+    semantic problem — spanning the mapping file and the controller file — is
+    reported in a single error, instead of failing on the first one. Parse-level
+    failures (NestedText / Pydantic) still raise immediately, since there is
+    nothing further to validate once parsing fails.
+
+    ``resolve_controller`` is called with the parsed root and must return
+    ``(controller_text, controller_source)``; this lets the caller locate the
+    controller file (its path lives inside the mapping) while keeping the
+    orchestration testable with in-memory strings.
+
+    Returns ``(root, controller, mode_with_midi)``.
+    """
+    acc = ProblemAccumulator()
+    root = read_root(mapping_text, source=mapping_source, acc=acc)
+    controller_text, controller_source = resolve_controller(root)
+    controller = read_controller(controller_text, source=controller_source, acc=acc)
+    mode_with_midi = read_root_v2(root, controller, root_dir, acc=acc)
+    acc.raise_if_any()
+    return root, controller, mode_with_midi
