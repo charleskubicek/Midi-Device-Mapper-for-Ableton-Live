@@ -24,9 +24,10 @@ struct HUDView: View {
     var body: some View {
         let scale = CGFloat(chrome.zoom)
         // One region rendered from the single committed state. The `lc_parks`
-        // compositor merges any secondary controller's slots into this one grid
-        // (cells already carry their offset grid_col), so the view never needs
-        // to compose multiple sources.
+        // compositor merges any secondary controller's slots into this one
+        // stream; each cell carries a `section` so the view lays each controller
+        // out as its own sub-grid (secondary as a separate block to the right),
+        // while the slot indices stay in one flat space.
         let region = RegionSnapshot(from: state)
 
         ZStack(alignment: .topTrailing) {
@@ -93,12 +94,21 @@ private struct SourceRegionView: View {
 
     private var scale: CGFloat { CGFloat(zoom) }
 
-    private var grid: [[HudCell?]] {
-        guard !region.hudCells.isEmpty else { return [] }
-        let maxRow = region.hudCells.map(\.gridRow).max()!
-        let maxCol = region.hudCells.map(\.gridCol).max()!
+    /// Distinct section ids in ascending order. Each section is an independently
+    /// laid-out block (primary = 0, secondary = 1, …), rendered side-by-side.
+    private var sections: [Int] {
+        Array(Set(region.hudCells.map(\.section))).sorted()
+    }
+
+    /// Build a self-contained sub-grid for one section, sized from that section's
+    /// OWN row/col extents so its layout is independent of the other sections.
+    private func grid(forSection section: Int) -> [[HudCell?]] {
+        let cells = region.hudCells.filter { $0.section == section }
+        guard !cells.isEmpty else { return [] }
+        let maxRow = cells.map(\.gridRow).max()!
+        let maxCol = cells.map(\.gridCol).max()!
         var g = Array(repeating: Array(repeating: HudCell?.none, count: maxCol + 1), count: maxRow + 1)
-        for cell in region.hudCells { g[cell.gridRow][cell.gridCol] = cell }
+        for cell in cells { g[cell.gridRow][cell.gridCol] = cell }
         return g
     }
 
@@ -146,17 +156,23 @@ private struct SourceRegionView: View {
             .frame(maxWidth: gridWidth > 0 ? gridWidth : nil)
             .padding(.bottom, 4 * scale)
 
-            VStack(alignment: .leading, spacing: 10 * scale) {
-                ForEach(Array(grid.enumerated()), id: \.offset) { _, row in
-                    HStack(alignment: .top, spacing: 10 * scale) {
-                        ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                            if let cell = cell {
-                                cellView(cell)
-                            } else {
-                                Color.clear.frame(width: 0)
-                            }
-                        }
+            // Each section is laid out as its own independent sub-grid; sections
+            // sit side-by-side with a vertical divider, so the secondary
+            // controller reads as a separate unit to the right of the primary.
+            HStack(alignment: .top, spacing: 12 * scale) {
+                ForEach(Array(sections.enumerated()), id: \.element) { idx, section in
+                    if idx > 0 {
+                        // Explicit rule (not `Divider()`): the whole region is
+                        // wrapped in `.fixedSize()`, under which a Divider has no
+                        // intrinsic length and collapses. A flexible Rectangle
+                        // fills the height set by the (concrete-height) section
+                        // grids beside it. See layout_principles.md.
+                        Rectangle()
+                            .fill(Color.white.opacity(0.12))
+                            .frame(width: 1)
+                            .frame(maxHeight: .infinity)
                     }
+                    sectionGrid(forSection: section)
                 }
             }
             .background(
@@ -166,6 +182,23 @@ private struct SourceRegionView: View {
             )
         }
         .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
+    }
+
+    @ViewBuilder
+    private func sectionGrid(forSection section: Int) -> some View {
+        VStack(alignment: .leading, spacing: 10 * scale) {
+            ForEach(Array(grid(forSection: section).enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .top, spacing: 10 * scale) {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                        if let cell = cell {
+                            cellView(cell)
+                        } else {
+                            Color.clear.frame(width: 0)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder

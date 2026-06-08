@@ -159,10 +159,10 @@ final class WireProtocolTests: XCTestCase {
     // MARK: - LAYOUT
 
     func test_layout() {
-        let msg = WireProtocol.parse(line: "LAYOUT|2|0|0|dial|8|0|2|0|button|4|0")
+        let msg = WireProtocol.parse(line: "LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1")
         XCTAssertEqual(msg, .layout([
-            HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 8, startIndex: 0),
-            HudCell(gridRow: 2, gridCol: 0, kind: .button, count: 4, startIndex: 0),
+            HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 8, startIndex: 0, section: 0),
+            HudCell(gridRow: 2, gridCol: 0, kind: .button, count: 4, startIndex: 0, section: 1),
         ]))
     }
 
@@ -356,13 +356,16 @@ final class DeviceStateBurstTests: XCTestCase {
 
     // MARK: - Combined grid (lc_parks compositor side-by-side)
 
-    func test_combined_layout_renders_one_grid_with_offset_columns() async {
-        // The compositor sends one LAYOUT containing primary cells plus the
-        // secondary's cells offset to the right (higher grid_col, higher start).
+    func test_combined_layout_tags_secondary_as_its_own_section() async {
+        // The compositor sends one LAYOUT containing primary cells (section 0)
+        // plus the secondary's cells tagged section 1. The secondary keeps its
+        // OWN grid (grid_col 0) — the HUD renders section 1 as an independent
+        // block to the right — but its slot indices are bumped into the shared
+        // flat dial array (start 2).
         let state = makeState()
         state.apply(message: .layout([
-            HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0),   // primary
-            HudCell(gridRow: 0, gridCol: 2, kind: .dial, count: 1, startIndex: 2),   // secondary (offset)
+            HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0, section: 0),   // primary
+            HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 2, section: 1),   // secondary
         ]))
         state.apply(message: .device("Dev"))
         state.apply(message: .slot(.dial, 0, Slot(name: "P0", value: 0.1, min: 0, max: 1)))
@@ -373,7 +376,8 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertEqual(state.dialSlots.count, 3)
         XCTAssertEqual(state.dialSlots[2]?.name, "Parks")
         XCTAssertEqual(state.hudCells.count, 2)
-        XCTAssertEqual(state.hudCells[1].gridCol, 2)
+        XCTAssertEqual(state.hudCells[1].section, 1)
+        XCTAssertEqual(state.hudCells[1].gridCol, 0)
     }
 
     // MARK: - PAGE message burst

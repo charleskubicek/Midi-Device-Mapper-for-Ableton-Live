@@ -24,8 +24,10 @@ launch_control MIDI port and drives the entire HUD. The secondary (parks)
 surface keeps resolving its own region but points its `HudClient` at the
 compositor's **region port** instead of the HUD; the compositor's
 `RegionListener` (`source_modules/region_listener.py` + `region_state.py`)
-merges that region into one combined grid (the secondary's cells offset to the
-right via `hud_layout.combine_layouts`) and emits a single stream to the HUD.
+merges that region into one stream via `hud_layout.combine_layouts`: the
+secondary's cells are tagged `section` 1 (and their slot indices bumped past the
+primary's) so the HUD renders them as a self-contained block to the right of the
+primary. A single stream goes to the HUD.
 
 Because only one process talks to the HUD, the receiver is a simple single-state
 machine — no per-source buffers, no active-group selection, no LAYOUT-once race.
@@ -59,7 +61,7 @@ Describes the physical grid: which cells exist, where they sit, whether each
 cell is a bank of dials or a bank of buttons.
 
 ```
-LAYOUT|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<gr1>|<gc1>|<kind1>|<count1>|<start1>|...
+LAYOUT|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<section0>|<gr1>|<gc1>|<kind1>|<count1>|<start1>|<section1>|...
 ```
 
 | Field      | Type   | Meaning                                       |
@@ -70,18 +72,32 @@ LAYOUT|<n>|<gr0>|<gc0>|<kind0>|<count0>|<start0>|<gr1>|<gc1>|<kind1>|<count1>|<s
 | `kind`     | string | `dial` or `button`                            |
 | `count`    | int    | number of slots in this cell                  |
 | `start`    | int    | starting slot index for this cell             |
+| `section`  | int    | independent-layout block id (see below)       |
 
-Example:
+`section` groups cells into independently-laid-out blocks. A standalone surface
+emits everything as section `0`. The `lc_parks` compositor tags the secondary
+controller's cells section `1`, and the HUD renders each section as its own
+self-contained sub-grid placed side-by-side (secondary to the right of the
+primary, with a divider) — each section's grid rows/cols are independent. Slot
+`start` indices still live in **one flat** dial/button space across all sections
+(the secondary's are bumped past the primary's counts), so sections only affect
+*placement*, not slot indexing.
+
+Example (one section-0 dial cell + one section-1 button cell):
 
 ```
-LAYOUT|2|0|0|dial|8|0|2|0|button|4|0
+LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1
 ```
 
-- **Emitted:** once, at surface init, by `Remote.init_layout()` (`helpers.py:315`).
-  **Never re-sent** for device changes — the physical layout is fixed for the
-  life of the surface.
+- **Emitted:** at surface init by `Remote.init_layout()`, **and re-emitted at the
+  head of every (non-suppressed) device burst** by `Remote.refresh_burst()`
+  (just before `DEVICE`). The physical layout is fixed for the life of the
+  surface, so the cells are identical each time; re-emitting exists purely so a
+  HUD that started *after* the surface (and missed the one-shot init LAYOUT)
+  still gets a grid — it makes HUD/Ableton startup order irrelevant.
 - **Receiver effect:** stored in `pendingCells`; published to `hudCells` at the
-  next `COMMIT`.
+  next `COMMIT`. `DEVICE` clears pending *slots* but not `pendingCells`, so a
+  LAYOUT→DEVICE→SLOT…→COMMIT burst publishes the cells correctly.
 
 ### `DEVICE`
 
@@ -352,7 +368,7 @@ A burst fires on:
 ```
 sender                                       receiver
   |                                            |
-  | LAYOUT|2|0|0|dial|8|0|2|0|button|4|0 |
+  | LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1 |
   |------------------------------------------->|
   |                                  pendingCells = [...]
   |                                            |

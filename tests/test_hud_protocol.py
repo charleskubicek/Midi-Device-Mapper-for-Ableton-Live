@@ -32,8 +32,8 @@ class TestEncodeBytes(unittest.TestCase):
     group/order on the wire — the HUD has exactly one sender."""
 
     def test_layout(self):
-        cells = [(0, 0, 'dial', 8, 0), (2, 0, 'button', 4, 0)]
-        self.assertEqual(encode_layout(cells), "LAYOUT|2|0|0|dial|8|0|2|0|button|4|0")
+        cells = [(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 1)]
+        self.assertEqual(encode_layout(cells), "LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1")
 
     def test_layout_empty(self):
         self.assertEqual(encode_layout([]), "LAYOUT|0")
@@ -85,7 +85,7 @@ class TestEncodeBytes(unittest.TestCase):
 
 class TestParseRoundtrip(unittest.TestCase):
     def test_layout_roundtrip(self):
-        cells = [(0, 0, 'dial', 8, 0), (2, 0, 'button', 4, 0)]
+        cells = [(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 1)]
         msg = parse(encode_layout(cells))
         self.assertEqual(msg, LayoutMsg(cells))
 

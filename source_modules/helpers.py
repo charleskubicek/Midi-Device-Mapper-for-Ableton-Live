@@ -1011,6 +1011,12 @@ class Remote:
         # the dense dial/button payloads.
         self._feedback_sinks = list(feedback_sinks) if feedback_sinks else []
         self._in_burst = False  # suppresses UPDATE during device_update burst
+        # Controller layout (HUD LAYOUT cells). Stored so every burst can re-emit
+        # it: LAYOUT is otherwise a one-shot at surface init, and if the HUD app
+        # starts/restarts AFTER the surface, it misses that single LAYOUT and
+        # renders an empty grid. Re-emitting at the head of each burst makes the
+        # HUD/Ableton startup order irrelevant.
+        self._hud_cells = []
         # Optional secondary-region cache (lc_parks compositor). When set, its
         # cached dial/button payloads are appended to the HUD burst so the parks
         # region rides along in the single combined stream.
@@ -1020,8 +1026,11 @@ class Remote:
         self._region_state = region_state
 
     def init_layout(self, cells):
-        if cells:
-            self._hud_client.send_layout(cells)
+        # Remember the layout so every burst can re-emit it (restart-resilient),
+        # and send it once now for the common case where the HUD is already up.
+        self._hud_cells = list(cells) if cells else []
+        if self._hud_cells:
+            self._hud_client.send_layout(self._hud_cells)
 
     def hide(self):
         """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
@@ -1051,6 +1060,12 @@ class Remote:
         self._in_burst = True
         try:
             if not suppress_hud:
+                # Re-emit LAYOUT at the head of the burst so a HUD that started
+                # after the surface (and missed the one-shot init LAYOUT) still
+                # gets a grid. The receiver stores it in pendingCells and
+                # publishes on COMMIT; DEVICE clears pending slots but not cells.
+                if self._hud_cells:
+                    self._hud_client.send_layout(self._hud_cells)
                 self._hud_client.send_device(device_name)
                 if page_info is not None:
                     if len(page_info) == 6:
@@ -1125,7 +1140,7 @@ class Remote:
         Device On (skipped); wire idx N corresponds to real_parameters[N+1]."""
         payloads = []
         for cell in (hud_layout or []):
-            _gr, _gc, kind, count, start = cell
+            _gr, _gc, kind, count, start = cell[:5]
             if kind != 'dial' or start < 0:
                 continue
             for i in range(count):
@@ -1148,7 +1163,7 @@ class Remote:
         switch_by_idx = {e.switch_idx: e for e in (switch_entries or [])}
         payloads = []
         for cell in (hud_layout or []):
-            _gr, _gc, kind, count, start = cell
+            _gr, _gc, kind, count, start = cell[:5]
             if kind != 'button' or start < 0:
                 continue
             for i in range(count):

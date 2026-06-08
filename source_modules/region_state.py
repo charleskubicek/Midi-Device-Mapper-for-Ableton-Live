@@ -17,7 +17,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from . import hud_protocol
 from .hud_protocol import (
-    DeviceMsg, SlotMsg, CommitMsg, UpdateMsg, HideMsg, SlotPayload,
+    DeviceMsg, SlotMsg, CommitMsg, UpdateMsg, HideMsg, PingMsg, SlotPayload,
 )
 
 
@@ -66,7 +66,13 @@ class RegionState:
             # legitimate primary burst repaints without the parks region.
             self._dials = {}
             self._buttons = {}
-        # LayoutMsg / PingMsg / ModeMsg / PageMsg from the secondary are ignored:
+        elif isinstance(msg, PingMsg):
+            # A secondary button/switch press emits PING (keepalive). Relay it to
+            # the real HUD so its dismiss timer re-arms — "alive while either
+            # surface is active". Keepalive only: no re-burst, no state change
+            # (PING can't resurrect a HIDE-dismissed HUD, so this is safe).
+            self._hud.send_ping()
+        # LayoutMsg / ModeMsg / PageMsg from the secondary are ignored:
         # lc_parks bakes the secondary's placement at codegen and owns paging.
 
     def handle_data(self, data: str) -> None:

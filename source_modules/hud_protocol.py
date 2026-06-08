@@ -43,8 +43,8 @@ EMPTY_SLOT = SlotPayload(EMPTY_NAME, EMPTY_VALUE, EMPTY_MIN, EMPTY_MAX)
 
 def encode_layout(cells: List[LayoutCell]) -> str:
     parts = [str(len(cells))]
-    for gr, gc, kind, count, start in cells:
-        parts += [str(gr), str(gc), kind, str(count), str(start)]
+    for gr, gc, kind, count, start, section in cells:
+        parts += [str(gr), str(gc), kind, str(count), str(start), str(section)]
     return "LAYOUT|" + "|".join(parts)
 
 
@@ -179,26 +179,27 @@ def parse(line: str) -> Message:
     verb = fields[0]
 
     if verb == 'LAYOUT':
-        # LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
+        # LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>|<section>... × n
         if len(fields) < 2:
             return UnknownMsg(line)
         try:
             n = int(fields[1])
         except ValueError:
             return UnknownMsg(line)
-        expected = 2 + n * 5
+        expected = 2 + n * 6
         if len(fields) != expected:
             return UnknownMsg(line)
         cells: List[LayoutCell] = []
         try:
             for i in range(n):
-                base = 2 + i * 5
+                base = 2 + i * 6
                 cells.append((
                     int(fields[base]),
                     int(fields[base + 1]),
                     fields[base + 2],
                     int(fields[base + 3]),
                     int(fields[base + 4]),
+                    int(fields[base + 5]),
                 ))
         except ValueError:
             return UnknownMsg(line)

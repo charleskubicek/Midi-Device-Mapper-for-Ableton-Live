@@ -2,16 +2,20 @@ import unittest
 
 from source_modules.region_state import RegionState
 from source_modules.hud_protocol import (
-    DeviceMsg, SlotMsg, CommitMsg, UpdateMsg, HideMsg, LayoutMsg, SlotPayload,
+    DeviceMsg, SlotMsg, CommitMsg, UpdateMsg, HideMsg, LayoutMsg, PingMsg, SlotPayload,
 )
 
 
 class CapturingHud:
     def __init__(self):
         self.updates = []
+        self.pings = 0
 
     def send_update(self, kind, index, name, value, vmin, vmax):
         self.updates.append((kind, index, name, value, vmin, vmax))
+
+    def send_ping(self):
+        self.pings += 1
 
 
 class TestRegionStateCaching(unittest.TestCase):
@@ -72,6 +76,15 @@ class TestRegionStateCaching(unittest.TestCase):
         self.state.handle(CommitMsg(1))
 
         self.assertEqual(self.state.dial_payloads(), [(17, SlotPayload("Y", 0.2, 0.0, 1.0))])
+
+    def test_ping_relayed_to_hud_keepalive(self):
+        # A parks button/switch press emits PING (keepalive). The compositor
+        # must relay it to the real HUD so its dismiss timer re-arms — otherwise
+        # the HUD closes while the user is working the secondary controller.
+        self.state.handle(PingMsg())
+        self.assertEqual(self.hud.pings, 1)
+        # PING is keepalive only — it must not trigger a combined re-burst.
+        self.assertEqual(len(self.commits), 0)
 
     def test_hide_clears_region_without_reburst(self):
         # A parks HIDE (navigated away) must NOT trigger a combined re-burst —

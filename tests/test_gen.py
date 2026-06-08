@@ -118,9 +118,11 @@ class TestGenerateComposition(unittest.TestCase):
         port = re.search(r"RegionListener\(.*port=(\d+)", comp_src).group(1)
         self.assertIn(f"self._hud_client = HudClient(host='127.0.0.1', port={port})", fwd_src)
 
-        # Combined grid: parks buttons are offset past launch_control's (button
-        # start indices 8-15), and live to the right (grid_col 2).
-        self.assertIn("(0, 2, 'button', 2, 8)", comp_src)
+        # Combined cells: parks buttons are offset past launch_control's (button
+        # start indices 8-15) and tagged section 1, but keep their OWN grid
+        # (grid_col 0) — the HUD renders section 1 as an independent block to the
+        # right of section 0.
+        self.assertIn("(0, 0, 'button', 2, 8, 1)", comp_src)
 
 
 if __name__ == '__main__':

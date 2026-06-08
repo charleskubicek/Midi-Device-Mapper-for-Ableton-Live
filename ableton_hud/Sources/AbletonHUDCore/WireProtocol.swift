@@ -25,9 +25,15 @@ public struct HudCell: Equatable {
     public let kind: SlotKind
     public let count: Int
     public let startIndex: Int
-    public init(gridRow: Int, gridCol: Int, kind: SlotKind, count: Int, startIndex: Int) {
+    /// Independent-layout group. A standalone surface emits everything as
+    /// section 0; the lc_parks compositor tags the secondary controller section
+    /// 1 so the HUD renders it as a separate block to the right of the primary
+    /// (each section is its own sub-grid). Slot indices stay in one flat space.
+    public let section: Int
+    public init(gridRow: Int, gridCol: Int, kind: SlotKind, count: Int,
+                startIndex: Int, section: Int = 0) {
         self.gridRow = gridRow; self.gridCol = gridCol; self.kind = kind
-        self.count = count; self.startIndex = startIndex
+        self.count = count; self.startIndex = startIndex; self.section = section
     }
 }
 
@@ -67,18 +73,20 @@ public enum WireProtocol {
             return .hide
 
         case "LAYOUT":
-            // LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>... × n
+            // LAYOUT|<n>|<gr>|<gc>|<kind>|<count>|<start>|<section>... × n
             guard fields.count >= 2, let n = Int(fields[1]) else { return .unknown }
-            guard fields.count == 2 + n * 5 else { return .unknown }
+            guard fields.count == 2 + n * 6 else { return .unknown }
             var cells: [HudCell] = []
             for i in 0..<n {
-                let base = 2 + i * 5
+                let base = 2 + i * 6
                 guard let gr = Int(fields[base]),
                       let gc = Int(fields[base+1]),
                       let kind = SlotKind(rawValue: fields[base+2]),
                       let count = Int(fields[base+3]),
-                      let start = Int(fields[base+4]) else { return .unknown }
-                cells.append(HudCell(gridRow: gr, gridCol: gc, kind: kind, count: count, startIndex: start))
+                      let start = Int(fields[base+4]),
+                      let section = Int(fields[base+5]) else { return .unknown }
+                cells.append(HudCell(gridRow: gr, gridCol: gc, kind: kind, count: count,
+                                     startIndex: start, section: section))
             }
             return .layout(cells)
 

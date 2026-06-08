@@ -598,10 +598,28 @@ class TestHudLayoutSeparation(unittest.TestCase):
         self.hud = Mock()
         self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
 
-    def test_device_update_does_not_call_send_layout(self):
-        """LAYOUT is a one-time controller description; device_update must not re-send it."""
+    def test_burst_reemits_layout_at_head_for_restart_resilience(self):
+        """A HUD that starts after the surface misses the one-shot init LAYOUT.
+        Every burst must re-emit the stored LAYOUT, before DEVICE, so the grid
+        survives HUD/Ableton restart order."""
+        hud_cells = [(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 0)]
+        self.remote.init_layout(hud_cells)
+        self.hud.reset_mock()  # drop the one-time init send
+
         params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
-        hud_cells = [(0, 0, 'dial', 8, 0), (2, 0, 'button', 4, 0)]
+        self.remote.device_update("SomeDevice", params, hud_layout=hud_cells)
+
+        self.hud.send_layout.assert_called_once_with(hud_cells)
+        # LAYOUT must precede DEVICE in the burst (receiver needs cells first).
+        layout_calls = [i for i, c in enumerate(self.hud.method_calls) if c[0] == 'send_layout']
+        device_calls = [i for i, c in enumerate(self.hud.method_calls) if c[0] == 'send_device']
+        self.assertTrue(layout_calls and device_calls and layout_calls[0] < device_calls[0])
+
+    def test_burst_without_known_layout_does_not_send_layout(self):
+        """If no layout was ever registered (init_layout not called), a burst
+        must not invent a LAYOUT message."""
+        params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        hud_cells = [(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 0)]
         self.remote.device_update("SomeDevice", params, hud_layout=hud_cells)
         self.hud.send_layout.assert_not_called()
 

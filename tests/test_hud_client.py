@@ -18,7 +18,7 @@ class CapturingHudClient(HudClient):
 class TestHudClientWire(unittest.TestCase):
     def test_single_source_lines(self):
         c = CapturingHudClient()
-        c.send_layout([(0, 0, 'button', 4, 0)])
+        c.send_layout([(0, 0, 'button', 4, 0, 0)])
         c.send_device("EQ Eight")
         c.send_slot('dial', 0, "Freq", 0.5, 0.0, 1.0)
         c.send_update('dial', 0, "Freq", 0.6, 0.0, 1.0)
@@ -28,7 +28,7 @@ class TestHudClientWire(unittest.TestCase):
         c.send_mode(True)
         c.send_page_info(1, 2, 1, 1)
 
-        self.assertEqual(c.sent[0], "LAYOUT|1|0|0|button|4|0")
+        self.assertEqual(c.sent[0], "LAYOUT|1|0|0|button|4|0|0")
         self.assertEqual(c.sent[1], "DEVICE|EQ Eight")
         self.assertEqual(c.sent[2], "SLOT|dial|0|Freq|0.5|0.0|1.0")
         self.assertEqual(c.sent[3], "UPDATE|dial|0|Freq|0.6|0.0|1.0")

@@ -269,9 +269,9 @@ def print_hud_layout(hud_cells_raw):
     print(f"  {layout_line}")
     print()
     print("  HUD cells breakdown:")
-    for gr, gc, kind, count, start in hud_cells_raw:
+    for gr, gc, kind, count, start, section in hud_cells_raw:
         mapped = f"slots {start}..{start + count - 1}" if start >= 0 else "unmapped"
-        print(f"    grid({gr},{gc})  {kind:<8}  count={count}  {mapped}")
+        print(f"    sec={section} grid({gr},{gc})  {kind:<8}  count={count}  {mapped}")
 
 
 def print_ascii_layout(controller):
