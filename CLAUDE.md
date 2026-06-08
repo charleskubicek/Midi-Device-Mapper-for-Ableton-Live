@@ -51,6 +51,8 @@ Let the user redeploy so that they can restart ableton live too.
 
 There is some complex interactions here. Follow a TTD loop, failing tests first, then implementing the feature, then adding integration tests for cross-cutting concerns.
 
+NEVER commit if any test is failing, even if the failure is in an unrelated area.
+
 ## Deployment
 
 generating a script creates a new live surface in a directory in the same folder as the mapping, with the same name as the mapping file stem (e.g. `ck_launch_control_16/`) under /live_surfaces.
