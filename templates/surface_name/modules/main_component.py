@@ -49,7 +49,12 @@ class MainComponent(ControlSurfaceComponent):
         if _osc_targets:
             self._osc_client = OSCMultiClient(_osc_targets)
 
-        self._hud_client = $hud_client_class($hud_client_args)
+        # HUD_TARGET is data, not code: None for a standalone surface (HUD on
+        # 127.0.0.1:5006), or (host, port) for the parks forwarder which retargets
+        # its HUD client at the compositor's region port.
+        HUD_TARGET = $hud_target
+        _hud_host, _hud_port = HUD_TARGET if HUD_TARGET is not None else ('127.0.0.1', 5006)
+        self._hud_client = $hud_client_class(_hud_host, _hud_port)
         self._feedback_sinks = [$feedback_sinks]
         self._remote = Remote(self.manager, self._osc_client, self._hud_client, self._feedback_sinks)
 
@@ -81,8 +86,18 @@ class MainComponent(ControlSurfaceComponent):
         self._lisetenr = OSCListener(self.manager, self.button_handler, port=$osc_listen_port, name="$surface_name")
 
         # Compositor only: receive the secondary surface's forwarded HUD region
-        # and merge it into this surface's single combined HUD stream.
-        $region_setup
+        # and merge it into this surface's single combined HUD stream. The wiring
+        # is real (always present, syntax-checked) and gated on REGION_CONFIG —
+        # data, not a code string built in gen.py. None for standalone surfaces.
+        REGION_CONFIG = $region_config
+        if REGION_CONFIG is not None:
+            self._region_state = RegionState(self._hud_client,
+                dial_offset=REGION_CONFIG['dial_offset'],
+                button_offset=REGION_CONFIG['button_offset'],
+                on_commit=self._helpers.reemit_combined_burst)
+            self._remote.set_region_state(self._region_state)
+            self._region_listener = RegionListener(self.manager, self._region_state,
+                port=REGION_CONFIG['port'], name="$surface_name-region")
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 

@@ -1,11 +1,12 @@
 import hashlib
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 import shutil
 from string import Template
 from collections import defaultdict
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ableton_control_surface_as_code.gen_code import class_function_body_code_block, \
     class_function_code_block, get_python_code_error, device_templates, GeneratedCode, \
@@ -317,13 +318,25 @@ def generate(input_path):
         _generate_surface(input_path, input_path.stem, target_dir)
 
 
-def _generate_surface(mapping_file_path, surface_name, target_dir,
-                      hud_client_args='', region_setup='pass', hud_cells_override=None,
-                      hud_trigger_override=None):
+@dataclass
+class CompositionOverrides:
+    """The handful of values the lc_parks compositor injects into an otherwise
+    normal surface. Everything here is DATA the template consumes as a constant
+    (see REGION_CONFIG / HUD_TARGET in main_component.py) — never a code string.
+    All-None is a standalone surface."""
+    hud_target: Optional[Tuple[str, int]] = None     # forwarder's HUD client (host, port)
+    region_config: Optional[dict] = None             # compositor's {dial_offset, button_offset, port}
+    hud_cells: Optional[list] = None                 # combined layout override
+    hud_trigger: Optional['HudTrigger'] = None       # force show-hud-on (compositor: Selection)
+
+
+def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=None):
     """Build and write a single surface directory named `surface_name` under
     `target_dir`, from the mapping at `mapping_file_path`. Returns
-    (controller, code_vars). Overrides let the compositor inject the combined
-    layout + region wiring, and let the forwarder retarget its HUD client."""
+    (controller, code_vars). `overrides` (CompositionOverrides) carries the
+    compositor's combined layout + region config and the forwarder's HUD target,
+    all as data the template gates on."""
+    overrides = overrides if overrides is not None else CompositionOverrides()
     def _resolve_controller(root):
         controller_path = mapping_file_path.parent / root.controller
         return controller_path.read_text(), controller_path.name
@@ -352,16 +365,15 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
         'class_name_camel': 'ControlMappings',
         'ableton_dir': validate_path(mappings.ableton_dir),
         'parameter_mappings_raw': repr(parameter_mappings_raw),
-        # Constructor args for the HUD client. Empty for a standalone surface
-        # (defaults to the HUD on 127.0.0.1:5006). The parks forwarder overrides
-        # this to target the lc_parks compositor's region port.
-        'hud_client_args': hud_client_args,
-        # Compositor region wiring (lc_parks only). 'pass' for normal surfaces.
-        'region_setup': region_setup,
+        # HUD client target as data. None -> the HUD on 127.0.0.1:5006; the parks
+        # forwarder sets (host, port) to reach the compositor's region port.
+        'hud_target': repr(overrides.hud_target),
+        # Compositor region config as data (lc_parks only). None for normal surfaces.
+        'region_config': repr(overrides.region_config),
     }
 
-    hud_trigger = hud_trigger_override if hud_trigger_override is not None else mappings.show_hud_on
-    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=hud_cells_override)
+    hud_trigger = overrides.hud_trigger if overrides.hud_trigger is not None else mappings.show_hud_on
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=overrides.hud_cells)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars)
 
@@ -389,19 +401,6 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
     print()
     print_ascii_layout(controller)
     return controller, code_vars
-
-
-def _region_setup_code(dial_offset, button_offset, region_port, surface_name):
-    """Render the compositor's region wiring for main_component.py. Lines after
-    the first must carry their own 8-space indentation (the template substitutes
-    `$region_setup` at that indent)."""
-    indent = " " * 8
-    lines = [
-        f"self._region_state = RegionState(self._hud_client, dial_offset={dial_offset}, button_offset={button_offset}, on_commit=self._helpers.reemit_combined_burst)",
-        f"self._remote.set_region_state(self._region_state)",
-        f'self._region_listener = RegionListener(self.manager, self._region_state, port={region_port}, name="{surface_name}-region")',
-    ]
-    return ("\n" + indent).join(lines)
 
 
 def generate_composition(comp_path):
@@ -440,18 +439,18 @@ def generate_composition(comp_path):
     # combined COMMIT (two independent selection polls in two processes), so the
     # values flash then vanish. Showing on selection removes the HIDE-on-select
     # entirely; device-nav (source='nav') still shows as before.
-    region_setup = _region_setup_code(dial_offset, button_offset, region_port, primary_name)
-    _generate_surface(primary_path, primary_name, comp_dir,
-                      region_setup=region_setup, hud_cells_override=combined_cells,
-                      hud_trigger_override=HudTrigger.Selection)
+    _generate_surface(primary_path, primary_name, comp_dir, CompositionOverrides(
+        region_config={'dial_offset': dial_offset, 'button_offset': button_offset,
+                       'port': region_port},
+        hud_cells=combined_cells,
+        hud_trigger=HudTrigger.Selection))
 
     # 2. Secondary forwarder: a normal surface whose HudClient is redirected at
     #    the compositor's region port instead of the HUD. Emitted into the
     #    composition folder under the namespaced name (NOT next to its own
     #    mapping), so it can't be confused with a standalone build.
-    forwarder_args = f"host='127.0.0.1', port={region_port}"
-    _generate_surface(secondary_path, secondary_name, comp_dir,
-                      hud_client_args=forwarder_args)
+    _generate_surface(secondary_path, secondary_name, comp_dir, CompositionOverrides(
+        hud_target=('127.0.0.1', region_port)))
 
     print(f"Composition {comp_stem}: {primary_name} (compositor) + {secondary_name} "
           f"(forwarder) share region port {region_port}.")

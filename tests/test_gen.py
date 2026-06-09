@@ -99,24 +99,32 @@ class TestGenerateComposition(unittest.TestCase):
         comp_src = compositor.read_text()
         fwd_src = forwarder.read_text()
 
-        # Compositor talks to the real HUD and runs a region listener.
-        self.assertIn("self._hud_client = HudClient()", comp_src)
-        self.assertIn("RegionState(self._hud_client, dial_offset=16, button_offset=8", comp_src)
+        # R8: behaviour is injected as DATA constants the template consumes, not
+        # as Python source built in gen.py. The compositor's region listener is
+        # configured by REGION_CONFIG; standalone surfaces get REGION_CONFIG=None
+        # and the wiring (always present + syntax-checked in the template) is gated off.
+        self.assertIn("REGION_CONFIG = {'dial_offset': 16, 'button_offset': 8,", comp_src)
+        self.assertIn("RegionState(self._hud_client,", comp_src)
+        self.assertIn("dial_offset=REGION_CONFIG['dial_offset']", comp_src)
         self.assertIn("self._remote.set_region_state(self._region_state)", comp_src)
         # The region re-emit must bypass the primary's show-hud-on gate, so it
         # routes through reemit_combined_burst (not the trigger-gated
         # selected_device_changed). Otherwise the parks region never shows under
         # launch_control's 'controller-nav' trigger.
         self.assertIn("on_commit=self._helpers.reemit_combined_burst", comp_src)
+        # The compositor talks to the real HUD (no retarget): HUD_TARGET=None.
+        self.assertIn("HUD_TARGET = None", comp_src)
         # The compositor must NOT inherit launch_control's 'controller-nav'
         # trigger: that suppresses + sends HIDE on selection, which races the
         # parks-driven combined COMMIT and makes values flash then vanish.
         self.assertIn("hud_trigger='selection'", comp_src)
 
-        # The two surfaces agree on the region port; the forwarder targets it.
+        # The two surfaces agree on the region port; the forwarder retargets its
+        # HUD client at it via the HUD_TARGET data constant, and runs no region.
         import re
-        port = re.search(r"RegionListener\(.*port=(\d+)", comp_src).group(1)
-        self.assertIn(f"self._hud_client = HudClient(host='127.0.0.1', port={port})", fwd_src)
+        port = re.search(r"REGION_CONFIG = \{'dial_offset': 16, 'button_offset': 8, 'port': (\d+)\}", comp_src).group(1)
+        self.assertIn(f"HUD_TARGET = ('127.0.0.1', {port})", fwd_src)
+        self.assertIn("REGION_CONFIG = None", fwd_src)
 
         # Combined cells: parks buttons are offset past launch_control's (button
         # start indices 8-15) and tagged section 1, but keep their OWN grid
