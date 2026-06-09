@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from unittest.mock import Mock
 
 from source_modules.helpers import Helpers, ParameterMapping, Remote, SwitchSlotMapping
-from source_modules.hud_protocol import EMPTY_SLOT, SlotPayload
+from source_modules.hud_protocol import EMPTY_SLOT, SlotPayload, BurstSnapshot, PageInfo
 
 
 @dataclass
@@ -565,15 +565,15 @@ class TestFeedbackSinkFanout(unittest.TestCase):
                   _make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0))]
         self.remote.device_update("EQ Eight", params,
                                   hud_layout=[(0, 0, 'dial', 8, 0)])
-        self.sink.on_device_burst.assert_called_once()
-        args = self.sink.on_device_burst.call_args[0]
-        self.assertEqual(args[0], "EQ Eight")
+        self.sink.on_burst.assert_called_once()
+        snapshot = self.sink.on_burst.call_args[0][0]
+        self.assertEqual(snapshot.device_name, "EQ Eight")
 
     def test_sink_receives_dial_payload_for_mapped_slot(self):
         params = [_make_real_param(_make_param("On/Off")),
                   _make_real_param(_make_param("Freq", value=0.5, vmin=0.0, vmax=1.0))]
         self.remote.device_update("Dev", params, hud_layout=[(0, 0, 'dial', 8, 0)])
-        dial_payloads = dict(self.sink.on_device_burst.call_args[0][1])
+        dial_payloads = dict(self.sink.on_burst.call_args[0][0].dials)
         self.assertEqual(dial_payloads[0].name, "Freq")
 
     def test_no_sinks_is_safe(self):
@@ -740,11 +740,11 @@ class TestRefreshBurst(unittest.TestCase):
         self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
 
     def test_refresh_burst_emits_device_then_slots_then_commit(self):
-        self.remote.refresh_burst(
+        self.remote.refresh_burst(BurstSnapshot(
             "Mixer",
-            dial_payloads=[(0, SlotPayload("Vol", 0.8, 0, 1)), (1, EMPTY_SLOT)],
-            button_payloads=[(0, SlotPayload("Mute", 1, 0, 1))],
-        )
+            dials=[(0, SlotPayload("Vol", 0.8, 0, 1)), (1, EMPTY_SLOT)],
+            buttons=[(0, SlotPayload("Mute", 1, 0, 1))],
+        ))
         self.hud.send_device.assert_called_once_with("Mixer")
         self.hud.commit.assert_called_once_with(3)
         kinds = [c[0][0] for c in self.hud.send_slot.call_args_list]
@@ -753,8 +753,44 @@ class TestRefreshBurst(unittest.TestCase):
     def test_in_burst_flag_resets_even_on_exception(self):
         self.hud.commit.side_effect = RuntimeError("boom")
         with self.assertRaises(RuntimeError):
-            self.remote.refresh_burst("Dev", [], [])
+            self.remote.refresh_burst(BurstSnapshot("Dev", [], []))
         self.assertFalse(self.remote._in_burst)
+
+    def test_no_page_means_no_page_info_emitted(self):
+        # refresh_burst with page=None must not emit a PAGE line.
+        self.remote.refresh_burst(BurstSnapshot("Dev", [], []))
+        self.hud.send_page_info.assert_not_called()
+
+    def test_device_update_forwards_page_labels_to_wire(self):
+        params = [_make_real_param(_make_param("On/Off"))]
+        self.remote.device_update(
+            "Dev", params, hud_layout=[(0, 0, 'dial', 8, 0)],
+            page=PageInfo(enc_page=2, enc_total=4, btn_page=1, btn_total=2,
+                          enc_label='Best of', btn_label='Toggles'))
+        self.hud.send_page_info.assert_called_once_with(2, 4, 1, 2, 'Best of', 'Toggles')
+
+
+class TestSurfaceConfigEquivalence(unittest.TestCase):
+    """SurfaceConfig (the template path) and the legacy keyword path must build
+    an identically-configured Helpers."""
+
+    def test_config_object_matches_legacy_kwargs(self):
+        from source_modules.helpers import SurfaceConfig
+        kwargs = dict(
+            slot_assignments=[(1, 'slot1')],
+            switch_slot_assignments=[(4, 'switch1')],
+            parameter_mappings_raw=None,
+            encoder_slot_count=16,
+            hud_cells=[(0, 0, 'dial', 8, 0, 0)],
+            hud_trigger='selection',
+        )
+        legacy = Helpers(Mock(), Mock(), **kwargs)
+        via_config = Helpers(Mock(), Mock(), SurfaceConfig(**kwargs))
+        self.assertEqual(legacy._slot_assignments, via_config._slot_assignments)
+        self.assertEqual(legacy._switch_slot_assignments, via_config._switch_slot_assignments)
+        self.assertEqual(legacy._banks_per_page, via_config._banks_per_page)
+        self.assertEqual(legacy._hud_trigger, via_config._hud_trigger)
+        self.assertEqual(legacy._hud_cells, via_config._hud_cells)
 
 
 def _simpler_with_4_switches(buttons):

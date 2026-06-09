@@ -5,7 +5,7 @@ from _Framework.InputControlElement import *
 from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
-from .helpers import Helpers, Remote
+from .helpers import Helpers, Remote, SurfaceConfig
 from .osc_client import OSCClient, OSCMultiClient, NullOSCClient
 from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
@@ -63,7 +63,14 @@ class MainComponent(ControlSurfaceComponent):
             $code_switch_parameter_mappings
         ]
 
-        self._helpers = Helpers(self.manager, self._remote, code_slot_assignments, code_switch_slot_assignments, parameter_mappings_raw=$parameter_mappings_raw, encoder_slot_count=$encoder_slot_count, hud_cells=$hud_cells, mode_hud_labels=$mode_hud_labels, hud_trigger=$hud_trigger)
+        self._helpers = Helpers(self.manager, self._remote, SurfaceConfig(
+            slot_assignments=code_slot_assignments,
+            switch_slot_assignments=code_switch_slot_assignments,
+            parameter_mappings_raw=$parameter_mappings_raw,
+            encoder_slot_count=$encoder_slot_count,
+            hud_cells=$hud_cells,
+            mode_hud_labels=$mode_hud_labels,
+            hud_trigger=$hud_trigger))
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 

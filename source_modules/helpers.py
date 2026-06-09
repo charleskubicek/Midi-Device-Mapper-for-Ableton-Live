@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from .hud_client import HudClient, NullHudClient
-from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell
+from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot
 import logging
 
 logger = logging.getLogger("helpers")
@@ -116,35 +116,52 @@ def _default_bank_names():
     return _load_bundled_banks()[1]
 
 
+@dataclass
+class SurfaceConfig:
+    """Static per-surface configuration baked at codegen time. Groups the
+    constructor inputs that used to be a dozen positional/keyword params on
+    Helpers.__init__ so the generated template passes one object plus the two
+    live collaborators (manager, remote). None means "use the runtime default"."""
+    slot_assignments: Any = None
+    switch_slot_assignments: Any = None
+    parameter_mappings_raw: Any = None
+    encoder_slot_count: int = 8
+    button_slot_count: int = 8
+    hud_cells: Any = None
+    mode_hud_labels: Any = None
+    device_banks: Any = None
+    bank_names: Any = None
+    hud_trigger: str = 'controller-nav'
+
+
 class Helpers:
-    def __init__(self, manager, remote,
-                 slot_assignments=None, switch_slot_assignments=None,
-                 parameter_mappings_raw=None,
-                 encoder_slot_count=8, button_slot_count=8,
-                 hud_cells=None, mode_hud_labels=None,
-                 device_banks=None, bank_names=None,
-                 hud_trigger='controller-nav'):
+    def __init__(self, manager, remote, config: 'SurfaceConfig' = None, **legacy):
+        # Back-compat: older call sites (and tests) pass the static config as
+        # keyword args; bundle them into a SurfaceConfig. The generated template
+        # passes a SurfaceConfig directly.
+        if config is None:
+            config = SurfaceConfig(**legacy)
         self._manager = manager
         self._remote = remote
         # show-hud-on trigger: 'selection' (HUD follows Live's selected device)
         # or 'controller-nav' (HUD only on controller device-nav actions).
-        self._hud_trigger = hud_trigger
-        self._slot_assignments = list(slot_assignments or [])
-        self._switch_slot_assignments = list(switch_slot_assignments or [])
-        self._device_table = _build_device_table(parameter_mappings_raw)
-        self._encoder_slot_count = encoder_slot_count
-        self._button_slot_count = button_slot_count
+        self._hud_trigger = config.hud_trigger
+        self._slot_assignments = list(config.slot_assignments or [])
+        self._switch_slot_assignments = list(config.switch_slot_assignments or [])
+        self._device_table = _build_device_table(config.parameter_mappings_raw)
+        self._encoder_slot_count = config.encoder_slot_count
+        self._button_slot_count = config.button_slot_count
         # Generated surfaces bake hud_cells as plain tuples (see gen.py boundary);
         # re-wrap them as LayoutCells so the rest of the runtime gets named access.
-        self._hud_cells = [LayoutCell.from_raw(c) for c in (hud_cells or [])]
-        self._device_banks = device_banks if device_banks is not None else _default_device_banks()
-        self._bank_names = bank_names if bank_names is not None else _default_bank_names()
+        self._hud_cells = [LayoutCell.from_raw(c) for c in (config.hud_cells or [])]
+        self._device_banks = config.device_banks if config.device_banks is not None else _default_device_banks()
+        self._bank_names = config.bank_names if config.bank_names is not None else _default_bank_names()
         # 16-slot controllers pack two 8-param banks per page; 8-slot pack one.
-        self._banks_per_page = 2 if encoder_slot_count >= 16 else 1
+        self._banks_per_page = 2 if config.encoder_slot_count >= 16 else 1
         # mode_hud_labels: {mode_name: {(kind, wire_idx): label}} for non-device
         # mappings. Device cells are populated from live device state and don't
         # appear here. _current_mode_name tracks which overlay is active.
-        self._mode_hud_labels = mode_hud_labels or {}
+        self._mode_hud_labels = config.mode_hud_labels or {}
         self._current_mode_name = None
         # Local HUD dismiss *intent* for the hud_toggle binding. The Swift side
         # auto-clears its sticky dismissed flag on every device/mode burst, so we
@@ -895,9 +912,9 @@ class Helpers:
         self._remote.device_update(
             device.name, real_params, info_text, switch_entries, device.parameters,
             hud_layout=self._hud_cells, mode_labels=mode_labels,
-            enc_page=self._encoder_page, enc_total=enc_total,
-            btn_page=self._button_page, btn_total=btn_total,
-            enc_label=enc_label, btn_label=btn_label,
+            page=PageInfo(enc_page=self._encoder_page, enc_total=enc_total,
+                          btn_page=self._button_page, btn_total=btn_total,
+                          enc_label=enc_label, btn_label=btn_label),
             suppress_hud=suppress_hud,
         )
         if not suppress_hud:
@@ -948,7 +965,6 @@ class Helpers:
             self._remote.device_update(
                 '', [], info_text='', switch_entries=[], device_parameters=[],
                 hud_layout=self._hud_cells, mode_labels=mode_labels,
-                enc_page=1, enc_total=1, btn_page=1, btn_total=1,
             )
             self._hud_dismissed = False
 
@@ -1046,41 +1062,37 @@ class Remote:
         if parameter_no > 0 and not self._in_burst:
             self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
 
-    def refresh_burst(self, device_name, dial_payloads=(), button_payloads=(), page_info=None, suppress_hud=False):
-        """Generic dense burst. dial_payloads / button_payloads are iterables
-        of (wire_idx, SlotPayload). Caller is responsible for filling empty
-        slots with hud_protocol.EMPTY_SLOT — the wire is sender-dense.
+    def refresh_burst(self, snapshot: BurstSnapshot):
+        """Generic dense burst. `snapshot.dials` / `snapshot.buttons` are
+        iterables of (wire_idx, SlotPayload). Caller is responsible for filling
+        empty slots with hud_protocol.EMPTY_SLOT — the wire is sender-dense.
 
-        page_info accepts either a 4-tuple (counts only) or a 6-tuple
-        (counts + enc_label + btn_label).
+        snapshot.page is a PageInfo, or None to emit no PAGE line.
 
-        suppress_hud skips the HUD wire (show-hud-on='controller-nav' on a
-        non-nav selection change). Feedback sinks (EC4 readouts) still fire —
-        they reflect device state regardless of the HUD trigger."""
+        snapshot.suppress_hud skips the HUD wire (show-hud-on='controller-nav'
+        on a non-nav selection change). Feedback sinks (EC4 readouts) still fire
+        — they reflect device state regardless of the HUD trigger."""
         self._in_burst = True
         try:
-            if not suppress_hud:
+            if not snapshot.suppress_hud:
                 # Re-emit LAYOUT at the head of the burst so a HUD that started
                 # after the surface (and missed the one-shot init LAYOUT) still
                 # gets a grid. The receiver stores it in pendingCells and
                 # publishes on COMMIT; DEVICE clears pending slots but not cells.
                 if self._hud_cells:
                     self._hud_client.send_layout(self._hud_cells)
-                self._hud_client.send_device(device_name)
-                if page_info is not None:
-                    if len(page_info) == 6:
-                        enc_page, enc_total, btn_page, btn_total, enc_label, btn_label = page_info
-                    else:
-                        enc_page, enc_total, btn_page, btn_total = page_info
-                        enc_label, btn_label = '', ''
+                self._hud_client.send_device(snapshot.device_name)
+                if snapshot.page is not None:
+                    p = snapshot.page
                     self._hud_client.send_page_info(
-                        enc_page, enc_total, btn_page, btn_total, enc_label, btn_label)
+                        p.enc_page, p.enc_total, p.btn_page, p.btn_total,
+                        p.enc_label, p.btn_label)
                 # Append the secondary region's cached slots (lc_parks). These
                 # carry combined wire indices already; sent after the primary's
                 # so any same-index empty placeholder is overridden on the
                 # receiver (last-write-wins per index).
-                hud_dials = list(dial_payloads)
-                hud_buttons = list(button_payloads)
+                hud_dials = list(snapshot.dials)
+                hud_buttons = list(snapshot.buttons)
                 if self._region_state is not None:
                     hud_dials += self._region_state.dial_payloads()
                     hud_buttons += self._region_state.button_payloads()
@@ -1093,11 +1105,16 @@ class Remote:
                     self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
                     count += 1
                 self._hud_client.commit(count)
-            # Fan the same payloads out to generic feedback sinks (EC4 readouts,
-            # etc.). dial_payloads/button_payloads are re-iterable lists here.
+            # Fan the whole snapshot out to generic feedback sinks (EC4 readouts,
+            # etc.). on_burst(snapshot) gives sinks room to grow; older sinks
+            # implementing only on_device_burst are bridged for one release.
             for sink in self._feedback_sinks:
                 try:
-                    sink.on_device_burst(device_name, dial_payloads, button_payloads)
+                    if hasattr(sink, 'on_burst'):
+                        sink.on_burst(snapshot)
+                    else:
+                        sink.on_device_burst(snapshot.device_name,
+                                             list(snapshot.dials), list(snapshot.buttons))
                 except Exception as e:
                     # Surface log so a sink mismatch is visible in tail_logs.sh
                     # rather than silently swallowed during a burst.
@@ -1109,7 +1126,7 @@ class Remote:
         finally:
             self._in_burst = False
 
-    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, enc_page=1, enc_total=1, btn_page=1, btn_total=1, enc_label='', btn_label='', suppress_hud=False):
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, page: PageInfo = None, suppress_hud=False):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
         # HUD burst: suppress live UPDATE calls while we build the full snapshot.
@@ -1128,9 +1145,10 @@ class Remote:
         if mode_labels:
             dial_payloads = _overlay_labels(dial_payloads, mode_labels, 'dial')
             button_payloads = _overlay_labels(button_payloads, mode_labels, 'button')
-        self.refresh_burst(device_name, dial_payloads, button_payloads,
-                           page_info=(enc_page, enc_total, btn_page, btn_total, enc_label, btn_label),
-                           suppress_hud=suppress_hud)
+        self.refresh_burst(BurstSnapshot(
+            device_name, dial_payloads, button_payloads,
+            page=page if page is not None else PageInfo(),
+            suppress_hud=suppress_hud))
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 

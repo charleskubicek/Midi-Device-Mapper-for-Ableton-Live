@@ -95,6 +95,11 @@ class Ec4Client:
     def __init__(self, manager):
         self._manager = manager
 
+    def on_burst(self, snapshot):
+        """Preferred sink entrypoint: receives the whole BurstSnapshot. The EC4
+        only renders dial labels, so forward the pieces to on_device_burst."""
+        self.on_device_burst(snapshot.device_name, snapshot.dials, snapshot.buttons)
+
     def on_device_burst(self, device_name, dial_payloads, button_payloads=None):
         """Render the 16 dial labels to the EC4 readouts. `dial_payloads` is an
         iterable of (wire_idx, SlotPayload); wire_idx is the dense dial index,
@@ -130,5 +135,6 @@ class Ec4Client:
 
 
 class NullEc4Client:
+    def on_burst(self, snapshot): pass
     def on_device_burst(self, device_name, dial_payloads, button_payloads=None): pass
     def on_hide(self): pass

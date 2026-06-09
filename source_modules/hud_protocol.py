@@ -65,6 +65,37 @@ class SlotPayload:
 EMPTY_SLOT = SlotPayload(EMPTY_NAME, EMPTY_VALUE, EMPTY_MIN, EMPTY_MAX)
 
 
+@dataclass(frozen=True)
+class PageInfo:
+    """Encoder/button paging state for a burst. Replaces the old
+    "4-tuple or 6-tuple" page_info that forced arity-sniffing at the callee.
+    The labels carry the standard-bank page name (e.g. "Amplitude / Filter")
+    or "Best of"; empty labels make the wire fall back to the counts-only
+    PAGE form (see encode_page_info)."""
+    enc_page: int = 1
+    enc_total: int = 1
+    btn_page: int = 1
+    btn_total: int = 1
+    enc_label: str = ''
+    btn_label: str = ''
+
+
+@dataclass(frozen=True)
+class BurstSnapshot:
+    """One device-focus burst as data. Bundles what used to be the 14
+    positional params of Remote.device_update / refresh_burst so the burst
+    path has one thing to pass around and feedback sinks have room to grow.
+
+    dials/buttons are sequences of (wire_idx, SlotPayload). page=None means
+    "don't emit a PAGE line" (mixer/transport bursts that have no paging);
+    device bursts always carry a PageInfo."""
+    device_name: str
+    dials: tuple = ()
+    buttons: tuple = ()
+    page: 'PageInfo' = None
+    suppress_hud: bool = False
+
+
 # ---- encode -----------------------------------------------------------------
 
 # Single-source protocol: the HUD has exactly one sender (a standalone surface,
