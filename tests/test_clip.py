@@ -87,6 +87,16 @@ class TestClipModelBuild(unittest.TestCase):
         with self.assertRaises(ValidationError):
             _clip({'start-loop-inc': 'row-1:1'})
 
+    def test_unknown_key_message_names_valid_actions(self):
+        # The error should name the offending key and list valid actions, which
+        # the old bare extra='forbid' error did not do.
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError) as ctx:
+            _clip({'start-loop-inc': 'row-1:1'})
+        msg = str(ctx.exception)
+        self.assertIn('start-loop-inc', msg)
+        self.assertIn('loop-start-inc', msg)  # a real action, listed as valid
+
 
 class TestClipTemplates(unittest.TestCase, CustomAssertions):
     def _midi(self, mappings):

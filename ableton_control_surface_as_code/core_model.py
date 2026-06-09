@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from .encoder_coords import EncoderCoords, EncoderRefinement, parse, parse_multiple, EncoderRefinements
 from .gen_error import GenError, ErrorCode
+from .slots import parse_continuous_slot_list
 
 
 def make_valid_identifier(name):
@@ -395,7 +396,6 @@ class RowMapV2_1(BaseModel):
 
     @property
     def slots(self) -> List[str]:
-        from .model_device import parse_continuous_slot_list
         if self.slots_raw is None:
             return []
         return parse_continuous_slot_list(self.slots_raw)

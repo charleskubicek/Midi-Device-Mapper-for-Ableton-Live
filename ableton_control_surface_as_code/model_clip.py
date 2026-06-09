@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Literal, Optional, List
+from typing import Literal, List, Dict
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, field_validator
 
 from ableton_control_surface_as_code.core_model import (
     MidiCoords, parse_coords, ButtonProviderBaseModel,
@@ -60,43 +60,26 @@ CLIP_ACTIONS = {
 }
 
 
-class ClipMappings(BaseModel):
-    # Reject unknown keys so typos (e.g. "start-loop-inc") fail loudly at
-    # generate time instead of being silently dropped.
-    model_config = ConfigDict(extra='forbid')
-
-    gain_raw: Optional[str] = Field(alias="gain", default=None)
-    pitch_coarse_raw: Optional[str] = Field(alias="pitch-coarse", default=None)
-    pitch_fine_raw: Optional[str] = Field(alias="pitch-fine", default=None)
-    move_loop_raw: Optional[str] = Field(alias="move-loop", default=None)
-    loop_start_raw: Optional[str] = Field(alias="loop-start", default=None)
-    loop_end_raw: Optional[str] = Field(alias="loop-end", default=None)
-    start_marker_raw: Optional[str] = Field(alias="start-marker", default=None)
-    end_marker_raw: Optional[str] = Field(alias="end-marker", default=None)
-    loop_start_inc_raw: Optional[str] = Field(alias="loop-start-inc", default=None)
-    loop_start_dec_raw: Optional[str] = Field(alias="loop-start-dec", default=None)
-    loop_end_inc_raw: Optional[str] = Field(alias="loop-end-inc", default=None)
-    loop_end_dec_raw: Optional[str] = Field(alias="loop-end-dec", default=None)
-    start_marker_inc_raw: Optional[str] = Field(alias="start-marker-inc", default=None)
-    start_marker_dec_raw: Optional[str] = Field(alias="start-marker-dec", default=None)
-    end_marker_inc_raw: Optional[str] = Field(alias="end-marker-inc", default=None)
-    end_marker_dec_raw: Optional[str] = Field(alias="end-marker-dec", default=None)
-    move_loop_forward_raw: Optional[str] = Field(alias="move-loop-forward", default=None)
-    move_loop_backward_raw: Optional[str] = Field(alias="move-loop-backward", default=None)
-    looping_raw: Optional[str] = Field(alias="looping", default=None)
-    warping_raw: Optional[str] = Field(alias="warping", default=None)
-    duplicate_loop_raw: Optional[str] = Field(alias="duplicate-loop", default=None)
-    sync_loop_and_markers_raw: Optional[str] = Field(alias="sync-loop-and-markers", default=None)
-
-    def as_parsed_dict(self) -> dict[str, EncoderCoords]:
-        # by_alias gives the hyphenated keys, which index directly into CLIP_ACTIONS.
-        return {key: parse_coords(value)
-                for key, value in self.model_dump(by_alias=True).items() if value is not None}
-
-
 class Clip(BaseModel):
     type: Literal['clip'] = "clip"
-    mappings: ClipMappings
+    mappings: Dict[str, str]
+
+    @field_validator('mappings')
+    @classmethod
+    def _known_actions(cls, v):
+        # Reject unknown keys so typos (e.g. "start-loop-inc") fail loudly at
+        # generate time instead of being silently dropped. CLIP_ACTIONS is the
+        # single source of truth; the message names the valid keys.
+        unknown = set(v) - set(CLIP_ACTIONS)
+        if unknown:
+            raise ValueError(
+                f"Unknown clip action(s): {sorted(unknown)} — "
+                f"expected one of: {', '.join(sorted(CLIP_ACTIONS))}")
+        return v
+
+    def as_parsed_dict(self) -> dict[str, EncoderCoords]:
+        # Keys are the hyphenated action names, which index directly into CLIP_ACTIONS.
+        return {key: parse_coords(value) for key, value in self.mappings.items()}
 
 
 class ClipMidiMapping(ButtonProviderBaseModel):
@@ -153,7 +136,7 @@ class ClipWithMidi(BaseModel):
 
 def build_clip_model_v2(controller, mapping: Clip) -> ClipWithMidi:
     midi_maps = []
-    for key, enc_coords in mapping.mappings.as_parsed_dict().items():
+    for key, enc_coords in mapping.as_parsed_dict().items():
         coords_list, _type = controller.build_midi_coords(enc_coords)
         midi_maps.append(ClipMidiMapping(midi_coords=coords_list, action=key))
 

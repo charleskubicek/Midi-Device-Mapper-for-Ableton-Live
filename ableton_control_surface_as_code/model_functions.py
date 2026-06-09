@@ -114,7 +114,7 @@ class FunctionLookup:
                 if class_name == 'Functions':
                     functions = FunctionLookup.get_functions_from_class(node)
                     for function_name, params in functions:
-                        print(f"function_name = {function_name}: {params}")
+                        # print(f"function_name = {function_name}: {params}")
 
                         if function_name == fn_name:
                             # return len(params) == 2

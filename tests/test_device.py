@@ -91,7 +91,7 @@ class TestSwitchList(unittest.TestCase):
         })
         res = build_device_model_v2_1(controller, dev, root_dir="")
 
-        switch_maps = [m for m in res.mode_button_maps if m.slot.startswith('switch')]
+        switch_maps = [m for m in res.switch_maps if m.slot.startswith('switch')]
         self.assertEqual(len(switch_maps), 4)
         self.assertEqual(switch_maps[0].slot, 'switch1')
         self.assertEqual(switch_maps[1].slot, 'switch2')
@@ -115,7 +115,7 @@ class TestSwitchList(unittest.TestCase):
         })
         res = build_device_model_v2_1(controller, dev, root_dir="")
 
-        switch_maps = [m for m in res.mode_button_maps if m.slot.startswith('switch')]
+        switch_maps = [m for m in res.switch_maps if m.slot.startswith('switch')]
         self.assertEqual(len(switch_maps), 4)
         slots = [m.slot for m in switch_maps]
         self.assertEqual(slots, ['switch1', 'switch2', 'switch3', 'switch4'])

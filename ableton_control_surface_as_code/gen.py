@@ -16,6 +16,13 @@ from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode, HudTrigger, \
     build_validated_model
 from ableton_control_surface_as_code.gen_error import GenError
+from ableton_control_surface_as_code.core_model import EncoderType
+from ableton_control_surface_as_code.hud_layout import (
+    allocate_global_layout, collect_mode_labels, combine_layouts,
+)
+from ableton_control_surface_as_code.model_composition import is_composition_file, read_composition
+from ableton_control_surface_as_code.model_custom_devices import validate_custom_device_mappings
+from source_modules.hud_protocol import encode_layout
 
 tab = " " * 4
 
@@ -101,9 +108,6 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
     # (primary cells + offset secondary cells) so the LAYOUT it emits, and the
     # slots it builds, span both controllers. Primary mappings still resolve to
     # their original (unchanged) wire indices within that combined grid.
-    from ableton_control_surface_as_code.hud_layout import (
-        allocate_global_layout, collect_mode_labels,
-    )
     hud_cells_raw = hud_cells_override if hud_cells_override is not None else allocate_global_layout(controller)
 
     mode_codes = create_code_model(modes, controller=controller, hud_cells=hud_cells_raw)
@@ -269,7 +273,6 @@ def validate_path(string):
 
 
 def print_hud_layout(hud_cells_raw):
-    from source_modules.hud_protocol import encode_layout
     layout_line = encode_layout(hud_cells_raw)
     print("HUD wire messages:")
     print(f"  {layout_line}")
@@ -281,8 +284,6 @@ def print_hud_layout(hud_cells_raw):
 
 
 def print_ascii_layout(controller):
-    from ableton_control_surface_as_code.core_model import EncoderType
-
     symbol = {
         EncoderType.knob: '(o)',
         EncoderType.button: '[■]',
@@ -309,7 +310,6 @@ def generate(input_path):
     """Generate one or more surfaces from a config file. A composition config
     (declares `primary:`/`secondary:`) emits the lc_parks compositor + the
     secondary forwarder; any other config is a normal single surface."""
-    from ableton_control_surface_as_code.model_composition import is_composition_file
     if is_composition_file(input_path):
         generate_composition(input_path)
     else:
@@ -340,7 +340,6 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
         if not pm_path.exists():
             raise ValueError(f"parameter_mappings_file not found: {pm_path}")
         parameter_mappings_raw = json.loads(pm_path.read_text())
-        from ableton_control_surface_as_code.model_custom_devices import validate_custom_device_mappings
         validate_custom_device_mappings(parameter_mappings_raw)
 
     vars = {
@@ -406,9 +405,6 @@ def _region_setup_code(dial_offset, button_offset, region_port, surface_name):
 
 
 def generate_composition(comp_path):
-    from ableton_control_surface_as_code.model_composition import read_composition
-    from ableton_control_surface_as_code.hud_layout import allocate_global_layout, combine_layouts
-
     comp = read_composition(comp_path.read_text())
     comp_dir = comp_path.parent
     comp_stem = comp_path.stem  # e.g. lc_parks
@@ -444,7 +440,6 @@ def generate_composition(comp_path):
     # combined COMMIT (two independent selection polls in two processes), so the
     # values flash then vanish. Showing on selection removes the HIDE-on-select
     # entirely; device-nav (source='nav') still shows as before.
-    from ableton_control_surface_as_code.model_v2 import HudTrigger
     region_setup = _region_setup_code(dial_offset, button_offset, region_port, primary_name)
     _generate_surface(primary_path, primary_name, comp_dir,
                       region_setup=region_setup, hud_cells_override=combined_cells,

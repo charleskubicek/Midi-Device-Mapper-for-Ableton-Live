@@ -6,7 +6,8 @@ from typing import List, Tuple
 
 from ableton_control_surface_as_code.core_model import MixerWithMidi, ButtonProviderBaseModel, MidiCoords
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
-from ableton_control_surface_as_code.model_device import DeviceWithMidi, ModeButtonMidiMapping, is_mode_slot
+from ableton_control_surface_as_code.model_device import DeviceWithMidi, SwitchMidiMapping
+from ableton_control_surface_as_code.slots import is_switch_slot
 from ableton_control_surface_as_code.model_device_nav import DeviceNavWithMidi
 from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
 from ableton_control_surface_as_code.model_track_nav import TrackNavWithMidi
@@ -175,18 +176,18 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
                 mm.info_string())
         ))
 
-    for mb in device_with_midi.mode_button_maps:
-        codes.append(_mode_button_template(mb, mode_name, device_with_midi.track.name.value, device_with_midi.device))
+    for mb in device_with_midi.switch_maps:
+        codes.append(_switch_template(mb, mode_name, device_with_midi.track.name.value, device_with_midi.device))
 
     custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
-    switch_mappings = code_from_switch_slot_assignments(device_with_midi.mode_button_maps, controller, hud_cells)
+    switch_mappings = code_from_switch_slot_assignments(device_with_midi.switch_maps, controller, hud_cells)
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings,
                                switch_parameter_mappings=switch_mappings))
 
     return codes
 
 
-def _mode_button_template(mb: ModeButtonMidiMapping, mode_name: str, track: str = "selected", device: str = "selected") -> 'GeneratedCode':
+def _switch_template(mb: SwitchMidiMapping, mode_name: str, track: str = "selected", device: str = "selected") -> 'GeneratedCode':
     btn_name = mb.controller_variable_name()
     btn_listener_name = mb.controller_listener_fn_name(mode_name)
 
@@ -225,13 +226,13 @@ def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[
     """
     out: List[str] = []
     for c_idx, slot in slot_assignments:
-        if is_mode_slot(slot):
+        if is_switch_slot(slot):
             continue
         out.append(f"({c_idx}, '{slot}')")
     return out
 
 
-def code_from_switch_slot_assignments(mode_button_maps, controller=None, hud_cells=None) -> List[str]:
+def code_from_switch_slot_assignments(switch_maps, controller=None, hud_cells=None) -> List[str]:
     """
     Emit (wire_idx, slot_name) tuples — wire_idx is the HUD button-array
     index assigned by the global layout allocator. The runtime uses
@@ -241,7 +242,7 @@ def code_from_switch_slot_assignments(mode_button_maps, controller=None, hud_cel
     from ableton_control_surface_as_code.hud_layout import find_wire_index
     out: List[str] = []
     seen_slots: set = set()
-    for mb in mode_button_maps:
+    for mb in switch_maps:
         if not mb.slot.startswith('switch'):
             continue
         if mb.slot in seen_slots:

@@ -5,48 +5,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2, parse_multiple_coords
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
-
-
-MODE_SLOT_NAMES = [f"switch{i}" for i in range(1, 9)]
-
-
-def is_mode_slot(name: str) -> bool:
-    return name in MODE_SLOT_NAMES
-
-
-def parse_slot_token(token: str) -> str:
-    token = token.strip()
-    if token.startswith("slot") and token[4:].isdigit():
-        return token
-    if token in MODE_SLOT_NAMES:
-        return token
-    if token.isdigit():
-        n = int(token)
-        if n < 1:
-            raise ValueError(f"Slot index {n} out of range; must be >= 1")
-        return f"slot{n}"
-    raise ValueError(f"Unknown slot token: {token!r}")
-
-
-def parse_continuous_slot_list(raw: str) -> List[str]:
-    result: List[str] = []
-    for chunk in [c.strip() for c in raw.split(",") if c.strip()]:
-        if "-" in chunk and not chunk.startswith("slot"):
-            lo_s, hi_s = chunk.split("-", 1)
-            lo, hi = int(lo_s), int(hi_s)
-            if lo > hi:
-                raise ValueError(f"Invalid slot range {chunk!r}: {lo} > {hi}")
-            result.extend(parse_slot_token(str(n)) for n in range(lo, hi + 1))
-        else:
-            result.append(parse_slot_token(chunk))
-
-    bad = [s for s in result if s in MODE_SLOT_NAMES]
-    if bad:
-        raise ValueError(
-            f"{bad} are cycle-type slots and cannot appear under encoders.slots; "
-            "place them under mode-buttons instead"
-        )
-    return result
+# Re-exported for backwards compatibility; these now live in the leaf `slots`
+# module so `core_model` can use them without importing this model module.
+from ableton_control_surface_as_code.slots import (  # noqa: F401
+    SWITCH_SLOT_NAMES, is_switch_slot, parse_slot_token, parse_continuous_slot_list,
+)
 
 
 class DeviceParameterMidiMapping(BaseModel):
@@ -78,7 +41,7 @@ _SWITCH_LITERAL = Literal['switch1', 'switch2', 'switch3', 'switch4',
                            'switch5', 'switch6', 'switch7', 'switch8']
 
 
-class ModeButtonEntry(BaseModel):
+class SwitchEntry(BaseModel):
     coord: EncoderCoords
     slot: _SWITCH_LITERAL
 
@@ -88,7 +51,7 @@ class ModeButtonEntry(BaseModel):
         return parse_coords(value)
 
 
-class ModeButtonMidiMapping(BaseModel):
+class SwitchMidiMapping(BaseModel):
     midi_coords: MidiCoords
     slot: str  # 'switch1' or 'switch2'
 
@@ -122,7 +85,7 @@ class DeviceWithMidi(BaseModel):
     track: TrackInfo
     device: str
     midi_maps: List[DeviceParameterMidiMapping]
-    mode_button_maps: List[ModeButtonMidiMapping] = Field(default_factory=list)
+    switch_maps: List[SwitchMidiMapping] = Field(default_factory=list)
     # encoder_index -> slot_name; populated when user wrote `slots:` in their mapping.
     slot_assignments: List[Tuple[int, str]] = Field(default_factory=list)
     encoder_slot_count: int = 8
@@ -132,7 +95,7 @@ class DeviceEncoderMappings(BaseModel):
     encoders: Optional[RowMapV2_1] = Field(None, alias='encoders')
     encoder_list: List[RowMapV2_1] = Field([], alias='encoder-list')
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
-    mode_buttons: List[ModeButtonEntry] = Field(default_factory=list, alias='mode-buttons')
+    mode_buttons: List[SwitchEntry] = Field(default_factory=list, alias='mode-buttons')
     switch1: Optional[EncoderCoords] = Field(None, alias='switch1')
     switch2: Optional[EncoderCoords] = Field(None, alias='switch2')
     switch3: Optional[EncoderCoords] = Field(None, alias='switch3')
@@ -242,17 +205,17 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             parameter=0,
         ))
 
-    mode_button_maps: List[ModeButtonMidiMapping] = []
+    switch_maps: List[SwitchMidiMapping] = []
     for entry in device.mappings.mode_buttons:
         midi_coord = controller.build_midi_coords(entry.coord)[0][0]
-        mode_button_maps.append(ModeButtonMidiMapping(
+        switch_maps.append(SwitchMidiMapping(
             midi_coords=midi_coord,
             slot=entry.slot,
         ))
     for slot_name, coord in device.mappings.switch_entries():
         if coord is not None:
             midi_coord = controller.build_midi_coords(coord)[0][0]
-            mode_button_maps.append(ModeButtonMidiMapping(
+            switch_maps.append(SwitchMidiMapping(
                 midi_coords=midi_coord,
                 slot=slot_name,
             ))
@@ -262,7 +225,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
             for ec in entry.encoder_coords_list:
                 midis, _ = controller.build_midi_coords(ec)
                 for midi_coord in midis:
-                    mode_button_maps.append(ModeButtonMidiMapping(
+                    switch_maps.append(SwitchMidiMapping(
                         midi_coords=midi_coord,
                         slot=f"switch{switch_index}",
                     ))
@@ -276,7 +239,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
         track=device.track,
         device=device.device,
         midi_maps=midi_maps,
-        mode_button_maps=mode_button_maps,
+        switch_maps=switch_maps,
         slot_assignments=slot_assignments,
         encoder_slot_count=encoder_slot_count,
     )
