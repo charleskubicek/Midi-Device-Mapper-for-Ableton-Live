@@ -58,9 +58,8 @@ class Helpers:
             config = SurfaceConfig(**legacy)
         self._manager = manager
         self._remote = remote
-        # show-hud-on trigger: 'selection' (HUD follows Live's selected device)
-        # or 'controller-nav' (HUD only on controller device-nav actions).
-        self._hud_trigger = config.hud_trigger
+        # show-hud-on trigger ('selection' | 'controller-nav') now lives in the
+        # HudPresenter's HudVisibility table; passed through at construction below.
         self._slot_assignments = list(config.slot_assignments or [])
         self._switch_slot_assignments = list(config.switch_slot_assignments or [])
         self._encoder_slot_count = config.encoder_slot_count
@@ -96,7 +95,7 @@ class Helpers:
             switch_slot_assignments=self._switch_slot_assignments,
             hud_cells=self._hud_cells,
             mode_hud_labels=config.mode_hud_labels or {},
-            log=self.log_message)
+            log=self.log_message, hud_trigger=config.hud_trigger)
         self._remote.init_layout(self._hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
@@ -188,13 +187,11 @@ class Helpers:
         self._resolver.focus()
         self._attach_group_selector_listeners(device)
         self._log_device_focus(device)
-        # show-hud-on gating: in 'controller-nav' mode only an explicit nav
-        # action (source='nav') shows the HUD. Mouse / track-select selection
-        # changes (source='selection', the 1.5s poll) still remap the encoders
-        # and push OSC, but the HUD burst is suppressed. 'selection' mode (the
-        # default) never suppresses.
-        suppress_hud = (self._hud_trigger == 'controller-nav' and source != 'nav')
-        self.update_remote_parameters(suppress_hud=suppress_hud)
+        # show-hud-on gating now lives in the HudVisibility table (R10): in
+        # 'controller-nav' mode only an explicit nav action shows the HUD; a
+        # selection-poll change still remaps encoders + pushes OSC but the HUD
+        # burst is suppressed (and HIDE sent). 'selection' mode never suppresses.
+        self._presenter.on_device_focus(device, source)
         if self.has_user_defined_parameters(device):
             self.show_message(f"{device.class_name}")
 

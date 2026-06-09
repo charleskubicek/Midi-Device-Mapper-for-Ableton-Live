@@ -789,7 +789,8 @@ class TestSurfaceConfigEquivalence(unittest.TestCase):
         self.assertEqual(legacy._slot_assignments, via_config._slot_assignments)
         self.assertEqual(legacy._switch_slot_assignments, via_config._switch_slot_assignments)
         self.assertEqual(legacy._resolver._banks_per_page, via_config._resolver._banks_per_page)
-        self.assertEqual(legacy._hud_trigger, via_config._hud_trigger)
+        self.assertEqual(legacy._presenter._visibility.trigger,
+                         via_config._presenter._visibility.trigger)
         self.assertEqual(legacy._hud_cells, via_config._hud_cells)
 
 

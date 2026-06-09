@@ -44,7 +44,7 @@ class TestHudPresenterDirect(unittest.TestCase):
 
     def test_emit_burst_clears_dismiss_intent(self):
         p, remote = _presenter(slot_assignments=[(1, 'slot1')])
-        p._hud_dismissed = True
+        p.hud_dismissed = True
         dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
         p.emit_burst(dev)
         self.assertFalse(p.hud_dismissed)
