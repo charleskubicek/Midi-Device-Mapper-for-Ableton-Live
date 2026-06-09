@@ -39,7 +39,7 @@ control_groups:
         midi_channel: 1
         midi_type: note
         midi_range: C-2, CS-2, D-2, DS-2
-        right-of: 1
+        right_of: 1
     -
         layout: row
         number: 6

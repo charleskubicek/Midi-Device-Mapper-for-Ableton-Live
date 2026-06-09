@@ -6,6 +6,7 @@ from ableton_control_surface_as_code.core_model import RowMapV2_1
 from ableton_control_surface_as_code.gen_code import (
     code_from_slot_assignments,
     device_templates,
+    GeneratedCode,
     GeneratedCodes,
 )
 from ableton_control_surface_as_code.model_controller import ControllerV2
@@ -16,7 +17,7 @@ from ableton_control_surface_as_code.model_device import (
     parse_continuous_slot_list,
     parse_slot_token,
 )
-from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part
+from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part, build_control_group
 
 
 class TestSlotParsing(unittest.TestCase):
@@ -148,6 +149,45 @@ class TestDeviceTemplatesWithSlots(unittest.TestCase):
         all_fns = "\n".join(result.listener_fns)
 
         self.assertIn('self._helpers.switch_slot_action(device, "switch1", value,', all_fns)
+
+
+class TestMergeConcatenatesParameterMappings(unittest.TestCase):
+    def test_merge_concatenates_two_non_empty_custom_mappings(self):
+        one = GeneratedCode(custom_parameter_mappings=["(1, 'slot1')"])
+        other = GeneratedCode(custom_parameter_mappings=["(2, 'slot2')"])
+        merged = GeneratedCodes.merge(one, other)
+        self.assertEqual(merged.custom_parameter_mappings,
+                         ["(1, 'slot1')", "(2, 'slot2')"])
+
+    def test_merge_concatenates_two_non_empty_switch_mappings(self):
+        one = GeneratedCode(switch_parameter_mappings=["(0, 'switch1')"])
+        other = GeneratedCode(switch_parameter_mappings=["(1, 'switch2')"])
+        merged = GeneratedCodes.merge(one, other)
+        self.assertEqual(merged.switch_parameter_mappings,
+                         ["(0, 'switch1')", "(1, 'switch2')"])
+
+    def test_two_device_mappings_with_slots_both_survive_merge(self):
+        controller = ControllerV2.build_from(build_raw_controller_v2(groups=[
+            build_control_group(midi_range='21-28', number=1),
+            build_control_group(midi_range='31-38', number=2),
+        ]))
+        dev1 = DeviceV2(
+            track="selected", device="selected",
+            mappings=DeviceEncoderMappings(
+                encoders=RowMapV2_1(range="row-1:1-4", slots="1-4")),
+        )
+        dev2 = DeviceV2(
+            track="selected", device="selected",
+            mappings=DeviceEncoderMappings(
+                encoders=RowMapV2_1(range="row-2:1-4", slots="5-8")),
+        )
+        dwm1 = build_device_model_v2_1(controller, dev1, root_dir="")
+        dwm2 = build_device_model_v2_1(controller, dev2, root_dir="")
+        codes = device_templates(dwm1, "main") + device_templates(dwm2, "main")
+        result = GeneratedCodes.merge_all(codes)
+        joined = "\n".join(result.custom_parameter_mappings)
+        self.assertIn("'slot1'", joined)  # from dev1
+        self.assertIn("'slot8'", joined)  # from dev2 — previously dropped
 
 
 if __name__ == "__main__":

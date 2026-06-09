@@ -106,6 +106,32 @@ class FeedbackSinkDef(BaseModel, frozen=True):
         extra = 'forbid'
 
 
+class OutputSinkType(str, Enum):
+    OSC = 'osc'
+
+
+class OSCTarget(BaseModel):
+    host: str
+    port: int = 5005
+
+    class Config:
+        extra = 'forbid'
+
+
+class OutputSinkDef(BaseModel):
+    """A declared output sink — a target that receives parameter-update publishes."""
+    type: OutputSinkType
+    targets: List[OSCTarget] = Field(default_factory=list)
+
+    class Config:
+        extra = 'forbid'
+
+
+_LEGACY_OSC_OUTPUTS = [OutputSinkDef(type=OutputSinkType.OSC, targets=[
+    OSCTarget(host='127.0.0.1'),
+])]
+
+
 class RootV2(BaseModel):
     controller: str
     mode_button: Optional[ModeButton]
@@ -116,6 +142,7 @@ class RootV2(BaseModel):
     hud: HudMode = HudMode.On
     show_hud_on: HudTrigger = HudTrigger.ControllerNav
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
+    outputs: List[OutputSinkDef] = Field(default_factory=list)
 
     class Config:
         extra = 'forbid'
@@ -132,9 +159,16 @@ class RootV2ModesOrModeless(BaseModel):
     hud: HudMode = HudMode.On
     show_hud_on: HudTrigger = Field(default=HudTrigger.ControllerNav, alias='show-hud-on')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
+    outputs: List[OutputSinkDef] = Field(default_factory=list)
 
     def buildRootV2(self):
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
+
+        # Back-compat: synthesise legacy OSC targets when remote_on: true and no
+        # explicit outputs: list is provided.
+        outputs = self.outputs
+        if not outputs and self.remote_on:
+            outputs = _LEGACY_OSC_OUTPUTS
 
         return RootV2(
             controller=self.controller,
@@ -146,6 +180,7 @@ class RootV2ModesOrModeless(BaseModel):
             hud=self.hud,
             show_hud_on=self.show_hud_on,
             feedback=self.feedback,
+            outputs=outputs,
         )
 
 
@@ -371,7 +406,7 @@ def read_controller(controller_path, source: str = "controller file", acc=None) 
     except ValidationError as e:
         raise _format_validation_error(e, source) from e
     validate_controller_semantics(raw, acc=acc)
-    return ControllerV2.build_from(raw)
+    return ControllerV2.build_from(raw, acc=acc)
 
 
 def build_validated_model(mapping_text, root_dir: Path, resolve_controller,

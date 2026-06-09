@@ -112,7 +112,6 @@ class ControlGroup:
         self.grid_row = grid_row
         self.grid_col = grid_col
         self.hud = hud
-        self.hud = hud
 
     @property
     def type(self):
@@ -138,9 +137,9 @@ class ControllerV2:
     encoder_mode: EncoderMode
 
     @staticmethod
-    def build_from(c: ControllerRawV2):
+    def build_from(c: ControllerRawV2, acc=None):
 
-        def compute_grid_positions(groups: List[ControlGroupPartV2]) -> dict:
+        def compute_grid_positions(groups: List[ControlGroupPartV2]):
             # row_number → (grid_row, grid_col)
             positions = {}
             # representative per row number (first part encountered)
@@ -165,7 +164,25 @@ class ControllerV2:
                         pr, pc = positions[g.right_of]
                         positions[num] = (pr, pc + 1)
                         remaining.discard(num)
-            return positions
+            # Anything still in `remaining` that carries an under/right_of
+            # reference could not be placed — a typo'd or circular row
+            # reference. Origin-less leftovers (no under/right_of) are legitimate
+            # extra origins and keep their (0,0) default, so don't report those.
+            unresolved = []
+            for num in remaining:
+                g = rep[num]
+                if g.under is not None:
+                    kind, ref = 'under', g.under
+                elif g.right_of is not None:
+                    kind, ref = 'right_of', g.right_of
+                else:
+                    continue
+                reason = ("no such row exists" if ref not in rep
+                          else "that row itself was not placed "
+                               "(circular reference, or it lost the origin slot to another row?)")
+                unresolved.append(
+                    f"row {num}: {kind}: {ref} — {reason}")
+            return positions, unresolved
 
         def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode, grid_pos) -> ControlGroup:
             midi_coords = flatten([g.build_midi_coords(encoder_mode) for g in groups])
@@ -173,7 +190,15 @@ class ControllerV2:
             return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc, hud=groups[0].hud)
 
         c.control_groups.sort(key=lambda x: x.number)
-        grid_positions = compute_grid_positions(c.control_groups)
+        grid_positions, unresolved = compute_grid_positions(c.control_groups)
+        if unresolved:
+            if acc is not None:
+                acc.extend(unresolved)
+            else:
+                raise GenError(
+                    "Invalid controller grid layout:\n"
+                    + "\n".join(f"  - {p}" for p in unresolved),
+                    ErrorCode.SEMANTIC_VALIDATION)
         control_groups = [
             merge_groups(list(group), c.encoder_mode, grid_positions.get(key, (0, 0)))
             for key, group in groupby(c.control_groups, lambda x: x.number)

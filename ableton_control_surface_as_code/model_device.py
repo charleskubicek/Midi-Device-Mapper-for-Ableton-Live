@@ -1,5 +1,3 @@
-import re
-from dataclasses import dataclass
 from typing import Literal, List, Optional, Dict, Tuple
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -10,15 +8,6 @@ from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 
 
 MODE_SLOT_NAMES = [f"switch{i}" for i in range(1, 9)]
-
-
-@dataclass
-class HudCell:
-    grid_row: int
-    grid_col: int
-    kind: str       # 'dial' or 'button'
-    count: int
-    start_index: int
 
 
 def is_mode_slot(name: str) -> bool:
@@ -137,7 +126,6 @@ class DeviceWithMidi(BaseModel):
     # encoder_index -> slot_name; populated when user wrote `slots:` in their mapping.
     slot_assignments: List[Tuple[int, str]] = Field(default_factory=list)
     encoder_slot_count: int = 8
-    hud_cells: List[HudCell] = Field(default_factory=list)
 
 
 class DeviceEncoderMappings(BaseModel):
@@ -284,32 +272,6 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
     total_slots = sum(len(e.slots) for e in slot_groups)
     encoder_slot_count = total_slots if total_slots > 0 else 8
 
-    # Build HUD grid cells from slot groups
-    hud_cells: List[HudCell] = []
-    dial_start = 0
-    for e in slot_groups:
-        m = re.match(r'row-(\d+)', e.range_raw)
-        row_num = int(m.group(1)) if m else 1
-        gr, gc = controller.grid_position_for(row_num)
-        count = len(e.slots)
-        hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='dial', count=count, start_index=dial_start))
-        dial_start += count
-
-    switch_maps = [m for m in mode_button_maps if m.slot.startswith('switch')]
-    if switch_maps:
-        switch_row = None
-        for slot_name, coord in device.mappings.switch_entries():
-            if coord is not None and slot_name.startswith('switch'):
-                switch_row = int(coord.row)
-                break
-        if switch_row is None and device.mappings.switch_list:
-            m = re.match(r'row-(\d+)', device.mappings.switch_list[0].range_raw)
-            if m:
-                switch_row = int(m.group(1))
-        if switch_row is not None:
-            gr, gc = controller.grid_position_for(switch_row)
-            hud_cells.append(HudCell(grid_row=gr, grid_col=gc, kind='button', count=len(switch_maps), start_index=0))
-
     return DeviceWithMidi(
         track=device.track,
         device=device.device,
@@ -317,5 +279,4 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
         mode_button_maps=mode_button_maps,
         slot_assignments=slot_assignments,
         encoder_slot_count=encoder_slot_count,
-        hud_cells=hud_cells,
     )

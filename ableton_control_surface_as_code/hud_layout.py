@@ -10,14 +10,10 @@ payloads (see `Helpers.refresh_hud_for_mode`).
 from typing import Dict, List, Tuple
 
 from ableton_control_surface_as_code.core_model import EncoderType, MidiCoords
-
-
-# (grid_row, grid_col, kind, count, start_index, section)
-# `section` groups cells into independently-laid-out blocks on the HUD: a
-# standalone surface emits everything as section 0; the lc_parks compositor tags
-# the secondary controller section 1 so the HUD renders it as a separate unit to
-# the right of the primary (its own sub-grid), rather than merged into one grid.
-LayoutCell = Tuple[int, int, str, int, int, int]
+# LayoutCell / SlotAddress live in the wire-format owner so codegen and runtime
+# share one definition (R3). Re-exported here for callers that import from
+# hud_layout.
+from source_modules.hud_protocol import LayoutCell, SlotAddress
 
 
 def allocate_global_layout(controller) -> List[LayoutCell]:
@@ -47,18 +43,18 @@ def allocate_global_layout(controller) -> List[LayoutCell]:
         else:
             start = button_next
             button_next += count
-        cells.append((g.grid_row, g.grid_col, kind, count, start, 0))
+        cells.append(LayoutCell(g.grid_row, g.grid_col, kind, count, start, 0))
     return cells
 
 
 def dial_count(cells: List[LayoutCell]) -> int:
     """Total dial slots across all dial cells (= the dial wire-index space)."""
-    return sum(c[3] for c in cells if c[2] == 'dial')
+    return sum(c.count for c in map(LayoutCell.from_raw, cells) if c.kind == 'dial')
 
 
 def button_count(cells: List[LayoutCell]) -> int:
     """Total button slots across all button cells (= the button wire-index space)."""
-    return sum(c[3] for c in cells if c[2] == 'button')
+    return sum(c.count for c in map(LayoutCell.from_raw, cells) if c.kind == 'button')
 
 
 def offset_layout(cells: List[LayoutCell], dial_offset: int,
@@ -73,7 +69,7 @@ def offset_layout(cells: List[LayoutCell], dial_offset: int,
     out: List[LayoutCell] = []
     for gr, gc, kind, count, start, _section in cells:
         bump = dial_offset if kind == 'dial' else button_offset
-        out.append((gr, gc, kind, count, start + bump, section))
+        out.append(LayoutCell(gr, gc, kind, count, start + bump, section))
     return out
 
 
@@ -87,10 +83,11 @@ def combine_layouts(primary: List[LayoutCell], secondary: List[LayoutCell]):
     Returns (combined_cells, dial_offset, button_offset). The offsets are what
     the RegionListener adds to incoming secondary slot indices to remap them
     into the shared wire space."""
+    primary = [LayoutCell.from_raw(c) for c in primary]
     dial_offset = dial_count(primary)
     button_offset = button_count(primary)
     shifted = offset_layout(secondary, dial_offset, button_offset, section=1)
-    return list(primary) + shifted, dial_offset, button_offset
+    return primary + shifted, dial_offset, button_offset
 
 
 def _kind_for(group_type) -> str:
@@ -103,9 +100,9 @@ def _kind_for(group_type) -> str:
 
 
 def find_wire_index(controller, coord: MidiCoords, cells: List[LayoutCell]):
-    """Resolve a MidiCoords back to (kind, wire_idx) using the controller's
-    physical layout and the global allocation. Returns None if the coord
-    doesn't correspond to a HUD-rendered control (e.g. a slider)."""
+    """Resolve a MidiCoords back to a SlotAddress(kind, wire_idx) using the
+    controller's physical layout and the global allocation. Returns None if the
+    coord doesn't correspond to a HUD-rendered control (e.g. a slider)."""
     if controller is None or coord is None:
         return None
     for group in controller.control_groups:
@@ -119,24 +116,23 @@ def find_wire_index(controller, coord: MidiCoords, cells: List[LayoutCell]):
                 cell = _cell_for(cells, group.grid_row, group.grid_col, kind)
                 if cell is None:
                     return None
-                start = cell[4]
-                return kind, start + i
+                return SlotAddress(kind, cell.start + i)
     return None
 
 
 def _cell_for(cells, gr, gc, kind):
     for cell in cells:
-        if cell[0] == gr and cell[1] == gc and cell[2] == kind:
+        if cell.grid_row == gr and cell.grid_col == gc and cell.kind == kind:
             return cell
     return None
 
 
-def collect_mode_labels(controller, mode_mappings, cells) -> Dict[Tuple[str, int], str]:
-    """For one mode's mappings, return {(kind, wire_idx): label} entries for
-    every non-device mapping that occupies a HUD-rendered control.
+def collect_mode_labels(controller, mode_mappings, cells) -> Dict[SlotAddress, str]:
+    """For one mode's mappings, return {SlotAddress(kind, wire_idx): label}
+    entries for every non-device mapping that occupies a HUD-rendered control.
     Device mappings are skipped — they're populated from live device data
     at runtime, not from static labels."""
-    labels: Dict[Tuple[str, int], str] = {}
+    labels: Dict[SlotAddress, str] = {}
     for mapping in mode_mappings:
         for coord, label in _label_pairs_for_mapping(mapping):
             wire = find_wire_index(controller, coord, cells)

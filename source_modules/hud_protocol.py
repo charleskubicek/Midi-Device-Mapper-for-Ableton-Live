@@ -8,7 +8,7 @@ See `hud_protocol.md` for the spec. Mirrors the Swift `WireProtocol` parser
 in /Users/ck/current/ableton_hud.
 """
 from dataclasses import dataclass
-from typing import List, Tuple, Union
+from typing import List, NamedTuple, Union
 
 
 # Empty-slot sentinel used by senders for any cell position not bound to a
@@ -19,8 +19,39 @@ EMPTY_MIN = 0
 EMPTY_MAX = 1
 
 
-# (grid_row, grid_col, kind, count, start_index)
-LayoutCell = Tuple[int, int, str, int, int]
+class LayoutCell(NamedTuple):
+    """One HUD grid cell on the wire. `section` groups cells into
+    independently-laid-out blocks: a standalone surface emits everything as
+    section 0; the lc_parks compositor tags the secondary controller section 1
+    so the HUD renders it as its own sub-grid to the right of the primary.
+
+    A NamedTuple (not a plain tuple) so producers/consumers get named field
+    access, but it stays tuple-compatible — it unpacks, indexes, compares equal
+    to the matching plain tuple, and `repr()`s into an `eval`-able literal.
+    This is the single source of truth for the LAYOUT cell shape; both the
+    codegen side (`hud_layout`) and the runtime (`helpers`) import it from here,
+    the wire-format owner.
+    """
+    grid_row: int
+    grid_col: int
+    kind: str          # 'dial' or 'button'
+    count: int
+    start: int
+    section: int = 0
+
+    @classmethod
+    def from_raw(cls, c) -> "LayoutCell":
+        """Accept either a LayoutCell or a plain tuple (as baked into generated
+        surfaces at the template boundary) and return a LayoutCell."""
+        return c if isinstance(c, cls) else cls(*c)
+
+
+class SlotAddress(NamedTuple):
+    """A HUD slot's wire address: which array ('dial'|'button') and the index
+    within it. Tuple-compatible, so it interoperates with the `(kind, index)`
+    plain tuples used as label-dict keys and baked into generated surfaces."""
+    kind: str
+    index: int
 
 
 @dataclass(frozen=True)
@@ -46,6 +77,11 @@ def encode_layout(cells: List[LayoutCell]) -> str:
     for gr, gc, kind, count, start, section in cells:
         parts += [str(gr), str(gc), kind, str(count), str(start), str(section)]
     return "LAYOUT|" + "|".join(parts)
+
+
+# `encode_layout` unpacks 6 fields; this assertion guards the LayoutCell shape
+# against silently regrowing/shrinking out of sync with the wire format.
+assert len(LayoutCell._fields) == 6
 
 
 def encode_device(name: str) -> str:
@@ -193,7 +229,7 @@ def parse(line: str) -> Message:
         try:
             for i in range(n):
                 base = 2 + i * 6
-                cells.append((
+                cells.append(LayoutCell(
                     int(fields[base]),
                     int(fields[base + 1]),
                     fields[base + 2],

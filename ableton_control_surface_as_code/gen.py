@@ -90,19 +90,7 @@ def all_control_defs(mode_codes):
     return res
 
 
-def validate_exports(export_targets, mode_codes):
-    for et in export_targets:
-        if et not in mode_codes:
-            raise ValueError(f"Export target {et} not found in mode codes")
-
-    for export_target_mode, export_codes in export_targets.items():
-        for cm_mode, code_mode in mode_codes.items():
-            if export_target_mode == cm_mode:
-                commmon = GeneratedCodes.common_midi_coords_in_control_defs(export_codes, code_mode)
-                if len(commmon) > 0:
-                    raise ValueError(f"export to {export_target_mode} from {cm_mode} has overlapping midi coords: {[(ys.info_string(), ys.source_info) for ys in commmon]}")
-
-def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None, hud_cells_override=None) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None, outputs=None, hud_cells_override=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
     # Global wire-index allocation: every physical control on the surface
@@ -177,6 +165,13 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         feedback_sink_ctors[d.type.value] for d in (feedback or [])
     )
 
+    osc_clients = ", ".join(
+        f"OSCClient(host='{t.host}', port={t.port})"
+        for sink in (outputs or [])
+        if sink.type.value == 'osc'
+        for t in sink.targets
+    )
+
     return {
         'code_setup': "\n".join(codes.init),
         'code_custom_parameter_mappings': dict_variable_decleration_block(codes.custom_parameter_mappings),
@@ -186,11 +181,20 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         'code_setup_listeners': "\n".join(codes.setup_listeners),
         'code_listener_fns': "\n".join(codes.listener_fns),
         'encoder_slot_count': encoder_slot_count,
-        'hud_cells': repr(hud_cells_raw),
-        'mode_hud_labels': repr(mode_hud_labels),
+        # Bake LayoutCell / SlotAddress as PLAIN tuples at the template
+        # boundary: the generated surface evals this literal without needing the
+        # NamedTuple classes in scope. Helpers.__init__ re-wraps cells via
+        # LayoutCell.from_raw; label keys stay (kind, wire_idx) tuples, which the
+        # runtime looks up with plain tuples anyway (R3 step 5).
+        'hud_cells': repr([tuple(c) for c in hud_cells_raw]),
+        'mode_hud_labels': repr({
+            mode_name: {tuple(k): v for k, v in labels.items()}
+            for mode_name, labels in mode_hud_labels.items()
+        }),
         'hud_client_class': hud_client_class,
         'hud_trigger': repr(hud_trigger.value),
         'feedback_sinks': feedback_sinks,
+        'osc_clients': osc_clients,
         '_hud_cells_raw': hud_cells_raw,
     }
 
@@ -221,7 +225,7 @@ def build_mode_code(mode_mappings, name, controller=None, hud_cells=None) -> lis
     return res
 
 
-def write_templates(template_path: Path, target: Path, vars: dict, functions_path: Path):
+def write_templates(template_path: Path, target: Path, vars: dict):
     root_dir = Path(target, vars['surface_name'])
     root_dir.mkdir(exist_ok=True)
 
@@ -320,10 +324,6 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
     `target_dir`, from the mapping at `mapping_file_path`. Returns
     (controller, code_vars). Overrides let the compositor inject the combined
     layout + region wiring, and let the forwarder retarget its HUD client."""
-    functions_path = mapping_file_path.parent / "functions.py"
-    if not functions_path.exists():
-        functions_path = None
-
     def _resolve_controller(root):
         controller_path = mapping_file_path.parent / root.controller
         return controller_path.read_text(), controller_path.name
@@ -352,7 +352,6 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
         'class_name_snake': 'control_mappings',
         'class_name_camel': 'ControlMappings',
         'ableton_dir': validate_path(mappings.ableton_dir),
-        'remote_on': mappings.remote_on,
         'parameter_mappings_raw': repr(parameter_mappings_raw),
         # Constructor args for the HUD client. Empty for a standalone surface
         # (defaults to the HUD on 127.0.0.1:5006). The parks forwarder overrides
@@ -363,9 +362,9 @@ def _generate_surface(mapping_file_path, surface_name, target_dir,
     }
 
     hud_trigger = hud_trigger_override if hud_trigger_override is not None else mappings.show_hud_on
-    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, hud_cells_override=hud_cells_override)
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=hud_cells_override)
     mode_vars = vars | code_vars
-    write_templates(Path(f'templates'), target_dir, mode_vars, functions_path)
+    write_templates(Path(f'templates'), target_dir, mode_vars)
 
     # # copy all .py files into the modules folder
     for file in mapping_file_path.parent.glob('*.py'):

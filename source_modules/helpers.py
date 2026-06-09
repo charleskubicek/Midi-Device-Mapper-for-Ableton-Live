@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .pythonosc.udp_client import SimpleUDPClient
-from .pythonosc.osc_message_builder import ArgValue
 from .hud_client import HudClient, NullHudClient
-from .hud_protocol import SlotPayload, EMPTY_SLOT
+from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell
 import logging
 
 logger = logging.getLogger("helpers")
@@ -136,7 +134,9 @@ class Helpers:
         self._device_table = _build_device_table(parameter_mappings_raw)
         self._encoder_slot_count = encoder_slot_count
         self._button_slot_count = button_slot_count
-        self._hud_cells = hud_cells or []
+        # Generated surfaces bake hud_cells as plain tuples (see gen.py boundary);
+        # re-wrap them as LayoutCells so the rest of the runtime gets named access.
+        self._hud_cells = [LayoutCell.from_raw(c) for c in (hud_cells or [])]
         self._device_banks = device_banks if device_banks is not None else _default_device_banks()
         self._bank_names = bank_names if bank_names is not None else _default_bank_names()
         # 16-slot controllers pack two 8-param banks per page; 8-slot pack one.
@@ -1028,7 +1028,7 @@ class Remote:
     def init_layout(self, cells):
         # Remember the layout so every burst can re-emit it (restart-resilient),
         # and send it once now for the common case where the HUD is already up.
-        self._hud_cells = list(cells) if cells else []
+        self._hud_cells = [LayoutCell.from_raw(c) for c in cells] if cells else []
         if self._hud_cells:
             self._hud_client.send_layout(self._hud_cells)
 
@@ -1139,10 +1139,10 @@ class Remote:
         """Dense dial payloads keyed on wire index. real_parameters[0] is
         Device On (skipped); wire idx N corresponds to real_parameters[N+1]."""
         payloads = []
-        for cell in (hud_layout or []):
-            _gr, _gc, kind, count, start = cell[:5]
-            if kind != 'dial' or start < 0:
+        for cell in map(LayoutCell.from_raw, hud_layout or []):
+            if cell.kind != 'dial' or cell.start < 0:
                 continue
+            count, start = cell.count, cell.start
             for i in range(count):
                 wire_idx = start + i
                 rp_idx = wire_idx + 1
@@ -1162,10 +1162,10 @@ class Remote:
     def _build_button_payloads(switch_entries, device_parameters, hud_layout):
         switch_by_idx = {e.switch_idx: e for e in (switch_entries or [])}
         payloads = []
-        for cell in (hud_layout or []):
-            _gr, _gc, kind, count, start = cell[:5]
-            if kind != 'button' or start < 0:
+        for cell in map(LayoutCell.from_raw, hud_layout or []):
+            if cell.kind != 'button' or cell.start < 0:
                 continue
+            count, start = cell.count, cell.start
             for i in range(count):
                 wire_idx = start + i
                 entry = switch_by_idx.get(wire_idx)
@@ -1182,33 +1182,3 @@ class Remote:
                             pass
                 payloads.append((wire_idx, EMPTY_SLOT))
         return payloads
-
-
-class NullOSCClient:
-    def send_message(self, address: str, value: ArgValue) -> None:
-        pass
-
-
-class OSCClient:
-
-    def __init__(self, host='127.0.0.1', port=5005):
-        self.client = SimpleUDPClient(host, port)
-        self.logger = logging.getLogger("osc-client")
-
-        self.logger.info(f"OSCClient created with host {host} and port {port}")
-
-    def send_message(self, address: str, value: ArgValue) -> None:
-        try:
-            self.client.send_message(address, value)
-        except Exception as e:
-            self.logger.error(f"Error sending OSC message {address} {value} {e}")
-
-
-class OSCMultiClient:
-
-    def __init__(self, clients: list[OSCClient]):
-        self.clients = clients
-
-    def send_message(self, address: str, value: ArgValue) -> None:
-        for client in self.clients:
-            client.send_message(address, value)

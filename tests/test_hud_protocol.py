@@ -3,6 +3,8 @@ import unittest
 from source_modules.hud_protocol import (
     EMPTY_SLOT,
     SlotPayload,
+    LayoutCell,
+    SlotAddress,
     LayoutMsg,
     DeviceMsg,
     SlotMsg,
@@ -24,6 +26,50 @@ from source_modules.hud_protocol import (
     parse,
     parse_all,
 )
+
+
+class TestLayoutCell(unittest.TestCase):
+    def test_named_field_access(self):
+        cell = LayoutCell(grid_row=2, grid_col=1, kind='dial', count=8, start=0, section=1)
+        self.assertEqual(cell.grid_row, 2)
+        self.assertEqual(cell.kind, 'dial')
+        self.assertEqual(cell.count, 8)
+        self.assertEqual(cell.start, 0)
+        self.assertEqual(cell.section, 1)
+
+    def test_section_defaults_to_zero(self):
+        cell = LayoutCell(0, 0, 'button', 4, 0)
+        self.assertEqual(cell.section, 0)
+
+    def test_is_tuple_compatible(self):
+        cell = LayoutCell(0, 0, 'dial', 8, 0, 0)
+        self.assertEqual(tuple(cell), (0, 0, 'dial', 8, 0, 0))
+        self.assertEqual(cell, (0, 0, 'dial', 8, 0, 0))
+        gr, gc, kind, count, start, section = cell
+        self.assertEqual((gr, kind, start), (0, 'dial', 0))
+
+    def test_from_raw_accepts_tuple_and_cell(self):
+        raw = (1, 2, 'button', 4, 8, 1)
+        from_tuple = LayoutCell.from_raw(raw)
+        self.assertIsInstance(from_tuple, LayoutCell)
+        self.assertEqual(from_tuple, raw)
+        # idempotent for an existing cell
+        self.assertIs(LayoutCell.from_raw(from_tuple), from_tuple)
+
+    def test_encode_layout_accepts_cell_objects(self):
+        cells = [LayoutCell(0, 0, 'dial', 8, 0, 0), LayoutCell(2, 0, 'button', 4, 0, 1)]
+        self.assertEqual(encode_layout(cells), "LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1")
+
+
+class TestSlotAddress(unittest.TestCase):
+    def test_named_fields_and_tuple_compatible(self):
+        addr = SlotAddress(kind='dial', index=3)
+        self.assertEqual(addr.kind, 'dial')
+        self.assertEqual(addr.index, 3)
+        self.assertEqual(addr, ('dial', 3))
+        # equal hash → usable interchangeably as a dict key with a plain tuple
+        d = {addr: 'x'}
+        self.assertEqual(d[('dial', 3)], 'x')
 
 
 class TestEncodeBytes(unittest.TestCase):

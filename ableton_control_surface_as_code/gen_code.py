@@ -37,18 +37,6 @@ class GeneratedCode:
         return [c for c in self.control_defs if any([o.midi_coords_exists_in_control_defs(c) for o in other])]
 
 
-def one_non_empty_array_or_none(one, other):
-    if len(one) > 0 and len(other) > 0:
-        print("both arrays are non-empty, using first")
-        return one
-    elif len(one) > 0 and len(other) == 0:
-        return one
-    elif len(one) == 0 and len(other) > 0:
-        return other
-
-    return []
-
-
 class GeneratedCodes:
     @classmethod
     def merge_all(cls, codes: [GeneratedCode]) -> GeneratedCode:
@@ -70,11 +58,10 @@ class GeneratedCodes:
         if not isinstance(other, GeneratedCode):
             raise ValueError(f"Can't merge with {other}")
 
-        custom_parameter_mappings = one_non_empty_array_or_none(
-            one.custom_parameter_mappings, other.custom_parameter_mappings)
-        switch_parameter_mappings = one_non_empty_array_or_none(
-            one.switch_parameter_mappings, other.switch_parameter_mappings)
-
+        # Slot/switch parameter mappings are per-mapping data (lists of
+        # (c_idx, slot_name) tuples), not exclusive alternatives — two device
+        # mappings in the same mode each carrying `slots:` must both survive.
+        # Concatenate rather than silently dropping the second.
         return GeneratedCode(
             one.array_defs + other.array_defs,
             one.init + other.init,
@@ -82,8 +69,8 @@ class GeneratedCodes:
             one.listener_fns + other.listener_fns,
             one.setup_listeners + other.setup_listeners,
             one.remove_listeners + other.remove_listeners,
-            custom_parameter_mappings,
-            switch_parameter_mappings,
+            one.custom_parameter_mappings + other.custom_parameter_mappings,
+            one.switch_parameter_mappings + other.switch_parameter_mappings,
         )
 
 
@@ -263,8 +250,8 @@ def code_from_switch_slot_assignments(mode_button_maps, controller=None, hud_cel
         wire_idx = None
         if controller is not None and hud_cells is not None:
             resolved = find_wire_index(controller, mb.only_midi_coord, hud_cells)
-            if resolved is not None and resolved[0] == 'button':
-                wire_idx = resolved[1]
+            if resolved is not None and resolved.kind == 'button':
+                wire_idx = resolved.index
         if wire_idx is None:
             # Fallback to the legacy logical index when controller info is missing
             wire_idx = int(mb.slot.replace('switch', '')) - 1

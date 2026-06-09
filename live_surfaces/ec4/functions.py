@@ -7,9 +7,7 @@ from _Framework.ControlSurface import ControlSurface
 import Live
 import time
 
-from . import parsers
-from . import sample_categories
-from . import synth_categories
+from .extensions import parsers, sample_categories, synth_categories
 
 primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
 

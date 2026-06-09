@@ -5,7 +5,8 @@ from _Framework.InputControlElement import *
 from _Framework.EncoderElement import EncoderElement
 from _Framework.MixerComponent import MixerComponent
 from Launchpad.ConfigurableButtonElement import ConfigurableButtonElement
-from .helpers import Helpers, OSCMultiClient, OSCClient, Remote, NullOSCClient
+from .helpers import Helpers, Remote
+from .osc_client import OSCClient, OSCMultiClient, NullOSCClient
 from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
 from .clip_actions import ClipActions
@@ -44,12 +45,9 @@ class MainComponent(ControlSurfaceComponent):
         self.clip_actions = ClipActions(self.manager)
 
         self._osc_client = NullOSCClient()
-
-        if $remote_on:
-            self._osc_client = OSCMultiClient([
-                OSCClient(host='127.0.0.1'),
-                OSCClient(host='192.168.68.84', port=5005)
-            ])
+        _osc_targets = [$osc_clients]
+        if _osc_targets:
+            self._osc_client = OSCMultiClient(_osc_targets)
 
         self._hud_client = $hud_client_class($hud_client_args)
         self._feedback_sinks = [$feedback_sinks]

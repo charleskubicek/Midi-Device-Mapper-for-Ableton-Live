@@ -2,6 +2,7 @@ import unittest
 
 from ableton_control_surface_as_code.core_model import EncoderType
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
+from ableton_control_surface_as_code.gen_error import GenError, ProblemAccumulator
 from ableton_control_surface_as_code.hud_layout import allocate_global_layout, find_wire_index
 from ableton_control_surface_as_code.model_controller import ControllerV2, ControlGroupPartV2
 from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part, build_control_group
@@ -89,6 +90,44 @@ class TestBuildModeModelV2(unittest.TestCase):
         self.assertEqual(e[0].number, 114)
         self.assertEqual(e[1].number, 115)
         self.assertEqual(tps, EncoderType.button)
+
+    def _groups_with_dangling_under(self):
+        return [
+            build_control_group(midi_range='21-28', number=1),
+            ControlGroupPartV2(
+                layout='row', number=2, type='knob',
+                midi_channel=2, midi_type='CC', midi_range='31-38',
+                under=99,
+            ),
+        ]
+
+    def test_unresolvable_under_reference_raises_readable_error(self):
+        groups = self._groups_with_dangling_under()
+        with self.assertRaises(GenError) as ctx:
+            ControllerV2.build_from(build_raw_controller_v2(groups))
+        msg = str(ctx.exception)
+        self.assertIn('99', msg)   # the dangling reference
+        self.assertIn('2', msg)    # the offending row number
+
+    def test_unresolvable_reference_accumulates_when_acc_passed(self):
+        acc = ProblemAccumulator()
+        groups = self._groups_with_dangling_under()
+        ControllerV2.build_from(build_raw_controller_v2(groups), acc=acc)
+        self.assertTrue(any('99' in p for p in acc.problems),
+                        f"expected dangling-ref problem, got {acc.problems}")
+
+    def test_resolvable_grid_does_not_report_problems(self):
+        acc = ProblemAccumulator()
+        groups = [
+            build_control_group(midi_range='21-28', number=1),
+            ControlGroupPartV2(
+                layout='row', number=2, type='knob',
+                midi_channel=2, midi_type='CC', midi_range='31-38',
+                under=1,
+            ),
+        ]
+        ControllerV2.build_from(build_raw_controller_v2(groups), acc=acc)
+        self.assertEqual([], acc.problems)
 
     def test_build_midi_coords(self):
         controller = ControllerV2.build_from(build_raw_controller_v2())
