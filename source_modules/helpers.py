@@ -4,39 +4,14 @@ from typing import Any, Optional
 from .hud_client import HudClient, NullHudClient
 from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot
 from .param_resolver import (
-    ParameterResolver, RealParameter,
+    ParameterResolver, RealParameter, ParameterMapping, SwitchSlotMapping,
     M4L_CLASSES, _device_table_key, _build_device_table,
     _default_device_banks, _default_bank_names,
 )
+from .hud_presenter import HudPresenter
 import logging
 
 logger = logging.getLogger("helpers")
-
-
-@dataclass
-class ParameterMapping:
-    #(2, (5, 'Mono'), 'toggle')
-    mapped_parameter:int
-    alias:Optional[str] = None
-    button:Optional[str] = None
-
-    @classmethod
-    def from_tuple(cls, tuple):
-        return cls(tuple[0], tuple[1], tuple[2])
-
-    @classmethod
-    def on_off(cls, param=0):
-        return cls(param, "On/Off", None)
-
-    def with_real_param(self, real_param):
-        return RealParameter(real_param, self.alias, self.button)
-
-@dataclass
-class SwitchSlotMapping:
-    switch_idx: int
-    d_idx: Optional[int] = None
-    alias: str = ''
-    payload: Optional[SlotPayload] = None  # set for LOM-kind entries
 
 
 def _overlay_labels(payloads, labels, kind):
@@ -112,20 +87,43 @@ class Helpers:
             device_banks=device_banks, bank_names=bank_names,
             banks_per_page=banks_per_page, button_switch_count=button_switch_count,
             button_slot_count=config.button_slot_count, log=self.log_message)
-        # mode_hud_labels: {mode_name: {(kind, wire_idx): label}} for non-device
-        # mappings. Device cells are populated from live device state and don't
-        # appear here. _current_mode_name tracks which overlay is active.
-        self._mode_hud_labels = config.mode_hud_labels or {}
-        self._current_mode_name = None
-        # Local HUD dismiss *intent* for the hud_toggle binding. The Swift side
-        # auto-clears its sticky dismissed flag on every device/mode burst, so we
-        # mirror that by resetting this to False at each burst emit site (see
-        # update_remote_parameters / refresh_hud_for_mode). Otherwise the toggle
-        # direction would invert after any device change.
-        self._hud_dismissed = False
+        # HUD burst assembly + show/hide intent live in HudPresenter (no Live
+        # writes). Helpers passes it the focused device on each call and owns
+        # the show-hud-on suppress decision (in selected_device_changed).
+        self._presenter = HudPresenter(
+            remote=remote, resolver=self._resolver,
+            slot_assignments=self._slot_assignments,
+            switch_slot_assignments=self._switch_slot_assignments,
+            hud_cells=self._hud_cells,
+            mode_hud_labels=config.mode_hud_labels or {},
+            log=self.log_message)
         self._remote.init_layout(self._hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
+
+    # HUD dismiss intent lives on the presenter; expose it here for the tests
+    # and any caller that still reads helpers._hud_dismissed.
+    @property
+    def _hud_dismissed(self):
+        return self._presenter.hud_dismissed
+
+    @_hud_dismissed.setter
+    def _hud_dismissed(self, value):
+        self._presenter.hud_dismissed = value
+
+    @property
+    def _remote(self):
+        return self.__remote
+
+    @_remote.setter
+    def _remote(self, value):
+        # Keep the presenter's remote in sync: some tests swap helpers._remote
+        # after construction to inspect the HUD wire, and the burst path runs
+        # through the presenter. (Presenter doesn't exist yet on first set.)
+        self.__remote = value
+        presenter = getattr(self, '_presenter', None)
+        if presenter is not None:
+            presenter._remote = value
 
     def show_message(self, message):
         self._manager.show_message(message)
@@ -445,118 +443,26 @@ class Helpers:
             )
 
     def update_remote_parameters(self, suppress_hud=False):
-        device = self._last_selected_device
-        if device is None:
-            return
-        on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
-        real_params = [on_off]
-        # Append unconditionally — a None placeholder for a failed resolve
-        # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
-        # Nones here shifts every later encoder one slot left on the HUD.
-        missing_c_idxs = []
-        for c_idx, _slot in sorted(self._slot_assignments):
-            rp = self._resolve_encoder(device, c_idx)
-            real_params.append(rp)
-            if rp is None:
-                missing_c_idxs.append(c_idx)
-        if missing_c_idxs:
-            # One summary line per burst makes mis-resolved encoders trivial
-            # to spot in tail_logs.sh — individual `[bank]`/`[bob]` lines
-            # explain *why*, this line tells you *how many* and *which*.
-            self.log_message(
-                f"[burst] {getattr(device,'class_name','?')} "
-                f"enc_page={self._encoder_page} unresolved_c_idxs={missing_c_idxs}"
-            )
-        switch_entries = []
-        for wire_idx, slot in self._switch_slot_assignments:
-            # slot_name ("switch1", "switch2", …) drives JSON-table parameter
-            # resolution; wire_idx is the HUD button index assigned at codegen.
-            logical_idx = int(slot.replace('switch', '')) - 1
-            info = self._resolve_switch(device, logical_idx)
-            if info is None:
-                continue
-            kind = info.get('kind', 'param')
-            alias = info.get('alias') or ''
-            if kind == 'param':
-                switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], alias))
-            else:
-                payload = self._lom_slot_payload(info)
-                if payload is not None:
-                    switch_entries.append(SwitchSlotMapping(wire_idx, None, alias, payload))
-        info_text = f"e{self._encoder_page}/b{self._button_page}"
-        mode_labels = self._mode_hud_labels.get(self._current_mode_name)
-        enc_total = self._encoder_pages_count(device)
-        btn_total = self._button_pages_count(device)
-        enc_label = self._page_label_for(device, self._encoder_page)
-        btn_label = ''  # button pages don't use named banks
-        self._remote.device_update(
-            device.name, real_params, info_text, switch_entries, device.parameters,
-            hud_layout=self._hud_cells, mode_labels=mode_labels,
-            page=PageInfo(enc_page=self._encoder_page, enc_total=enc_total,
-                          btn_page=self._button_page, btn_total=btn_total,
-                          enc_label=enc_label, btn_label=btn_label),
-            suppress_hud=suppress_hud,
-        )
-        if not suppress_hud:
-            # A real burst clears the Swift sticky dismissed flag — re-sync intent.
-            self._hud_dismissed = False
-        else:
-            # Suppressed (controller-nav mode, non-nav selection change). The
-            # device_update above kept OSC + feedback sinks flowing but emitted
-            # no HUD burst. We must also send HIDE: otherwise the next live
-            # `send_update` (turning a knob) would wake the HUD — UPDATE is a
-            # show path while the Swift `dismissed` flag is clear — and patch the
-            # now-stale slots by index. HIDE sets the sticky flag so UPDATE/PING
-            # can't resurrect it; the next device-nav burst clears it and
-            # repaints fresh. Mirror the intent locally so hud_toggle re-syncs.
-            self._remote.hide()
-            self._hud_dismissed = True
+        # Burst assembly lives in HudPresenter; Helpers owns the focused device.
+        self._presenter.emit_burst(self._last_selected_device, suppress_hud=suppress_hud)
 
     def reemit_combined_burst(self):
-        """Compositor hook (lc_parks): the secondary region changed, so re-emit
-        a full combined burst for the current device with the parks region
-        appended. Bypasses the show-hud-on gate (always suppress_hud=False) and
-        the same-device guard in selected_device_changed — otherwise the parks
-        region would never reach the HUD under the primary's 'controller-nav'
-        trigger or when the focused device is unchanged."""
-        if self._last_selected_device is not None:
-            self.update_remote_parameters(suppress_hud=False)
+        """Compositor hook (lc_parks): re-emit a full combined burst for the
+        current device with the parks region appended. See
+        HudPresenter.reemit_combined_burst."""
+        self._presenter.reemit_combined_burst(self._last_selected_device)
 
     def refresh_hud_for_mode(self, mode_name, device):
-        """Called by the surface when goto_mode swaps bindings. Sets the
-        active overlay and re-emits a burst so the HUD reflects the new
-        labels for non-device cells. Device cells reuse the existing
-        device-path data when a device is focused."""
-        self._current_mode_name = mode_name
+        """Called by the surface when goto_mode swaps bindings. Sets the active
+        overlay and re-emits a burst so the HUD reflects the new labels."""
         if device is not None:
             self._last_selected_device = device
-        self._emit_current_burst()
-
-    def _emit_current_burst(self):
-        """Re-emit the HUD burst for the active mode + focused device. If a
-        device is focused, reuse the device path; otherwise emit a label-only
-        burst. Either way the burst clears the Swift sticky dismissed flag, so
-        intent is re-synced to False."""
-        if self._last_selected_device is not None:
-            self.update_remote_parameters()
-        else:
-            # No focused device yet — emit a label-only burst.
-            mode_labels = self._mode_hud_labels.get(self._current_mode_name) or {}
-            self._remote.device_update(
-                '', [], info_text='', switch_entries=[], device_parameters=[],
-                hud_layout=self._hud_cells, mode_labels=mode_labels,
-            )
-            self._hud_dismissed = False
+        self._presenter.refresh_for_mode(mode_name, self._last_selected_device)
 
     def toggle_hud(self):
         """Bound to a `functions: hud_toggle` button. Flips the HUD between
-        hidden and shown. Hiding sends a sticky HIDE; showing re-emits the
-        current burst (which clears the HIDE and repaints the active mode)."""
-        self._hud_dismissed = not self._hud_dismissed
-        if self._hud_dismissed:
-            self._remote.hide()
-        else:
-            self._emit_current_burst()
+        hidden and shown."""
+        self._presenter.toggle(self._last_selected_device)
 
     def value_is_max(self, value, max):
         return value == max

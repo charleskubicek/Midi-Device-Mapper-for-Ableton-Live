@@ -21,6 +21,33 @@ class RealParameter:
     button: Optional[str] = None
 
 
+@dataclass
+class ParameterMapping:
+    #(2, (5, 'Mono'), 'toggle')
+    mapped_parameter: int
+    alias: Optional[str] = None
+    button: Optional[str] = None
+
+    @classmethod
+    def from_tuple(cls, tuple):
+        return cls(tuple[0], tuple[1], tuple[2])
+
+    @classmethod
+    def on_off(cls, param=0):
+        return cls(param, "On/Off", None)
+
+    def with_real_param(self, real_param):
+        return RealParameter(real_param, self.alias, self.button)
+
+
+@dataclass
+class SwitchSlotMapping:
+    switch_idx: int
+    d_idx: Optional[int] = None
+    alias: str = ''
+    payload: Optional[SlotPayload] = None  # set for LOM-kind entries
+
+
 # Max-for-Live wrappers: every M4L plugin reports the same class_name, so
 # entries for these must be disambiguated by device.name. Non-M4L entries
 # are keyed by (class_name, None) and resolve regardless of device.name.
