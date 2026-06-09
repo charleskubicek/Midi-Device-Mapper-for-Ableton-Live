@@ -399,11 +399,6 @@ def get_python_code_error(code):
         return None
 
 
-def snake_to_camel(snake_str):
-    components = snake_str.split('_')
-    return components[0] + ''.join(x.title() for x in components[1:])
-
-
 def class_function_code_block(lines: [str]):
     if lines is None or lines == []:
         return ""
