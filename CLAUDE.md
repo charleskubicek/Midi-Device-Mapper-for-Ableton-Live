@@ -46,12 +46,15 @@ Let the user redeploy so that they can restart ableton live too.
 - If an existing feature or constraint appears to be contradictory to a new requirement, flag the issue to the user, and ask clarifying questions to resolve the ambiguity before proceeding. This includes product/UX intent, not just technical constraints: before implementing a feature, reason about who sees its output and when it fires, and flag it if the behavior would defeat the purpose it is meant to serve (e.g. dismissing the HUD at the moment the user needs to read it).
 - Always save plans to ai-coding/plans/<feature-name>-plan.md before implementing
 
-
 ## Development
 
 There is some complex interactions here. Follow a TTD loop, failing tests first, then implementing the feature, then adding integration tests for cross-cutting concerns.
 
+## Comitting
+
+You must run ./build.sh before committing and tell me how the quality has changed.
 NEVER commit if any test is failing, even if the failure is in an unrelated area.
+you MUST mention the current plan you're working on in the commit message
 
 ## Deployment
 
