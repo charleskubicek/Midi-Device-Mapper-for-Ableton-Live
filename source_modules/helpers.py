@@ -3,16 +3,15 @@ from typing import Any, Optional
 
 from .hud_client import HudClient, NullHudClient
 from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot
+from .param_resolver import (
+    ParameterResolver, RealParameter,
+    M4L_CLASSES, _device_table_key, _build_device_table,
+    _default_device_banks, _default_bank_names,
+)
 import logging
 
 logger = logging.getLogger("helpers")
 
-
-@dataclass
-class RealParameter:
-    param:Any
-    alias:Optional[str] = None
-    button:Optional[str] = None
 
 @dataclass
 class ParameterMapping:
@@ -57,65 +56,6 @@ def _overlay_labels(payloads, labels, kind):
     return out
 
 
-# Max-for-Live wrappers: every M4L plugin reports the same class_name, so
-# entries for these must be disambiguated by device.name. Non-M4L entries
-# are keyed by (class_name, None) and resolve regardless of device.name.
-M4L_CLASSES = ('MxDeviceMidiEffect', 'MxDeviceAudioEffect', 'MxDeviceInstrument')
-
-# Racks share a className across all instances, so BOB entries targeting a
-# specific Rack must be disambiguated by device.name (same scheme as M4L).
-# Standard Macro banks still resolve by className alone — see _standard_banks.
-RACK_CLASSES = ('AudioEffectGroupDevice', 'InstrumentGroupDevice',
-                'MidiEffectGroupDevice', 'DrumGroupDevice')
-
-NAME_DISAMBIGUATED_CLASSES = M4L_CLASSES + RACK_CLASSES
-
-
-def _build_device_table(raw):
-    table = {}
-    if not raw:
-        return table
-    for d in raw.get('devices', []):
-        cn = d['className']
-        key = (cn, d.get('deviceName')) if cn in NAME_DISAMBIGUATED_CLASSES else (cn, None)
-        table[key] = {
-            'encoders': d.get('encoders', []) or [],
-            'buttons': d.get('buttons', []) or [],
-        }
-    return table
-
-
-def _device_table_key(device):
-    cn = getattr(device, 'class_name', None)
-    if cn in NAME_DISAMBIGUATED_CLASSES:
-        return (cn, getattr(device, 'name', None))
-    return (cn, None)
-
-
-def _load_bundled_banks():
-    # In the generated surface, live_device_banks.py is shipped next to
-    # helpers.py (gen.py copies it). When running from the repo root for tests
-    # it lives at data/live_device_banks.py.
-    try:
-        from .live_device_banks import DEVICE_BANKS, BANK_NAMES
-        return DEVICE_BANKS, BANK_NAMES
-    except ImportError:
-        pass
-    try:
-        from data.live_device_banks import DEVICE_BANKS, BANK_NAMES
-        return DEVICE_BANKS, BANK_NAMES
-    except ImportError:
-        return {}, {}
-
-
-def _default_device_banks():
-    return _load_bundled_banks()[0]
-
-
-def _default_bank_names():
-    return _load_bundled_banks()[1]
-
-
 @dataclass
 class SurfaceConfig:
     """Static per-surface configuration baked at codegen time. Groups the
@@ -148,16 +88,30 @@ class Helpers:
         self._hud_trigger = config.hud_trigger
         self._slot_assignments = list(config.slot_assignments or [])
         self._switch_slot_assignments = list(config.switch_slot_assignments or [])
-        self._device_table = _build_device_table(config.parameter_mappings_raw)
         self._encoder_slot_count = config.encoder_slot_count
         self._button_slot_count = config.button_slot_count
         # Generated surfaces bake hud_cells as plain tuples (see gen.py boundary);
         # re-wrap them as LayoutCells so the rest of the runtime gets named access.
         self._hud_cells = [LayoutCell.from_raw(c) for c in (config.hud_cells or [])]
-        self._device_banks = config.device_banks if config.device_banks is not None else _default_device_banks()
-        self._bank_names = config.bank_names if config.bank_names is not None else _default_bank_names()
+        device_banks = config.device_banks if config.device_banks is not None else _default_device_banks()
+        bank_names = config.bank_names if config.bank_names is not None else _default_bank_names()
         # 16-slot controllers pack two 8-param banks per page; 8-slot pack one.
-        self._banks_per_page = 2 if config.encoder_slot_count >= 16 else 1
+        banks_per_page = 2 if config.encoder_slot_count >= 16 else 1
+        # Number of distinct physical button switches: max switch number from assignments.
+        # Used as the per-page stride when paging BOB buttons for known devices.
+        button_switch_count = (
+            max((int(slot.replace('switch', ''))
+                 for _, slot in self._switch_slot_assignments), default=0)
+            if self._switch_slot_assignments else 0
+        )
+        # Pure parameter-resolution + paging math lives in ParameterResolver
+        # (no Live coupling). Helpers delegates to it (pass-throughs below); the
+        # Live-coupled writes/listeners/messages stay here.
+        self._resolver = ParameterResolver(
+            device_table=_build_device_table(config.parameter_mappings_raw),
+            device_banks=device_banks, bank_names=bank_names,
+            banks_per_page=banks_per_page, button_switch_count=button_switch_count,
+            button_slot_count=config.button_slot_count, log=self.log_message)
         # mode_hud_labels: {mode_name: {(kind, wire_idx): label}} for non-device
         # mappings. Device cells are populated from live device state and don't
         # appear here. _current_mode_name tracks which overlay is active.
@@ -170,19 +124,8 @@ class Helpers:
         # direction would invert after any device change.
         self._hud_dismissed = False
         self._remote.init_layout(self._hud_cells)
-        self._encoder_page = 1
-        self._button_page = 1
         self._last_selected_device = None
-        self._name_index = None  # {original_name: (idx, param)}, rebuilt on device focus change
-        self._display_name_index = None  # {name: (idx, param)}, bank fallback only
         self._group_selector_listeners = []  # [(param, callback)] for teardown
-        # Number of distinct physical button switches: max switch number from assignments.
-        # Used as the per-page stride when paging BOB buttons for known devices.
-        self._button_switch_count = (
-            max((int(slot.replace('switch', ''))
-                 for _, slot in self._switch_slot_assignments), default=0)
-            if self._switch_slot_assignments else 0
-        )
 
     def show_message(self, message):
         self._manager.show_message(message)
@@ -190,311 +133,61 @@ class Helpers:
     def log_message(self, message):
         self._manager.log_message(message)
 
+    # ---- ParameterResolver pass-throughs --------------------------------
+    # Resolution + paging math moved to ParameterResolver (R9). These thin
+    # delegators preserve the names the generated surfaces, the facade, and the
+    # existing tests already call; new code can hit self._resolver directly.
+
+    @property
+    def _encoder_page(self):
+        return self._resolver.encoder_page
+
+    @_encoder_page.setter
+    def _encoder_page(self, value):
+        self._resolver.encoder_page = value
+
+    @property
+    def _button_page(self):
+        return self._resolver.button_page
+
+    @_button_page.setter
+    def _button_page(self, value):
+        self._resolver.button_page = value
+
     def has_user_defined_parameters(self, device):
-        return device is not None and _device_table_key(device) in self._device_table
-
-    def _device_entry(self, device):
-        if device is None:
-            return None
-        return self._device_table.get(_device_table_key(device))
-
-    def _ensure_name_index(self, device):
-        """Builds a strict `original_name` index used by BOB and switch
-        resolvers — keeps user-renamed Rack macros from hijacking lookups.
-        Also builds a secondary `name` (display-name) index, consulted only
-        by the standard-bank resolver via `_resolve_bank_param`."""
-        if self._name_index is None and device is not None:
-            self._name_index = {
-                getattr(p, 'original_name', getattr(p, 'name', '')): (i, p)
-                for i, p in enumerate(device.parameters)
-            }
-            self._display_name_index = {
-                getattr(p, 'name', ''): (i, p)
-                for i, p in enumerate(device.parameters)
-                if getattr(p, 'name', '')
-            }
+        return self._resolver.has_user_defined_parameters(device)
 
     def _resolve_param_by_name(self, device, name):
-        """Single name → Parameter lookup. Uses `original_name` (Live's stable
-        identifier); `Parameter.name` reflects user renames and must not be
-        used. Returns None on miss — caller is responsible for the empty-slot
-        behavior."""
-        if device is None or not name:
-            return None
-        self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        return entry[1] if entry is not None else None
-
-    def _resolve_bank_param(self, device, name):
-        """Standard-bank lookup: prefers `original_name` like the strict
-        resolver, but falls back to `Parameter.name` because the scrape in
-        `data/live_device_banks.py` was generated from Live's display-name
-        table (`_Generic/Devices.py`). For most built-in params the two
-        match; for a handful (e.g. Reverb's filter cluster) they don't, and
-        the strict-only lookup blanks them on the HUD."""
-        if device is None or not name:
-            return None
-        self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        if entry is not None:
-            return entry[1]
-        entry = (self._display_name_index or {}).get(name)
-        return entry[1] if entry is not None else None
-
-    def _resolve_param_d_idx(self, device, name):
-        """Return device.parameters index for the named param, or None."""
-        if device is None or not name:
-            return None
-        self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        return entry[0] if entry is not None else None
-
-    def _bob_encoders(self, device):
-        entry = self._device_entry(device)
-        return entry.get('encoders', []) if entry else []
-
-    def _bob_buttons(self, device):
-        entry = self._device_entry(device)
-        return entry.get('buttons', []) if entry else []
+        return self._resolver._resolve_param_by_name(device, name)
 
     def _standard_banks(self, device):
-        # Standard banks are keyed by class_name only and only apply to
-        # built-in devices; M4L plugins (one shared class) never get banks.
-        cn = getattr(device, 'class_name', None)
-        if cn in M4L_CLASSES:
-            return ()
-        return self._device_banks.get(cn, ())
-
-    def _fallback_continuous(self, device):
-        """Unknown-class identity fallback list: skip on/off and quantized,
-        keyed by original_name."""
-        if device is None:
-            return []
-        return [p for i, p in enumerate(device.parameters)
-                if i > 0 and not getattr(p, 'is_quantized', False)]
-
-    def _fallback_quantized(self, device):
-        if device is None:
-            return []
-        return [(i, p) for i, p in enumerate(device.parameters)
-                if i > 0 and getattr(p, 'is_quantized', False)]
-
-    def _has_bob(self, device):
-        return self._device_entry(device) is not None
-
-    def _has_bob_encoders(self, device):
-        """BOB takes encoder page 1 only if it actually defines encoders.
-        A buttons-only BOB (e.g. a Rack with `min_max` switches) must not
-        push standard Macro banks off page 1."""
-        return bool(self._bob_encoders(device))
-
-    def _first_standard_page(self, device):
-        """Page index where standard banks start. 2 if BOB has encoders
-        (encoder page 1 is BOB); 1 otherwise so banks lead."""
-        return 2 if self._has_bob_encoders(device) else 1
-
-    def _standard_bank_name_for(self, device, page, slot_in_page):
-        """Page is 1-based. Standard banks are paired self._banks_per_page
-        at a time, starting at _first_standard_page(device)."""
-        banks = self._standard_banks(device)
-        first_std = self._first_standard_page(device)
-        if not banks or page < first_std:
-            return None
-        per_page = self._banks_per_page
-        first_bank_idx = (page - first_std) * per_page
-        which = slot_in_page // 8
-        within = slot_in_page % 8
-        if which >= per_page:
-            return None
-        bank_idx = first_bank_idx + which
-        if bank_idx >= len(banks):
-            return None
-        bank = banks[bank_idx]
-        if within >= len(bank):
-            return None
-        return bank[within]
+        return self._resolver._standard_banks(device)
 
     def _encoder_pages_count(self, device):
-        if device is None:
-            return 1
-        bob_pages = 1 if self._has_bob_encoders(device) else 0
-        banks = self._standard_banks(device)
-        if banks:
-            std_pages = (len(banks) + self._banks_per_page - 1) // self._banks_per_page
-            return max(1, bob_pages + std_pages)
-        if bob_pages:
-            return 1
-        # Unknown class fallback — chunk continuous params by 8s then pair.
-        params_per_page = 8 * self._banks_per_page
-        n = len(self._fallback_continuous(device))
-        return max(1, (n + params_per_page - 1) // params_per_page)
+        return self._resolver._encoder_pages_count(device)
 
     def _button_pages_count(self, device):
-        if device is None:
-            return 1
-        if self._has_bob(device):
-            stride = self._button_switch_count or self._button_slot_count
-            n = len(self._bob_buttons(device))
-            return max(1, (n + stride - 1) // stride)
-        n = len(self._fallback_quantized(device))
-        return max(1, (n + self._button_slot_count - 1) // self._button_slot_count)
+        return self._resolver._button_pages_count(device)
 
     def _page_label_for(self, device, page):
-        if device is None:
-            return ''
-        class_name = getattr(device, 'class_name', None)
-        if page == 1 and self._has_bob_encoders(device):
-            return 'Best of'
-        names = self._bank_names.get(class_name)
-        banks = self._standard_banks(device)
-        first_std = self._first_standard_page(device)
-        if not names or not banks or page < first_std:
-            return ''
-        per_page = self._banks_per_page
-        first = (page - first_std) * per_page
-        labels = []
-        for offset in range(per_page):
-            idx = first + offset
-            if idx < len(names):
-                labels.append(names[idx])
-        return ' / '.join(labels)
+        return self._resolver._page_label_for(device, page)
 
     def _resolve_encoder(self, device, c_idx):
-        if device is None:
-            return None
-        page = self._encoder_page
-        slot_in_page = c_idx - 1
-        class_name = getattr(device, 'class_name', None)
-        known = self._has_bob(device) or bool(self._standard_banks(device))
-
-        if page == 1 and self._has_bob_encoders(device):
-            encoders = self._bob_encoders(device)
-            if slot_in_page < len(encoders):
-                e = encoders[slot_in_page]
-                if 'controlledBy' in e and 'group' in e:
-                    e = self._resolve_group_member(device, e)
-                    if e is None:
-                        return None
-                name = e.get('name')
-                p = self._resolve_param_by_name(device, name)
-                if p is None:
-                    available = list((self._name_index or {}).keys())[:30]
-                    self.log_message(
-                        f"[bob] '{name}' not found in {getattr(device,'class_name','?')} "
-                        f"({getattr(device,'name','?')}) original_names. "
-                        f"Available (first 30): {available}"
-                    )
-                    return None
-                return RealParameter(p, e.get('display') or name, e.get('button'))
-            return None
-
-        if page >= self._first_standard_page(device) and self._standard_banks(device):
-            name = self._standard_bank_name_for(device, page, slot_in_page)
-            if name is None:
-                return None
-            p = self._resolve_bank_param(device, name)
-            if p is None:
-                available = list((self._name_index or {}).keys())[:30]
-                self.log_message(
-                    f"[bank] '{name}' (slot {slot_in_page}, page {page}) not found in "
-                    f"{getattr(device,'class_name','?')} original_names. "
-                    f"Available (first 30): {available}"
-                )
-                return None
-            return RealParameter(p, None, None)
-
-        if known:
-            # Known class but no banks (only BOB), and we've already handled
-            # page 1 above. Higher pages render empty.
-            return None
-
-        # Unknown class — chunked identity fallback over continuous params,
-        # paired onto pages when slot_count >= 16.
-        params = self._fallback_continuous(device)
-        offset = (page - 1) * 8 * self._banks_per_page + slot_in_page
-        if offset >= len(params):
-            return None
-        return RealParameter(params[offset], None, None)
-
-    def _resolve_group_member(self, device, entry):
-        selector_name = entry['controlledBy']
-        selector = self._resolve_param_by_name(device, selector_name)
-        if selector is None:
-            return None
-        try:
-            sel_value = int(round(selector.value))
-        except (TypeError, ValueError):
-            return None
-        for member in entry['group']:
-            if sel_value in member.get('activeWhen', []):
-                return member
-        return None
+        return self._resolver._resolve_encoder(device, c_idx)
 
     def _resolve_switch(self, device, switch_idx):
-        if device is None:
-            return None
-        class_name = getattr(device, 'class_name', None)
-        if self._has_bob(device):
-            buttons = self._bob_buttons(device)
-            stride = self._button_switch_count or self._button_slot_count
-            actual_idx = (self._button_page - 1) * stride + switch_idx
-            if actual_idx >= len(buttons):
-                return None
-            b = buttons[actual_idx]
-            btype = b.get('type', 'param')
-            if btype == 'enum':
-                prop = b['lom_property']
-                return {'kind': 'enum', 'device': device, 'prop': prop,
-                        'alias': b.get('display') or prop}
-            if btype == 'bool':
-                prop = b['lom_property']
-                return {'kind': 'bool', 'device': device, 'prop': prop,
-                        'alias': b.get('display') or prop}
-            if btype == 'function':
-                fn = b['lom_function']
-                return {'kind': 'function', 'device': device, 'fn': fn,
-                        'alias': b.get('display') or fn}
-            name = b.get('name')
-            p = self._resolve_param_by_name(device, name)
-            if p is None:
-                available = list((self._name_index or {}).keys())[:20]
-                self.log_message(
-                    f"[switch] '{name}' not found in {class_name} params. "
-                    f"Available (first 20): {available}"
-                )
-                return None
-            has_range = b.get('min') is not None and b.get('max') is not None
-            return {
-                'kind': 'param',
-                'param': p,
-                'alias': b.get('display') or name,
-                'd_idx': self._resolve_param_d_idx(device, name),
-                'has_range': has_range,
-                'min': int(b['min']) if has_range else None,
-                'max': int(b['max']) if has_range else None,
-                'min_max': bool(b.get('min_max')),
-            }
-        # Unknown-class fallback: existing quantized chunking.
-        idx = (self._button_page - 1) * self._button_slot_count + switch_idx
-        quantized = self._fallback_quantized(device)
-        if idx >= len(quantized):
-            return None
-        d_idx, p = quantized[idx]
-        return {
-            'kind': 'param',
-            'param': p, 'alias': getattr(p, 'name', ''), 'd_idx': d_idx,
-            'has_range': True, 'min': int(p.min), 'max': int(p.max),
-        }
+        return self._resolver._resolve_switch(device, switch_idx)
+
+    def _lom_slot_payload(self, info):
+        return self._resolver._lom_slot_payload(info)
 
     def selected_device_changed(self, device, source='selection'):
         if device is None or device == self._last_selected_device:
             return
         self._teardown_group_selector_listeners()
         self._last_selected_device = device
-        self._name_index = None
-        self._display_name_index = None
-        self._encoder_page = 1
-        self._button_page = 1
+        # Reset the resolver's per-device state: name indices + paging back to 1.
+        self._resolver.focus()
         self._attach_group_selector_listeners(device)
         self._log_device_focus(device)
         # show-hud-on gating: in 'controller-nav' mode only an explicit nav
@@ -515,7 +208,7 @@ class Helpers:
         cn = getattr(device, 'class_name', '?')
         dn = getattr(device, 'name', '?')
         key = _device_table_key(device)
-        bob = self._device_entry(device) is not None
+        bob = self._resolver._device_entry(device) is not None
         banks = self._standard_banks(device)
         bank_count = len(banks) if banks else 0
         nparams = len(getattr(device, 'parameters', []) or [])
@@ -524,7 +217,7 @@ class Helpers:
         if is_m4l and not bob:
             # List the M4L deviceNames present in the JSON for the same class
             # so a missing entry is obvious from the log alone.
-            siblings = [k[1] for k in self._device_table.keys() if k[0] == cn]
+            siblings = [k[1] for k in self._resolver.device_table.keys() if k[0] == cn]
             m4l_note = f" m4l_no_match available_deviceNames={siblings}"
         self.log_message(
             f"[focus] class={cn!r} name={dn!r} params={nparams} "
@@ -533,15 +226,7 @@ class Helpers:
         )
 
     def _attach_group_selector_listeners(self, device):
-        entry = self._device_entry(device)
-        if not entry:
-            return
-        seen = set()
-        for e in entry['encoders']:
-            name = e.get('controlledBy') if isinstance(e, dict) else None
-            if not name or name in seen:
-                continue
-            seen.add(name)
+        for name in self._resolver.group_selector_names(device):
             selector = self._resolve_param_by_name(device, name)
             if selector is None or not hasattr(selector, 'add_value_listener'):
                 continue
@@ -637,74 +322,14 @@ class Helpers:
             mode = "pulse"
         self.log_message(f"[switch] applied mode={mode} before={before} after={p.value}")
 
-    def _enum_members(self, current_value, device=None, prop=None):
-        """Return ordered list of enum members for an LOM enum property.
-
-        Three discovery paths, tried in order:
-          1. `type(current_value).values` (Boost.Python enum returned as its
-             own type, e.g. Device.DeviceType.instrument).
-          2. `iter(type(current_value))` (stdlib Enum etc).
-          3. Live module lookup: many Live properties (Simpler.playback_mode,
-             etc.) return a plain `int`, while the enum class lives at
-             `Live.<DeviceModule>.<CamelCaseProperty>`. We resolve that class
-             and use its `.values` dict, returning the integer members so they
-             can be assigned back via `setattr(device, prop, int_value)`.
-        Returns None if every path fails."""
-        cls = type(current_value)
-        values = getattr(cls, 'values', None)
-        if isinstance(values, dict) and values:
-            try:
-                return sorted(values.values(), key=lambda m: int(m))
-            except (TypeError, ValueError):
-                return list(values.values())
-        try:
-            members = list(cls)
-            if members:
-                return members
-        except TypeError:
-            pass
-
-        if device is not None and prop is not None:
-            resolved = self._resolve_live_enum_class(device, prop)
-            if resolved is not None:
-                vals = getattr(resolved, 'values', None)
-                if isinstance(vals, dict) and vals:
-                    try:
-                        return sorted(vals.values(), key=lambda m: int(m))
-                    except (TypeError, ValueError):
-                        return list(vals.values())
-                try:
-                    members = list(resolved)
-                    if members:
-                        return members
-                except TypeError:
-                    pass
-        return None
-
-    @staticmethod
-    def _resolve_live_enum_class(device, prop):
-        """Look up `Live.<device_module>.<CamelCaseProp>` — the convention
-        Live uses for enum classes belonging to a device. Returns the class
-        or None."""
-        try:
-            import Live
-        except ImportError:
-            return None
-        module_name = type(device).__module__
-        cls_name = ''.join(part.capitalize() for part in prop.split('_'))
-        module = getattr(Live, module_name, None)
-        if module is None:
-            return None
-        return getattr(module, cls_name, None)
-
     def _cycle_enum_property(self, device, prop):
         try:
             current = getattr(device, prop)
-            members = self._enum_members(current, device, prop)
+            members = self._resolver._enum_members(current, device, prop)
             if not members:
                 self.log_message(f"[enum] no members discovered for {prop} on {device.class_name}")
                 return
-            idx = self._enum_index_of(members, current)
+            idx = self._resolver._enum_index_of(members, current)
             nxt = members[(idx + 1) % len(members)]
             try:
                 setattr(device, prop, nxt)
@@ -717,27 +342,6 @@ class Helpers:
         except Exception as ex:
             self.log_message(f"[enum] failed to cycle {prop} on {getattr(device,'class_name','?')}: {ex}")
 
-    @staticmethod
-    def _enum_index_of(members, current):
-        """Find current's position in `members`. Tries equality first, then
-        falls back to comparing int casts (covers the case where the property
-        returns a plain int but members are enum objects)."""
-        try:
-            return members.index(current)
-        except ValueError:
-            pass
-        try:
-            cur_int = int(current)
-            for i, m in enumerate(members):
-                try:
-                    if int(m) == cur_int:
-                        return i
-                except (TypeError, ValueError):
-                    continue
-        except (TypeError, ValueError):
-            pass
-        return -1
-
     def _toggle_bool_property(self, device, prop):
         try:
             current = getattr(device, prop)
@@ -745,30 +349,6 @@ class Helpers:
             self.log_message(f"[bool] {device.class_name}.{prop}: {current} -> {not current}")
         except Exception as ex:
             self.log_message(f"[bool] failed to toggle {prop} on {getattr(device,'class_name','?')}: {ex}")
-
-    def _lom_slot_payload(self, info):
-        kind = info['kind']
-        alias = info.get('alias') or ''
-        device = info['device']
-        try:
-            if kind == 'enum':
-                current = getattr(device, info['prop'])
-                members = self._enum_members(current, device, info['prop']) or []
-                idx = self._enum_index_of(members, current) if members else 0
-                if idx < 0:
-                    idx = 0
-                vmax = max(0, len(members) - 1)
-                current_label = members[idx] if members else current
-                label = f"{alias}: {current_label}" if alias else str(current_label)
-                return SlotPayload(label, float(idx), 0.0, float(vmax) if vmax > 0 else 1.0)
-            if kind == 'bool':
-                current = bool(getattr(device, info['prop']))
-                return SlotPayload(alias, 1.0 if current else 0.0, 0.0, 1.0)
-            if kind == 'function':
-                return SlotPayload(alias, 0.0, 0.0, 1.0)
-        except Exception as ex:
-            self.log_message(f"[lom-hud] failed to build payload for {info}: {ex}")
-        return None
 
     def _call_device_function(self, device, fn_name):
         try:
