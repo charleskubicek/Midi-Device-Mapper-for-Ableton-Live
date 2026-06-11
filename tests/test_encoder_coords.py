@@ -1,6 +1,6 @@
 import unittest
 from ableton_control_surface_as_code.core_model import parse_coords, parse_multiple_coords
-from ableton_control_surface_as_code.encoder_coords import EncoderCoords, Toggle
+from ableton_control_surface_as_code.encoder_coords import EncoderCoords, Toggle, Momentary, EncoderRefinements
 from ableton_control_surface_as_code.gen_error import ErrorCode
 from tests.custom_assertions import CustomAssertions
 
@@ -40,6 +40,24 @@ class TestEncoderCoords(unittest.TestCase):
         expected = EncoderCoords(row=3, range_=(4, 4), encoder_refs=[Toggle.instance()])
 
         self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_momentary(self):
+        input = "row-3:4 momentary"
+        expected = EncoderCoords(row=3, range_=(4, 4), encoder_refs=[Momentary.instance()])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_has_momentary_true_has_toggle_false(self):
+        coords = parse_coords("row-3:4 momentary")
+        refs = EncoderRefinements(coords.encoder_refs)
+        self.assertTrue(refs.has_momentary())
+        self.assertFalse(refs.has_toggle())
+
+    def test_has_toggle_true_has_momentary_false(self):
+        coords = parse_coords("row-3:4 toggle")
+        refs = EncoderRefinements(coords.encoder_refs)
+        self.assertTrue(refs.has_toggle())
+        self.assertFalse(refs.has_momentary())
 
 
 class TestEncoderCoordErrors(unittest.TestCase, CustomAssertions):

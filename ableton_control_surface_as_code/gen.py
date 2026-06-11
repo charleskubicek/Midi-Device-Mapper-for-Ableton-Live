@@ -18,6 +18,7 @@ from ableton_control_surface_as_code.model_v2 import read_controller, \
     build_validated_model
 from ableton_control_surface_as_code.gen_error import GenError
 from ableton_control_surface_as_code.core_model import EncoderType
+from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
 from ableton_control_surface_as_code.hud_layout import (
     allocate_global_layout, collect_mode_labels, combine_layouts,
 )
@@ -219,6 +220,28 @@ template_to_code = {
     'clip': clip_templates,
 }
 
+def warn_deprecated_toggle(mode_with_midi: ModeGroupWithMidi, mapping_source: str = "") -> None:
+    """`toggle` is now the default (buttons act once on press), so any surviving
+    `toggle` keyword is redundant. Emit a one-line stderr deprecation warning per
+    affected mode so configs can be cleaned up. `momentary` (which wins on
+    conflict) is the keyword that actually changes behaviour now."""
+    seen = set()
+    for mode_name, withMidis in mode_with_midi.mappings:
+        for withMidi in withMidis:
+            for midi_map in withMidi.midi_maps:
+                for mc in midi_map.midi_coords:
+                    if EncoderRefinements(mc.encoder_refs).has_toggle():
+                        key = (mode_name, mc.source_info)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        src = f"{mapping_source}: " if mapping_source else ""
+                        print(
+                            f"WARNING: 'toggle' is now the default and can be removed "
+                            f"({src}mode '{mode_name}', {mc.source_info})",
+                            file=sys.stderr)
+
+
 def build_mode_code(mode_mappings, name, controller=None, hud_cells=None) -> list[GeneratedCode]:
     res = []
     for mapping in mode_mappings:
@@ -346,6 +369,8 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
         mapping_file_path.parent,
         resolve_controller=_resolve_controller,
         mapping_source=mapping_file_path.name)
+
+    warn_deprecated_toggle(mode_with_midi, mapping_file_path.name)
 
     parameter_mappings_raw = None
     if mappings.parameter_mappings_file is not None:

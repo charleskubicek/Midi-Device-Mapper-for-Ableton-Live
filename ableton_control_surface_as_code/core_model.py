@@ -280,8 +280,8 @@ class ButtonProviderBaseModel(ABC, BaseModel):
 
 _COORD_HELP = (
     "Expected a coordinate like 'row-1:3', a range like 'row-1:1-8', or 'col-2:3', "
-    "optionally followed by a refinement (toggle, mode-2, map_mode_absolute). "
-    "Example: 'row-1:1-8 toggle'."
+    "optionally followed by a refinement (momentary, toggle, mode-2, map_mode_absolute). "
+    "Example: 'row-1:3 momentary'."
 )
 
 

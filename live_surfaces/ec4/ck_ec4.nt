@@ -35,7 +35,7 @@ modes:
                         -
                             range: row-4:1-4
                             slots: 13-16
-                    on-off: row-5:4 toggle
+                    on-off: row-5:4
             -
                 type: mixer
                 track: selected
@@ -76,8 +76,8 @@ modes:
             -
                 type: functions
                 mappings:
-                    record_midi_from_track_to_new_track: row-5:2 toggle
-                    create_audio_track_taking_input_from_selected_track: row-5:3 toggle
+                    record_midi_from_track_to_new_track: row-5:2
+                    create_audio_track_taking_input_from_selected_track: row-5:3
                     selected_audio_to_simpler_in_new_track: row-5:4
 #                    sequencer_random_notes: row-3:5
 #                    sequencer_random_velocity: row-3:6

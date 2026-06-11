@@ -102,7 +102,8 @@ grammar in `encoder_coords.py`. The shapes:
 | `row-1:3`             | Row 1, column 3 (single control). |
 | `row-1:1-8`           | Row 1, columns 1 through 8 (range). |
 | `row-1:5-7,row-2:5-7` | Multiple ranges concatenated. |
-| `row-3:4 toggle`      | Refinement: button acts as a toggle rather than momentary. |
+| `row-3:4 momentary`   | Refinement: button acts on *both* edges — on-while-held for a device param, fire-on-press-and-release for a function. Buttons act once on press by default, so this is the opt-in for hold behavior. |
+| `row-3:4 toggle`      | **Deprecated** — `toggle` is now the default (act once on press) and emits a removal warning at generation time. |
 | `row-3:2 mode`        | Refinement: button acts as a mode trigger. |
 | `row-1:1 map_mode_absolute` | Refinement: encoder uses absolute MIDI value mapping. |
 
@@ -123,7 +124,7 @@ Each entry under a mode's `mappings:` (or top-level modeless `mappings:`) has a
       encoder-list:
           - { range: row-1:1-8, slots: 1-8 }
           - { range: row-2:1-8, slots: 9-16 }
-      on-off: row-3:4 toggle
+      on-off: row-3:4
 ```
 
 - `track` / `device`: which device to bind. `selected` follows the focused
@@ -161,15 +162,16 @@ Each entry under a mode's `mappings:` (or top-level modeless `mappings:`) has a
       back8: row-3:6
       update_colors: row-3:7
       press_rack_random_button: row-3:8
-      record_midi_from_track_to_new_track: row-3:2 toggle
+      record_midi_from_track_to_new_track: row-3:2
       clip_extend: row-5:2
       clip_delete_end: row-5:1
 ```
 
 The function names must match methods exposed by a `Functions` class in a
 `functions.py` file sitting next to the mapping file. The generator copies that
-file into the generated surface. `toggle` makes a button latch instead of fire
-on press.
+file into the generated surface. Function buttons fire once on press by default;
+add `momentary` to fire on both press and release. (`toggle` is deprecated — it
+is now the default and can be removed.)
 
 **Reserved built-in: `hud_toggle`.** One name is intercepted and does *not* need an
 entry in `functions.py`:

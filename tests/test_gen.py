@@ -9,7 +9,7 @@ from autopep8 import fix_code
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars, create_code_model
 from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
 from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeType, ModeButtonWithMidi
-from tests.builders import build_mixer_with_midi, build_midi_device_mapping, midi_coords_ch2_cc_50_knob
+from tests.builders import build_mixer_with_midi, build_midi_device_mapping, midi_coords_ch2_cc_50_knob, build_functions_with_midi
 from tests.custom_assertions import CustomAssertions
 
 differ = Differ()
@@ -29,6 +29,36 @@ class TestGen(unittest.TestCase, CustomAssertions):
 
         res = generate_code_as_template_vars(m)
         self.assertGreater(len(res['code_creation']), 1)
+
+    def test_deprecated_toggle_emits_stderr_warning(self):
+        import io
+        from contextlib import redirect_stderr
+        from ableton_control_surface_as_code.gen import warn_deprecated_toggle
+        from ableton_control_surface_as_code.encoder_coords import Toggle
+
+        toggle_coord = midi_coords_ch2_cc_50_knob().with_encoder_refs([Toggle.instance()])
+        fn = build_functions_with_midi()
+        fn.midi_maps[0].midi_coords = [toggle_coord]
+        m = ModeGroupWithMidi(mappings=[("mode_1", [fn])], mode_button=None)
+
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            warn_deprecated_toggle(m, "some_file.nt")
+        out = buf.getvalue()
+        self.assertIn("toggle", out)
+        self.assertIn("can be removed", out)
+        self.assertIn("some_file.nt", out)
+
+    def test_no_toggle_emits_no_warning(self):
+        import io
+        from contextlib import redirect_stderr
+        from ableton_control_surface_as_code.gen import warn_deprecated_toggle
+
+        m = ModeGroupWithMidi(mappings=[("mode_1", [build_functions_with_midi()])], mode_button=None)
+        buf = io.StringIO()
+        with redirect_stderr(buf):
+            warn_deprecated_toggle(m, "some_file.nt")
+        self.assertEqual(buf.getvalue(), "")
 
     def test_generate_lister_fn(self):
         n = 1

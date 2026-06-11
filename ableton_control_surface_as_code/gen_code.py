@@ -172,7 +172,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
                 device_with_midi.track.name.value,
                 device_with_midi.device,
                 enc_listener_name,
-                enc_refs.has_toggle(),
+                mm.only_midi_coord.encoder_type.is_button() and not enc_refs.has_momentary(),
                 mm.info_string())
         ))
 
@@ -215,7 +215,11 @@ def ${fn_name}(self, value):
         self.log_message(f"device not found: ${track} - ${device}")
         return
     self._hud_client.send_ping()
-    self._helpers.switch_slot_action(device, "${slot}", value, "${fn_name}")
+    # Switch slots act once on press. A cycle/pulse has no hold semantic, so
+    # without this guard a bool slot toggles twice per press (net nothing) and
+    # a min_max slot sticks at max. `momentary` is intentionally ignored here.
+    if self._helpers.value_is_max(value, 127):
+        self._helpers.switch_slot_action(device, "${slot}", value, "${fn_name}")
     """).substitute(fn_name=fn_name, track=track, device=device, slot=slot)
 
 
@@ -265,10 +269,12 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
     button_listener_name = midi_map.controller_listener_fn_name(mode_name)
     enc_refs = EncoderRefinements(midi_map.only_midi_coord.encoder_refs)
 
-    # Built-in actions (e.g. hud_toggle) must fire on press only — without the
-    # max-value guard the callee fires on both press (127) and release (0),
-    # flipping a toggle twice per press and netting no change.
-    press_only = enc_refs.has_toggle() or getattr(midi_map, 'builtin', False)
+    # Buttons act once on press by default: without the max-value guard the
+    # callee fires on both press (127) and release (0), running the action
+    # twice per press ("two operations at once"). `momentary` opts back into
+    # fire-on-both-edges. Built-in actions (e.g. hud_toggle) are always
+    # press-only regardless of refinement.
+    press_only = getattr(midi_map, 'builtin', False) or not enc_refs.has_momentary()
 
     return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],

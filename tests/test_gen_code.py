@@ -6,8 +6,19 @@ from ableton_control_surface_as_code.core_model import RowMapV2_1
 from ableton_control_surface_as_code.gen_code import (
     code_from_slot_assignments,
     device_templates,
+    functions_templates,
     GeneratedCode,
     GeneratedCodes,
+)
+from ableton_control_surface_as_code.core_model import (
+    MidiCoords, EncoderType, EncoderMode, TrackInfo,
+)
+from ableton_control_surface_as_code.encoder_coords import Momentary, Toggle
+from ableton_control_surface_as_code.model_device import (
+    DeviceWithMidi as DeviceWithMidiModel, DeviceParameterMidiMapping,
+)
+from ableton_control_surface_as_code.model_functions import (
+    FunctionsWithMidi, FunctionsMidiMapping,
 )
 from ableton_control_surface_as_code.model_controller import ControllerV2
 from ableton_control_surface_as_code.model_device import (
@@ -188,6 +199,96 @@ class TestMergeConcatenatesParameterMappings(unittest.TestCase):
         joined = "\n".join(result.custom_parameter_mappings)
         self.assertIn("'slot1'", joined)  # from dev1
         self.assertIn("'slot8'", joined)  # from dev2 — previously dropped
+
+
+def _midi(encoder_type=EncoderType.button, refs=None, number=51, channel=1):
+    return MidiCoords(channel=channel, type="CC", number=number, encoder_type=encoder_type,
+                      encoder_mode=EncoderMode.Absolute, source_info="tests",
+                      encoder_refs=refs or [])
+
+
+def _functions_with_midi(refs=None):
+    return FunctionsWithMidi(midi_maps=[FunctionsMidiMapping(
+        midi_coords=[_midi(EncoderType.button, refs)],
+        function_name="toggle", parameter_len=0)])
+
+
+def _device_with_midi(encoder_type=EncoderType.button, refs=None):
+    return DeviceWithMidiModel(
+        track=TrackInfo.selected(), device="selected",
+        midi_maps=[DeviceParameterMidiMapping(
+            midi_coords=[_midi(encoder_type, refs)], parameter=1)])
+
+
+class TestMethodCallButtonPressBehavior(unittest.TestCase):
+    """Method-call buttons (functions/nav/transport) act once on press by default;
+    `momentary` opts back into fire-on-both-edges."""
+
+    def _fns(self, refs=None):
+        result = GeneratedCodes.merge_all(functions_templates(_functions_with_midi(refs), "main"))
+        return "\n".join(result.listener_fns)
+
+    def test_default_button_is_press_only(self):
+        code = self._fns(refs=[])
+        self.assertIn("self._helpers.value_is_max(value, 127)", code)
+        self.assertNotIn("if True:", code)
+
+    def test_momentary_button_fires_both_edges(self):
+        code = self._fns(refs=[Momentary.instance()])
+        self.assertIn("if True:", code)
+        self.assertNotIn("value_is_max", code)
+
+    def test_toggle_keyword_is_now_a_no_op_default(self):
+        # `toggle` no longer changes anything — same press-only code as default.
+        self.assertEqual(self._fns(refs=[Toggle.instance()]), self._fns(refs=[]))
+
+    def test_toggle_and_momentary_together_momentary_wins(self):
+        code = self._fns(refs=[Toggle.instance(), Momentary.instance()])
+        self.assertIn("if True:", code)
+
+
+class TestDeviceParamButtonPressBehavior(unittest.TestCase):
+    def _fns(self, encoder_type=EncoderType.button, refs=None):
+        result = GeneratedCodes.merge_all(device_templates(_device_with_midi(encoder_type, refs), "main"))
+        return "\n".join(result.listener_fns)
+
+    def test_button_default_latches(self):
+        self.assertIn("toggle=True", self._fns(EncoderType.button, refs=[]))
+
+    def test_button_momentary_holds(self):
+        self.assertIn("toggle=False", self._fns(EncoderType.button, refs=[Momentary.instance()]))
+
+    def test_knob_never_latches(self):
+        self.assertIn("toggle=False", self._fns(EncoderType.knob, refs=[]))
+        # the is_button() gate: a knob must stay continuous even with momentary
+        self.assertIn("toggle=False", self._fns(EncoderType.knob, refs=[Momentary.instance()]))
+
+    def test_slider_never_latches(self):
+        self.assertIn("toggle=False", self._fns(EncoderType.slider, refs=[]))
+
+
+class TestSwitchSlotPressGuard(unittest.TestCase):
+    def test_switch_dispatch_is_press_guarded(self):
+        from ableton_control_surface_as_code.model_controller import ControllerV2
+        from ableton_control_surface_as_code.model_device import (
+            DeviceEncoderMappings, DeviceV2, build_device_model_v2_1,
+        )
+        controller = ControllerV2.build_from(build_raw_controller_v2())
+        dev = DeviceV2(
+            track="selected", device="selected",
+            mappings=DeviceEncoderMappings.model_validate({
+                "encoders": {"range": "row-1:1-4", "slots": "1-4"},
+                "mode-buttons": [{"coord": "row-1:5", "slot": "switch1"}],
+            }),
+        )
+        device_with_midi = build_device_model_v2_1(controller, dev, root_dir="")
+        result = GeneratedCodes.merge_all(device_templates(device_with_midi, "main"))
+        all_fns = "\n".join(result.listener_fns)
+        # the switch_slot_action call must be guarded by the press check
+        self.assertIn("self._helpers.value_is_max(value, 127)", all_fns)
+        guard_idx = all_fns.index("self._helpers.value_is_max(value, 127)")
+        call_idx = all_fns.index("self._helpers.switch_slot_action")
+        self.assertLess(guard_idx, call_idx)
 
 
 if __name__ == "__main__":

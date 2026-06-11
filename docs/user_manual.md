@@ -144,7 +144,7 @@ modes:
                 mappings:
                     encoder-list:
                         - { range: row-1:1-8, slots: 1-8 }
-                    on-off: row-3:4 toggle
+                    on-off: row-3:4
     -
         name: shift_mode
         on_color: green_full
@@ -181,7 +181,7 @@ Physical controls are addressed using coordinate strings:
 *   `row-1:3` — Row 1, column 3 (single control).
 *   `row-1:1-8` — Row 1, columns 1 through 8 (range).
 *   `row-1:5-7,row-2:5-7` — Multi-coordinate range concatenation.
-*   `row-3:4 toggle` — **`toggle` refinement**: Button latches on/off rather than acting momentary.
+*   Buttons act **once on press** by default. `row-3:4 momentary` — **`momentary` refinement**: act on both edges (on-while-held for a device param, fire-on-press-and-release for a function). (`toggle` is deprecated — now the default — and emits a removal warning at generation time.)
 *   `row-3:2 mode` — **`mode` refinement**: Button acts as a mode trigger.
 *   `row-1:1 map_mode_absolute` — **`map_mode_absolute` refinement**: Forces absolute MIDI CC mapping for the encoder.
 
