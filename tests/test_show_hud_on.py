@@ -104,7 +104,7 @@ class TestHelpersBurstGating(unittest.TestCase):
         h = self._helpers('controller-nav')
         h.selected_device_changed(FakeDevice())
         self.assertTrue(h._remote.hide.called)
-        self.assertTrue(h._hud_dismissed)
+        self.assertTrue(h._presenter.hud_dismissed)
 
     def test_nav_source_does_not_hide(self):
         h = self._helpers('controller-nav')

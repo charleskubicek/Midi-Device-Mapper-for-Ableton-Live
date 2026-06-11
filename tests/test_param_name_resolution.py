@@ -112,14 +112,14 @@ class TestResolveParamByName(unittest.TestCase):
     def test_returns_param_when_original_name_matches(self):
         helpers = _helpers()
         device = _simpler_device()
-        p = helpers._resolve_param_by_name(device, 'Filter Freq')
+        p = helpers._resolver.resolve_param_by_name(device, 'Filter Freq')
         self.assertIsNotNone(p)
         self.assertEqual(p.original_name, 'Filter Freq')
 
     def test_returns_none_when_name_missing(self):
         helpers = _helpers()
         device = _simpler_device(missing=('Filter Freq',))
-        self.assertIsNone(helpers._resolve_param_by_name(device, 'Filter Freq'))
+        self.assertIsNone(helpers._resolver.resolve_param_by_name(device, 'Filter Freq'))
 
     def test_ignores_user_renamed_name_field(self):
         """User can rename a param; resolver must match original_name only."""
@@ -128,8 +128,8 @@ class TestResolveParamByName(unittest.TestCase):
         # Pretend the user renamed "Filter Freq" to "Brightness" via a macro.
         target = next(p for p in device.parameters if p.original_name == 'Filter Freq')
         target.name = 'Brightness'
-        self.assertIs(helpers._resolve_param_by_name(device, 'Filter Freq'), target)
-        self.assertIsNone(helpers._resolve_param_by_name(device, 'Brightness'))
+        self.assertIs(helpers._resolver.resolve_param_by_name(device, 'Filter Freq'), target)
+        self.assertIsNone(helpers._resolver.resolve_param_by_name(device, 'Brightness'))
 
 
 class TestBobPageEncoderResolution(unittest.TestCase):
@@ -188,7 +188,7 @@ class TestStandardBankPages(unittest.TestCase):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         helpers.selected_device_changed(device)
-        self.assertEqual(helpers._encoder_page, 1)
+        self.assertEqual(helpers._resolver.encoder_page, 1)
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         ve_attack = next(p for p in device.parameters if p.original_name == 'Ve Attack')
         self.assertAlmostEqual(ve_attack.value, 1.0, places=2)
@@ -208,7 +208,7 @@ class TestStandardBankPages(unittest.TestCase):
         device = _simpler_device()
         helpers.selected_device_changed(device)
         helpers.parameter_page_inc('encoder')
-        self.assertEqual(helpers._encoder_page, 2)
+        self.assertEqual(helpers._resolver.encoder_page, 2)
         # slot 1 -> L Attack (bank3 slot 0)
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         # slot 9 -> Pe Attack (bank4 slot 0)
@@ -236,7 +236,7 @@ class TestBankOnlyDevice(unittest.TestCase):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         helpers.selected_device_changed(device)
-        self.assertEqual(helpers._encoder_page, 1)
+        self.assertEqual(helpers._resolver.encoder_page, 1)
         helpers.device_parameter_action(device, 1, 22, 127.0, "fn")
         ve_attack = next(p for p in device.parameters if p.original_name == 'Ve Attack')
         self.assertAlmostEqual(ve_attack.value, 1.0, places=2)
@@ -253,13 +253,13 @@ class TestBankOnlyDevice(unittest.TestCase):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         # 4 banks paired 2-per-page → 2 pages, no extra BOB page.
-        self.assertEqual(helpers._encoder_pages_count(device), 2)
+        self.assertEqual(helpers._resolver.encoder_pages_count(device), 2)
 
     def test_page_1_label_pairs_first_two_bank_names_when_no_bob(self):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
-        self.assertEqual(helpers._page_label_for(device, 1), 'Amplitude / Filter')
-        self.assertEqual(helpers._page_label_for(device, 2), 'LFO / Pitch Modifiers')
+        self.assertEqual(helpers._resolver.page_label_for(device, 1), 'Amplitude / Filter')
+        self.assertEqual(helpers._resolver.page_label_for(device, 2), 'LFO / Pitch Modifiers')
 
 
 class TestPageCount(unittest.TestCase):
@@ -269,7 +269,7 @@ class TestPageCount(unittest.TestCase):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         # SIM has 4 banks, 2 banks per page, no BOB -> ceil(4/2) = 2
-        self.assertEqual(helpers._encoder_pages_count(device), 2)
+        self.assertEqual(helpers._resolver.encoder_pages_count(device), 2)
 
     def test_unknown_device_falls_back_to_chunked_pages(self):
         helpers = _helpers(parameter_mappings_raw=None, slot_count=16)
@@ -278,7 +278,7 @@ class TestPageCount(unittest.TestCase):
                             parameters=_params({i: f'p{i}' for i in range(33)}, total=33))
         # We bundle banks of 8 from device.parameters[1:], pair onto 16-slot pages.
         # 32 params / 8 = 4 banks -> ceil(4/2) = 2 pages. No BOB defined → 2 total.
-        self.assertEqual(helpers._encoder_pages_count(device), 2)
+        self.assertEqual(helpers._resolver.encoder_pages_count(device), 2)
 
     def test_button_pages_capped_at_one_for_known_class(self):
         """Buttons live on the BOB page only — standard-bank pages don't surface
@@ -291,7 +291,7 @@ class TestPageCount(unittest.TestCase):
         device = _simpler_device(missing=())
         # Add Trigger Mode at some slot
         device.parameters.append(FakeParameter(original_name='Trigger Mode'))
-        self.assertEqual(helpers._button_pages_count(device), 1)
+        self.assertEqual(helpers._resolver.button_pages_count(device), 1)
 
 
 class TestNamedSwitchResolution(unittest.TestCase):
@@ -369,14 +369,14 @@ class TestBankHudLabels(unittest.TestCase):
         }]})
         device = _simpler_device()
         helpers.selected_device_changed(device)
-        self.assertEqual(helpers._page_label_for(device, 1), 'Best of')
+        self.assertEqual(helpers._resolver.page_label_for(device, 1), 'Best of')
 
     def test_standard_page_label_pairs_bank_names(self):
         helpers = _helpers(parameter_mappings_raw=None)
         device = _simpler_device()
         # No BOB -> page 1 = bank 0 + bank 1
-        self.assertEqual(helpers._page_label_for(device, 1), 'Amplitude / Filter')
-        self.assertEqual(helpers._page_label_for(device, 2), 'LFO / Pitch Modifiers')
+        self.assertEqual(helpers._resolver.page_label_for(device, 1), 'Amplitude / Filter')
+        self.assertEqual(helpers._resolver.page_label_for(device, 2), 'LFO / Pitch Modifiers')
 
 
 class TestLiveDeviceBanksSnapshot(unittest.TestCase):

@@ -101,7 +101,7 @@ class TestToggleHudRuntime(unittest.TestCase):
 
         h.toggle_hud()
 
-        self.assertTrue(h._hud_dismissed)
+        self.assertTrue(h._presenter.hud_dismissed)
         h._remote.hide.assert_called_once()
         h._remote.device_update.assert_not_called()
 
@@ -112,7 +112,7 @@ class TestToggleHudRuntime(unittest.TestCase):
 
         h.toggle_hud()            # show
 
-        self.assertFalse(h._hud_dismissed)
+        self.assertFalse(h._presenter.hud_dismissed)
         h._remote.hide.assert_not_called()
         h._remote.device_update.assert_called_once()
 
@@ -121,11 +121,11 @@ class TestToggleHudRuntime(unittest.TestCase):
         # intent must re-sync so the toggle direction doesn't invert.
         h = self._helpers()
         h.toggle_hud()            # dismissed = True
-        self.assertTrue(h._hud_dismissed)
+        self.assertTrue(h._presenter.hud_dismissed)
 
         h.refresh_hud_for_mode("mode_1", None)
 
-        self.assertFalse(h._hud_dismissed)
+        self.assertFalse(h._presenter.hud_dismissed)
 
     def test_device_focus_burst_resets_intent(self):
         # The inversion-fix path: HUD dismissed, then a *device* burst (the
@@ -145,11 +145,11 @@ class TestToggleHudRuntime(unittest.TestCase):
         h = self._helpers()
         h._last_selected_device = _Dev()
         h.toggle_hud()            # dismissed = True
-        self.assertTrue(h._hud_dismissed)
+        self.assertTrue(h._presenter.hud_dismissed)
 
         h.update_remote_parameters()   # device-focus burst
 
-        self.assertFalse(h._hud_dismissed)
+        self.assertFalse(h._presenter.hud_dismissed)
 
 
 if __name__ == "__main__":

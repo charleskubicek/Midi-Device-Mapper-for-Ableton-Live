@@ -357,8 +357,8 @@ class TestLomButtonActions(unittest.TestCase):
     def test_enum_button_hud_payload(self):
         helpers = self._make([{"lom_property": "playback_mode", "type": "enum", "display": "Mode"}])
         device = FakeSimpler(parameters=[FakeParameter()])
-        info = helpers._resolve_switch(device, 0)
-        payload = helpers._lom_slot_payload(info)
+        info = helpers._resolver.resolve_switch(device, 0)
+        payload = helpers._resolver.lom_slot_payload(info)
         self.assertEqual(payload.name, "Mode: classic")
         self.assertEqual(payload.value, 0.0)
         self.assertEqual(payload.vmax, 2.0)
@@ -486,15 +486,15 @@ class TestPager(unittest.TestCase):
             parameters=[FakeParameter(name=f"p{i}") for i in range(20)],
         )
         self.helpers.selected_device_changed(device)
-        self.assertEqual(self.helpers._encoder_page, 1)
+        self.assertEqual(self.helpers._resolver.encoder_page, 1)
         self.helpers.parameter_page_inc('encoder')
-        self.assertEqual(self.helpers._encoder_page, 2)
+        self.assertEqual(self.helpers._resolver.encoder_page, 2)
         self.helpers.parameter_page_inc('encoder')  # at max (2 pages of 8)
-        self.assertEqual(self.helpers._encoder_page, 2)
+        self.assertEqual(self.helpers._resolver.encoder_page, 2)
         self.helpers.parameter_page_dec('encoder')
-        self.assertEqual(self.helpers._encoder_page, 1)
+        self.assertEqual(self.helpers._resolver.encoder_page, 1)
         self.helpers.parameter_page_dec('encoder')  # at min
-        self.assertEqual(self.helpers._encoder_page, 1)
+        self.assertEqual(self.helpers._resolver.encoder_page, 1)
 
 
 def _make_param(name="Freq", value=0.5, vmin=0.0, vmax=1.0):
@@ -786,12 +786,13 @@ class TestSurfaceConfigEquivalence(unittest.TestCase):
         )
         legacy = Helpers(Mock(), Mock(), **kwargs)
         via_config = Helpers(Mock(), Mock(), SurfaceConfig(**kwargs))
-        self.assertEqual(legacy._slot_assignments, via_config._slot_assignments)
-        self.assertEqual(legacy._switch_slot_assignments, via_config._switch_slot_assignments)
+        self.assertEqual(legacy._presenter._slot_assignments, via_config._presenter._slot_assignments)
+        self.assertEqual(legacy._presenter._switch_slot_assignments,
+                         via_config._presenter._switch_slot_assignments)
         self.assertEqual(legacy._resolver._banks_per_page, via_config._resolver._banks_per_page)
         self.assertEqual(legacy._presenter._visibility.trigger,
                          via_config._presenter._visibility.trigger)
-        self.assertEqual(legacy._hud_cells, via_config._hud_cells)
+        self.assertEqual(legacy._presenter._hud_cells, via_config._presenter._hud_cells)
 
 
 def _simpler_with_4_switches(buttons):
@@ -830,7 +831,7 @@ class TestButtonPaging(unittest.TestCase):
         helpers = _simpler_with_4_switches(self.BUTTONS_8)
         device = self._make_device()
         # 8 buttons, 4 switches per page → 2 pages
-        self.assertEqual(helpers._button_pages_count(device), 2)
+        self.assertEqual(helpers._resolver.button_pages_count(device), 2)
 
     def test_button_pages_count_one_page_when_few_buttons(self):
         helpers = _simpler_with_4_switches([{"name": "btn0", "type": "param"}])
@@ -838,7 +839,7 @@ class TestButtonPaging(unittest.TestCase):
             class_name="OriginalSimpler",
             parameters=[FakeParameter(name="btn0", original_name="btn0")],
         )
-        self.assertEqual(helpers._button_pages_count(device), 1)
+        self.assertEqual(helpers._resolver.button_pages_count(device), 1)
 
     def test_page1_shows_first_4_buttons(self):
         helpers = _simpler_with_4_switches(self.BUTTONS_8)
@@ -846,7 +847,7 @@ class TestButtonPaging(unittest.TestCase):
         helpers.selected_device_changed(device)
         # switch_idx 0..3 on page 1 → buttons 0..3
         for switch_idx in range(4):
-            info = helpers._resolve_switch(device, switch_idx)
+            info = helpers._resolver.resolve_switch(device, switch_idx)
             self.assertIsNotNone(info, f"page 1 switch {switch_idx} should resolve")
             self.assertEqual(info['alias'], f"btn{switch_idx}")
 
@@ -854,10 +855,10 @@ class TestButtonPaging(unittest.TestCase):
         helpers = _simpler_with_4_switches(self.BUTTONS_8)
         device = self._make_device()
         helpers.selected_device_changed(device)
-        helpers._button_page = 2
+        helpers._resolver.button_page = 2
         # switch_idx 0..3 on page 2 → buttons 4..7
         for switch_idx in range(4):
-            info = helpers._resolve_switch(device, switch_idx)
+            info = helpers._resolver.resolve_switch(device, switch_idx)
             self.assertIsNotNone(info, f"page 2 switch {switch_idx} should resolve")
             self.assertEqual(info['alias'], f"btn{switch_idx + 4}")
 
@@ -866,33 +867,33 @@ class TestButtonPaging(unittest.TestCase):
         device = self._make_device()
         helpers.selected_device_changed(device)
         # Add some encoder pages so pager has something to advance
-        helpers._encoder_page = 1
+        helpers._resolver.encoder_page = 1
         # Directly call inc with target='encoder'
         helpers._last_selected_device = device
         helpers.parameter_page_inc('encoder')
-        self.assertEqual(helpers._button_page, 2,
+        self.assertEqual(helpers._resolver.button_page, 2,
                          "Button page should advance in sync with encoder page")
 
     def test_encoder_pager_dec_also_decrements_button_page(self):
         helpers = _simpler_with_4_switches(self.BUTTONS_8)
         device = self._make_device()
         helpers.selected_device_changed(device)
-        helpers._button_page = 2
-        helpers._encoder_page = 2
+        helpers._resolver.button_page = 2
+        helpers._resolver.encoder_page = 2
         helpers._last_selected_device = device
         helpers.parameter_page_dec('encoder')
-        self.assertEqual(helpers._button_page, 1)
+        self.assertEqual(helpers._resolver.button_page, 1)
 
     def test_button_page_capped_at_max(self):
         helpers = _simpler_with_4_switches(self.BUTTONS_8)
         device = self._make_device()
         helpers.selected_device_changed(device)
-        helpers._button_page = 2
-        helpers._encoder_page = 2
+        helpers._resolver.button_page = 2
+        helpers._resolver.encoder_page = 2
         helpers._last_selected_device = device
         # Only 2 button pages — inc should not go to page 3
         helpers.parameter_page_inc('encoder')
-        self.assertEqual(helpers._button_page, 2)
+        self.assertEqual(helpers._resolver.button_page, 2)
 
 
 class TestButtonPagingUnknownClass(unittest.TestCase):
@@ -910,7 +911,7 @@ class TestButtonPagingUnknownClass(unittest.TestCase):
                   FakeParameter(name="q2", is_quantized=True, min=0, max=1),
                   FakeParameter(name="q3", is_quantized=True, min=0, max=1)]
         device = FakeDevice(class_name="Unknown", parameters=params)
-        self.assertEqual(helpers._button_pages_count(device), 2)
+        self.assertEqual(helpers._resolver.button_pages_count(device), 2)
 
 
 class TestSimplerParamButtonDebugLogging(unittest.TestCase):
@@ -926,9 +927,9 @@ class TestSimplerParamButtonDebugLogging(unittest.TestCase):
         device = FakeSimpler(parameters=[FakeParameter(name="p0", original_name="p0")])
         helpers.selected_device_changed(device)
         # switch1 (enum) resolves fine; switch2 (bad param name) should log
-        info1 = helpers._resolve_switch(device, 0)
+        info1 = helpers._resolver.resolve_switch(device, 0)
         self.assertIsNotNone(info1, "lom_property button should still resolve")
-        info2 = helpers._resolve_switch(device, 1)
+        info2 = helpers._resolver.resolve_switch(device, 1)
         self.assertIsNone(info2, "bad param should not resolve")
         manager.log_message.assert_called()
         log_msg = manager.log_message.call_args[0][0]
@@ -972,7 +973,7 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
         )
         # encoder 1 should resolve to "Aux1" via the "Other M4L" entry,
         # not to "PStep1" from the SQ Sequencer entry.
-        rp = helpers._resolve_encoder(device, 1)
+        rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNotNone(rp)
         self.assertIs(rp.param, device.parameters[1])
 
@@ -992,10 +993,10 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
                 FakeParameter(name="Random", min=0, max=1, value=0),
             ],
         )
-        self.assertFalse(helpers.has_user_defined_parameters(device))
+        self.assertFalse(helpers._resolver.has_user_defined_parameters(device))
         # _resolve_switch on unknown class falls back to quantized chunking,
         # which finds nothing here — and crucially does not try "FollowRoot".
-        info = helpers._resolve_switch(device, 0)
+        info = helpers._resolver.resolve_switch(device, 0)
         self.assertIsNone(info)
 
     def test_standard_banks_skipped_for_m4l_classes(self):
@@ -1010,7 +1011,7 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
             bank_names={},
         )
         device = FakeDevice(class_name="MxDeviceMidiEffect", name="Anything")
-        self.assertEqual(helpers._standard_banks(device), ())
+        self.assertEqual(helpers._resolver.standard_banks(device), ())
 
 
 class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
@@ -1035,8 +1036,9 @@ class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
         device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
 
         banks = {"Reverb": (tuple(bank_names_in_order[:8]), tuple(bank_names_in_order[8:]))}
+        hud = Mock()
         helpers = Helpers(
-            Mock(), Mock(),
+            Mock(), Remote(manager=Mock(), osc_client=Mock(), hud_client=hud),
             slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
             switch_slot_assignments=[],
             parameter_mappings_raw=None,
@@ -1046,14 +1048,13 @@ class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
         )
         # encoder 1 fails to resolve (bank says "In Filter Freq" — i.e. WRONG_NAME);
         # encoder 13 resolves to "HiShelf Gain"
-        self.assertIsNone(helpers._resolve_encoder(device, 1))
-        self.assertIsNotNone(helpers._resolve_encoder(device, 13))
+        self.assertIsNone(helpers._resolver.resolve_encoder(device, 1))
+        self.assertIsNotNone(helpers._resolver.resolve_encoder(device, 13))
 
         # Now drive the full burst and verify wire_idx 12 carries HiShelf Gain.
         # source='nav' so the burst actually fires (default show-hud-on is
         # controller-nav, which suppresses non-nav selection changes).
-        hud = Mock()
-        helpers._remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=hud)
+        hud.reset_mock()
         helpers.selected_device_changed(device, source='nav')
         dial_calls = [c for c in hud.send_slot.call_args_list if c[0][0] == 'dial']
         self.assertEqual(len(dial_calls), 16)
@@ -1090,7 +1091,7 @@ class TestBankResolverFallsBackToDisplayName(unittest.TestCase):
             device_banks={"Reverb": (("In Filter Freq", "x", "x", "x", "x", "x", "x", "x"),)},
             bank_names={},
         )
-        rp = helpers._resolve_encoder(device, 1)
+        rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNotNone(rp, "bank resolver should fall back to Parameter.name")
         self.assertIs(rp.param, params[1])
 
@@ -1106,7 +1107,7 @@ class TestBankResolverFallsBackToDisplayName(unittest.TestCase):
                   authored, collider]
         device = FakeDevice(class_name="Rack", name="Rack", parameters=params)
         helpers = Helpers(Mock(), Mock(), parameter_mappings_raw=None)
-        self.assertIs(helpers._resolve_param_by_name(device, "Macro 1"), authored)
+        self.assertIs(helpers._resolver.resolve_param_by_name(device, "Macro 1"), authored)
 
 
 class TestBankResolveLogsAvailableNames(unittest.TestCase):
@@ -1127,7 +1128,7 @@ class TestBankResolveLogsAvailableNames(unittest.TestCase):
             device_banks={"Reverb": (("Not Real", "x", "x", "x", "x", "x", "x", "x"),)},
             bank_names={},
         )
-        rp = helpers._resolve_encoder(device, 1)
+        rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNone(rp)
         manager.log_message.assert_called()
         log_msg = manager.log_message.call_args[0][0]
@@ -1162,10 +1163,10 @@ class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
                  "Macro 5", "Macro 6", "Macro 7", "Macro 8"),)},
             bank_names={},
         )
-        rp = helpers._resolve_encoder(device, 1)
+        rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNotNone(rp, "encoder 1 should resolve to Macro 1 on page 1")
         self.assertIs(rp.param, params[1])
-        self.assertEqual(helpers._encoder_pages_count(device), 1)
+        self.assertEqual(helpers._resolver.encoder_pages_count(device), 1)
 
 
 class TestHudViewLeft(unittest.TestCase):
@@ -1178,7 +1179,7 @@ class TestHudViewLeft(unittest.TestCase):
         helpers = Helpers(Mock(), remote)
         helpers.hud_view_left()
         remote.hide.assert_called_once()
-        self.assertTrue(helpers._hud_dismissed)
+        self.assertTrue(helpers._presenter.hud_dismissed)
 
 
 if __name__ == '__main__':

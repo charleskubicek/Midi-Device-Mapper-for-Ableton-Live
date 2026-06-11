@@ -58,15 +58,11 @@ class Helpers:
             config = SurfaceConfig(**legacy)
         self._manager = manager
         self._remote = remote
-        # show-hud-on trigger ('selection' | 'controller-nav') now lives in the
-        # HudPresenter's HudVisibility table; passed through at construction below.
-        self._slot_assignments = list(config.slot_assignments or [])
-        self._switch_slot_assignments = list(config.switch_slot_assignments or [])
-        self._encoder_slot_count = config.encoder_slot_count
-        self._button_slot_count = config.button_slot_count
         # Generated surfaces bake hud_cells as plain tuples (see gen.py boundary);
         # re-wrap them as LayoutCells so the rest of the runtime gets named access.
-        self._hud_cells = [LayoutCell.from_raw(c) for c in (config.hud_cells or [])]
+        hud_cells = [LayoutCell.from_raw(c) for c in (config.hud_cells or [])]
+        slot_assignments = list(config.slot_assignments or [])
+        switch_slot_assignments = list(config.switch_slot_assignments or [])
         device_banks = config.device_banks if config.device_banks is not None else _default_device_banks()
         bank_names = config.bank_names if config.bank_names is not None else _default_bank_names()
         # 16-slot controllers pack two 8-param banks per page; 8-slot pack one.
@@ -75,108 +71,34 @@ class Helpers:
         # Used as the per-page stride when paging BOB buttons for known devices.
         button_switch_count = (
             max((int(slot.replace('switch', ''))
-                 for _, slot in self._switch_slot_assignments), default=0)
-            if self._switch_slot_assignments else 0
+                 for _, slot in switch_slot_assignments), default=0)
+            if switch_slot_assignments else 0
         )
         # Pure parameter-resolution + paging math lives in ParameterResolver
-        # (no Live coupling). Helpers delegates to it (pass-throughs below); the
-        # Live-coupled writes/listeners/messages stay here.
+        # (no Live coupling); HUD burst assembly + show/hide intent live in
+        # HudPresenter (no Live writes). The Live-coupled writes/listeners/
+        # messages stay here on the facade.
         self._resolver = ParameterResolver(
             device_table=_build_device_table(config.parameter_mappings_raw),
             device_banks=device_banks, bank_names=bank_names,
             banks_per_page=banks_per_page, button_switch_count=button_switch_count,
             button_slot_count=config.button_slot_count, log=self.log_message)
-        # HUD burst assembly + show/hide intent live in HudPresenter (no Live
-        # writes). Helpers passes it the focused device on each call and owns
-        # the show-hud-on suppress decision (in selected_device_changed).
         self._presenter = HudPresenter(
             remote=remote, resolver=self._resolver,
-            slot_assignments=self._slot_assignments,
-            switch_slot_assignments=self._switch_slot_assignments,
-            hud_cells=self._hud_cells,
+            slot_assignments=slot_assignments,
+            switch_slot_assignments=switch_slot_assignments,
+            hud_cells=hud_cells,
             mode_hud_labels=config.mode_hud_labels or {},
             log=self.log_message, hud_trigger=config.hud_trigger)
-        self._remote.init_layout(self._hud_cells)
+        self._remote.init_layout(hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
-
-    # HUD dismiss intent lives on the presenter; expose it here for the tests
-    # and any caller that still reads helpers._hud_dismissed.
-    @property
-    def _hud_dismissed(self):
-        return self._presenter.hud_dismissed
-
-    @_hud_dismissed.setter
-    def _hud_dismissed(self, value):
-        self._presenter.hud_dismissed = value
-
-    @property
-    def _remote(self):
-        return self.__remote
-
-    @_remote.setter
-    def _remote(self, value):
-        # Keep the presenter's remote in sync: some tests swap helpers._remote
-        # after construction to inspect the HUD wire, and the burst path runs
-        # through the presenter. (Presenter doesn't exist yet on first set.)
-        self.__remote = value
-        presenter = getattr(self, '_presenter', None)
-        if presenter is not None:
-            presenter._remote = value
 
     def show_message(self, message):
         self._manager.show_message(message)
 
     def log_message(self, message):
         self._manager.log_message(message)
-
-    # ---- ParameterResolver pass-throughs --------------------------------
-    # Resolution + paging math moved to ParameterResolver (R9). These thin
-    # delegators preserve the names the generated surfaces, the facade, and the
-    # existing tests already call; new code can hit self._resolver directly.
-
-    @property
-    def _encoder_page(self):
-        return self._resolver.encoder_page
-
-    @_encoder_page.setter
-    def _encoder_page(self, value):
-        self._resolver.encoder_page = value
-
-    @property
-    def _button_page(self):
-        return self._resolver.button_page
-
-    @_button_page.setter
-    def _button_page(self, value):
-        self._resolver.button_page = value
-
-    def has_user_defined_parameters(self, device):
-        return self._resolver.has_user_defined_parameters(device)
-
-    def _resolve_param_by_name(self, device, name):
-        return self._resolver.resolve_param_by_name(device, name)
-
-    def _standard_banks(self, device):
-        return self._resolver.standard_banks(device)
-
-    def _encoder_pages_count(self, device):
-        return self._resolver.encoder_pages_count(device)
-
-    def _button_pages_count(self, device):
-        return self._resolver.button_pages_count(device)
-
-    def _page_label_for(self, device, page):
-        return self._resolver.page_label_for(device, page)
-
-    def _resolve_encoder(self, device, c_idx):
-        return self._resolver.resolve_encoder(device, c_idx)
-
-    def _resolve_switch(self, device, switch_idx):
-        return self._resolver.resolve_switch(device, switch_idx)
-
-    def _lom_slot_payload(self, info):
-        return self._resolver.lom_slot_payload(info)
 
     def selected_device_changed(self, device, source='selection'):
         if device is None or device == self._last_selected_device:
@@ -192,7 +114,7 @@ class Helpers:
         # selection-poll change still remaps encoders + pushes OSC but the HUD
         # burst is suppressed (and HIDE sent). 'selection' mode never suppresses.
         self._presenter.on_device_focus(device, source)
-        if self.has_user_defined_parameters(device):
+        if self._resolver.has_user_defined_parameters(device):
             self.show_message(f"{device.class_name}")
 
     def _log_device_focus(self, device):
@@ -204,7 +126,7 @@ class Helpers:
         dn = getattr(device, 'name', '?')
         key = _device_table_key(device)
         bob = self._resolver.device_entry(device) is not None
-        banks = self._standard_banks(device)
+        banks = self._resolver.standard_banks(device)
         bank_count = len(banks) if banks else 0
         nparams = len(getattr(device, 'parameters', []) or [])
         is_m4l = cn in M4L_CLASSES
@@ -222,7 +144,7 @@ class Helpers:
 
     def _attach_group_selector_listeners(self, device):
         for name in self._resolver.group_selector_names(device):
-            selector = self._resolve_param_by_name(device, name)
+            selector = self._resolver.resolve_param_by_name(device, name)
             if selector is None or not hasattr(selector, 'add_value_listener'):
                 continue
             cb = self._on_group_selector_changed
@@ -248,7 +170,7 @@ class Helpers:
         if device is None:
             return
         self.selected_device_changed(device)
-        rp = self._resolve_encoder(device, raw_parameter_no)
+        rp = self._resolver.resolve_encoder(device, raw_parameter_no)
         if rp is None:
             self.log_message(f"{fn_name}: encoder {raw_parameter_no} not resolvable on {device.class_name}")
             return
@@ -268,7 +190,7 @@ class Helpers:
             return
         self.selected_device_changed(device)
         switch_idx = int(slot_name.replace('switch', '')) - 1
-        info = self._resolve_switch(device, switch_idx)
+        info = self._resolver.resolve_switch(device, switch_idx)
         if info is None:
             self.log_message(f"[switch] {slot_name} not resolvable on {device.class_name}")
             return
@@ -375,32 +297,32 @@ class Helpers:
             self.log_message(f"[page] inc target={target} ignored: no focused device")
             return
         if target == 'encoder':
-            enc_count = self._encoder_pages_count(device)
-            btn_count = self._button_pages_count(device)
+            enc_count = self._resolver.encoder_pages_count(device)
+            btn_count = self._resolver.button_pages_count(device)
             changed = False
-            if self._encoder_page < enc_count:
-                self._encoder_page += 1
+            if self._resolver.encoder_page < enc_count:
+                self._resolver.encoder_page += 1
                 changed = True
-            if self._button_page < btn_count:
-                self._button_page += 1
+            if self._resolver.button_page < btn_count:
+                self._resolver.button_page += 1
                 changed = True
             self.log_message(
-                f"[page] inc enc enc={self._encoder_page}/{enc_count} "
-                f"btn={self._button_page}/{btn_count} changed={changed} "
+                f"[page] inc enc enc={self._resolver.encoder_page}/{enc_count} "
+                f"btn={self._resolver.button_page}/{btn_count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
             )
             if changed:
-                self.show_message(f"Enc page {self._encoder_page}/{enc_count}")
+                self.show_message(f"Enc page {self._resolver.encoder_page}/{enc_count}")
                 self.update_remote_parameters()
         else:
-            count = self._button_pages_count(device)
-            changed = self._button_page < count
+            count = self._resolver.button_pages_count(device)
+            changed = self._resolver.button_page < count
             if changed:
-                self._button_page += 1
-                self.show_message(f"Btn page {self._button_page}/{count}")
+                self._resolver.button_page += 1
+                self.show_message(f"Btn page {self._resolver.button_page}/{count}")
                 self.update_remote_parameters()
             self.log_message(
-                f"[page] inc btn btn={self._button_page}/{count} changed={changed} "
+                f"[page] inc btn btn={self._resolver.button_page}/{count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
             )
 
@@ -410,32 +332,32 @@ class Helpers:
             self.log_message(f"[page] dec target={target} ignored: no focused device")
             return
         if target == 'encoder':
-            enc_count = self._encoder_pages_count(device)
-            btn_count = self._button_pages_count(device)
+            enc_count = self._resolver.encoder_pages_count(device)
+            btn_count = self._resolver.button_pages_count(device)
             changed = False
-            if self._encoder_page > 1:
-                self._encoder_page -= 1
+            if self._resolver.encoder_page > 1:
+                self._resolver.encoder_page -= 1
                 changed = True
-            if self._button_page > 1:
-                self._button_page -= 1
+            if self._resolver.button_page > 1:
+                self._resolver.button_page -= 1
                 changed = True
             self.log_message(
-                f"[page] dec enc enc={self._encoder_page}/{enc_count} "
-                f"btn={self._button_page}/{btn_count} changed={changed} "
+                f"[page] dec enc enc={self._resolver.encoder_page}/{enc_count} "
+                f"btn={self._resolver.button_page}/{btn_count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
             )
             if changed:
-                self.show_message(f"Enc page {self._encoder_page}/{enc_count}")
+                self.show_message(f"Enc page {self._resolver.encoder_page}/{enc_count}")
                 self.update_remote_parameters()
         else:
-            count = self._button_pages_count(device)
-            changed = self._button_page > 1
+            count = self._resolver.button_pages_count(device)
+            changed = self._resolver.button_page > 1
             if changed:
-                self._button_page -= 1
-                self.show_message(f"Btn page {self._button_page}/{count}")
+                self._resolver.button_page -= 1
+                self.show_message(f"Btn page {self._resolver.button_page}/{count}")
                 self.update_remote_parameters()
             self.log_message(
-                f"[page] dec btn btn={self._button_page}/{count} changed={changed} "
+                f"[page] dec btn btn={self._resolver.button_page}/{count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
             )
 
