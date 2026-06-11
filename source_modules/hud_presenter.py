@@ -53,7 +53,7 @@ class HudPresenter:
         # Nones here shifts every later encoder one slot left on the HUD.
         missing_c_idxs = []
         for c_idx, _slot in sorted(self._slot_assignments):
-            rp = self._resolver._resolve_encoder(device, c_idx)
+            rp = self._resolver.resolve_encoder(device, c_idx)
             real_params.append(rp)
             if rp is None:
                 missing_c_idxs.append(c_idx)
@@ -70,7 +70,7 @@ class HudPresenter:
             # slot_name ("switch1", "switch2", …) drives JSON-table parameter
             # resolution; wire_idx is the HUD button index assigned at codegen.
             logical_idx = int(slot.replace('switch', '')) - 1
-            info = self._resolver._resolve_switch(device, logical_idx)
+            info = self._resolver.resolve_switch(device, logical_idx)
             if info is None:
                 continue
             kind = info.get('kind', 'param')
@@ -78,14 +78,14 @@ class HudPresenter:
             if kind == 'param':
                 switch_entries.append(SwitchSlotMapping(wire_idx, info['d_idx'], alias))
             else:
-                payload = self._resolver._lom_slot_payload(info)
+                payload = self._resolver.lom_slot_payload(info)
                 if payload is not None:
                     switch_entries.append(SwitchSlotMapping(wire_idx, None, alias, payload))
         info_text = f"e{self._resolver.encoder_page}/b{self._resolver.button_page}"
         mode_labels = self._mode_hud_labels.get(self._current_mode_name)
-        enc_total = self._resolver._encoder_pages_count(device)
-        btn_total = self._resolver._button_pages_count(device)
-        enc_label = self._resolver._page_label_for(device, self._resolver.encoder_page)
+        enc_total = self._resolver.encoder_pages_count(device)
+        btn_total = self._resolver.button_pages_count(device)
+        enc_label = self._resolver.page_label_for(device, self._resolver.encoder_page)
         btn_label = ''  # button pages don't use named banks
         self._remote.device_update(
             device.name, real_params, info_text, switch_entries, device.parameters,

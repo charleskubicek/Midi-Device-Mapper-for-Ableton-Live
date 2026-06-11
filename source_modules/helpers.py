@@ -155,28 +155,28 @@ class Helpers:
         return self._resolver.has_user_defined_parameters(device)
 
     def _resolve_param_by_name(self, device, name):
-        return self._resolver._resolve_param_by_name(device, name)
+        return self._resolver.resolve_param_by_name(device, name)
 
     def _standard_banks(self, device):
-        return self._resolver._standard_banks(device)
+        return self._resolver.standard_banks(device)
 
     def _encoder_pages_count(self, device):
-        return self._resolver._encoder_pages_count(device)
+        return self._resolver.encoder_pages_count(device)
 
     def _button_pages_count(self, device):
-        return self._resolver._button_pages_count(device)
+        return self._resolver.button_pages_count(device)
 
     def _page_label_for(self, device, page):
-        return self._resolver._page_label_for(device, page)
+        return self._resolver.page_label_for(device, page)
 
     def _resolve_encoder(self, device, c_idx):
-        return self._resolver._resolve_encoder(device, c_idx)
+        return self._resolver.resolve_encoder(device, c_idx)
 
     def _resolve_switch(self, device, switch_idx):
-        return self._resolver._resolve_switch(device, switch_idx)
+        return self._resolver.resolve_switch(device, switch_idx)
 
     def _lom_slot_payload(self, info):
-        return self._resolver._lom_slot_payload(info)
+        return self._resolver.lom_slot_payload(info)
 
     def selected_device_changed(self, device, source='selection'):
         if device is None or device == self._last_selected_device:
@@ -203,7 +203,7 @@ class Helpers:
         cn = getattr(device, 'class_name', '?')
         dn = getattr(device, 'name', '?')
         key = _device_table_key(device)
-        bob = self._resolver._device_entry(device) is not None
+        bob = self._resolver.device_entry(device) is not None
         banks = self._standard_banks(device)
         bank_count = len(banks) if banks else 0
         nparams = len(getattr(device, 'parameters', []) or [])
@@ -320,11 +320,11 @@ class Helpers:
     def _cycle_enum_property(self, device, prop):
         try:
             current = getattr(device, prop)
-            members = self._resolver._enum_members(current, device, prop)
+            members = self._resolver.enum_members(current, device, prop)
             if not members:
                 self.log_message(f"[enum] no members discovered for {prop} on {device.class_name}")
                 return
-            idx = self._resolver._enum_index_of(members, current)
+            idx = self._resolver.enum_index_of(members, current)
             nxt = members[(idx + 1) % len(members)]
             try:
                 setattr(device, prop, nxt)

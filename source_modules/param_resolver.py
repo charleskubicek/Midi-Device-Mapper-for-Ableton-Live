@@ -55,7 +55,7 @@ M4L_CLASSES = ('MxDeviceMidiEffect', 'MxDeviceAudioEffect', 'MxDeviceInstrument'
 
 # Racks share a className across all instances, so BOB entries targeting a
 # specific Rack must be disambiguated by device.name (same scheme as M4L).
-# Standard Macro banks still resolve by className alone — see _standard_banks.
+# Standard Macro banks still resolve by className alone — see standard_banks.
 RACK_CLASSES = ('AudioEffectGroupDevice', 'InstrumentGroupDevice',
                 'MidiEffectGroupDevice', 'DrumGroupDevice')
 
@@ -139,7 +139,7 @@ class ParameterResolver:
         """Ordered, de-duplicated `controlledBy` selector names for this
         device's BOB encoders — the params the facade attaches value listeners
         to so a group-selector turn re-emits the burst."""
-        entry = self._device_entry(device)
+        entry = self.device_entry(device)
         if not entry:
             return []
         names = []
@@ -155,7 +155,7 @@ class ParameterResolver:
     def has_user_defined_parameters(self, device):
         return device is not None and _device_table_key(device) in self._device_table
 
-    def _device_entry(self, device):
+    def device_entry(self, device):
         if device is None:
             return None
         return self._device_table.get(_device_table_key(device))
@@ -176,7 +176,7 @@ class ParameterResolver:
                 if getattr(p, 'name', '')
             }
 
-    def _resolve_param_by_name(self, device, name):
+    def resolve_param_by_name(self, device, name):
         """Single name → Parameter lookup. Uses `original_name` (Live's stable
         identifier); `Parameter.name` reflects user renames and must not be
         used. Returns None on miss — caller is responsible for the empty-slot
@@ -212,14 +212,14 @@ class ParameterResolver:
         return entry[0] if entry is not None else None
 
     def _bob_encoders(self, device):
-        entry = self._device_entry(device)
+        entry = self.device_entry(device)
         return entry.get('encoders', []) if entry else []
 
     def _bob_buttons(self, device):
-        entry = self._device_entry(device)
+        entry = self.device_entry(device)
         return entry.get('buttons', []) if entry else []
 
-    def _standard_banks(self, device):
+    def standard_banks(self, device):
         # Standard banks are keyed by class_name only and only apply to
         # built-in devices; M4L plugins (one shared class) never get banks.
         cn = getattr(device, 'class_name', None)
@@ -242,7 +242,7 @@ class ParameterResolver:
                 if i > 0 and getattr(p, 'is_quantized', False)]
 
     def _has_bob(self, device):
-        return self._device_entry(device) is not None
+        return self.device_entry(device) is not None
 
     def _has_bob_encoders(self, device):
         """BOB takes encoder page 1 only if it actually defines encoders.
@@ -258,7 +258,7 @@ class ParameterResolver:
     def _standard_bank_name_for(self, device, page, slot_in_page):
         """Page is 1-based. Standard banks are paired self._banks_per_page
         at a time, starting at _first_standard_page(device)."""
-        banks = self._standard_banks(device)
+        banks = self.standard_banks(device)
         first_std = self._first_standard_page(device)
         if not banks or page < first_std:
             return None
@@ -276,11 +276,11 @@ class ParameterResolver:
             return None
         return bank[within]
 
-    def _encoder_pages_count(self, device):
+    def encoder_pages_count(self, device):
         if device is None:
             return 1
         bob_pages = 1 if self._has_bob_encoders(device) else 0
-        banks = self._standard_banks(device)
+        banks = self.standard_banks(device)
         if banks:
             std_pages = (len(banks) + self._banks_per_page - 1) // self._banks_per_page
             return max(1, bob_pages + std_pages)
@@ -291,7 +291,7 @@ class ParameterResolver:
         n = len(self._fallback_continuous(device))
         return max(1, (n + params_per_page - 1) // params_per_page)
 
-    def _button_pages_count(self, device):
+    def button_pages_count(self, device):
         if device is None:
             return 1
         if self._has_bob(device):
@@ -301,14 +301,14 @@ class ParameterResolver:
         n = len(self._fallback_quantized(device))
         return max(1, (n + self._button_slot_count - 1) // self._button_slot_count)
 
-    def _page_label_for(self, device, page):
+    def page_label_for(self, device, page):
         if device is None:
             return ''
         class_name = getattr(device, 'class_name', None)
         if page == 1 and self._has_bob_encoders(device):
             return 'Best of'
         names = self._bank_names.get(class_name)
-        banks = self._standard_banks(device)
+        banks = self.standard_banks(device)
         first_std = self._first_standard_page(device)
         if not names or not banks or page < first_std:
             return ''
@@ -321,13 +321,13 @@ class ParameterResolver:
                 labels.append(names[idx])
         return ' / '.join(labels)
 
-    def _resolve_encoder(self, device, c_idx):
+    def resolve_encoder(self, device, c_idx):
         if device is None:
             return None
         page = self.encoder_page
         slot_in_page = c_idx - 1
         class_name = getattr(device, 'class_name', None)
-        known = self._has_bob(device) or bool(self._standard_banks(device))
+        known = self._has_bob(device) or bool(self.standard_banks(device))
 
         if page == 1 and self._has_bob_encoders(device):
             encoders = self._bob_encoders(device)
@@ -338,7 +338,7 @@ class ParameterResolver:
                     if e is None:
                         return None
                 name = e.get('name')
-                p = self._resolve_param_by_name(device, name)
+                p = self.resolve_param_by_name(device, name)
                 if p is None:
                     available = list((self._name_index or {}).keys())[:30]
                     self._log(
@@ -350,7 +350,7 @@ class ParameterResolver:
                 return RealParameter(p, e.get('display') or name, e.get('button'))
             return None
 
-        if page >= self._first_standard_page(device) and self._standard_banks(device):
+        if page >= self._first_standard_page(device) and self.standard_banks(device):
             name = self._standard_bank_name_for(device, page, slot_in_page)
             if name is None:
                 return None
@@ -380,7 +380,7 @@ class ParameterResolver:
 
     def _resolve_group_member(self, device, entry):
         selector_name = entry['controlledBy']
-        selector = self._resolve_param_by_name(device, selector_name)
+        selector = self.resolve_param_by_name(device, selector_name)
         if selector is None:
             return None
         try:
@@ -392,7 +392,7 @@ class ParameterResolver:
                 return member
         return None
 
-    def _resolve_switch(self, device, switch_idx):
+    def resolve_switch(self, device, switch_idx):
         if device is None:
             return None
         class_name = getattr(device, 'class_name', None)
@@ -417,7 +417,7 @@ class ParameterResolver:
                 return {'kind': 'function', 'device': device, 'fn': fn,
                         'alias': b.get('display') or fn}
             name = b.get('name')
-            p = self._resolve_param_by_name(device, name)
+            p = self.resolve_param_by_name(device, name)
             if p is None:
                 available = list((self._name_index or {}).keys())[:20]
                 self._log(
@@ -449,7 +449,7 @@ class ParameterResolver:
             'min_max': False,
         }
 
-    def _enum_members(self, current_value, device=None, prop=None):
+    def enum_members(self, current_value, device=None, prop=None):
         """Return ordered list of enum members for an LOM enum property.
 
         Three discovery paths, tried in order:
@@ -510,7 +510,7 @@ class ParameterResolver:
         return getattr(module, cls_name, None)
 
     @staticmethod
-    def _enum_index_of(members, current):
+    def enum_index_of(members, current):
         """Find current's position in `members`. Tries equality first, then
         falls back to comparing int casts (covers the case where the property
         returns a plain int but members are enum objects)."""
@@ -530,15 +530,15 @@ class ParameterResolver:
             pass
         return -1
 
-    def _lom_slot_payload(self, info):
+    def lom_slot_payload(self, info):
         kind = info['kind']
         alias = info.get('alias') or ''
         device = info['device']
         try:
             if kind == 'enum':
                 current = getattr(device, info['prop'])
-                members = self._enum_members(current, device, info['prop']) or []
-                idx = self._enum_index_of(members, current) if members else 0
+                members = self.enum_members(current, device, info['prop']) or []
+                idx = self.enum_index_of(members, current) if members else 0
                 if idx < 0:
                     idx = 0
                 vmax = max(0, len(members) - 1)

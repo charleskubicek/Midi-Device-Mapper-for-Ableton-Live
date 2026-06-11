@@ -47,7 +47,7 @@ class TestResolverDirect(unittest.TestCase):
         raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass", "display": "Bass"}], "buttons": []}]}
         r, _ = _resolver(raw)
         dev = FakeDevice("Amp", [FakeParam("On/Off"), FakeParam("Bass")])
-        rp = r._resolve_encoder(dev, 1)
+        rp = r.resolve_encoder(dev, 1)
         self.assertIsNotNone(rp)
         self.assertEqual(rp.alias, "Bass")
         self.assertIs(rp.param, dev.parameters[1])
@@ -59,20 +59,20 @@ class TestResolverDirect(unittest.TestCase):
             FakeParam("cont1"), FakeParam("cont2"),
         ])
         # encoder 1 -> first continuous (skipping on/off + quantized)
-        self.assertIs(r._resolve_encoder(dev, 1).param, dev.parameters[2])
-        self.assertIs(r._resolve_encoder(dev, 2).param, dev.parameters[3])
+        self.assertIs(r.resolve_encoder(dev, 1).param, dev.parameters[2])
+        self.assertIs(r.resolve_encoder(dev, 2).param, dev.parameters[3])
 
     def test_page_label_best_of_for_bob_encoders(self):
         raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass"}], "buttons": []}]}
         r, _ = _resolver(raw)
         dev = FakeDevice("Amp", [FakeParam("On/Off"), FakeParam("Bass")])
-        self.assertEqual(r._page_label_for(dev, 1), "Best of")
+        self.assertEqual(r.page_label_for(dev, 1), "Best of")
 
     def test_unresolved_bob_name_logs_available(self):
         raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Missing"}], "buttons": []}]}
         r, logs = _resolver(raw)
         dev = FakeDevice("Amp", [FakeParam("On/Off"), FakeParam("Bass")])
-        self.assertIsNone(r._resolve_encoder(dev, 1))
+        self.assertIsNone(r.resolve_encoder(dev, 1))
         self.assertTrue(any("[bob]" in m and "Missing" in m for m in logs))
 
 
