@@ -25,10 +25,29 @@ class TestDeviceFocus(unittest.TestCase):
         self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
         self.assertTrue(v.dismissed)
 
-    def test_combined_compositor_forces_show_on_selection(self):
-        # lc_parks: controller-nav primary, but combined=True must still show.
-        v = HudVisibility('controller-nav', combined=True)
-        self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_BURST)
+class TestApply(unittest.TestCase):
+    """apply() is the single state-transition function: every dismissed change
+    in production goes through it (decide() = classify + apply)."""
+
+    def test_apply_emit_burst_clears_dismissed(self):
+        v = HudVisibility('controller-nav')
+        v.dismissed = True
+        v.apply(Decision.EMIT_BURST)
+        self.assertFalse(v.dismissed)
+
+    def test_apply_hide_variants_set_dismissed(self):
+        for d in (Decision.HIDE, Decision.EMIT_SILENT_AND_HIDE):
+            v = HudVisibility('controller-nav')
+            v.apply(d)
+            self.assertTrue(v.dismissed)
+
+    def test_apply_ping_and_nothing_leave_state(self):
+        for d in (Decision.PING, Decision.NOTHING):
+            for start in (False, True):
+                v = HudVisibility('selection')
+                v.dismissed = start
+                v.apply(d)
+                self.assertEqual(v.dismissed, start)
 
 
 class TestSimpleEvents(unittest.TestCase):
@@ -78,7 +97,7 @@ class TestRaceInvariants(unittest.TestCase):
         self.assertFalse(v.dismissed)
 
     def test_region_hide_does_not_reburst(self):
-        v = HudVisibility('controller-nav', combined=True)
+        v = HudVisibility('controller-nav')
         self.assertEqual(v.decide(RegionHide()), Decision.HIDE)
         self.assertTrue(v.dismissed)
 

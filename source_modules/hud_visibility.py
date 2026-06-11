@@ -8,9 +8,16 @@ Swift sticky flag). Each carried a prose comment about a race it dodged.
 `HudVisibility` is the single owner of that decision on the Python side. It
 mirrors the Swift sticky-dismiss flag: `dismissed` is set by HIDE-style
 outcomes and cleared by a real burst. `decide(event)` returns a `Decision` and
-applies the state transition. It is pure (no Live, no sockets) so the full
-event x policy matrix — including the three race invariants — is a unit-tested
-table rather than comments spread across modules.
+applies the state transition; `apply(decision)` is the one transition function
+every production path goes through. It is pure (no Live, no sockets) so the
+full event x policy matrix — including the three race invariants — is a
+unit-tested table rather than comments spread across modules.
+
+Wiring status: DeviceFocus, ModeChange, UserToggle, ViewLeft and RegionCommit
+are fired by HudPresenter/Helpers/the generated template. RegionHide and
+ControlTouched encode RegionState's and the listeners' rules but those call
+sites still own their behaviour directly — routing them through this table is
+the deferred, hardware-verified step of plan item R10.
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -65,32 +72,36 @@ class ControlTouched:
 
 
 class HudVisibility:
-    def __init__(self, trigger, combined=False):
+    def __init__(self, trigger):
         # trigger: 'selection' (HUD follows Live's selected device) or
         # 'controller-nav' (HUD only on explicit device-nav actions).
+        # The lc_parks compositor needs selection-driven focus to always show
+        # (a HIDE-on-select races the parks-driven combined COMMIT); gen.py
+        # expresses that by forcing the compositor's trigger to 'selection'.
         self.trigger = trigger
-        # combined=True is the lc_parks compositor: it forces selection-driven
-        # focus to show, because a HIDE-on-select would race the parks-driven
-        # combined COMMIT and make values flash then vanish.
-        self.combined = combined
         # Mirrors the Swift sticky dismissed flag.
         self.dismissed = False
 
     def decide(self, event) -> Decision:
         decision = self._classify(event)
+        self.apply(decision)
+        return decision
+
+    def apply(self, decision):
+        """The single state-transition function. Callers that already hold a
+        Decision (the burst path) apply it here instead of writing `dismissed`
+        directly, so every transition lives in one place."""
         if decision is Decision.EMIT_BURST:
             self.dismissed = False
         elif decision in (Decision.EMIT_SILENT_AND_HIDE, Decision.HIDE):
             self.dismissed = True
-        return decision
 
     def _classify(self, event) -> Decision:
         if isinstance(event, DeviceFocus):
             if event.source == 'nav':
                 return Decision.EMIT_BURST
-            # selection poll: show unless the surface is controller-nav-only
-            # (and not the combined compositor, which always shows on select).
-            if self.combined or self.trigger == 'selection':
+            # selection poll: show unless the surface is controller-nav-only.
+            if self.trigger == 'selection':
                 return Decision.EMIT_BURST
             return Decision.EMIT_SILENT_AND_HIDE
         if isinstance(event, ModeChange):

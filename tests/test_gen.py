@@ -114,6 +114,11 @@ class TestGenerateComposition(unittest.TestCase):
         self.assertIn("on_commit=self._helpers.reemit_combined_burst", comp_src)
         # The compositor talks to the real HUD (no retarget): HUD_TARGET=None.
         self.assertIn("HUD_TARGET = None", comp_src)
+        # App-view dismissals forward a ViewLeft event through Helpers (the
+        # HudVisibility table) — never a raw send_hide() that would leave the
+        # Python-side dismiss mirror stale.
+        self.assertIn("self._helpers.hud_view_left()", comp_src)
+        self.assertNotIn("self._hud_client.send_hide()", comp_src)
         # The compositor must NOT inherit launch_control's 'controller-nav'
         # trigger: that suppresses + sends HIDE on selection, which races the
         # parks-driven combined COMMIT and makes values flash then vanish.

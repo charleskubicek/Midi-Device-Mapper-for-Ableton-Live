@@ -5,13 +5,16 @@ a HUD/feedback burst on `Remote`, and owns the local mirror of the Swift sticky
 "dismissed" flag plus the active mode-label overlay. It does no Live writes and
 holds no manager/song — Helpers passes it the focused device on each call.
 
-R10 will replace the inline suppress/HIDE branching in `emit_burst` with the
-table-driven HudVisibility decision object; the seams here are kept aligned with
-that work (emit_burst's suppress_hud arg is the one show/hide knob).
+Show/hide intent is owned by the `HudVisibility` table (R10): the presenter
+fires events (`DeviceFocus`, `ModeChange`, `UserToggle`, `ViewLeft`,
+`RegionCommit`) and acts on the returned `Decision`; the `dismissed` flag only
+changes inside `HudVisibility.apply`.
 """
 from .param_resolver import ParameterMapping, SwitchSlotMapping
 from .hud_protocol import PageInfo
-from .hud_visibility import HudVisibility, Decision, DeviceFocus, UserToggle
+from .hud_visibility import (
+    HudVisibility, Decision, DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit,
+)
 
 
 class HudPresenter:
@@ -94,7 +97,7 @@ class HudPresenter:
         )
         if not suppress_hud:
             # A real burst clears the Swift sticky dismissed flag — re-sync intent.
-            self.hud_dismissed = False
+            self._visibility.apply(Decision.EMIT_BURST)
         else:
             # Suppressed (controller-nav mode, non-nav selection change). The
             # device_update above kept OSC + feedback sinks flowing but emitted
@@ -105,7 +108,7 @@ class HudPresenter:
             # can't resurrect it; the next device-nav burst clears it and
             # repaints fresh. Mirror the intent locally so hud_toggle re-syncs.
             self._remote.hide()
-            self.hud_dismissed = True
+            self._visibility.apply(Decision.EMIT_SILENT_AND_HIDE)
 
     def on_device_focus(self, device, source):
         """A device became focused (source 'nav' | 'selection'). The single
@@ -115,22 +118,32 @@ class HudPresenter:
         decision = self._visibility.decide(DeviceFocus(source))
         self.emit_burst(device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
+    def view_left(self):
+        """App-view listeners (doc-view switch, browser opened, detail hidden)
+        forward here instead of calling send_hide() directly, so the local
+        dismiss mirror stays in sync with the Swift sticky flag."""
+        if self._visibility.decide(ViewLeft()) is Decision.HIDE:
+            self._remote.hide()
+
     def reemit_combined_burst(self, device):
         """Compositor hook (lc_parks): the secondary region changed, so re-emit
         a full combined burst for the current device with the parks region
-        appended. Bypasses the show-hud-on gate (always suppress_hud=False) and
-        the same-device guard in selected_device_changed — otherwise the parks
-        region would never reach the HUD under the primary's 'controller-nav'
-        trigger or when the focused device is unchanged."""
+        appended. A RegionCommit is a real burst — it bypasses the show-hud-on
+        gate and the same-device guard in selected_device_changed, otherwise
+        the parks region would never reach the HUD under the primary's
+        'controller-nav' trigger or when the focused device is unchanged."""
         if device is not None:
+            self._visibility.decide(RegionCommit())
             self.emit_burst(device, suppress_hud=False)
 
     def refresh_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the
         active overlay and re-emits a burst so the HUD reflects the new
         labels for non-device cells. Device cells reuse the existing
-        device-path data when a device is focused."""
+        device-path data when a device is focused. A mode change always shows
+        the HUD, even after a view-left dismiss (ModeChange -> EMIT_BURST)."""
         self._current_mode_name = mode_name
+        self._visibility.decide(ModeChange())
         self.emit_current_burst(device)
 
     def emit_current_burst(self, device):
@@ -147,7 +160,7 @@ class HudPresenter:
                 '', [], info_text='', switch_entries=[], device_parameters=[],
                 hud_layout=self._hud_cells, mode_labels=mode_labels,
             )
-            self.hud_dismissed = False
+            self._visibility.apply(Decision.EMIT_BURST)
 
     def toggle(self, device):
         """Bound to a `functions: hud_toggle` button. Flips the HUD between

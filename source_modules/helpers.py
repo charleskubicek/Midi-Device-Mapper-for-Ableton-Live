@@ -461,6 +461,12 @@ class Helpers:
         hidden and shown."""
         self._presenter.toggle(self._last_selected_device)
 
+    def hud_view_left(self):
+        """The generated surface's app-view listeners (doc-view switch, browser
+        opened, detail hidden) forward here. Routes through the HudVisibility
+        table so the dismiss mirror stays in sync with the Swift sticky flag."""
+        self._presenter.view_left()
+
     def value_is_max(self, value, max):
         return value == max
 

@@ -75,5 +75,34 @@ class TestHudPresenterDirect(unittest.TestCase):
         self.assertEqual(remote.device_update.call_args[0][0], '')
 
 
+class TestVisibilityWiring(unittest.TestCase):
+    """R10 follow-up: the template's app-view dismiss, the mode refresh and the
+    compositor re-emit all route through the HudVisibility table instead of
+    raw send_hide()/flag writes."""
+
+    def test_view_left_hides_and_sets_intent(self):
+        p, remote = _presenter()
+        p.view_left()
+        remote.hide.assert_called_once()
+        self.assertTrue(p.hud_dismissed)
+
+    def test_view_left_dismiss_is_cleared_by_mode_refresh(self):
+        # ModeChange always shows — even after a view-left dismiss.
+        p, remote = _presenter()
+        p.view_left()
+        p.refresh_for_mode('mode-a', None)
+        self.assertFalse(p.hud_dismissed)
+        remote.device_update.assert_called_once()
+
+    def test_reemit_combined_burst_clears_dismiss(self):
+        # RegionCommit is a real burst: it must clear a sticky dismiss.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        p.view_left()
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.reemit_combined_burst(dev)
+        self.assertFalse(p.hud_dismissed)
+        remote.device_update.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()

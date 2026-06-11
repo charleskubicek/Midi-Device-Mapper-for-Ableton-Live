@@ -140,7 +140,7 @@ class MainComponent(ControlSurfaceComponent):
         # Session <-> Arrangement switch. Device selection never changes this, so
         # an unconditional hide can't race our show burst. Note: Live emits this
         # redundantly (several times per change); HIDE is idempotent so that's fine.
-        self._hud_client.send_hide()
+        self._helpers.hud_view_left()
 
     def _on_browser_visibility_changed(self):
         # Hide only when the browser becomes visible (the user opened it). Fires
@@ -148,7 +148,7 @@ class MainComponent(ControlSurfaceComponent):
         # observable in the Live API, so that case won't dismiss.
         try:
             if self._app_view.is_view_visible('Browser'):
-                self._hud_client.send_hide()
+                self._helpers.hud_view_left()
         except Exception as e:
             self.log_message(f"HUD dismiss: Browser visibility check failed: {e}")
 
@@ -157,7 +157,7 @@ class MainComponent(ControlSurfaceComponent):
         # it visible, so this won't fire a hide on selection.
         try:
             if not self._app_view.is_view_visible('Detail/DeviceChain'):
-                self._hud_client.send_hide()
+                self._helpers.hud_view_left()
         except Exception as e:
             self.log_message(f"HUD dismiss: Detail/DeviceChain visibility check failed: {e}")
 

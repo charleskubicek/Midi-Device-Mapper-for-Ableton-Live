@@ -1168,5 +1168,18 @@ class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
         self.assertEqual(helpers._encoder_pages_count(device), 1)
 
 
+class TestHudViewLeft(unittest.TestCase):
+    """The template's app-view listeners forward a ViewLeft event through
+    Helpers instead of calling hud_client.send_hide() directly, so the
+    Python-side dismiss mirror stays in sync with the Swift sticky flag."""
+
+    def test_hud_view_left_hides_and_sets_intent(self):
+        remote = Mock()
+        helpers = Helpers(Mock(), remote)
+        helpers.hud_view_left()
+        remote.hide.assert_called_once()
+        self.assertTrue(helpers._hud_dismissed)
+
+
 if __name__ == '__main__':
     unittest.main()
