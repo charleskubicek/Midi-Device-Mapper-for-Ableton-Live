@@ -132,6 +132,26 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(msg, .unknown)
     }
 
+    // MARK: - EVENT
+
+    func test_event_message_parses() {
+        let msg = WireProtocol.parse(line: "EVENT|button|4|row-3:5 ▼127 → acted")
+        XCTAssertEqual(msg, .event(kind: "button", wireIdx: 4, text: "row-3:5 ▼127 → acted"))
+    }
+
+    func test_event_text_may_contain_pipe() {
+        let msg = WireProtocol.parse(line: "EVENT|info|-1|a|b|c")
+        XCTAssertEqual(msg, .event(kind: "info", wireIdx: -1, text: "a|b|c"))
+    }
+
+    func test_event_too_few_fields() {
+        XCTAssertEqual(WireProtocol.parse(line: "EVENT|info|0"), .unknown)
+    }
+
+    func test_event_malformed_index() {
+        XCTAssertEqual(WireProtocol.parse(line: "EVENT|info|x|text"), .unknown)
+    }
+
     // MARK: - HIDE
 
     func test_hide() {
@@ -213,6 +233,31 @@ final class WireProtocolTests: XCTestCase {
 final class DeviceStateBurstTests: XCTestCase {
 
     func makeState() -> DeviceState { DeviceState() }
+
+    func test_event_publishes_last_event_without_touching_slots() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 0)]))
+        state.apply(message: .device("Reverb"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "Size", value: 0.5, min: 0, max: 1)))
+        state.apply(message: .commit(1))
+
+        state.apply(message: .event(kind: "button", wireIdx: 3, text: "row-3:5 acted"))
+        XCTAssertEqual(state.lastEvent?.text, "row-3:5 acted")
+        XCTAssertEqual(state.lastEvent?.wireIdx, 3)
+        // slot/published state is untouched by an EVENT
+        XCTAssertEqual(state.dialSlots[0]?.name, "Size")
+    }
+
+    func test_event_seq_increments_so_repeats_retrigger() async {
+        let state = makeState()
+        state.apply(message: .event(kind: "info", wireIdx: -1, text: "same"))
+        let first = state.lastEvent?.seq
+        state.apply(message: .event(kind: "info", wireIdx: -1, text: "same"))
+        let second = state.lastEvent?.seq
+        XCTAssertNotNil(first)
+        XCTAssertNotNil(second)
+        XCTAssertGreaterThan(second!, first!)
+    }
 
     func test_clean_burst_populates_slots() async {
         let state = makeState()

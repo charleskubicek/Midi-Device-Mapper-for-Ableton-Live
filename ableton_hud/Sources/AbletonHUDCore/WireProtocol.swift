@@ -52,6 +52,10 @@ public enum WireMessage: Equatable {
     case mode(isShift: Bool)
     case page(encPage: Int, encTotal: Int, btnPage: Int, btnTotal: Int,
               encLabel: String, btnLabel: String)
+    /// Show-info feedback: a transient, human-readable explanation of a button
+    /// press, rendered + faded on the HUD. `wireIdx` is the HUD button-array
+    /// index (-1 when the press isn't tied to a cell). `text` may contain '|'.
+    case event(kind: String, wireIdx: Int, text: String)
     case unknown
 }
 
@@ -130,6 +134,12 @@ public enum WireProtocol {
             return .page(encPage: encPage, encTotal: encTotal,
                          btnPage: btnPage, btnTotal: btnTotal,
                          encLabel: encLabel, btnLabel: btnLabel)
+
+        case "EVENT":
+            // EVENT|<kind>|<wireIdx>|<text...> — text is the rest, may hold '|'.
+            guard fields.count >= 4, let wireIdx = Int(fields[2]) else { return .unknown }
+            let text = fields[3...].joined(separator: "|")
+            return .event(kind: fields[1], wireIdx: wireIdx, text: text)
 
         default:
             return .unknown

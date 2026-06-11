@@ -53,7 +53,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are eight message types.
+There are nine message types.
 
 ### `LAYOUT`
 
@@ -262,6 +262,39 @@ PAGE|<enc_page>|<enc_total>|<btn_page>|<btn_total>
 - When the encoder page count exceeds the button page count (e.g. 5 encoder
   pages but only 2 button pages), the button page stays at its last valid page.
   The HUD indicator tracks the encoder page over the shared maximum total.
+
+### `EVENT`
+
+Show-info feedback. When the user enables show-info mode (the `showinfo`
+update.py command), every **button** press the surface receives is explained on
+the HUD at the moment of the press. The HUD renders the text transiently and
+fades it. Orthogonal to bursts — `EVENT` carries no slot data and never
+participates in burst framing.
+
+```
+EVENT|<kind>|<wire_idx>|<text...>
+```
+
+| Field      | Type   | Meaning                                                   |
+|------------|--------|-----------------------------------------------------------|
+| `kind`     | string | `button` / `dial`, or `info` when not tied to a HUD cell  |
+| `wire_idx` | int    | HUD button-array index, or `-1` when none                 |
+| `text`     | string | human-readable explanation; **may contain `\|`** — it is always the final field, so parsers must join `fields[3:]` |
+
+- **Emitted:** from the generated button listeners (the single `button_event`
+  chokepoint, `gen_code.py`) while show-info is enabled, via
+  `HudClient.send_event()`. Continuous knobs/sliders never emit it.
+- **Receiver effect:** renders `text` as a transient footer line (and, when
+  `wire_idx >= 0`, a brief border pulse on that cell), auto-fading after ~2s.
+  Does not alter published slot state.
+- **Text format:** the sender emits e.g. `row-3:5 ▼127 → acted` on press and
+  `… ▲0 ignored (press-only)` on release; an on-value ≠ 127 is annotated.
+
+> **Status.** The protocol message, sender emission, and the Swift parser case
+> are implemented + tested. The HUD *rendering* (footer fade + cell pulse) and
+> moving the enable toggle into HUD chrome (which needs a HUD→surface back
+> channel) are the remaining follow-up; today the toggle is the `showinfo`
+> update.py command. See momentary-vs-toggle-made-explicit-plan, item #7.
 
 ---
 

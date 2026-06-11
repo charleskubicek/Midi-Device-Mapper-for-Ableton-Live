@@ -19,6 +19,7 @@ from ableton_control_surface_as_code.model_v2 import read_controller, \
 from ableton_control_surface_as_code.gen_error import GenError
 from ableton_control_surface_as_code.core_model import EncoderType
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
+from ableton_control_surface_as_code.behavior_doc import build_behavior_doc
 from ableton_control_surface_as_code.hud_layout import (
     allocate_global_layout, collect_mode_labels, combine_layouts,
 )
@@ -401,6 +402,11 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
     code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=overrides.hud_cells)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars)
+
+    # Living documentation of the press-once-by-default model: one row per
+    # button describing what a single press does.
+    behavior_md = build_behavior_doc(mode_with_midi, controller=controller, surface_name=surface_name)
+    (target_dir / surface_name / "BEHAVIOR.md").write_text(behavior_md)
 
     # # copy all .py files into the modules folder
     for file in mapping_file_path.parent.glob('*.py'):

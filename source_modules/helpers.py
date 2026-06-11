@@ -9,6 +9,8 @@ from .param_resolver import (
     _default_device_banks, _default_bank_names,
 )
 from .hud_presenter import HudPresenter
+from .doctor import Doctor
+from .show_info import ShowInfo
 import logging
 
 logger = logging.getLogger("helpers")
@@ -93,6 +95,30 @@ class Helpers:
         self._remote.init_layout(hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
+        # Button diagnostics, both off until their update.py command enables them.
+        self._doctor = Doctor(log=self.log_message)
+        self._show_info = ShowInfo(
+            send_event=lambda kind, idx, text: self._remote._hud_client.send_event(kind, idx, text),
+            log=self.log_message)
+
+    def button_event(self, fn_name, value, wire_idx=-1):
+        """Single chokepoint every generated *button* listener calls (continuous
+        knobs/sliders do not). Fans out to the diagnostics that care about raw
+        button edges: the hardware doctor and HUD show-info."""
+        self._doctor.observe(fn_name, value)
+        self._show_info.notify(fn_name, value, wire_idx)
+
+    def doctor_toggle(self):
+        """Toggle doctor mode; when turning off, emit the classification report."""
+        was_enabled = self._doctor.enabled
+        self._doctor.toggle()
+        if was_enabled:
+            self._doctor.report()
+        return self._doctor.enabled
+
+    def show_info_toggle(self):
+        """Toggle HUD show-info mode (edge-annotated button feedback)."""
+        return self._show_info.toggle()
 
     def show_message(self, message):
         self._manager.show_message(message)

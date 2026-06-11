@@ -157,6 +157,16 @@ def encode_mode(is_shift: bool) -> str:
     return "MODE|shift" if is_shift else "MODE|normal"
 
 
+def encode_event(kind: str, wire_idx: int, text: str) -> str:
+    # Show-info feedback: explains a button press on the HUD at the moment it
+    # happens (see momentary-vs-toggle-made-explicit-plan, item #7). `kind` is
+    # the slot kind ('button'/'dial') or 'info' when not tied to a HUD cell;
+    # `wire_idx` is the HUD button-array index (-1 when none). `text` is free
+    # form and may itself contain '|', so it is always the final field.
+    safe_text = text.replace('\n', ' ')
+    return f"EVENT|{kind}|{wire_idx}|{safe_text}"
+
+
 # ---- parse ------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -214,11 +224,18 @@ class PageMsg:
 
 
 @dataclass(frozen=True)
+class EventMsg:
+    kind: str
+    wire_idx: int
+    text: str
+
+
+@dataclass(frozen=True)
 class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, PageMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, PageMsg, EventMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -307,6 +324,17 @@ def parse(line: str) -> Message:
         if len(fields) == 2:
             return ModeMsg(is_shift=(fields[1] == 'shift'))
         return UnknownMsg(line)
+
+    if verb == 'EVENT':
+        # EVENT|<kind>|<wire_idx>|<text...> — text is the rest, may contain '|'.
+        if len(fields) < 4:
+            return UnknownMsg(line)
+        try:
+            wire_idx = int(fields[2])
+        except ValueError:
+            return UnknownMsg(line)
+        text = '|'.join(fields[3:])
+        return EventMsg(fields[1], wire_idx, text)
 
     if verb == 'PAGE':
         if len(fields) not in (5, 7):

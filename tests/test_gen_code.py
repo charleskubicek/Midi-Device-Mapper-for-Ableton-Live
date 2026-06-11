@@ -291,5 +291,19 @@ class TestSwitchSlotPressGuard(unittest.TestCase):
         self.assertLess(guard_idx, call_idx)
 
 
+class TestDoctorObserveHook(unittest.TestCase):
+    def test_method_call_button_emits_button_event(self):
+        result = GeneratedCodes.merge_all(functions_templates(_functions_with_midi(), "main"))
+        self.assertIn("self._helpers.button_event(", "\n".join(result.listener_fns))
+
+    def test_device_param_button_emits_button_event(self):
+        result = GeneratedCodes.merge_all(device_templates(_device_with_midi(EncoderType.button), "main"))
+        self.assertIn("self._helpers.button_event(", "\n".join(result.listener_fns))
+
+    def test_knob_param_does_not_emit_button_event(self):
+        result = GeneratedCodes.merge_all(device_templates(_device_with_midi(EncoderType.knob), "main"))
+        self.assertNotIn("button_event", "\n".join(result.listener_fns))
+
+
 if __name__ == "__main__":
     unittest.main()

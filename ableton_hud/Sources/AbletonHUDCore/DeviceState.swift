@@ -20,6 +20,12 @@ public class DeviceState: ObservableObject {
     @Published public var bankLabel: String = ""
     @Published public var dismissed: Bool = false
 
+    /// Show-info: the most recent button-press explanation (EVENT). The view
+    /// renders it as a transient footer + cell pulse and fades it; `seq` lets
+    /// the view restart its fade even when the same text repeats. Orthogonal to
+    /// the burst/published slot state.
+    @Published public var lastEvent: ButtonEvent? = nil
+
     // Pending (in-burst) buffers, swapped into the published values on COMMIT.
     private var pendingDials: [Int: Slot] = [:]
     private var pendingButtons: [Int: Slot] = [:]
@@ -33,6 +39,8 @@ public class DeviceState: ObservableObject {
 
     public let commitReceived = PassthroughSubject<Void, Never>()
     public let hideRequested = PassthroughSubject<Void, Never>()
+
+    private var eventSeq: Int = 0
 
     public init() {}
 
@@ -110,8 +118,31 @@ public class DeviceState: ObservableObject {
             // label if the encoder page has none but a button page does.
             pendingBankLabel = !encLabel.isEmpty ? encLabel : btnLabel
 
+        case .event(let kind, let wireIdx, let text):
+            // Show-info: surface a transient explanation; the view renders +
+            // fades it. Does not touch burst/published slot state.
+            eventSeq += 1
+            lastEvent = ButtonEvent(kind: kind, wireIdx: wireIdx, text: text, seq: eventSeq)
+
         case .unknown:
             break
         }
+    }
+}
+
+/// One show-info button-press explanation (from an EVENT message). `seq`
+/// monotonically increases so the view can re-trigger its fade animation even
+/// when an identical press repeats.
+public struct ButtonEvent: Equatable {
+    public let kind: String
+    public let wireIdx: Int
+    public let text: String
+    public let seq: Int
+
+    public init(kind: String, wireIdx: Int, text: String, seq: Int) {
+        self.kind = kind
+        self.wireIdx = wireIdx
+        self.text = text
+        self.seq = seq
     }
 }

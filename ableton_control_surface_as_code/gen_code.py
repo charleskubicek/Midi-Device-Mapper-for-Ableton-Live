@@ -87,24 +87,26 @@ def is_valid_function_name(name):
     return True
 
 
-def generate_parameter_listener_action(parameter, midi_no, track, device, fn_name, toggle: bool, debug_st) -> [str]:
+def generate_parameter_listener_action(parameter, midi_no, track, device, fn_name, toggle: bool, debug_st, doctor: bool = False) -> [str]:
     if not is_valid_function_name(fn_name):
         raise ValueError(f"Invalid function name: {fn_name}")
 
+    doctor_block = f"\n    self._helpers.button_event('{fn_name}', value)" if doctor else ""
+
     return Template("""
-def ${fn_name}(self, value):
+def ${fn_name}(self, value):${doctor_block}
     device = self.find_device("${track}", "${device}")
     if device is None:
         self.log_message(f"device not found: ${track} - ${device}")
         return
-        
 
-    self.device_parameter_action(device, $parameter, $midi_no, value, "$fn_name", toggle=$toggle)    
+
+    self.device_parameter_action(device, $parameter, $midi_no, value, "$fn_name", toggle=$toggle)
     """).substitute(parameter=parameter, midi_no=midi_no, track=track, device=device, toggle=toggle, fn_name=fn_name,
-                    comment=debug_st).split("\n")
+                    comment=debug_st, doctor_block=doctor_block).split("\n")
 
 
-def generate_control_value_listener_function_action(fn_name, var_name, callee, toggle: bool, debug_st: str) -> [str]:
+def generate_control_value_listener_function_action(fn_name, var_name, callee, toggle: bool, debug_st: str, doctor: bool = False) -> [str]:
     if not is_valid_function_name(fn_name):
         raise ValueError(f"Invalid function name: {fn_name}")
 
@@ -112,19 +114,22 @@ def generate_control_value_listener_function_action(fn_name, var_name, callee, t
     if toggle:
         toggle_fn = "self._helpers.value_is_max(value, 127)"
 
+    doctor_block = f"\n    self._helpers.button_event('{fn_name}', value)" if doctor else ""
+
     return Template("""
-# $comment   
-def ${fn_name}(self, value):
+# $comment
+def ${fn_name}(self, value):${doctor_block}
     if self.manager.debug:
         self.log_message(f"${fn_name} ($comment) callee = ${callee}, value is {value}")
-        
+
     previous_value = self._previous_values['$fn_name']
     self._previous_values['$fn_name'] = value
 
     if ${toggle_fn}:
         $callee
     self._hud_client.send_ping()
-    """).substitute(callee=callee, var_name=var_name, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn).split(
+    """).substitute(callee=callee, var_name=var_name, fn_name=fn_name, comment=debug_st, toggle_fn=toggle_fn,
+                    doctor_block=doctor_block).split(
         "\n")
 
 
@@ -173,7 +178,8 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
                 device_with_midi.device,
                 enc_listener_name,
                 mm.only_midi_coord.encoder_type.is_button() and not enc_refs.has_momentary(),
-                mm.info_string())
+                mm.info_string(),
+                doctor=mm.only_midi_coord.encoder_type.is_button())
         ))
 
     for mb in device_with_midi.switch_maps:
@@ -210,6 +216,7 @@ def _switch_action_dispatch_fn(fn_name: str, slot: str, track: str, device: str)
     return Template("""
 def ${fn_name}(self, value):
     self.log_message(f"calling : ${fn_name}")
+    self._helpers.button_event("${fn_name}", value)
     device = self.find_device("${track}", "${device}")
     if device is None:
         self.log_message(f"device not found: ${track} - ${device}")
@@ -275,6 +282,7 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
     # fire-on-both-edges. Built-in actions (e.g. hud_toggle) are always
     # press-only regardless of refinement.
     press_only = getattr(midi_map, 'builtin', False) or not enc_refs.has_momentary()
+    is_button = midi_map.only_midi_coord.encoder_type.is_button()
 
     return GeneratedCode(
         control_defs=[midi_map.only_midi_coord],
@@ -285,7 +293,8 @@ def button_listener_function_caller_templates(midi_map: ButtonProviderBaseModel,
                                                                      midi_map.controller_variable_name(),
                                                                      midi_map.template_function_call(),
                                                                      press_only,
-                                                                     midi_map.info_string())
+                                                                     midi_map.info_string(),
+                                                                     doctor=is_button)
     )
 
 

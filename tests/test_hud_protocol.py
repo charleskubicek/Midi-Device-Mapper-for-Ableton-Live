@@ -13,7 +13,9 @@ from source_modules.hud_protocol import (
     PingMsg,
     HideMsg,
     PageMsg,
+    EventMsg,
     UnknownMsg,
+    encode_event,
     encode_layout,
     encode_device,
     encode_slot,
@@ -127,6 +129,18 @@ class TestEncodeBytes(unittest.TestCase):
             encode_page_info(2, 4, 1, 2, enc_label='Best of', btn_label='Toggles'),
             "PAGE|2|4|1|2|Best of|Toggles",
         )
+
+    def test_event(self):
+        self.assertEqual(encode_event('button', 4, 'row-3:5 acted'), "EVENT|button|4|row-3:5 acted")
+
+    def test_event_roundtrip(self):
+        self.assertEqual(parse(encode_event('info', -1, 'hi')), EventMsg('info', -1, 'hi'))
+
+    def test_event_text_with_pipe_roundtrips(self):
+        self.assertEqual(parse("EVENT|info|0|a|b"), EventMsg('info', 0, 'a|b'))
+
+    def test_event_malformed_index_is_unknown(self):
+        self.assertEqual(parse("EVENT|info|x|t"), UnknownMsg("EVENT|info|x|t"))
 
 
 class TestParseRoundtrip(unittest.TestCase):

@@ -25,7 +25,7 @@ def send_udp_message(message, ip, port):
 
 def main():
     parser = argparse.ArgumentParser(description="Send a UDP message based on command parameter.")
-    parser.add_argument('command', type=str, choices=['reload', 'debug', 'dump', 'dump2', 'dumpnames', 'lom', 'cs_dir', 'options'], help='Command to be executed')
+    parser.add_argument('command', type=str, choices=['reload', 'debug', 'dump', 'dump2', 'dumpnames', 'lom', 'doctor', 'showinfo', 'cs_dir', 'options'], help='Command to be executed')
 
     args = parser.parse_args()
 
@@ -53,6 +53,12 @@ def main():
         send_udp_message(message, ip, port)
     elif args.command == 'dump2': # splits encoders and buttons
         message = b'dump2'
+        send_udp_message(message, ip, port)
+    elif args.command == 'doctor': # hardware-mode diagnostic; run once to arm, again to report
+        message = b'doctor'
+        send_udp_message(message, ip, port)
+    elif args.command == 'showinfo': # toggle HUD edge-annotated button feedback
+        message = b'showinfo'
         send_udp_message(message, ip, port)
     else:
         print("Invalid command. Use 'reload' or 'debug' to send the respective message.")

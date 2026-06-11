@@ -58,6 +58,9 @@ class HudClient:
         self._send(hud_protocol.encode_page_info(
             enc_page, enc_total, btn_page, btn_total, enc_label, btn_label))
 
+    def send_event(self, kind: str, wire_idx: int, text: str):
+        self._send(hud_protocol.encode_event(kind, wire_idx, text))
+
 
 class NullHudClient:
     def __init__(self, host='127.0.0.1', port=5006): pass
@@ -70,3 +73,4 @@ class NullHudClient:
     def send_hide(self): pass
     def send_mode(self, is_shift: bool): pass
     def send_page_info(self, enc_page, enc_total, btn_page, btn_total, enc_label='', btn_label=''): pass
+    def send_event(self, kind, wire_idx, text): pass

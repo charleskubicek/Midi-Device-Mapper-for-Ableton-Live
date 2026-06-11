@@ -321,6 +321,20 @@ class $surface_name(ControlSurface):
                 self.dump_selected_device_lom()
                 response = b'LOM dump written to logs'
 
+            elif cmd == 'doctor':
+                # Button doctor: first call enables (press each button twice),
+                # second call reports the hardware classification to the logs.
+                enabled = self.main_component._helpers.doctor_toggle()
+                response = (b'doctor enabled - press each button twice, then run `doctor` again'
+                            if enabled else b'doctor report written to logs')
+
+            elif cmd == 'showinfo':
+                # HUD show-info: each button press is explained on the HUD via an
+                # EVENT message until toggled off.
+                enabled = self.main_component._helpers.show_info_toggle()
+                response = (b'show-info enabled - press a button to see it explained on the HUD'
+                            if enabled else b'show-info disabled')
+
             if response is not None:
                 self._socket.sendto(response, addr)
 
