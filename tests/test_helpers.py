@@ -58,6 +58,53 @@ def _amp_mappings():
     }
 
 
+class TestButtonEdgeGuard(unittest.TestCase):
+    """should_act_on_edge: the press-once guard, parameterised on hardware mode.
+    This is the fix for the toggle-hardware-fires-every-other-press regression."""
+
+    def _helpers(self, behaviour):
+        return Helpers(Mock(), Mock(), button_behaviour=behaviour)
+
+    def test_momentary_acts_on_down_not_release(self):
+        h = self._helpers('momentary')
+        self.assertTrue(h.should_act_on_edge(127))   # physical down → act
+        self.assertFalse(h.should_act_on_edge(0))    # release → ignore
+
+    def test_momentary_acts_on_custom_on_value(self):
+        h = self._helpers('momentary')
+        self.assertTrue(h.should_act_on_edge(100))   # non-zero down still acts
+
+    def test_toggle_acts_on_every_edge(self):
+        h = self._helpers('toggle')
+        # toggle hardware sends one alternating event per press → every edge acts
+        self.assertTrue(h.should_act_on_edge(127))
+        self.assertTrue(h.should_act_on_edge(0))
+
+    def test_toggle_param_button_latches_on_every_press(self):
+        # Regression guard: on toggle hardware a latching device-param button must
+        # flip once per press (i.e. on both the 127 and the 0 events).
+        h = self._helpers('toggle')
+        device = FakeDevice(
+            class_name="Unknown",
+            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0, value=0.0) for i in range(4)],
+        )
+        h.device_parameter_action(device, 1, 22, 127, "fn", toggle=True)
+        self.assertEqual(device.parameters[1].value, 1.0)  # press → max
+        h.device_parameter_action(device, 1, 22, 0, "fn", toggle=True)
+        self.assertEqual(device.parameters[1].value, 0.0)  # next press (the 0 edge) → min
+
+    def test_momentary_param_button_does_not_latch_on_release(self):
+        h = self._helpers('momentary')
+        device = FakeDevice(
+            class_name="Unknown",
+            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0, value=0.0) for i in range(4)],
+        )
+        h.device_parameter_action(device, 1, 22, 127, "fn", toggle=True)
+        self.assertEqual(device.parameters[1].value, 1.0)  # down → max
+        h.device_parameter_action(device, 1, 22, 0, "fn", toggle=True)
+        self.assertEqual(device.parameters[1].value, 1.0)  # release ignored → stays max
+
+
 class TestEncoderResolution(unittest.TestCase):
     def setUp(self):
         self.manager = Mock()

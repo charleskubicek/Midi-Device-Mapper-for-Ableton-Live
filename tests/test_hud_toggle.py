@@ -73,15 +73,17 @@ class TestHudToggleCodegen(unittest.TestCase, CustomAssertions):
         self.assertNotIn("self.functions.hud_toggle", body)
 
     def test_builtin_fires_press_only(self):
-        # Without a press-only guard the callee fires on press AND release,
-        # flipping the toggle twice per press. The builtin must guard on max.
+        # Without a press-once guard the callee fires on press AND release,
+        # flipping the toggle twice per press. The builtin must route through the
+        # hardware-aware edge guard (press-only on momentary, one-per-press on toggle).
         from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
         midi = FunctionsWithMidi(midi_maps=[_builtin_mapping()])
 
         result = functions_templates(midi, "mode_1")[0]
         body = "\n".join(result.listener_fns)
 
-        self.assertIn("self._helpers.value_is_max(value, 127)", body)
+        self.assertIn("self._helpers.should_act_on_edge(value)", body)
+        self.assertNotIn("if True:", body)
 
 
 class TestToggleHudRuntime(unittest.TestCase):

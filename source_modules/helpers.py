@@ -49,6 +49,9 @@ class SurfaceConfig:
     device_banks: Any = None
     bank_names: Any = None
     hud_trigger: str = 'controller-nav'
+    # 'momentary' (default) or 'toggle' — how this controller's buttons report a
+    # press (see ButtonBehaviour). Drives the press-once edge guard.
+    button_behaviour: str = 'momentary'
 
 
 class Helpers:
@@ -95,11 +98,27 @@ class Helpers:
         self._remote.init_layout(hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
+        self._button_behaviour = config.button_behaviour
         # Button diagnostics, both off until their update.py command enables them.
-        self._doctor = Doctor(log=self.log_message)
+        self._doctor = Doctor(log=self.log_message, assumed_behaviour=config.button_behaviour)
         self._show_info = ShowInfo(
             send_event=lambda kind, idx, text: self._remote._hud_client.send_event(kind, idx, text),
             log=self.log_message)
+
+    def should_act_on_edge(self, value):
+        """Whether this raw MIDI button edge is a distinct *press* that should act
+        once. Parameterised on the controller's hardware button mode so a
+        press-once button works on both:
+
+        - 'toggle' hardware sends one alternating on/off event per press, so
+          *every* edge is its own press → always act.
+        - 'momentary' hardware sends on-then-0 per press, so only the non-zero
+          down is a press; the 0 release is suppressed.
+
+        Continuous knobs/sliders never call this (they are not press-once)."""
+        if self._button_behaviour == 'toggle':
+            return True
+        return value != 0
 
     def button_event(self, fn_name, value, wire_idx=-1):
         """Single chokepoint every generated *button* listener calls (continuous
@@ -201,7 +220,10 @@ class Helpers:
             self.log_message(f"{fn_name}: encoder {raw_parameter_no} not resolvable on {device.class_name}")
             return
         parameter = rp.param
-        will_fire = not toggle or (toggle and value == 127)
+        # For a latching button (toggle=True) act once per *press*; the edge
+        # guard handles momentary vs toggle hardware. Continuous knobs
+        # (toggle=False) always apply.
+        will_fire = not toggle or self.should_act_on_edge(value)
         if toggle:
             next_value = parameter.max if parameter.value == parameter.min else parameter.min
         else:

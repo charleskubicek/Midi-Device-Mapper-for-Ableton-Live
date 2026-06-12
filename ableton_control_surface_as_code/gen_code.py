@@ -112,7 +112,8 @@ def generate_control_value_listener_function_action(fn_name, var_name, callee, t
 
     toggle_fn = "True"
     if toggle:
-        toggle_fn = "self._helpers.value_is_max(value, 127)"
+        # press-once: the edge guard adapts to momentary vs toggle hardware.
+        toggle_fn = "self._helpers.should_act_on_edge(value)"
 
     doctor_block = f"\n    self._helpers.button_event('{fn_name}', value)" if doctor else ""
 
@@ -222,10 +223,12 @@ def ${fn_name}(self, value):
         self.log_message(f"device not found: ${track} - ${device}")
         return
     self._hud_client.send_ping()
-    # Switch slots act once on press. A cycle/pulse has no hold semantic, so
-    # without this guard a bool slot toggles twice per press (net nothing) and
-    # a min_max slot sticks at max. `momentary` is intentionally ignored here.
-    if self._helpers.value_is_max(value, 127):
+    # Switch slots act once per press. The edge guard adapts to the controller's
+    # hardware button mode (momentary: act on the down, ignore the 0 release;
+    # toggle: every alternating edge is its own press). Without it a momentary
+    # bool slot toggles twice per press (net nothing); with a 127-only guard a
+    # toggle-hardware button fires every *other* press.
+    if self._helpers.should_act_on_edge(value):
         self._helpers.switch_slot_action(device, "${slot}", value, "${fn_name}")
     """).substitute(fn_name=fn_name, track=track, device=device, slot=slot)
 

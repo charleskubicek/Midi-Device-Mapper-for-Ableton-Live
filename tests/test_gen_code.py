@@ -228,15 +228,16 @@ class TestMethodCallButtonPressBehavior(unittest.TestCase):
         result = GeneratedCodes.merge_all(functions_templates(_functions_with_midi(refs), "main"))
         return "\n".join(result.listener_fns)
 
-    def test_default_button_is_press_only(self):
+    def test_default_button_is_press_once(self):
         code = self._fns(refs=[])
-        self.assertIn("self._helpers.value_is_max(value, 127)", code)
+        # press-once routes through the hardware-aware edge guard, not a raw 127 check
+        self.assertIn("self._helpers.should_act_on_edge(value)", code)
         self.assertNotIn("if True:", code)
 
     def test_momentary_button_fires_both_edges(self):
         code = self._fns(refs=[Momentary.instance()])
         self.assertIn("if True:", code)
-        self.assertNotIn("value_is_max", code)
+        self.assertNotIn("should_act_on_edge", code)
 
     def test_toggle_keyword_is_now_a_no_op_default(self):
         # `toggle` no longer changes anything — same press-only code as default.
@@ -284,9 +285,9 @@ class TestSwitchSlotPressGuard(unittest.TestCase):
         device_with_midi = build_device_model_v2_1(controller, dev, root_dir="")
         result = GeneratedCodes.merge_all(device_templates(device_with_midi, "main"))
         all_fns = "\n".join(result.listener_fns)
-        # the switch_slot_action call must be guarded by the press check
-        self.assertIn("self._helpers.value_is_max(value, 127)", all_fns)
-        guard_idx = all_fns.index("self._helpers.value_is_max(value, 127)")
+        # the switch_slot_action call must be guarded by the hardware-aware edge check
+        self.assertIn("self._helpers.should_act_on_edge(value)", all_fns)
+        guard_idx = all_fns.index("self._helpers.should_act_on_edge(value)")
         call_idx = all_fns.index("self._helpers.switch_slot_action")
         self.assertLess(guard_idx, call_idx)
 

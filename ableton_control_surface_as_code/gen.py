@@ -200,6 +200,9 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         }),
         'hud_client_class': hud_client_class,
         'hud_trigger': repr(hud_trigger.value),
+        # Hardware button mode (momentary vs toggle): drives the runtime
+        # press-once guard so the same mapping works on both kinds of hardware.
+        'button_behaviour': repr(controller.button_behaviour.value if controller is not None else 'momentary'),
         'feedback_sinks': feedback_sinks,
         'osc_clients': osc_clients,
         '_hud_cells_raw': hud_cells_raw,

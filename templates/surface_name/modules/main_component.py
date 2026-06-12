@@ -75,7 +75,8 @@ class MainComponent(ControlSurfaceComponent):
             encoder_slot_count=$encoder_slot_count,
             hud_cells=$hud_cells,
             mode_hud_labels=$mode_hud_labels,
-            hud_trigger=$hud_trigger))
+            hud_trigger=$hud_trigger,
+            button_behaviour=$button_behaviour))
 
         self._song.add_appointed_device_listener(self.on_device_selected)
 

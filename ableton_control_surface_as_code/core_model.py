@@ -45,6 +45,24 @@ class EncoderMode(str, Enum):
         return 'relative_smooth_two_compliment'
 
 
+class ButtonBehaviour(str, Enum):
+    """How the controller's buttons report a press over MIDI. Set per controller
+    (`button-behaviour:` in the controller .nt), because it is a property of the
+    hardware config, not the mapping:
+
+    - `momentary`: physical down sends the on value, release sends 0 — two MIDI
+      events per press. Press-once buttons act on the down and ignore the 0.
+    - `toggle`: each press sends a single alternating on/off event (no release
+      event) — one MIDI event per press. Press-once buttons act on *every* edge,
+      since every edge is its own distinct press.
+
+    A press-once guard tuned for one mode misfires on the other (a momentary
+    guard on toggle hardware fires every *other* press), so the generated guard
+    is parameterised on this."""
+    momentary = 'momentary'
+    toggle = 'toggle'
+
+
 class EncoderType(str, Enum):
     knob = 'knob'
     button = 'button'

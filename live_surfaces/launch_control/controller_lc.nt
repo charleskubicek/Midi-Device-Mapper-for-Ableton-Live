@@ -1,3 +1,8 @@
+# The launch_control's function/switch/nav buttons are configured as TOGGLE in
+# Novation Components (one alternating 127/0 event per press). The hold-style
+# shift button is separate (handled by the mode FSM) and stays momentary.
+button-behaviour: toggle
+
 light_colors:
     off: 12
     red_low: 13

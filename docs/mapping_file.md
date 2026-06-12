@@ -109,6 +109,29 @@ grammar in `encoder_coords.py`. The shapes:
 
 Row numbers and column counts come from the controller file.
 
+### Controller `button-behaviour` (hardware press mode)
+
+A press-once button (switch, nav, function, on-off) acts once per press. *How*
+the hardware reports a press differs by controller, and the wrong assumption
+makes a button fire every **other** press. Declare it once per controller file:
+
+```nestedtext
+button-behaviour: momentary   # default — omit unless your buttons are toggle
+```
+
+- `momentary` (default): the button sends its "on" value when pressed and `0`
+  when released (two MIDI events per press). The guard acts on the press and
+  ignores the release.
+- `toggle`: the button sends a single alternating on/off event per press (no
+  release event), as configured in e.g. Novation Components. The guard acts on
+  **every** edge, because each edge is its own press.
+
+The hold-style mode/shift button is handled separately and always uses
+press-and-release, regardless of this setting. Unsure which your buttons use?
+Run `update.py doctor`, press each button twice, and read the report
+(`./bin/tail_logs.sh`) — it classifies each button and prints the exact
+`button-behaviour:` to set.
+
 ## Mapping types
 
 Each entry under a mode's `mappings:` (or top-level modeless `mappings:`) has a

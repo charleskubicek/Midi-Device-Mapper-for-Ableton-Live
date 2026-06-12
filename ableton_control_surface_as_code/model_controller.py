@@ -8,7 +8,7 @@ from typing import Optional, List, Union
 from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords, \
-    EncoderMode
+    EncoderMode, ButtonBehaviour
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
 from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 
@@ -74,6 +74,7 @@ class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
     light_colors: dict[str, int] = dict()
     encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Absolute)
+    button_behaviour: ButtonBehaviour = Field(alias='button-behaviour', default=ButtonBehaviour.momentary)
 
 
 def validate_controller_semantics(raw: ControllerRawV2, acc=None) -> None:
@@ -135,6 +136,7 @@ class ControllerV2:
     control_groups: List[ControlGroup]
     light_colors: dict[str, int]
     encoder_mode: EncoderMode
+    button_behaviour: ButtonBehaviour = ButtonBehaviour.momentary
 
     @staticmethod
     def build_from(c: ControllerRawV2, acc=None):
@@ -204,7 +206,7 @@ class ControllerV2:
             for key, group in groupby(c.control_groups, lambda x: x.number)
         ]
 
-        return ControllerV2(control_groups, c.light_colors, c.encoder_mode)
+        return ControllerV2(control_groups, c.light_colors, c.encoder_mode, c.button_behaviour)
 
     def grid_position_for(self, row_number: int):
         for g in self.control_groups:
