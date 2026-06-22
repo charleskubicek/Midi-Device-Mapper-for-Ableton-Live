@@ -14,8 +14,10 @@ from source_modules.hud_protocol import (
     HideMsg,
     PageMsg,
     EventMsg,
+    SetModeMsg,
     UnknownMsg,
     encode_event,
+    encode_set_mode,
     encode_layout,
     encode_device,
     encode_slot,
@@ -61,6 +63,21 @@ class TestLayoutCell(unittest.TestCase):
     def test_encode_layout_accepts_cell_objects(self):
         cells = [LayoutCell(0, 0, 'dial', 8, 0, 0), LayoutCell(2, 0, 'button', 4, 0, 1)]
         self.assertEqual(encode_layout(cells), "LAYOUT|2|0|0|dial|8|0|0|2|0|button|4|0|1")
+
+
+class TestSetMode(unittest.TestCase):
+    def test_round_trip(self):
+        self.assertEqual(encode_set_mode('shift_mode'), 'SETMODE|shift_mode')
+        self.assertEqual(parse('SETMODE|shift_mode'), SetModeMsg('shift_mode'))
+
+    def test_empty_name_is_unknown(self):
+        self.assertEqual(parse('SETMODE|'), UnknownMsg('SETMODE|'))
+
+    def test_distinct_from_mode_verb(self):
+        # SETMODE (primary->secondary, by name) must not collide with the
+        # secondary->primary MODE|shift|normal verb.
+        self.assertIsInstance(parse('MODE|shift'), type(parse('MODE|shift')))
+        self.assertEqual(parse('SETMODE|main_mode'), SetModeMsg('main_mode'))
 
 
 class TestSlotAddress(unittest.TestCase):

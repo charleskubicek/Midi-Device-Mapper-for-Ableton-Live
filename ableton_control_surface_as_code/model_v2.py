@@ -204,17 +204,27 @@ class ModeGroupWithMidi(BaseModel):
         return len(self.mappings) > 1
 
     def fsm(self):
-        if self.mode_button is None:
+        if self.mode_button is not None:
+            mode_names = [name for name, _ in self.mode_button.on_colors]
+            colors = [str(clr) for _, clr in self.mode_button.on_colors]
+            is_shift = self.is_shift()
+        elif self.has_modes():
+            # Headless FSM: a composition secondary declares modes but no
+            # physical mode-button — its FSM is driven remotely (mode_link).
+            # Derive the mode order from the mappings; there is no button to
+            # colour and no local shift gesture to interpret.
+            mode_names = [name for name, _ in self.mappings]
+            colors = [str(None)] * len(mode_names)
+            is_shift = False
+        else:
             return []
 
-        mode_names = [clr[0] for clr in self.mode_button.on_colors]
         return [ModeData(
             name=name,
             next=mode_names[i + 1] if i + 1 < len(mode_names) else mode_names[0],
-            is_shift=self.is_shift(),
-            color=str(clr)
-        )
-            for i, (name, clr) in enumerate(self.mode_button.on_colors)]
+            is_shift=is_shift,
+            color=colors[i],
+        ) for i, name in enumerate(mode_names)]
 
 
 def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = "", acc=None):

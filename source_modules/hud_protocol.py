@@ -157,6 +157,15 @@ def encode_mode(is_shift: bool) -> str:
     return "MODE|shift" if is_shift else "MODE|normal"
 
 
+def encode_set_mode(name: str) -> str:
+    # Reverse mode channel (lc_parks): the PRIMARY tells the SECONDARY which
+    # named mode to switch into when the user holds shift on the primary. Carries
+    # the mode NAME (not a bool) so it stays correct under the "identical mode
+    # names" validation and generalizes past two modes. Distinct verb from the
+    # secondary->primary `MODE|shift|normal` (which RegionState ignores).
+    return f"SETMODE|{name}"
+
+
 def encode_event(kind: str, wire_idx: int, text: str) -> str:
     # Show-info feedback: explains a button press on the HUD at the moment it
     # happens (see momentary-vs-toggle-made-explicit-plan, item #7). `kind` is
@@ -214,6 +223,11 @@ class ModeMsg:
 
 
 @dataclass(frozen=True)
+class SetModeMsg:
+    name: str
+
+
+@dataclass(frozen=True)
 class PageMsg:
     enc_page: int
     enc_total: int
@@ -235,7 +249,7 @@ class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, PageMsg, EventMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, SetModeMsg, PageMsg, EventMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -323,6 +337,11 @@ def parse(line: str) -> Message:
     if verb == 'MODE':
         if len(fields) == 2:
             return ModeMsg(is_shift=(fields[1] == 'shift'))
+        return UnknownMsg(line)
+
+    if verb == 'SETMODE':
+        if len(fields) == 2 and fields[1]:
+            return SetModeMsg(name=fields[1])
         return UnknownMsg(line)
 
     if verb == 'EVENT':

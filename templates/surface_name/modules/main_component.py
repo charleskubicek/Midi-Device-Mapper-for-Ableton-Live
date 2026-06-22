@@ -13,6 +13,7 @@ from .clip_actions import ClipActions
 from .listener import OSCListener
 from .region_state import RegionState
 from .region_listener import RegionListener
+from .mode_link import ModeSender, ModeListener
 from .nav import Nav
 # from _Framework.EncoderElement import *
 
@@ -40,6 +41,11 @@ class MainComponent(ControlSurfaceComponent):
             self.functions = Functions(self)
 
         self._modes = {}
+        # Default None so goto_mode's guards hold on surfaces with no physical
+        # mode-button and on non-composition surfaces. The mode setup and the
+        # MODE_LINK block below overwrite these when present.
+        self.mode_button = None
+        self._mode_sender = None
         self._song = self.manager.song()
         self._nav = Nav(self.manager)
         self.clip_actions = ClipActions(self.manager)
@@ -99,6 +105,19 @@ class MainComponent(ControlSurfaceComponent):
             self._remote.set_region_state(self._region_state)
             self._region_listener = RegionListener(self.manager, self._region_state,
                 port=REGION_CONFIG['port'], name="$surface_name-region")
+
+        # Reverse mode channel (lc_parks only): the primary sends the active mode
+        # name to the secondary so holding shift on the primary switches the
+        # secondary's mappings too. Data, not code; None on standalone surfaces.
+        # role='sender' -> primary (this surface owns a shift mode-button);
+        # role='listener' -> secondary (headless FSM driven remotely).
+        MODE_LINK = $mode_link
+        if MODE_LINK is not None:
+            if MODE_LINK['role'] == 'sender':
+                self._mode_sender = ModeSender('127.0.0.1', MODE_LINK['port'])
+            else:
+                self._mode_listener = ModeListener(self.manager, self,
+                    port=MODE_LINK['port'], name="$surface_name-mode")
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 
@@ -238,10 +257,14 @@ $code_setup_listeners
         self.remove_all_listeners(modes_only=True)
         self._modes[next_mode_name]['add_listeners_fn']()
 
-        if next_mode['color'] is not None:
-            self.mode_button.send_value(next_mode['color'])
-        else:
-            self.mode_button.send_value(0)
+        # The secondary of an lc_parks composition has modes but no physical
+        # mode-button (its FSM is driven remotely via mode_link), so guard the
+        # LED feedback.
+        if self.mode_button is not None:
+            if next_mode['color'] is not None:
+                self.mode_button.send_value(next_mode['color'])
+            else:
+                self.mode_button.send_value(0)
 
         self.current_mode = next_mode
 
@@ -250,6 +273,11 @@ $code_setup_listeners
         self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
         self._hud_client.send_mode(next_mode['is_shift'])
+
+        # Compositor primary only: forward the active mode name to the secondary
+        # so holding shift on the primary also switches the secondary's mappings.
+        if self._mode_sender is not None:
+            self._mode_sender.send_mode(next_mode['name'])
 
         self.manager.show_message(f'Switched to {next_mode_name}')
 

@@ -15,8 +15,8 @@ from ableton_control_surface_as_code.gen_code import class_function_body_code_bl
     parameter_pager_templates, clip_templates
 from ableton_control_surface_as_code.model_v2 import read_controller, \
     read_root, ModeGroupWithMidi, read_root_v2, ModeData, AllMappingWithMidiTypes, HudMode, HudTrigger, \
-    build_validated_model
-from ableton_control_surface_as_code.gen_error import GenError
+    ModeType, build_validated_model
+from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 from ableton_control_surface_as_code.core_model import EncoderType
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
 from ableton_control_surface_as_code.behavior_doc import build_behavior_doc
@@ -35,15 +35,21 @@ def tabs(n):
 
 
 def setup_template(mode_name, mode_button_midi=None):
+    # A composition secondary has modes but no physical mode-button (mode_button_midi
+    # is None): emit the FSM state without a button element. self.mode_button stays
+    # at its __init__ default (None), so goto_mode's LED feedback is guarded off.
+    lines = [
+        "self.current_mode = None",
+        f"self._first_mode = '{mode_name}'",
+    ]
     if mode_button_midi is not None:
         midi_type = 'MIDI_NOTE_TYPE' if mode_button_midi.type.is_note() else 'MIDI_CC_TYPE'
-        btn_line = f"self.mode_button = ConfigurableButtonElement(True, {midi_type}, {mode_button_midi.ableton_channel()}, {mode_button_midi.number})"
-    else:
-        btn_line = "self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 8, 9)"
+        lines.append(
+            f"self.mode_button = ConfigurableButtonElement(True, {midi_type}, "
+            f"{mode_button_midi.ableton_channel()}, {mode_button_midi.number})")
+    body = ("\n" + tabs(2)).join(lines)
     return f"""
-        self.current_mode = None
-        self._first_mode = '{mode_name}'
-        {btn_line}
+        {body}
     """
 
 
@@ -134,15 +140,20 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
             array_defs.append(array_def_template(name, values))
 
     if modes.has_modes():
+        has_mode_button = modes.mode_button is not None
         creation.append(creation_template(first_mode_name))
-        codes.remove_listeners.append(remove_listeners_template())
-        mode_btn_midi = modes.mode_button.button if modes.mode_button else None
+        mode_btn_midi = modes.mode_button.button if has_mode_button else None
         codes.init.append(setup_template(first_mode_name, mode_button_midi=mode_btn_midi))
 
         for mode in modes.fsm():
             codes.init.append(state_dict_template(mode, f"self.mode_{mode.name}_add_listeners"))
 
-        codes.init.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
+        # The physical mode-button listener + its teardown only exist when there
+        # IS a button. A composition secondary's FSM is driven remotely
+        # (mode_link -> goto_mode), so it has neither.
+        if has_mode_button:
+            codes.remove_listeners.append(remove_listeners_template())
+            codes.init.append(f"{tabs(2)}self.mode_button.add_value_listener(self.mode_button_listener)\n")
 
     device_mappings = [
         m for _, mode_maps in modes.mappings
@@ -355,6 +366,7 @@ class CompositionOverrides:
     region_config: Optional[dict] = None             # compositor's {dial_offset, button_offset, port}
     hud_cells: Optional[list] = None                 # combined layout override
     hud_trigger: Optional['HudTrigger'] = None       # force show-hud-on (compositor: Selection)
+    mode_link: Optional[dict] = None                 # reverse mode channel {role: sender|listener, port}
 
 
 def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=None):
@@ -399,6 +411,8 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
         'hud_target': repr(overrides.hud_target),
         # Compositor region config as data (lc_parks only). None for normal surfaces.
         'region_config': repr(overrides.region_config),
+        # Reverse mode channel config as data (lc_parks only). None otherwise.
+        'mode_link': repr(overrides.mode_link),
     }
 
     hud_trigger = overrides.hud_trigger if overrides.hud_trigger is not None else mappings.show_hud_on
@@ -437,6 +451,47 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
     return controller, code_vars
 
 
+def _declared_mode_names(root):
+    """Mode names the user actually declared (the synthesized single-mode
+    wrapper for a modeless mapping doesn't count)."""
+    return [m.name for m in root.modes if not m.is_fake_wrapper_mode]
+
+
+def validate_composition_modes(primary_root, secondary_root):
+    """When the secondary declares its own modes, the primary's shift drives them
+    over the reverse mode channel (mode_link). Guard the config so the two FSMs
+    map 1:1: the primary must own a `type: shift` mode-button, the secondary must
+    NOT declare its own mode-button (it is driven purely from the primary), and
+    their declared mode names must match exactly (same names, same order)."""
+    secondary_modes = _declared_mode_names(secondary_root)
+    if not secondary_modes:
+        return  # secondary has no modes — the primary's shift only affects the primary.
+
+    primary_modes = _declared_mode_names(primary_root)
+    problems = []
+
+    if primary_root.mode_button is None or primary_root.mode_button.type != ModeType.Shift:
+        problems.append(
+            "the secondary declares modes, so the primary must declare a "
+            "`type: shift` mode-button to drive them.")
+
+    if secondary_root.mode_button is not None:
+        problems.append(
+            "the secondary must not declare its own `mode-button:` — its shift is "
+            "driven by the primary. Remove the secondary's mode-button.")
+
+    if primary_modes != secondary_modes:
+        problems.append(
+            f"secondary modes {secondary_modes} must match the primary modes "
+            f"{primary_modes} exactly (identical names, same order) so the "
+            f"primary's forwarded shift maps 1:1.")
+
+    if problems:
+        raise GenError(
+            "Invalid lc_parks composition:\n" + "\n".join(f"  - {p}" for p in problems),
+            ErrorCode.SEMANTIC_VALIDATION)
+
+
 def generate_composition(comp_path):
     comp = read_composition(comp_path.read_text())
     comp_dir = comp_path.parent
@@ -457,10 +512,18 @@ def generate_composition(comp_path):
     # composition stem (offset +3 to dodge each surface's udp/osc ports) unless
     # set explicitly.
     region_port = comp.region_port if comp.region_port is not None else generate_5_digit_number(comp_stem) + 3
+    # Reverse mode channel port (primary -> secondary). Same stem-derived base as
+    # region_port but a different offset so the two channels can't collide.
+    mode_port = generate_5_digit_number(comp_stem) + 4
+    assert mode_port != region_port, "mode_port must differ from region_port"
+
+    primary_root = read_root(primary_path.read_text(), source=primary_path.name)
+    secondary_root = read_root(secondary_path.read_text(), source=secondary_path.name)
+    validate_composition_modes(primary_root, secondary_root)
 
     # Combined layout: primary cells + secondary cells offset to the right.
-    primary_ctrl = read_controller((primary_path.parent / read_root(primary_path.read_text(), source=primary_path.name).controller).read_text())
-    secondary_ctrl = read_controller((secondary_path.parent / read_root(secondary_path.read_text(), source=secondary_path.name).controller).read_text())
+    primary_ctrl = read_controller((primary_path.parent / primary_root.controller).read_text())
+    secondary_ctrl = read_controller((secondary_path.parent / secondary_root.controller).read_text())
     primary_cells = allocate_global_layout(primary_ctrl)
     secondary_cells = allocate_global_layout(secondary_ctrl)
     combined_cells, dial_offset, button_offset = combine_layouts(primary_cells, secondary_cells)
@@ -473,18 +536,27 @@ def generate_composition(comp_path):
     # combined COMMIT (two independent selection polls in two processes), so the
     # values flash then vanish. Showing on selection removes the HIDE-on-select
     # entirely; device-nav (source='nav') still shows as before.
+    # The primary forwards its mode to the secondary ONLY when it actually has a
+    # shift mode-button to forward; mode_link is None otherwise (single-mode
+    # primary), so the secondary just stays in its first mode.
+    primary_drives_modes = primary_root.mode_button is not None and bool(_declared_mode_names(secondary_root))
+    primary_mode_link = {'role': 'sender', 'port': mode_port} if primary_drives_modes else None
+    secondary_mode_link = {'role': 'listener', 'port': mode_port} if primary_drives_modes else None
+
     _generate_surface(primary_path, primary_name, comp_dir, CompositionOverrides(
         region_config={'dial_offset': dial_offset, 'button_offset': button_offset,
                        'port': region_port},
         hud_cells=combined_cells,
-        hud_trigger=HudTrigger.Selection))
+        hud_trigger=HudTrigger.Selection,
+        mode_link=primary_mode_link))
 
     # 2. Secondary forwarder: a normal surface whose HudClient is redirected at
     #    the compositor's region port instead of the HUD. Emitted into the
     #    composition folder under the namespaced name (NOT next to its own
     #    mapping), so it can't be confused with a standalone build.
     _generate_surface(secondary_path, secondary_name, comp_dir, CompositionOverrides(
-        hud_target=('127.0.0.1', region_port)))
+        hud_target=('127.0.0.1', region_port),
+        mode_link=secondary_mode_link))
 
     print(f"Composition {comp_stem}: {primary_name} (compositor) + {secondary_name} "
           f"(forwarder) share region port {region_port}.")
