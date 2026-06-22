@@ -23,6 +23,8 @@ class ControlGroupPartV2(BaseModel):
     row_parts_raw: Optional[str] = Field(None, alias='row_parts')
     under: Optional[int] = Field(None)
     right_of: Optional[int] = Field(None)
+    rows: Optional[int] = Field(None)
+    columns: Optional[int] = Field(None)
     hud: bool = Field(default=True)
 
     @model_validator(mode='after')
@@ -32,6 +34,16 @@ class ControlGroupPartV2(BaseModel):
 
         if self.layout == LayoutAxis.row_part and self.row_parts_raw is None:
             raise ValueError(f"Row-part layout must have row_parts")
+
+        if self.layout == LayoutAxis.grid:
+            if self.rows is None or self.columns is None:
+                raise ValueError(
+                    "Grid layout must declare both 'rows' and 'columns' "
+                    "(needed to index buttons as row::col)")
+            if self.row_parts_raw is not None:
+                raise ValueError("Grid layout must not have row_parts")
+        elif self.rows is not None or self.columns is not None:
+            raise ValueError("'rows'/'columns' are only valid on a grid layout")
 
         return self
 
@@ -44,15 +56,26 @@ class ControlGroupPartV2(BaseModel):
             else:
                 [a, b] = self.midi_range_raw.split("-")
             return RangeV2.model_validate({'from': int(a), 'to': int(b)}).as_inclusive_list()
+        elif self.midi_type.is_note():
+            raw = self.midi_range_raw.strip()
+            # A bare 'NOTE-NOTE' (no commas, not itself a note name) is a
+            # chromatic range, e.g. 'C2-DS4'.
+            if "," not in raw and raw not in note_values and "-" in raw:
+                span = _split_note_range(raw)
+                if span is None:
+                    raise ValueError(f"Note range is invalid: {raw}")
+                lo, hi = span
+                if hi < lo:
+                    raise ValueError(f"Note range must be increasing: {raw}")
+                return list(range(lo, hi + 1))
+            values = [v.strip() for v in raw.split(",")]
+            missing = list(filter(lambda x: x not in note_values, values))
+            if len(missing) > 0:
+                raise ValueError(f"Note values are invalid: {missing}")
+            return list(map(note_values.get, values))
         else:
             values = [v.strip() for v in self.midi_range_raw.split(",")]
-            if self.midi_type.is_note():
-                missing = list(filter(lambda x: x not in note_values, values))
-                if len(missing) > 0:
-                    raise ValueError(f"Note values are invalid: {missing}")
-                return list(map(note_values.get, values))
-            else:
-                return list(map(int, values))
+            return list(map(int, values))
 
     def info_string(self):
         return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
@@ -95,6 +118,11 @@ def validate_controller_semantics(raw: ControllerRawV2, acc=None) -> None:
         if bad:
             problems.append(
                 f"{where}: MIDI number(s) {bad} out of range (must be 0-127)")
+        if g.layout == LayoutAxis.grid and g.rows is not None and g.columns is not None:
+            if g.rows * g.columns != len(numbers):
+                problems.append(
+                    f"{where}: grid is {g.rows}x{g.columns} = {g.rows * g.columns} "
+                    f"cells but the MIDI range has {len(numbers)} control(s)")
     if not problems:
         return
     if acc is not None:
@@ -106,13 +134,16 @@ def validate_controller_semantics(raw: ControllerRawV2, acc=None) -> None:
 
 
 class ControlGroup:
-    def __init__(self, midi_coords, number, type, grid_row=0, grid_col=0, hud=True):
+    def __init__(self, midi_coords, number, type, grid_row=0, grid_col=0, hud=True,
+                 columns=None, rows=None):
         self.midi_coords = midi_coords
         self._number = number
         self._type = type
         self.grid_row = grid_row
         self.grid_col = grid_col
         self.hud = hud
+        self.columns = columns
+        self.rows = rows
 
     @property
     def type(self):
@@ -189,7 +220,8 @@ class ControllerV2:
         def merge_groups(groups: List[ControlGroupPartV2], encoder_mode: EncoderMode, grid_pos) -> ControlGroup:
             midi_coords = flatten([g.build_midi_coords(encoder_mode) for g in groups])
             gr, gc = grid_pos
-            return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc, hud=groups[0].hud)
+            return ControlGroup(midi_coords, groups[0].number, groups[0].type, grid_row=gr, grid_col=gc,
+                                hud=groups[0].hud, columns=groups[0].columns, rows=groups[0].rows)
 
         c.control_groups.sort(key=lambda x: x.number)
         grid_positions, unresolved = compute_grid_positions(c.control_groups)
@@ -207,6 +239,72 @@ class ControllerV2:
         ]
 
         return ControllerV2(control_groups, c.light_colors, c.encoder_mode, c.button_behaviour)
+
+    def _grids(self) -> List[List[ControlGroup]]:
+        """Group control groups into grids by control `type`, ordered by first
+        appearance in spatial reading order (`(grid_row, grid_col)`, the same
+        sort key used in hud_layout.allocate_global_layout). Each grid is a list
+        of ControlGroups already in layout order. On the ec4 this yields
+        grid-1 = knobs, grid-2 = buttons."""
+        by_type, order = {}, []
+        for g in sorted(self.control_groups, key=lambda g: (g.grid_row, g.grid_col)):
+            if g.type not in by_type:
+                by_type[g.type] = []
+                order.append(g.type)
+            by_type[g.type].append(g)
+        return [by_type[t] for t in order]
+
+    def _resolve_grid_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
+        grids = self._grids()
+        n = int(coords.row)
+        if not (1 <= n <= len(grids)):
+            raise GenError(
+                f"Coordinate grid-{coords.row} refers to grid {n}, but the controller "
+                f"has {len(grids)} grid(s) (valid: grid-1 to grid-{len(grids)})",
+                ErrorCode.SEMANTIC_VALIDATION)
+        grid = grids[n - 1]
+        flat = flatten(g.midi_coords for g in grid)
+        res_type = grid[0].type
+        res_midi = []
+
+        if coords.grid_row is not None:
+            return self._resolve_grid_2d(coords, n, grid, flat), res_type
+
+        for col in coords.range_inclusive:
+            if col < 1 or col > len(flat):
+                raise GenError(
+                    f"Coordinate grid-{coords.row}:{col} is out of range — "
+                    f"grid {n} has {len(flat)} item(s) (valid cols: 1-{len(flat)})",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            res_midi.append(flat[col - 1].with_encoder_refs(coords.encoder_refs))
+        return res_midi, res_type
+
+    def _resolve_grid_2d(self, coords: EncoderCoords, n: int,
+                         grid: List[ControlGroup], flat) -> [MidiCoords]:
+        columns = grid[0].columns
+        if columns is None:
+            raise GenError(
+                f"Coordinate grid-{coords.row}:{coords.grid_row}::… uses row::col "
+                f"indexing, but grid {n} is not a 2D grid — add 'rows' and 'columns' "
+                f"to its control group (layout: grid)",
+                ErrorCode.SEMANTIC_VALIDATION)
+        rows = grid[0].rows or (len(flat) // columns)
+        r = coords.grid_row
+        if not (1 <= r <= rows):
+            raise GenError(
+                f"Coordinate grid-{coords.row}:{r}::… is out of range — "
+                f"grid {n} has {rows} row(s) (valid rows: 1-{rows})",
+                ErrorCode.SEMANTIC_VALIDATION)
+        res_midi = []
+        for col in coords.range_inclusive:
+            if not (1 <= col <= columns):
+                raise GenError(
+                    f"Coordinate grid-{coords.row}:{r}::{col} is out of range — "
+                    f"grid {n} has {columns} column(s) (valid cols: 1-{columns})",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            idx = (r - 1) * columns + (col - 1)
+            res_midi.append(flat[idx].with_encoder_refs(coords.encoder_refs))
+        return res_midi
 
     def grid_position_for(self, row_number: int):
         for g in self.control_groups:
@@ -244,6 +342,10 @@ class ControllerV2:
         res_type = None
 
         for coords in encoder_coors_list:
+            if coords.axis_kind == "grid":
+                grid_midi, res_type = self._resolve_grid_coords(coords)
+                res_midi.extend(grid_midi)
+                continue
             for group in self.control_groups:
                 if group.number == int(coords.row):
                     res_type = group.type
@@ -288,3 +390,17 @@ PITCH_DICTIONARY_C3 = {0: "C-2", 1: "CS-2", 2: "D-2", 3: "DS-2", 4: "E-2", 5: "F
                        121: "CS8", 122: "D8", 123: "DS8", 124: "E8", 125: "F8", 126: "FS8", 127: "G8"}
 
 note_values = {v: k for k, v in PITCH_DICTIONARY_C3.items()}
+
+
+def _split_note_range(raw):
+    """Split 'C2-DS4' into (from_midi, to_midi). Note names may themselves
+    contain '-' (negative octaves like 'C-2'), so pick the leftmost dash that
+    yields two valid note names. Returns None if no such split exists."""
+    s = raw.strip()
+    for i, ch in enumerate(s):
+        if ch != '-':
+            continue
+        left, right = s[:i], s[i + 1:]
+        if left in note_values and right in note_values:
+            return note_values[left], note_values[right]
+    return None

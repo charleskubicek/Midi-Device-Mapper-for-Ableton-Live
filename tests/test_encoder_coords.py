@@ -47,6 +47,57 @@ class TestEncoderCoords(unittest.TestCase):
 
         self.assertEqual(expected, parse_coords(input))
 
+    def test_parse_grid_range(self):
+        input = "grid-2:1-15"
+        expected = EncoderCoords(row=2, range_=(1, 15), axis_kind="grid", encoder_refs=[])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_grid_single(self):
+        input = "grid-1:3"
+        expected = EncoderCoords(row=1, range_=(3, 3), axis_kind="grid", encoder_refs=[])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_grid_with_refinement(self):
+        input = "grid-2:4 toggle"
+        expected = EncoderCoords(row=2, range_=(4, 4), axis_kind="grid",
+                                 encoder_refs=[Toggle.instance()])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_row_keeps_axis_kind_row(self):
+        input = "row-3:4"
+        result = parse_coords(input)
+
+        self.assertEqual(result.axis_kind, "row")
+
+    def test_parse_grid_2d_single(self):
+        input = "grid-2:2::3"
+        expected = EncoderCoords(row=2, grid_row=2, range_=(3, 3),
+                                 axis_kind="grid", encoder_refs=[])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_grid_2d_range(self):
+        input = "grid-2:2::1-4"
+        expected = EncoderCoords(row=2, grid_row=2, range_=(1, 4),
+                                 axis_kind="grid", encoder_refs=[])
+
+        self.assertEqual(expected, parse_coords(input))
+
+    def test_parse_grid_flat_has_no_grid_row(self):
+        result = parse_coords("grid-2:1-16")
+        self.assertIsNone(result.grid_row)
+        self.assertEqual(result.range_, (1, 16))
+
+    def test_parse_grid_2d_with_refinement(self):
+        input = "grid-2:2::3 toggle"
+        expected = EncoderCoords(row=2, grid_row=2, range_=(3, 3),
+                                 axis_kind="grid", encoder_refs=[Toggle.instance()])
+
+        self.assertEqual(expected, parse_coords(input))
+
     def test_has_momentary_true_has_toggle_false(self):
         coords = parse_coords("row-3:4 momentary")
         refs = EncoderRefinements(coords.encoder_refs)
@@ -101,5 +152,5 @@ class TestEncoderCoordErrors(unittest.TestCase, CustomAssertions):
 
     def test_col_axis_still_parses(self):
         self.assertEqual(
-            EncoderCoords(row=2, range_=(3, 3), encoder_refs=[]),
+            EncoderCoords(row=2, range_=(3, 3), axis_kind="col", encoder_refs=[]),
             parse_coords("col-2:3"))

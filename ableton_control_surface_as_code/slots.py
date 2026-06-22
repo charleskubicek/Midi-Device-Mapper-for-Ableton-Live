@@ -29,11 +29,21 @@ def parse_slot_token(token: str) -> str:
 
 
 def parse_continuous_slot_list(raw: str) -> List[str]:
+    if ":" in raw:
+        raise ValueError(
+            f"'slots' expects device slot numbers (e.g. '1-16') or slot names, "
+            f"not a controller coordinate: {raw!r}. The controller coordinate "
+            f"goes under 'range:'; 'slots:' lists which device slots it drives.")
     result: List[str] = []
     for chunk in [c.strip() for c in raw.split(",") if c.strip()]:
         if "-" in chunk and not chunk.startswith("slot"):
             lo_s, hi_s = chunk.split("-", 1)
-            lo, hi = int(lo_s), int(hi_s)
+            try:
+                lo, hi = int(lo_s), int(hi_s)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid slot range {chunk!r} in {raw!r}: expected numbers "
+                    f"like '1-16' or slot names")
             if lo > hi:
                 raise ValueError(f"Invalid slot range {chunk!r}: {lo} > {hi}")
             result.extend(parse_slot_token(str(n)) for n in range(lo, hi + 1))

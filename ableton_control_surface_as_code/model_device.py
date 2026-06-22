@@ -106,6 +106,34 @@ class DeviceEncoderMappings(BaseModel):
     switch8: Optional[EncoderCoords] = Field(None, alias='switch8')
     switch_list: List[SwitchListEntry] = Field(default_factory=list, alias='switch-list')
 
+    @model_validator(mode='before')
+    @classmethod
+    def _reject_unknown_keys(cls, data):
+        """Unknown keys under `mappings:` used to be silently ignored, so a
+        misplaced control (e.g. `parameters:`/`slots:`, which belong *inside* an
+        `encoders:` block) left those controls unmapped with no error. Reject
+        them with a message that names the valid keys and the likely fix."""
+        if not isinstance(data, dict):
+            return data
+        valid = set()
+        for name, f in cls.model_fields.items():
+            valid.add(name)
+            if f.alias:
+                valid.add(f.alias)
+        unknown = [k for k in data if k not in valid]
+        if unknown:
+            row_map_keys = {'range', 'parameters', 'slots'}
+            hint = ""
+            if any(k in row_map_keys for k in unknown):
+                hint = (" Note: 'range'/'parameters'/'slots' go *inside* an "
+                        "'encoders:' (or 'encoder-list:') block, not directly "
+                        "under 'mappings:'.")
+            raise ValueError(
+                f"Unknown device mapping key(s): {unknown}. Valid keys: "
+                f"encoders, encoder-list, on-off, switch1-8, switch-list, "
+                f"mode-buttons.{hint}")
+        return data
+
     @field_validator('switch1', 'switch2', 'switch3', 'switch4',
                      'switch5', 'switch6', 'switch7', 'switch8', mode='before')
     @classmethod

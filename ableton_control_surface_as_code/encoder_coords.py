@@ -77,6 +77,8 @@ class EncoderRefinements:
 class EncoderCoords(BaseModel):
     row: int
     range_: Tuple[int, int]
+    axis_kind: str = "row"
+    grid_row: Optional[int] = None
     encoder_refs: List[EncoderRefinement] = field(default_factory=list)
 
     @property
@@ -90,10 +92,12 @@ grammar = '''
     
     row : "row"
     col : "col"
-    axis : row | col
+    grid : "grid"
+    axis : row | col | grid
     axis_no : NUMBER
     range: NUMBER | (NUMBER "-" NUMBER)
-    coords: axis "-" axis_no ":" range
+    grid_cell: NUMBER "::" range
+    coords: axis "-" axis_no ":" (grid_cell | range)
     coords_list: coords  ("," coords)*
     toggle : "toggle"
     momentary : "momentary"
@@ -115,6 +119,15 @@ small_parser = Lark(grammar, start='single')
 class MinMax:
     from_: int
     to: int
+
+
+@dataclass
+class GridCell:
+    """A 2D grid coordinate parsed from `row::colrange` (the part after the
+    single `:` axis separator). `row` is 1-indexed from the top; `cols` is the
+    inclusive (lo, hi) column range."""
+    row: int
+    cols: Tuple[int, int]
 
 
 class MyTransformer(Transformer):
@@ -147,24 +160,35 @@ class MyTransformer(Transformer):
     def min_max(self, v):
         return MinMax(int(v[0]), int(v[1]))
 
+    def grid_cell(self, items):
+        return GridCell(int(items[0]), items[1])
+
+    @staticmethod
+    def _coords_from(axis, axis_no, payload, refs):
+        # payload is either a flat (lo, hi) range or a 2D GridCell.
+        if isinstance(payload, GridCell):
+            return EncoderCoords(row=axis_no, range_=payload.cols, axis_kind=axis,
+                                 grid_row=payload.row, encoder_refs=refs)
+        return EncoderCoords(row=axis_no, range_=payload, axis_kind=axis, encoder_refs=refs)
+
     def single(self, values):
         [mains, refs] = values
         for main in mains:
-            [axis, axis_no, range] = main
-            # row=row, col=col, row_range_end=row_range_end, encoder_refs=encoder_refs
-            return EncoderCoords(row=axis_no, range_=range, encoder_refs=refs)
+            [axis, axis_no, payload] = main
+            return self._coords_from(axis, axis_no, payload, refs)
 
     def multi(self, values):
         result = []
         [mains, refs] = values
         for main in mains:
-            [axis, axis_no, range] = main
-            result.append(EncoderCoords(row=axis_no, range_=range, encoder_refs=refs))
+            [axis, axis_no, payload] = main
+            result.append(self._coords_from(axis, axis_no, payload, refs))
 
         return result
 
     col = lambda self, _: "col"
     row = lambda self, _: "row"
+    grid = lambda self, _: "grid"
     toggle = lambda self, _: Toggle.instance()
     momentary = lambda self, _: Momentary.instance()
     mode = lambda self, _: Mode.instance()

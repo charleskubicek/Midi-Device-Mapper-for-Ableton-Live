@@ -79,6 +79,7 @@ class LayoutAxis(str, Enum):
     row = 'row'
     row_part = 'row-part'
     col = 'col'
+    grid = 'grid'
 
 
 class NamedTrack(str, Enum):
@@ -319,6 +320,8 @@ def _validate_encoder_coords(raw, coords_list: List[EncoderCoords]):
     for c in coords_list:
         if c.row < 1:
             problems.append(f"axis number must be >= 1 (got {c.row})")
+        if c.grid_row is not None and c.grid_row < 1:
+            problems.append(f"grid row must be >= 1 (got {c.grid_row})")
         lo, hi = c.range_
         if lo < 1:
             problems.append(f"range start must be >= 1 (got {lo})")

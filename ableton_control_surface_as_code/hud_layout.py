@@ -43,7 +43,19 @@ def allocate_global_layout(controller) -> List[LayoutCell]:
         else:
             start = button_next
             button_next += count
-        cells.append(LayoutCell(g.grid_row, g.grid_col, kind, count, start, 0))
+        # A grid-layout group (`columns` set) is rendered as one cell per grid
+        # row, so the HUD — which stacks cells by grid_row and lays each cell
+        # out as a horizontal strip — tiles it into a `rows × columns` block
+        # instead of one long strip. Wire indices stay global (start + offset),
+        # so slot addressing via find_wire_index is unchanged.
+        cols = getattr(g, 'columns', None)
+        if cols and cols < count:
+            for r in range((count + cols - 1) // cols):
+                row_count = min(cols, count - r * cols)
+                cells.append(LayoutCell(g.grid_row + r, g.grid_col, kind,
+                                        row_count, start + r * cols, 0))
+        else:
+            cells.append(LayoutCell(g.grid_row, g.grid_col, kind, count, start, 0))
     return cells
 
 
