@@ -2626,11 +2626,11 @@
 - **Live.Song.Song.loop_start** _Property_ — `get, set, observe`
   > Get/Set the start of the global loop marker position in beats.
 - **Live.Song.Song.master_track** _Property_RO_ — `get`
-  > Access to the Main Track (always available)
+> Access to the Main Track (always available)
 - **Live.Song.Song.metronome** _Property_ — `get, set, observe`
-  > Get/Set if the metronom is audible.
+> Get/Set if the metronom is audible.
 - **Live.Song.Song.midi_recording_quantization** _Property_ — `get, set, observe`
-  > Get/Set access to the settings that are used to quantizeMIDI recordings.
+> Get/Set access to the settings that are used to quantizeMIDI recordings.
 - **Live.Song.Song.name** _Property_RO_ — `get`
   > Get the current Live Set's name.
 - **Live.Song.Song.nudge_down** _Property_ — `get, set, observe`

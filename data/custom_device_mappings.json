@@ -781,10 +781,10 @@
         { "name": "VelRandRange" }
       ],
       "buttons": [
-        { "name": "RandPitch",   "display": "Random Pitch", "type": "param", "min_max": true },
-        { "name": "VelRandom",   "display": "Random Velocity", "type": "param", "min_max": true },
-        { "name": "RandLength",   "display": "Random Length", "type": "param", "min_max": true },
-        { "name": "RandSteps",   "display": "Random Steps", "type": "param", "min_max": true },
+        { "name": "RandPitch",   "display": "Rnd Pitch", "type": "param", "min_max": true },
+        { "name": "VelRandom",   "display": "Rnd Velocity", "type": "param", "min_max": true },
+        { "name": "RandLength",   "display": "Rnd Length", "type": "param", "min_max": true },
+        { "name": "RandSteps",   "display": "Rnd Steps", "type": "param", "min_max": true },
         { "name": "ResetPitch",   "display": "Reset Pitch", "type": "param" },
         { "name": "ResetVelocity",   "display": "Reset Velocity", "type": "param" },
         { "name": "ResetLength",   "display": "Reset Length", "type": "param" },
