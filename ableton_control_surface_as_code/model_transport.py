@@ -2,7 +2,8 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field
 
-from ableton_control_surface_as_code.core_model import Direction, MidiCoords, parse_coords, ButtonProviderBaseModel
+from ableton_control_surface_as_code.core_model import Direction, MidiCoords, parse_multiple_coords, \
+    ButtonProviderBaseModel
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
@@ -13,8 +14,8 @@ class TransportMappings(BaseModel):
     loop_raw: Optional[str] = Field(alias="loop", default=None)
     midi_arrange_overdub_raw: Optional[str] = Field(alias="midi-arrange-overdub", default=None)
 
-    def as_parsed_dict(self) -> dict[str, EncoderCoords]:
-        return {key: parse_coords(value)
+    def as_parsed_dict(self) -> dict[str, List[EncoderCoords]]:
+        return {key: parse_multiple_coords(value)
                 for key, value in self.model_dump().items() if value is not None}
 
 
@@ -75,8 +76,11 @@ def build_transport_model(controller, mapping: Transport):
     for api_call, enc_coords in mapping.mappings.as_parsed_dict().items():
         coords_list, type = controller.build_midi_coords(enc_coords)
 
-        mixer_maps.append(TransportMidiMapping(
-            midi_coords=coords_list,
-            api_call=api_call))
+        # One listener per physical button (comma-listed coords bind one action
+        # to several buttons).
+        for mc in coords_list:
+            mixer_maps.append(TransportMidiMapping(
+                midi_coords=[mc],
+                api_call=api_call))
 
     return TransportWithMidi(midi_maps=mixer_maps)

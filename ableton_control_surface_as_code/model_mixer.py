@@ -52,11 +52,24 @@ def build_mixer_model_v2(controller:ControllerV2, mapping: MixerV2):
 
         encoder_coors_list = [enc_coords] if isinstance(enc_coords, EncoderCoords) else enc_coords
 
-        mixer_maps.append(MixerMidiMapping(
-            midi_coords=coords_list,
-            controller_type=type,
-            api_function=api_name,
-            track_info=mapping.track,
-            encoder_coords=encoder_coors_list[0]))
+        if api_name == 'sends':
+            # sends maps the Nth knob to send index N, so the whole array must
+            # stay in one mapping (see the `sends` branch in mixer_templates).
+            mixer_maps.append(MixerMidiMapping(
+                midi_coords=coords_list,
+                controller_type=type,
+                api_function=api_name,
+                track_info=mapping.track,
+                encoder_coords=encoder_coors_list[0]))
+        else:
+            # One listener per physical control: a comma-listed coord value binds
+            # the same mixer function to several buttons/knobs.
+            for mc, enc in zip(coords_list, encoder_coors_list):
+                mixer_maps.append(MixerMidiMapping(
+                    midi_coords=[mc],
+                    controller_type=type,
+                    api_function=api_name,
+                    track_info=mapping.track,
+                    encoder_coords=enc))
 
     return MixerWithMidi(midi_maps=mixer_maps)

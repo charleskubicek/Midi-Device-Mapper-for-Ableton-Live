@@ -2,7 +2,8 @@ from typing import Literal, Optional, List, Tuple
 
 from pydantic import BaseModel, Field
 
-from ableton_control_surface_as_code.core_model import Direction, MidiCoords, parse_coords, ButtonProviderBaseModel
+from ableton_control_surface_as_code.core_model import Direction, MidiCoords, parse_multiple_coords, \
+    ButtonProviderBaseModel
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 
@@ -10,14 +11,14 @@ class TrackNavMappings(BaseModel):
     left_raw: Optional[str] = Field(alias='left')
     right_raw: Optional[str] = Field(alias='right')
 
-    def as_list(self) -> List[Tuple[Direction, EncoderCoords]]:
+    def as_list(self) -> List[Tuple[Direction, List[EncoderCoords]]]:
         res = []
 
         if self.right_raw is not None:
-            res.append((Direction.inc, parse_coords(self.right_raw)))
+            res.append((Direction.inc, parse_multiple_coords(self.right_raw)))
 
-        if self.right_raw is not None:
-            res.append((Direction.dec, parse_coords(self.left_raw)))
+        if self.left_raw is not None:
+            res.append((Direction.dec, parse_multiple_coords(self.left_raw)))
 
         return res
 
@@ -68,8 +69,11 @@ class TrackNavWithMidi(BaseModel):
 
 def build_track_nav_model_v2(controller, mapping: TrackNav) -> TrackNavWithMidi:
     midi_maps = []
-    for dir, enc in mapping.mappings.as_list():
-        midi_coords, _ = controller.build_midi_coords(enc)
-        midi_maps.append(TrackNavMidiMapping(midi_coords=midi_coords, direction=dir))
+    for dir, encs in mapping.mappings.as_list():
+        midi_coords, _ = controller.build_midi_coords(encs)
+        # One listener per physical button: a comma-listed coord value binds the
+        # same action to several buttons, each resolved to its own MidiCoords.
+        for mc in midi_coords:
+            midi_maps.append(TrackNavMidiMapping.from_single_coord(mc, dir))
 
     return TrackNavWithMidi(midi_maps=midi_maps)

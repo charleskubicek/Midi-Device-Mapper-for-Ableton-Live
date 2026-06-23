@@ -2,7 +2,7 @@ from typing import Literal, Optional, List
 
 from pydantic import BaseModel, Field, field_validator
 
-from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, DeviceNavAction, \
+from ableton_control_surface_as_code.core_model import MidiCoords, parse_multiple_coords, DeviceNavAction, \
     ButtonProviderBaseModel
 from ableton_control_surface_as_code.model_controller import ControllerV2
 
@@ -17,19 +17,19 @@ class DeviceNavMappings(BaseModel):
     def as_list(self):
         res = []
         if self.right_raw is not None:
-            res.append((DeviceNavAction.right, parse_coords(self.right_raw)))
+            res.append((DeviceNavAction.right, parse_multiple_coords(self.right_raw)))
 
-        if self.right_raw is not None:
-            res.append((DeviceNavAction.left, parse_coords(self.left_raw)))
+        if self.left_raw is not None:
+            res.append((DeviceNavAction.left, parse_multiple_coords(self.left_raw)))
 
         if self.first_raw is not None:
-            res.append((DeviceNavAction.first, parse_coords(self.first_raw)))
+            res.append((DeviceNavAction.first, parse_multiple_coords(self.first_raw)))
 
         if self.last_raw is not None:
-            res.append((DeviceNavAction.last, parse_coords(self.last_raw)))
+            res.append((DeviceNavAction.last, parse_multiple_coords(self.last_raw)))
 
         if self.first_last_raw is not None:
-            res.append((DeviceNavAction.first_last, parse_coords(self.first_last_raw)))
+            res.append((DeviceNavAction.first_last, parse_multiple_coords(self.first_last_raw)))
 
         return res
 
@@ -77,8 +77,11 @@ class DeviceNavWithMidi(BaseModel):
 
 def build_device_nav_model_v2(controller: ControllerV2, mapping: DeviceNav) -> DeviceNavWithMidi:
     midi_maps = []
-    for action, enc in mapping.mappings.as_list():
-        midi_coords, _ = controller.build_midi_coords(enc)
-        midi_maps.append(DeviceNavMidiMapping(midi_coords=midi_coords, action=action))
+    for action, encs in mapping.mappings.as_list():
+        midi_coords, _ = controller.build_midi_coords(encs)
+        # One listener per physical button (comma-listed coords bind one action
+        # to several buttons).
+        for mc in midi_coords:
+            midi_maps.append(DeviceNavMidiMapping(midi_coords=[mc], action=action))
 
     return DeviceNavWithMidi(midi_maps=midi_maps)

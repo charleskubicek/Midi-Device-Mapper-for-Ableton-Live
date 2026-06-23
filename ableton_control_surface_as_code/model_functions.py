@@ -3,7 +3,7 @@ from typing import Literal, List, Dict
 
 from pydantic import BaseModel, Field, model_validator
 
-from ableton_control_surface_as_code.core_model import MidiCoords, parse_coords, ButtonProviderBaseModel
+from ableton_control_surface_as_code.core_model import MidiCoords, parse_multiple_coords, ButtonProviderBaseModel
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 
 _SWITCH_KEYS = {'switch1', 'switch2'}
@@ -36,8 +36,8 @@ class Functions(BaseModel):
         return self
 
     @property
-    def mappings(self) -> Dict[str, EncoderCoords]:
-        return {key: parse_coords(value) for key, value in self.mappings_raw.items() if value is not None}
+    def mappings(self) -> Dict[str, List[EncoderCoords]]:
+        return {key: parse_multiple_coords(value) for key, value in self.mappings_raw.items() if value is not None}
 
 
 class FunctionsMidiMapping(ButtonProviderBaseModel):
@@ -125,17 +125,21 @@ class FunctionLookup:
 
 def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> FunctionsWithMidi:
     midi_maps = []
-    for fn, enc in mapping.mappings.items():
-        midi_coords, _ = controller.build_midi_coords(enc)
+    for fn, encs in mapping.mappings.items():
+        midi_coords, _ = controller.build_midi_coords(encs)
 
         if fn in RESERVED_BUILTIN_FUNCTIONS:
             # Built-in: no entry in functions.py — skip the user-file lookup and
             # route to a surface method (see _BUILTIN_CALLS / template_function_call).
-            midi_maps.append(FunctionsMidiMapping(midi_coords=midi_coords, function_name=fn,
-                                                  parameter_len=0, builtin=True))
-            continue
+            parameter_len, builtin = 0, True
+        else:
+            parameter_len = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
+            builtin = False
 
-        function_param_count = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
-        midi_maps.append(FunctionsMidiMapping(midi_coords=midi_coords, function_name=fn, parameter_len=function_param_count))
+        # One listener per physical button (comma-listed coords bind one function
+        # to several buttons).
+        for mc in midi_coords:
+            midi_maps.append(FunctionsMidiMapping(midi_coords=[mc], function_name=fn,
+                                                  parameter_len=parameter_len, builtin=builtin))
 
     return FunctionsWithMidi(midi_maps=midi_maps)

@@ -46,8 +46,8 @@ modes:
                 type: track-nav
                 mappings:
                     left: grid-2:10
-                    right: grid-2:11
-#                    right: grid-1:14
+                    right: grid-2:11, grid-2:14
+#                    right: grid-1:14  # to bind a 2nd button: right: grid-2:11, grid-1:14 (pick a FREE control — grid-1:14 is device encoder slot 14)
     -
         name: shift_mode
         on_color: green_full
