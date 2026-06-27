@@ -58,6 +58,41 @@ def _amp_mappings():
     }
 
 
+class TestFineGate(unittest.TestCase):
+    """`Helpers.fine` is the gated trace channel: silent unless the surface's
+    `manager.fine` flag is on, and every emitted line is `[hudtrace]`-tagged so
+    a captured trace is greppable in tail_logs.sh."""
+
+    def _helpers_with_fine(self, fine_flag):
+        manager = Mock()
+        manager.fine = fine_flag
+        return Helpers(manager, Mock()), manager
+
+    def test_fine_silent_when_flag_off(self):
+        helpers, manager = self._helpers_with_fine(False)
+        manager.log_message.reset_mock()
+        helpers.fine("nav device_nav_left")
+        manager.log_message.assert_not_called()
+
+    def test_fine_emits_tagged_line_when_flag_on(self):
+        helpers, manager = self._helpers_with_fine(True)
+        manager.log_message.reset_mock()
+        helpers.fine("nav device_nav_left")
+        manager.log_message.assert_called_once()
+        emitted = manager.log_message.call_args[0][0]
+        self.assertIn("[hudtrace]", emitted)
+        self.assertIn("nav device_nav_left", emitted)
+
+    def test_fine_defaults_off_when_flag_absent(self):
+        # A surface that predates the flag (no `manager.fine`) must not crash and
+        # must stay silent.
+        manager = Mock(spec=['log_message', 'show_message'])
+        helpers = Helpers(manager, Mock())
+        manager.log_message.reset_mock()
+        helpers.fine("anything")
+        manager.log_message.assert_not_called()
+
+
 class TestButtonEdgeGuard(unittest.TestCase):
     """should_act_on_edge: the press-once guard, parameterised on hardware mode.
     This is the fix for the toggle-hardware-fires-every-other-press regression."""

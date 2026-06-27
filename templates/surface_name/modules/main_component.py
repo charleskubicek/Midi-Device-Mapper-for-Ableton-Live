@@ -74,9 +74,17 @@ class MainComponent(ControlSurfaceComponent):
             $code_switch_parameter_mappings
         ]
 
+        # Per-mode device bindings so the HUD resolves only the active mode's
+        # device slots (a slot device-bound in one mode otherwise shows stale
+        # device data in a mode where it is mixer/empty-bound).
+        code_slot_assignments_by_mode = $code_slot_assignments_by_mode
+        code_switch_slot_assignments_by_mode = $code_switch_slot_assignments_by_mode
+
         self._helpers = Helpers(self.manager, self._remote, SurfaceConfig(
             slot_assignments=code_slot_assignments,
             switch_slot_assignments=code_switch_slot_assignments,
+            slot_assignments_by_mode=code_slot_assignments_by_mode,
+            switch_slot_assignments_by_mode=code_switch_slot_assignments_by_mode,
             parameter_mappings_raw=$parameter_mappings_raw,
             encoder_slot_count=$encoder_slot_count,
             hud_cells=$hud_cells,
@@ -160,6 +168,7 @@ class MainComponent(ControlSurfaceComponent):
         # Session <-> Arrangement switch. Device selection never changes this, so
         # an unconditional hide can't race our show burst. Note: Live emits this
         # redundantly (several times per change); HIDE is idempotent so that's fine.
+        self.fine("[appview] _on_doc_view_changed -> hud_view_left")
         self._helpers.hud_view_left()
 
     def _on_browser_visibility_changed(self):
@@ -167,7 +176,9 @@ class MainComponent(ControlSurfaceComponent):
         # on show/hide toggle only — clicking into an already-open browser is not
         # observable in the Live API, so that case won't dismiss.
         try:
-            if self._app_view.is_view_visible('Browser'):
+            visible = self._app_view.is_view_visible('Browser')
+            self.fine(f"[appview] _on_browser_visibility_changed visible={visible}")
+            if visible:
                 self._helpers.hud_view_left()
         except Exception as e:
             self.log_message(f"HUD dismiss: Browser visibility check failed: {e}")
@@ -176,7 +187,9 @@ class MainComponent(ControlSurfaceComponent):
         # Hide only when the device chain becomes hidden. Selecting a device makes
         # it visible, so this won't fire a hide on selection.
         try:
-            if not self._app_view.is_view_visible('Detail/DeviceChain'):
+            visible = self._app_view.is_view_visible('Detail/DeviceChain')
+            self.fine(f"[appview] _on_detail_changed device_chain_visible={visible}")
+            if not visible:
                 self._helpers.hud_view_left()
         except Exception as e:
             self.log_message(f"HUD dismiss: Detail/DeviceChain visibility check failed: {e}")
@@ -215,37 +228,59 @@ $code_setup_listeners
     def log_message(self, message):
         self.manager.log_message(message)
 
+    def fine(self, message):
+        # Gated protocol-trace channel (hud-protocol-instrumentation-plan):
+        # silent unless `manager.fine` is on (toggle with `update.py hudtrace`).
+        # Delegates to Helpers.fine so all `[hudtrace]` lines share one gate/tag.
+        self._helpers.fine(message)
+
     def selected_device(self):
         return self._song.view.selected_track.view.selected_device
 
     # device-nav handlers pass source='nav' so the HUD shows even under
     # show-hud-on='controller-nav'. track-nav keeps the default 'selection'
     # source (silent in controller-nav mode, per the show-hud-on contract).
+    # Each nav method logs the focused device name before and after the _nav
+    # call. A synchronous appointed-device listener fire inside scroll_view shows
+    # up as on_device_selected's line landing *between* these two (single-threaded
+    # log order = execution order) — the Bug 1 ordering signal.
     def device_nav_left(self):
+        self.fine(f"[nav] device_nav_left enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.device_nav_left()
+        self.fine(f"[nav] device_nav_left post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=nav")
         self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def device_nav_right(self):
+        self.fine(f"[nav] device_nav_right enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.device_nav_right()
+        self.fine(f"[nav] device_nav_right post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=nav")
         self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def track_nav_inc(self):
+        self.fine(f"[nav] track_nav_inc enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.track_nav_inc()
+        self.fine(f"[nav] track_nav_inc post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=selection")
         self._helpers.selected_device_changed(self.selected_device())
 
     def track_nav_dec(self):
+        self.fine(f"[nav] track_nav_dec enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.track_nav_dec()
+        self.fine(f"[nav] track_nav_dec post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=selection")
         self._helpers.selected_device_changed(self.selected_device())
 
     def device_nav_first_last(self):
         self._nav.device_nav_first_last()
 
     def device_nav_first(self):
+        self.fine(f"[nav] device_nav_first enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.device_nav_first()
+        self.fine(f"[nav] device_nav_first post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=nav")
         self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     def device_nav_last(self):
+        self.fine(f"[nav] device_nav_last enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.device_nav_last()
+        self.fine(f"[nav] device_nav_last post-scroll dev={getattr(self.selected_device(),'name',None)!r} source=nav")
         self._helpers.selected_device_changed(self.selected_device(), source='nav')
 
     $code_listener_fns
@@ -270,8 +305,12 @@ $code_setup_listeners
 
         # HUD: refresh labels for the new mode's bindings (mixer/functions/etc.).
         # Device-bound slots are repopulated by the next selected_device_changed.
+        # Trace the order of refresh_hud_for_mode -> send_mode -> mode_sender:
+        # Bug 2 is suspected to be a MODE send-ordering / stray-HIDE interleave.
+        self.fine(f"[mode] goto_mode {next_mode_name!r} is_shift={next_mode['is_shift']} -> refresh_hud_for_mode")
         self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
+        self.fine(f"[mode] goto_mode {next_mode_name!r} -> send_mode({next_mode['is_shift']})")
         self._hud_client.send_mode(next_mode['is_shift'])
 
         # Compositor primary only: forward the active mode name to the secondary
@@ -292,14 +331,25 @@ $code_setup_listeners
         self.log_message(f'mode_button_listener: {value}, current mode is {self.current_mode}')
 
         if value == 127:# and self._modes[current_mode['next_mode_name']]['is_shift'] is not True:
+            self.fine(f"[mode] mode_button_listener value=127 branch=press cur={self.current_mode['name']!r}")
             self.goto_mode(self.current_mode['next_mode_name'])
         elif value == 0 and self.current_mode['is_shift']:
+            # Shift release: goto_mode (which sends send_mode(next.is_shift)) is
+            # immediately followed by an explicit send_mode(False) — the suspected
+            # transient MODE inversion in Bug 2. Trace both sends in order.
+            self.fine(f"[mode] mode_button_listener value=0 branch=shift-release cur={self.current_mode['name']!r}")
             self.goto_mode(self.current_mode['next_mode_name'])
+            self.fine("[mode] mode_button_listener shift-release -> send_mode(False)")
             self._hud_client.send_mode(False)
 
     def on_device_selected(self):
+        # Live's appointed_device listener. If this line lands between a nav
+        # method's enter/post-scroll lines, scroll_view fired it synchronously
+        # (the Bug 1 hypothesis). source defaults to 'selection'.
+        self.fine(f"[listener] on_device_selected dev={getattr(self.selected_device(),'name',None)!r}")
         self._helpers.selected_device_changed(self.selected_device())
 
     def on_selected_track_changed(self):
         ### This is called when the selected track changes
+        self.fine(f"[listener] on_selected_track_changed dev={getattr(self.selected_device(),'name',None)!r}")
         self._helpers.selected_device_changed(self.selected_device())

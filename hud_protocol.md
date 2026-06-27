@@ -509,6 +509,38 @@ manager gates every show path on `!dismissed`, so the HUD stays hidden through
 
 ---
 
+## Capturing a protocol trace (debugging reliability)
+
+When the HUD misbehaves (flashes/hides on device move, drifts out of step with
+shift), turn on gated `fine` tracing on **both** sides and read the two logs
+together. Tracing is off by default and adds no wire traffic — the two switches
+are independent (see `ai-coding/plans/hud-protocol-instrumentation-plan.md`).
+
+- **Surface (Python sender).** `python update.py hudtrace` toggles
+  `manager.fine`. While on, `Helpers.fine` emits `[hudtrace]`-tagged lines for
+  the nav / app-view-listener / mode / visibility path. Read with
+  `./bin/tail_logs.sh`. Key tags: `[funnel]` (the `selected_device_changed`
+  guard — *the* Bug-1 line), `[vis] decide` (event → dismissed flip → decision),
+  `[nav]`, `[mode]`, `[appview]`, `[burst]`, `[focus]`.
+- **HUD (Swift receiver).** Toggle at runtime with a file sentinel —
+  `touch /tmp/ableton_hud_fine` on, `rm /tmp/ableton_hud_fine` off. The recv loop
+  re-reads it each datagram, so it takes effect within one message and needs no
+  relaunch. (This is launch-agnostic: the HUD is started via `open
+  AbletonHUD.app`, which inherits neither the shell environment nor
+  `UserDefaults.standard`; `HUD_FINE=1` only works under `swift run`.) While on,
+  `DeviceState.apply` logs every wire message it processes — especially the
+  `dismissed` / `isShiftMode` flips on `DEVICE` / `COMMIT` / `HIDE` / `MODE` —
+  plus the overlay show/hide/timer path, to `/tmp/ableton_hud_debug.log`.
+
+Both sinks are wall-clock timestamped on the same host, so the receiver trace
+interleaves with the sender trace for coarse cross-side alignment. **Within each
+side, log order is execution order** (single-threaded) — that is the reliable
+ordering signal: e.g. a synchronous `appointed_device` fire shows up as
+`[listener] on_device_selected` landing *between* a nav method's `[nav] … enter`
+and `[nav] … post-scroll` lines.
+
+---
+
 ## Cross-references
 
 | Concern                  | File                                                          |

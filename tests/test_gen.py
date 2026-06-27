@@ -30,6 +30,18 @@ class TestGen(unittest.TestCase, CustomAssertions):
         res = generate_code_as_template_vars(m)
         self.assertGreater(len(res['code_creation']), 1)
 
+    def test_per_mode_assignment_vars_emitted(self):
+        m = ModeGroupWithMidi(
+            mappings=[("mode_1", [build_mixer_with_midi(api_fn='pan')]),
+                      ("mode_2", [build_mixer_with_midi(api_fn='volume')])],
+            mode_button=ModeButtonWithMidi(on_colors=[], button=midi_coords_ch2_cc_50_knob(), type=ModeType.Switch))
+
+        res = generate_code_as_template_vars(m)
+
+        for key in ('code_slot_assignments_by_mode', 'code_switch_slot_assignments_by_mode'):
+            d = eval(res[key])  # rendered as a Python dict literal
+            self.assertEqual(set(d.keys()), {'mode_1', 'mode_2'})
+
     def test_deprecated_toggle_emits_stderr_warning(self):
         import io
         from contextlib import redirect_stderr

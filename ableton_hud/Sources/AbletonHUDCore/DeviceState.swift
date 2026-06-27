@@ -51,13 +51,19 @@ public class DeviceState: ObservableObject {
     }
 
     public func apply(message: WireMessage) {
+        // Receiver-side trace (hud-protocol-instrumentation-plan, Part B): every
+        // case logs its decisive state — especially the dismissed/isShiftMode
+        // flips — at .fine so it interleaves with the surface's `[hudtrace]`
+        // lines for both HUD bugs. Gated; silent unless HUD_FINE is armed.
         switch message {
         case .layout(let cells):
             pendingCells = cells
+            hudLog("apply LAYOUT cells=\(cells.count)", level: .fine)
 
         case .device(let name):
             // A new device burst means the user (re)selected a device — clear the
             // sticky dismiss so the upcoming COMMIT is allowed to show the HUD.
+            hudLog("apply DEVICE name=\(name) dismissed=\(dismissed)->false", level: .fine)
             dismissed = false
             pendingDials = [:]
             pendingButtons = [:]
@@ -74,6 +80,7 @@ public class DeviceState: ObservableObject {
             case .dial:   pendingDials[index] = slot
             case .button: pendingButtons[index] = slot
             }
+            hudLog("apply SLOT \(kind) idx=\(index)", level: .fine)
 
         case .update(let kind, let index, let slot):
             guard index >= 0 else { return }
@@ -83,6 +90,7 @@ public class DeviceState: ObservableObject {
             case .button:
                 if index < buttonSlots.count { buttonSlots[index] = slot }
             }
+            hudLog("apply UPDATE \(kind) idx=\(index) dismissed=\(dismissed)", level: .fine)
             commitReceived.send()
 
         case .commit:
@@ -96,16 +104,20 @@ public class DeviceState: ObservableObject {
             let totalButtons = pendingCells.filter { $0.kind == .button }.reduce(0) { $0 + $1.count }
             dialSlots = (0..<totalDials).map { pendingDials[$0] }
             buttonSlots = (0..<totalButtons).map { pendingButtons[$0] }
+            hudLog("apply COMMIT name=\(deviceName) dials=\(totalDials) buttons=\(totalButtons) dismissed->false isVisible=\(isVisible)", level: .fine)
             commitReceived.send()
 
         case .ping:
+            hudLog("apply PING (rearm timer) dismissed=\(dismissed)", level: .fine)
             commitReceived.send()
 
         case .hide:
+            hudLog("apply HIDE dismissed=\(dismissed)->true", level: .fine)
             dismissed = true
             hideRequested.send()
 
         case .mode(let isShift):
+            hudLog("apply MODE isShift=\(isShiftMode)->\(isShift)", level: .fine)
             isShiftMode = isShift
 
         case .page(let encPage, let encTotal, let btnPage, let btnTotal,
@@ -117,14 +129,17 @@ public class DeviceState: ObservableObject {
             // Encoder label is the primary HUD title; fall back to the button
             // label if the encoder page has none but a button page does.
             pendingBankLabel = !encLabel.isEmpty ? encLabel : btnLabel
+            hudLog("apply PAGE enc=\(encPage)/\(encTotal) btn=\(btnPage)/\(btnTotal)", level: .fine)
 
         case .event(let kind, let wireIdx, let text):
             // Show-info: surface a transient explanation; the view renders +
             // fades it. Does not touch burst/published slot state.
             eventSeq += 1
             lastEvent = ButtonEvent(kind: kind, wireIdx: wireIdx, text: text, seq: eventSeq)
+            hudLog("apply EVENT kind=\(kind) idx=\(wireIdx)", level: .fine)
 
         case .unknown:
+            hudLog("apply UNKNOWN", level: .fine)
             break
         }
     }

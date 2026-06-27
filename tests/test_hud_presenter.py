@@ -8,13 +8,13 @@ from source_modules.param_resolver import ParameterResolver, _build_device_table
 
 
 class FakeParam:
-    def __init__(self, name, value=0.0, mn=0.0, mx=1.0):
+    def __init__(self, name, value=0.0, mn=0.0, mx=1.0, is_quantized=False):
         self.name = name
         self.original_name = name
         self.value = value
         self.min = mn
         self.max = mx
-        self.is_quantized = False
+        self.is_quantized = is_quantized
 
 
 class FakeDevice:
@@ -24,15 +24,21 @@ class FakeDevice:
         self.parameters = parameters
 
 
-def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=()):
+def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=(),
+               slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
+               mode_hud_labels=None, button_switch_count=0):
     resolver = ParameterResolver(
         device_table=_build_device_table(None), device_banks={}, bank_names={},
-        banks_per_page=1, button_switch_count=0, button_slot_count=8, log=lambda m: None)
+        banks_per_page=1, button_switch_count=button_switch_count, button_slot_count=8,
+        log=lambda m: None)
     remote = Mock()
     p = HudPresenter(remote=remote, resolver=resolver,
                      slot_assignments=list(slot_assignments),
                      switch_slot_assignments=list(switch_slot_assignments),
-                     hud_cells=list(hud_cells), mode_hud_labels={}, log=lambda m: None)
+                     hud_cells=list(hud_cells), mode_hud_labels=mode_hud_labels or {},
+                     log=lambda m: None,
+                     slot_assignments_by_mode=slot_assignments_by_mode,
+                     switch_slot_assignments_by_mode=switch_slot_assignments_by_mode)
     return p, remote
 
 
@@ -73,6 +79,73 @@ class TestHudPresenterDirect(unittest.TestCase):
         remote.device_update.assert_called_once()
         # empty device name marks the label-only burst
         self.assertEqual(remote.device_update.call_args[0][0], '')
+
+
+class TestPerModeAssignments(unittest.TestCase):
+    """Device slot/switch assignments are resolved per active mode, not from a
+    global union across all modes — otherwise an encoder device-bound in one
+    mode shows stale device data in a mode where it is mixer/empty-bound."""
+
+    @staticmethod
+    def _real_params(remote):
+        # device_update(name, real_params, ...) — real_params is positional arg 1.
+        return [r for r in remote.device_update.call_args[0][1] if r is not None]
+
+    @staticmethod
+    def _switch_entries(remote):
+        # device_update(name, real_params, info_text, switch_entries, ...)
+        return list(remote.device_update.call_args[0][3])
+
+    def test_encoder_device_bound_only_in_its_mode(self):
+        p, remote = _presenter(
+            slot_assignments_by_mode={'a': [(1, 'slot1')], 'b': []})
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+
+        p.refresh_for_mode('a', dev)
+        # on_off + the device-bound encoder
+        self.assertEqual(len(self._real_params(remote)), 2)
+
+        p.refresh_for_mode('b', dev)
+        # mode b binds no device encoders -> only on_off
+        self.assertEqual(len(self._real_params(remote)), 1)
+
+    def test_switch_device_bound_only_in_its_mode(self):
+        p, remote = _presenter(
+            button_switch_count=1,
+            switch_slot_assignments_by_mode={'a': [(0, 'switch1')], 'b': []})
+        dev = FakeDevice("X", [FakeParam("On/Off"),
+                               FakeParam("Q", is_quantized=True, mn=0, mx=2)])
+
+        p.refresh_for_mode('a', dev)
+        self.assertEqual(len(self._switch_entries(remote)), 1)
+
+        p.refresh_for_mode('b', dev)
+        self.assertEqual(len(self._switch_entries(remote)), 0)
+
+    def test_label_overlays_encoder_left_empty_in_mode(self):
+        # In mode 'b' the encoder is not device-bound, so its dial slot is EMPTY
+        # and the mode's static dial label overlays it (this is the shift-mode
+        # "encoder text not updated" bug).
+        from source_modules.hud_protocol import LayoutCell, EMPTY_SLOT
+        cells = [tuple(LayoutCell(0, 0, 'dial', 1, 0, 0))]
+        p, remote = _presenter(
+            hud_cells=cells,
+            slot_assignments_by_mode={'a': [(1, 'slot1')], 'b': []},
+            mode_hud_labels={'b': {('dial', 0): 'Volume'}})
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+
+        p.refresh_for_mode('b', dev)
+        mode_labels = remote.device_update.call_args.kwargs.get('mode_labels')
+        self.assertEqual(mode_labels, {('dial', 0): 'Volume'})
+        # encoder is not resolved against the device in mode 'b'
+        self.assertEqual(len(self._real_params(remote)), 1)
+
+    def test_falls_back_to_global_when_mode_unknown(self):
+        # Modeless / pre-goto_mode: no by-mode dict entry -> use the flat list.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.emit_burst(dev)
+        self.assertEqual(len(self._real_params(remote)), 2)
 
 
 class TestVisibilityWiring(unittest.TestCase):

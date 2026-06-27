@@ -19,11 +19,20 @@ from .hud_visibility import (
 
 class HudPresenter:
     def __init__(self, remote, resolver, slot_assignments, switch_slot_assignments,
-                 hud_cells, mode_hud_labels, log, hud_trigger='controller-nav'):
+                 hud_cells, mode_hud_labels, log, hud_trigger='controller-nav',
+                 slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
+                 fine=None):
         self._remote = remote
         self._resolver = resolver
+        # Flat global assignments (union across modes) — the fallback used by
+        # modeless surfaces and before the first goto_mode. The *_by_mode dicts
+        # carry the per-mode device bindings so a burst resolves only the
+        # encoders/switches that are device-bound in the *active* mode; anything
+        # else falls through to EMPTY and the mode's static labels overlay it.
         self._slot_assignments = slot_assignments
         self._switch_slot_assignments = switch_slot_assignments
+        self._slot_assignments_by_mode = slot_assignments_by_mode or {}
+        self._switch_slot_assignments_by_mode = switch_slot_assignments_by_mode or {}
         self._hud_cells = hud_cells
         # mode_hud_labels: {mode_name: {(kind, wire_idx): label}} for non-device
         # mappings. Device cells are populated from live device state and don't
@@ -31,9 +40,13 @@ class HudPresenter:
         self._mode_hud_labels = mode_hud_labels or {}
         self._current_mode_name = None
         self._log = log
+        # Gated protocol-trace sink (hud-protocol-instrumentation-plan); no-op by
+        # default so unit tests and pre-flag surfaces stay silent.
+        self._fine = fine or (lambda msg: None)
         # Single owner of show/hide intent (R10). Its `dismissed` flag mirrors
-        # the Swift sticky-dismiss flag; a real burst clears it.
-        self._visibility = HudVisibility(hud_trigger)
+        # the Swift sticky-dismiss flag; a real burst clears it. Shares the trace
+        # sink so the decide() line interleaves with the presenter's own lines.
+        self._visibility = HudVisibility(hud_trigger, fine=self._fine)
 
     @property
     def hud_dismissed(self):
@@ -43,16 +56,33 @@ class HudPresenter:
     def hud_dismissed(self, value):
         self._visibility.dismissed = value
 
+    def _active_slot_assignments(self):
+        """Device encoder assignments for the active mode, falling back to the
+        flat global list when the mode isn't keyed (modeless / pre-goto_mode)."""
+        if self._current_mode_name in self._slot_assignments_by_mode:
+            return self._slot_assignments_by_mode[self._current_mode_name]
+        return self._slot_assignments
+
+    def _active_switch_slot_assignments(self):
+        """Device switch assignments for the active mode, same fallback rule."""
+        if self._current_mode_name in self._switch_slot_assignments_by_mode:
+            return self._switch_slot_assignments_by_mode[self._current_mode_name]
+        return self._switch_slot_assignments
+
     def emit_burst(self, device, suppress_hud=False):
         if device is None:
             return
+        self._fine(
+            f"[burst] emit_burst device={getattr(device, 'name', None)!r} "
+            f"suppress_hud={suppress_hud} mode={self._current_mode_name!r}"
+        )
         on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
         real_params = [on_off]
         # Append unconditionally — a None placeholder for a failed resolve
         # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
         # Nones here shifts every later encoder one slot left on the HUD.
         missing_c_idxs = []
-        for c_idx, _slot in sorted(self._slot_assignments):
+        for c_idx, _slot in sorted(self._active_slot_assignments()):
             rp = self._resolver.resolve_encoder(device, c_idx)
             real_params.append(rp)
             if rp is None:
@@ -66,7 +96,7 @@ class HudPresenter:
                 f"enc_page={self._resolver.encoder_page} unresolved_c_idxs={missing_c_idxs}"
             )
         switch_entries = []
-        for wire_idx, slot in self._switch_slot_assignments:
+        for wire_idx, slot in self._active_switch_slot_assignments():
             # slot_name ("switch1", "switch2", …) drives JSON-table parameter
             # resolution; wire_idx is the HUD button index assigned at codegen.
             logical_idx = int(slot.replace('switch', '')) - 1
@@ -107,6 +137,7 @@ class HudPresenter:
             # now-stale slots by index. HIDE sets the sticky flag so UPDATE/PING
             # can't resurrect it; the next device-nav burst clears it and
             # repaints fresh. Mirror the intent locally so hud_toggle re-syncs.
+            self._fine("[burst] -> remote.hide() (suppressed selection)")
             self._remote.hide()
             self._visibility.apply(Decision.EMIT_SILENT_AND_HIDE)
 
@@ -115,6 +146,7 @@ class HudPresenter:
         visibility table decides whether this shows the HUD or only feeds the
         OSC/feedback sinks while staying hidden (controller-nav on a non-nav
         selection). Replaces the inline suppress rule that lived in Helpers."""
+        self._fine(f"[focus] on_device_focus device={getattr(device, 'name', None)!r} source={source}")
         decision = self._visibility.decide(DeviceFocus(source))
         self.emit_burst(device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
@@ -123,6 +155,7 @@ class HudPresenter:
         forward here instead of calling send_hide() directly, so the local
         dismiss mirror stays in sync with the Swift sticky flag."""
         if self._visibility.decide(ViewLeft()) is Decision.HIDE:
+            self._fine("[viewleft] -> remote.hide()")
             self._remote.hide()
 
     def reemit_combined_burst(self, device):

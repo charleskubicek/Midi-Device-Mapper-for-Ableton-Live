@@ -40,6 +40,10 @@ class $surface_name(ControlSurface):
             self.schedule_message(1, self.tick)
             self.show_message("Connected to $surface_name")
             self.debug = False
+            # Gated HUD protocol-trace flag (hud-protocol-instrumentation-plan).
+            # Off by default; toggled by the `hudtrace` command. Read by
+            # Helpers.fine to emit `[hudtrace]` lines for the HUD<->surface path.
+            self.fine = False
 
             self.schedule_message(5, self.update_main_component_with_selected_device)
 
@@ -303,6 +307,14 @@ class $surface_name(ControlSurface):
                 self.debug = not self.debug
                 self.log_message(f"Debug set to {self.debug}")
                 response = b'Debug set to ' + str(self.debug).encode('utf-8')
+
+            elif cmd == 'hudtrace':
+                # Toggle gated HUD protocol tracing. `[hudtrace]`-tagged lines
+                # then trace the nav/listener/mode/visibility path; capture with
+                # ./bin/tail_logs.sh. The Swift HUD has its own HUD_FINE switch.
+                self.fine = not self.fine
+                self.log_message(f"HUD trace set to {self.fine}")
+                response = b'HUD trace set to ' + str(self.fine).encode('utf-8')
 
             elif cmd == 'dump':
                 self.dump_selected_device_parameter_info()

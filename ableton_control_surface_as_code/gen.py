@@ -106,6 +106,16 @@ def all_control_defs(mode_codes):
     return res
 
 
+def _render_assignments_by_mode(by_mode: dict) -> str:
+    """Render {mode_name: [tuple-code-strings]} as a Python dict literal the
+    generated surface evals: {'mode': [(idx, 'slot'), ...], ...}."""
+    parts = []
+    for mode_name, tuples in by_mode.items():
+        inner = ", ".join(tuples)
+        parts.append(f"'{mode_name}': [{inner}]")
+    return "{" + ", ".join(parts) + "}"
+
+
 def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None, outputs=None, hud_cells_override=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
@@ -127,14 +137,23 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
 
     creation.append(f"self.mode_{first_mode_name}_add_listeners()")
 
-    for name, code_model in mode_codes.items():
+    # Per-mode device encoder / switch assignments, keyed by mode name. The flat
+    # `codes.*_parameter_mappings` lists below stay as the union-across-modes
+    # (the runtime still needs the global stride for button paging); these dicts
+    # let the HUD presenter resolve only the *active* mode's device bindings so a
+    # slot device-bound in one mode doesn't show stale device data in another.
+    slot_assignments_by_mode = {}
+    switch_slot_assignments_by_mode = {}
+    for mode_name, code_model in mode_codes.items():
         merge = GeneratedCodes.merge_all(code_model)
         codes.remove_listeners.append(class_function_body_code_block(merge.remove_listeners))
-        codes.setup_listeners.append(add_listeners_template(name))
+        codes.setup_listeners.append(add_listeners_template(mode_name))
         codes.setup_listeners.append(class_function_body_code_block(merge.setup_listeners))
         codes.listener_fns.append(class_function_code_block(merge.listener_fns))
         codes.custom_parameter_mappings.append(",\n\t\t\t".join(merge.custom_parameter_mappings))
         codes.switch_parameter_mappings.append(",\n\t\t\t".join(merge.switch_parameter_mappings))
+        slot_assignments_by_mode[mode_name] = list(merge.custom_parameter_mappings)
+        switch_slot_assignments_by_mode[mode_name] = list(merge.switch_parameter_mappings)
 
         for (name, values) in merge.array_defs:
             array_defs.append(array_def_template(name, values))
@@ -209,6 +228,8 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
             mode_name: {tuple(k): v for k, v in labels.items()}
             for mode_name, labels in mode_hud_labels.items()
         }),
+        'code_slot_assignments_by_mode': _render_assignments_by_mode(slot_assignments_by_mode),
+        'code_switch_slot_assignments_by_mode': _render_assignments_by_mode(switch_slot_assignments_by_mode),
         'hud_client_class': hud_client_class,
         'hud_trigger': repr(hud_trigger.value),
         # Hardware button mode (momentary vs toggle): drives the runtime

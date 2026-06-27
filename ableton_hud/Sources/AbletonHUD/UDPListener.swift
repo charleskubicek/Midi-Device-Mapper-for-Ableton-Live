@@ -4,18 +4,9 @@ import os
 
 private let log = OSLog(subsystem: "com.local.AbletonHUD", category: "UDPListener")
 
-// Simple file log visible from terminal for debugging
-func hudLog(_ msg: String) {
-    let line = "[\(Date())] \(msg)\n"
-    if let data = line.data(using: .utf8) {
-        let url = URL(fileURLWithPath: "/tmp/ableton_hud_debug.log")
-        if let fh = try? FileHandle(forUpdating: url) {
-            fh.seekToEndOfFile(); fh.write(data); try? fh.close()
-        } else {
-            try? data.write(to: url)
-        }
-    }
-}
+// File-based debug log (`hudLog`) now lives in AbletonHUDCore/FineLog.swift so
+// both targets — and the no-AppKit Core (DeviceState) — share one leveled,
+// gateable sink. Verbose per-datagram lines use `level: .fine`.
 
 /// POSIX-based UDP receiver — simpler and more reliable than NWListener for
 /// one-way push on loopback.
@@ -26,6 +17,9 @@ class UDPListener {
     private var running = false
 
     func start() {
+        // Seed the fine-trace gate from the sentinel at launch (the recv loop
+        // re-reads it per datagram thereafter).
+        refreshHudFineEnabled()
         fd = socket(AF_INET, SOCK_DGRAM, 0)
         guard fd >= 0 else {
             os_log("socket() failed: %{public}s", log: log, type: .error, String(cString: strerror(errno)))
@@ -74,11 +68,15 @@ class UDPListener {
             if n <= 0 { break }
             let data = Data(buf[0..<n])
             let text = String(data: data, encoding: .utf8) ?? "(non-utf8)"
+            // Re-read the /tmp/ableton_hud_fine sentinel each datagram so a
+            // touch/rm toggles tracing at runtime within one message.
+            refreshHudFineEnabled()
             os_log("recv %d bytes", log: log, type: .debug, n)
-            hudLog("UDP recv \(n) bytes: \(text.prefix(120))")
+            hudLog("recv \(n) bytes: \(text.prefix(120))", level: .fine)
             let messages = WireProtocol.parseAll(data: data)
             DispatchQueue.main.async {
                 for msg in messages {
+                    hudLog("recv parsed -> \(msg)", level: .fine)
                     DeviceState.shared.apply(message: msg)
                 }
             }

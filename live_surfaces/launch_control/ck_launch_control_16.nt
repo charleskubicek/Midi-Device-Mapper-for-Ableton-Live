@@ -4,7 +4,7 @@ ableton_dir: /Applications/Ableton Live 12 Suite.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
 
 remote_on: false
-hud: device_only
+hud: on
 
 mode-button:
     button: row-3:1

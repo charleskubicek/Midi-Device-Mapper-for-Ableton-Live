@@ -41,6 +41,11 @@ class SurfaceConfig:
     live collaborators (manager, remote). None means "use the runtime default"."""
     slot_assignments: Any = None
     switch_slot_assignments: Any = None
+    # Per-mode device encoder / switch assignments ({mode_name: [(idx, slot)]}).
+    # The HUD presenter resolves only the active mode's device bindings so a slot
+    # device-bound in one mode doesn't show stale device data in another.
+    slot_assignments_by_mode: Any = None
+    switch_slot_assignments_by_mode: Any = None
     parameter_mappings_raw: Any = None
     encoder_slot_count: int = 8
     button_slot_count: int = 8
@@ -92,9 +97,12 @@ class Helpers:
             remote=remote, resolver=self._resolver,
             slot_assignments=slot_assignments,
             switch_slot_assignments=switch_slot_assignments,
+            slot_assignments_by_mode=config.slot_assignments_by_mode,
+            switch_slot_assignments_by_mode=config.switch_slot_assignments_by_mode,
             hud_cells=hud_cells,
             mode_hud_labels=config.mode_hud_labels or {},
-            log=self.log_message, hud_trigger=config.hud_trigger)
+            log=self.log_message, hud_trigger=config.hud_trigger,
+            fine=self.fine)
         self._remote.init_layout(hud_cells)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
@@ -145,9 +153,30 @@ class Helpers:
     def log_message(self, message):
         self._manager.log_message(message)
 
+    def fine(self, message):
+        """Gated protocol-trace channel (hud-protocol-instrumentation-plan).
+        Silent unless the surface's `manager.fine` flag is on; every line is
+        `[hudtrace]`-tagged so a captured trace is greppable in tail_logs.sh.
+        Threaded into HudPresenter/HudVisibility the same way `log_message` is."""
+        if getattr(self._manager, 'fine', False):
+            self._manager.log_message(f"[hudtrace] {message}")
+
     def selected_device_changed(self, device, source='selection'):
+        # THE funnel: both device_nav_* and on_device_selected pass through here,
+        # and the same-device guard below is where Bug 1's nav-then-listener race
+        # is decided. Trace device + source + whether the guard short-circuited so
+        # a captured HIDE can be attributed to its cause.
+        dev_name = getattr(device, 'name', None)
         if device is None or device == self._last_selected_device:
+            self.fine(
+                f"[funnel] selected_device_changed device={dev_name!r} source={source} "
+                f"guard=short-circuit ({'none' if device is None else 'same-device'})"
+            )
             return
+        self.fine(
+            f"[funnel] selected_device_changed device={dev_name!r} source={source} "
+            f"guard=pass prev={getattr(self._last_selected_device, 'name', None)!r}"
+        )
         self._teardown_group_selector_listeners()
         self._last_selected_device = device
         # Reset the resolver's per-device state: name indices + paging back to 1.

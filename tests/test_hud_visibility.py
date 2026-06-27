@@ -109,5 +109,36 @@ class TestRaceInvariants(unittest.TestCase):
         self.assertFalse(v.dismissed)              # intent re-synced
 
 
+class TestFineTrace(unittest.TestCase):
+    """decide() emits a trace line through the injected `fine` callback capturing
+    event -> dismissed-before -> decision -> dismissed-after. This is the single
+    most important diagnostic line for both HUD reliability bugs; it must never
+    alter the decision and must be silent when no callback is wired."""
+
+    def test_decide_unchanged_without_fine_callback(self):
+        v = HudVisibility('controller-nav')
+        # No fine callback wired: behaviour is identical, no crash.
+        self.assertEqual(v.decide(DeviceFocus('selection')),
+                         Decision.EMIT_SILENT_AND_HIDE)
+
+    def test_decide_emits_trace_with_event_and_decision(self):
+        lines = []
+        v = HudVisibility('controller-nav', fine=lines.append)
+        v.decide(DeviceFocus('selection'))
+        self.assertEqual(len(lines), 1)
+        line = lines[0]
+        # The decisive facts: event kind, the decision, and the dismissed flip.
+        self.assertIn('DeviceFocus', line)
+        self.assertIn('selection', line)
+        self.assertIn('emit_silent_and_hide', line)
+        self.assertIn('dismissed', line)
+
+    def test_fine_does_not_change_decision(self):
+        lines = []
+        v = HudVisibility('controller-nav', fine=lines.append)
+        self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
+        self.assertFalse(v.dismissed)
+
+
 if __name__ == "__main__":
     unittest.main()

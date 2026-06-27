@@ -72,7 +72,7 @@ class ControlTouched:
 
 
 class HudVisibility:
-    def __init__(self, trigger):
+    def __init__(self, trigger, fine=None):
         # trigger: 'selection' (HUD follows Live's selected device) or
         # 'controller-nav' (HUD only on explicit device-nav actions).
         # The lc_parks compositor needs selection-driven focus to always show
@@ -81,10 +81,21 @@ class HudVisibility:
         self.trigger = trigger
         # Mirrors the Swift sticky dismissed flag.
         self.dismissed = False
+        # Gated trace sink (Part A of hud-protocol-instrumentation-plan). Off by
+        # default so unit tests and pre-flag surfaces stay silent.
+        self._fine = fine or (lambda msg: None)
 
     def decide(self, event) -> Decision:
+        before = self.dismissed
         decision = self._classify(event)
         self.apply(decision)
+        # The single most important diagnostic line for both HUD bugs: what
+        # fired, under which trigger, what it decided, and the dismissed flip.
+        self._fine(
+            f"[vis] decide event={type(event).__name__}({getattr(event, 'source', '')}) "
+            f"trigger={self.trigger} dismissed={before}->{self.dismissed} "
+            f"decision={decision.value}"
+        )
         return decision
 
     def apply(self, decision):

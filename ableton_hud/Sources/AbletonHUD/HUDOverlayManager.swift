@@ -29,11 +29,13 @@ class HUDOverlayManager {
                 guard let self else { return }
                 let focused = AbletonFocusMonitor.shared.isAbletonFrontmost
                 os_log("commitReceived — focused=%{public}d", log: log, type: .info, focused)
-                hudLog("commitReceived: focused=\(focused) visible=\(DeviceState.shared.isVisible)")
+                hudLog("commitReceived: focused=\(focused) visible=\(DeviceState.shared.isVisible)", level: .fine)
                 // Any active-group member committing/pinging re-arms the single
                 // dismiss timer = "alive while either surface is active".
                 if focused && DeviceState.shared.isVisible {
                     self.show()
+                } else {
+                    hudLog("commitReceived: not showing (focused=\(focused) visible=\(DeviceState.shared.isVisible))", level: .fine)
                 }
             }
             .store(in: &cancellables)
@@ -44,10 +46,10 @@ class HUDOverlayManager {
                 // A single source's HIDE must not drop the whole composed panel.
                 // Hide only once every active-group member is dismissed/empty.
                 if !DeviceState.shared.isVisible {
-                    hudLog("hideRequested — all active sources dismissed, hiding")
+                    hudLog("hideRequested — all active sources dismissed, hiding", level: .fine)
                     self?.hide()
                 } else {
-                    hudLog("hideRequested — other active source still visible, keeping panel")
+                    hudLog("hideRequested — other active source still visible, keeping panel", level: .fine)
                 }
             }
             .store(in: &cancellables)
@@ -115,10 +117,11 @@ class HUDOverlayManager {
         if !chrome.isMouseOver {
             armDismissTimer()
         }
-        hudLog("show() — frame=\(panel.frame)")
+        hudLog("show() — frame=\(panel.frame)", level: .fine)
     }
 
     func hide() {
+        hudLog("hide() — wasVisible=\(overlayPanel?.isVisible ?? false)", level: .fine)
         dismissTimer?.invalidate()
         dismissTimer = nil
         overlayPanel?.orderOut(nil)
@@ -129,6 +132,7 @@ class HUDOverlayManager {
     private func armDismissTimer() {
         dismissTimer?.invalidate()
         dismissTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: false) { [weak self] _ in
+            hudLog("dismissTimer fired -> hide()", level: .fine)
             self?.hide()
         }
     }
