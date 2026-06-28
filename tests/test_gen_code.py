@@ -6,6 +6,7 @@ from ableton_control_surface_as_code.core_model import RowMapV2_1
 from ableton_control_surface_as_code.gen_code import (
     code_from_slot_assignments,
     device_templates,
+    dict_variable_decleration_block,
     functions_templates,
     GeneratedCode,
     GeneratedCodes,
@@ -99,6 +100,35 @@ class TestSlotAssignmentsCodegen(unittest.TestCase):
 
     def test_empty_input_emits_nothing(self):
         self.assertEqual(code_from_slot_assignments([]), [])
+
+
+class TestDictVariableDeclerationBlock(unittest.TestCase):
+    """The per-mode blocks rendered into the `code_*_parameter_mappings`
+    list literals. Each element is one mode's already-comma-joined tuples."""
+
+    def _is_valid_list_literal(self, body):
+        # The block is spliced between `[` and `]` in the template; eval it the
+        # same way to prove two adjacent mode-blocks don't read as a tuple call.
+        return eval(f"[{body}]")
+
+    def test_two_non_empty_modes_are_comma_separated(self):
+        body = dict_variable_decleration_block(
+            ["(0, 'switch1'),\n\t\t\t(1, 'switch2')", "(0, 'switch1'),\n\t\t\t(1, 'switch2')"]
+        )
+        self.assertEqual(
+            self._is_valid_list_literal(body),
+            [(0, 'switch1'), (1, 'switch2'), (0, 'switch1'), (1, 'switch2')],
+        )
+
+    def test_empty_mode_block_is_dropped(self):
+        body = dict_variable_decleration_block(["(1, 'slot1')", ""])
+        self.assertEqual(self._is_valid_list_literal(body), [(1, 'slot1')])
+
+    def test_all_empty_emits_nothing(self):
+        self.assertEqual(dict_variable_decleration_block(["", ""]), "")
+
+    def test_empty_list_emits_nothing(self):
+        self.assertEqual(dict_variable_decleration_block([]), "")
 
 
 class TestDeviceWithMidiEncoderSlotCount(unittest.TestCase):

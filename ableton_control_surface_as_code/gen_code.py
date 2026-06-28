@@ -427,12 +427,19 @@ def class_function_code_block(lines: [str]):
 
 
 def dict_variable_decleration_block(lines: [str]):
-    tab_block = "    "
-
     if lines is None or lines == []:
         return ""
-    else:
-        return f"{tab_block}{tab_block}".join(lines) + "\n"
+
+    # Each element is one mode's already-comma-joined block of tuple literals.
+    # A mode that binds none of this control type contributes an empty string;
+    # dropping those avoids stray separators. Join the surviving blocks with a
+    # comma so the rendered list literal stays valid when more than one mode
+    # contributes entries (otherwise adjacent tuples read as a call).
+    non_empty = [line for line in lines if line]
+    if not non_empty:
+        return ""
+
+    return ",\n\t\t\t".join(non_empty) + "\n"
 
 
 def class_function_body_code_block(lines: [str]):
