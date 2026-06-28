@@ -56,25 +56,38 @@ class HudPresenter:
     def hud_dismissed(self, value):
         self._visibility.dismissed = value
 
-    def _active_slot_assignments(self):
-        """Device encoder assignments for the active mode, falling back to the
-        flat global list when the mode isn't keyed (modeless / pre-goto_mode)."""
-        if self._current_mode_name in self._slot_assignments_by_mode:
-            return self._slot_assignments_by_mode[self._current_mode_name]
+    def _active_slot_assignments(self, mode_name=None):
+        """Device encoder assignments for the given mode (defaults to the active
+        mode), falling back to the flat global list when the mode isn't keyed
+        (modeless / pre-goto_mode)."""
+        mn = self._current_mode_name if mode_name is None else mode_name
+        if mn in self._slot_assignments_by_mode:
+            return self._slot_assignments_by_mode[mn]
         return self._slot_assignments
 
-    def _active_switch_slot_assignments(self):
-        """Device switch assignments for the active mode, same fallback rule."""
-        if self._current_mode_name in self._switch_slot_assignments_by_mode:
-            return self._switch_slot_assignments_by_mode[self._current_mode_name]
+    def _active_switch_slot_assignments(self, mode_name=None):
+        """Device switch assignments for the given mode, same fallback rule."""
+        mn = self._current_mode_name if mode_name is None else mode_name
+        if mn in self._switch_slot_assignments_by_mode:
+            return self._switch_slot_assignments_by_mode[mn]
         return self._switch_slot_assignments
 
-    def emit_burst(self, device, suppress_hud=False):
+    def emit_burst(self, device, suppress_hud=False, preview_mode_name=None):
         if device is None:
             return
+        # Page-preview (parameter-pager pressed from a shift mode): resolve this
+        # one burst against the *base* mode's device bindings so the user sees the
+        # new page's params, while staying in shift (current mode + visibility
+        # untouched). One-shot — the next normal burst overwrites it. No-op when
+        # the preview target is already the active mode.
+        burst_mode = (preview_mode_name
+                      if (preview_mode_name is not None
+                          and preview_mode_name != self._current_mode_name)
+                      else self._current_mode_name)
         self._fine(
             f"[burst] emit_burst device={getattr(device, 'name', None)!r} "
-            f"suppress_hud={suppress_hud} mode={self._current_mode_name!r}"
+            f"suppress_hud={suppress_hud} mode={self._current_mode_name!r} "
+            f"burst_mode={burst_mode!r}"
         )
         on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
         real_params = [on_off]
@@ -82,7 +95,7 @@ class HudPresenter:
         # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
         # Nones here shifts every later encoder one slot left on the HUD.
         missing_c_idxs = []
-        for c_idx, _slot in sorted(self._active_slot_assignments()):
+        for c_idx, _slot in sorted(self._active_slot_assignments(burst_mode)):
             rp = self._resolver.resolve_encoder(device, c_idx)
             real_params.append(rp)
             if rp is None:
@@ -96,7 +109,7 @@ class HudPresenter:
                 f"enc_page={self._resolver.encoder_page} unresolved_c_idxs={missing_c_idxs}"
             )
         switch_entries = []
-        for wire_idx, slot in self._active_switch_slot_assignments():
+        for wire_idx, slot in self._active_switch_slot_assignments(burst_mode):
             # slot_name ("switch1", "switch2", …) drives JSON-table parameter
             # resolution; wire_idx is the HUD button index assigned at codegen.
             logical_idx = int(slot.replace('switch', '')) - 1
@@ -112,7 +125,7 @@ class HudPresenter:
                 if payload is not None:
                     switch_entries.append(SwitchSlotMapping(wire_idx, None, alias, payload))
         info_text = f"e{self._resolver.encoder_page}/b{self._resolver.button_page}"
-        mode_labels = self._mode_hud_labels.get(self._current_mode_name)
+        mode_labels = self._mode_hud_labels.get(burst_mode)
         enc_total = self._resolver.encoder_pages_count(device)
         btn_total = self._resolver.button_pages_count(device)
         enc_label = self._resolver.page_label_for(device, self._resolver.encoder_page)

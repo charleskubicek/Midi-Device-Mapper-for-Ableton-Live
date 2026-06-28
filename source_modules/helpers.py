@@ -46,6 +46,10 @@ class SurfaceConfig:
     # device-bound in one mode doesn't show stale device data in another.
     slot_assignments_by_mode: Any = None
     switch_slot_assignments_by_mode: Any = None
+    # Base mode whose device page is previewed on the HUD when the parameter-pager
+    # is pressed from a mode that doesn't show the device encoders (e.g. paging
+    # while holding shift). None when there's no distinct base device mode.
+    pager_preview_mode: Any = None
     parameter_mappings_raw: Any = None
     encoder_slot_count: int = 8
     button_slot_count: int = 8
@@ -107,6 +111,7 @@ class Helpers:
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
         self._button_behaviour = config.button_behaviour
+        self._pager_preview_mode = config.pager_preview_mode
         # Button diagnostics, both off until their update.py command enables them.
         self._doctor = Doctor(log=self.log_message, assumed_behaviour=config.button_behaviour)
         self._show_info = ShowInfo(
@@ -390,14 +395,14 @@ class Helpers:
             )
             if changed:
                 self.show_message(f"Enc page {self._resolver.encoder_page}/{enc_count}")
-                self.update_remote_parameters()
+                self.update_remote_parameters(preview_mode_name=self._pager_preview_mode)
         else:
             count = self._resolver.button_pages_count(device)
             changed = self._resolver.button_page < count
             if changed:
                 self._resolver.button_page += 1
                 self.show_message(f"Btn page {self._resolver.button_page}/{count}")
-                self.update_remote_parameters()
+                self.update_remote_parameters(preview_mode_name=self._pager_preview_mode)
             self.log_message(
                 f"[page] inc btn btn={self._resolver.button_page}/{count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
@@ -425,22 +430,26 @@ class Helpers:
             )
             if changed:
                 self.show_message(f"Enc page {self._resolver.encoder_page}/{enc_count}")
-                self.update_remote_parameters()
+                self.update_remote_parameters(preview_mode_name=self._pager_preview_mode)
         else:
             count = self._resolver.button_pages_count(device)
             changed = self._resolver.button_page > 1
             if changed:
                 self._resolver.button_page -= 1
                 self.show_message(f"Btn page {self._resolver.button_page}/{count}")
-                self.update_remote_parameters()
+                self.update_remote_parameters(preview_mode_name=self._pager_preview_mode)
             self.log_message(
                 f"[page] dec btn btn={self._resolver.button_page}/{count} changed={changed} "
                 f"class={getattr(device,'class_name','?')}"
             )
 
-    def update_remote_parameters(self, suppress_hud=False):
+    def update_remote_parameters(self, suppress_hud=False, preview_mode_name=None):
         # Burst assembly lives in HudPresenter; Helpers owns the focused device.
-        self._presenter.emit_burst(self._last_selected_device, suppress_hud=suppress_hud)
+        # preview_mode_name (parameter-pager only) previews a base mode's device
+        # page while staying in the current mode; the presenter no-ops it when it
+        # equals the active mode.
+        self._presenter.emit_burst(self._last_selected_device, suppress_hud=suppress_hud,
+                                   preview_mode_name=preview_mode_name)
 
     def reemit_combined_burst(self):
         """Compositor hook (lc_parks): re-emit a full combined burst for the

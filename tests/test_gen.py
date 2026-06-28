@@ -9,7 +9,7 @@ from autopep8 import fix_code
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars, create_code_model
 from ableton_control_surface_as_code.gen_code import generate_parameter_listener_action
 from ableton_control_surface_as_code.model_v2 import ModeGroupWithMidi, ModeType, ModeButtonWithMidi
-from tests.builders import build_mixer_with_midi, build_midi_device_mapping, midi_coords_ch2_cc_50_knob, build_functions_with_midi
+from tests.builders import build_mixer_with_midi, build_midi_device_mapping, build_device_midi_mapping, midi_coords_ch2_cc_50_knob, build_functions_with_midi
 from tests.custom_assertions import CustomAssertions
 
 differ = Differ()
@@ -41,6 +41,40 @@ class TestGen(unittest.TestCase, CustomAssertions):
         for key in ('code_slot_assignments_by_mode', 'code_switch_slot_assignments_by_mode'):
             d = eval(res[key])  # rendered as a Python dict literal
             self.assertEqual(set(d.keys()), {'mode_1', 'mode_2'})
+
+    def test_pager_preview_mode_points_at_device_mode(self):
+        # Pager lives in a shift mode; the device encoders live in the base mode.
+        # The preview mode must resolve to the base (device-bound) mode so paging
+        # from shift can preview the device page on the HUD.
+        from ableton_control_surface_as_code.model_device import DeviceWithMidi
+        from ableton_control_surface_as_code.model_parameter_pager import (
+            ParameterPagerWithMidi, ParameterPagerMidiMapping)
+        from ableton_control_surface_as_code.core_model import (
+            MidiCoords, TrackInfo, EncoderType, EncoderMode)
+
+        device = DeviceWithMidi(track=TrackInfo.selected(), device="selected",
+                                midi_maps=[build_device_midi_mapping()],
+                                slot_assignments=[(1, 'slot1')])
+        pager = ParameterPagerWithMidi(midi_maps=[ParameterPagerMidiMapping(
+            midi_coords=[MidiCoords(channel=3, type="CC", number=115,
+                                    encoder_type=EncoderType.button,
+                                    encoder_mode=EncoderMode.Absolute, source_info="tests")],
+            target='encoder', direction='inc')])
+
+        m = ModeGroupWithMidi(
+            mappings=[("main_mode", [device]), ("shift_mode", [pager])],
+            mode_button=ModeButtonWithMidi(on_colors=[], button=midi_coords_ch2_cc_50_knob(),
+                                           type=ModeType.Shift))
+        res = generate_code_as_template_vars(m)
+        self.assertEqual(res['code_pager_preview_mode'], repr('main_mode'))
+
+    def test_pager_preview_mode_none_without_pager(self):
+        m = ModeGroupWithMidi(
+            mappings=[("mode_1", [build_mixer_with_midi(api_fn='pan')])],
+            mode_button=ModeButtonWithMidi(on_colors=[], button=midi_coords_ch2_cc_50_knob(),
+                                           type=ModeType.Switch))
+        res = generate_code_as_template_vars(m)
+        self.assertEqual(res['code_pager_preview_mode'], repr(None))
 
     def test_deprecated_toggle_emits_stderr_warning(self):
         import io

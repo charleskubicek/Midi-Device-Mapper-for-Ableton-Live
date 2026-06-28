@@ -158,6 +158,24 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         for (name, values) in merge.array_defs:
             array_defs.append(array_def_template(name, values))
 
+    # When the parameter-pager lives in a different mode than the one that binds
+    # the device encoders (e.g. the pager is on a shift mode while the device page
+    # is on the base mode), paging from the pager's mode would re-burst that mode's
+    # bindings — never the device page the user is paging. `pager_preview_mode` is
+    # the first non-pager mode that binds device encoders; the runtime previews its
+    # device page on the HUD while staying in the pager's mode. None when the pager
+    # shares a mode with the device encoders (preview is then a no-op).
+    pager_mode_names = {
+        mode_name for mode_name, mode_maps in modes.mappings
+        for m in mode_maps if m.type == 'parameter-pager'
+    }
+    pager_preview_mode = None
+    if pager_mode_names:
+        for mode_name, assignments in slot_assignments_by_mode.items():
+            if mode_name not in pager_mode_names and assignments:
+                pager_preview_mode = mode_name
+                break
+
     if modes.has_modes():
         has_mode_button = modes.mode_button is not None
         creation.append(creation_template(first_mode_name))
@@ -230,6 +248,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         }),
         'code_slot_assignments_by_mode': _render_assignments_by_mode(slot_assignments_by_mode),
         'code_switch_slot_assignments_by_mode': _render_assignments_by_mode(switch_slot_assignments_by_mode),
+        'code_pager_preview_mode': repr(pager_preview_mode),
         'hud_client_class': hud_client_class,
         'hud_trigger': repr(hud_trigger.value),
         # Hardware button mode (momentary vs toggle): drives the runtime

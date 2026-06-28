@@ -148,6 +148,46 @@ class TestPerModeAssignments(unittest.TestCase):
         self.assertEqual(len(self._real_params(remote)), 2)
 
 
+class TestPagePreviewBurst(unittest.TestCase):
+    """Parameter-pager pressed from a shift mode: one burst resolves the *base*
+    mode's device page so the user sees the new params, without leaving shift."""
+
+    @staticmethod
+    def _real_params(remote):
+        return [r for r in remote.device_update.call_args[0][1] if r is not None]
+
+    def test_preview_resolves_other_modes_device_encoders(self):
+        # In shift_mode the encoder is mixer/empty-bound (no device slots); main
+        # binds the device encoder. A preview burst keyed on 'main' resolves it.
+        p, remote = _presenter(
+            slot_assignments_by_mode={'main': [(1, 'slot1')], 'shift': []})
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.refresh_for_mode('shift', dev)
+        self.assertEqual(len(self._real_params(remote)), 1)  # on_off only
+
+        p.emit_burst(dev, preview_mode_name='main')
+        # on_off + the base mode's device-bound encoder, previewed
+        self.assertEqual(len(self._real_params(remote)), 2)
+
+    def test_preview_does_not_change_active_mode(self):
+        p, remote = _presenter(
+            slot_assignments_by_mode={'main': [(1, 'slot1')], 'shift': []})
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.refresh_for_mode('shift', dev)
+        p.emit_burst(dev, preview_mode_name='main')
+        self.assertEqual(p._current_mode_name, 'shift')
+
+    def test_preview_noop_when_target_is_active_mode(self):
+        # Paging while already in the base mode: preview target == active mode,
+        # so it behaves like a normal burst (no special-casing).
+        p, remote = _presenter(
+            slot_assignments_by_mode={'main': [(1, 'slot1')], 'shift': []})
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.refresh_for_mode('main', dev)
+        p.emit_burst(dev, preview_mode_name='main')
+        self.assertEqual(len(self._real_params(remote)), 2)
+
+
 class TestVisibilityWiring(unittest.TestCase):
     """R10 follow-up: the template's app-view dismiss, the mode refresh and the
     compositor re-emit all route through the HudVisibility table instead of

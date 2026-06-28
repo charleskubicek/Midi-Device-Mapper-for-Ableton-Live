@@ -250,6 +250,27 @@ When a device has more parameters than encoders, the pager shifts which slots
 are visible. `inc` / `dec` are buttons that step the visible page forward /
 backward.
 
+#### Pager in a shift mode — page preview
+
+The pager often has to live in a *shift* mode rather than the base mode, simply
+because its `inc`/`dec` buttons are already occupied in the base mode (on the
+`grid` surface, for example, those buttons are `device-nav` left/right in
+`main_mode`). The catch: while you hold shift, the device encoders are rebound
+to other things (mixer volume/pan/sends), so the HUD shows *those* labels — not
+the device page you are paging. Without help you cannot see the parameters you
+just paged to until you release shift.
+
+To fix this, pressing the pager from a shift mode emits a one-shot **page
+preview** burst: the HUD shows the *base* mode's device page (the actual new
+parameter names) for that device, while you stay in shift. The preview persists
+until the next normal burst overwrites it — in practice, **releasing shift**
+(which repaints the live base-mode view) or paging again. It is *not* cleared by
+moving a natively-mapped mixer encoder (those bypass the script entirely) nor by
+most shift device-switch presses; the preview simply stays up while you keep
+holding shift, which is when you want to read it. This is automatic whenever the
+pager's mode differs from the mode that binds the device encoders; no config
+flag is needed.
+
 The HUD shows a single combined page indicator (e.g. "1/3") between the device
 name and the grid rows. It only appears when more than one page exists. The
 indicator shows the current encoder page over the larger of the encoder and

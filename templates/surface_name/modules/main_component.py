@@ -85,6 +85,7 @@ class MainComponent(ControlSurfaceComponent):
             switch_slot_assignments=code_switch_slot_assignments,
             slot_assignments_by_mode=code_slot_assignments_by_mode,
             switch_slot_assignments_by_mode=code_switch_slot_assignments_by_mode,
+            pager_preview_mode=$code_pager_preview_mode,
             parameter_mappings_raw=$parameter_mappings_raw,
             encoder_slot_count=$encoder_slot_count,
             hud_cells=$hud_cells,
