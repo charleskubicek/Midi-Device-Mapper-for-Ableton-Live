@@ -170,3 +170,72 @@ class TestRangeVsSlots(unittest.TestCase, CustomAssertions):
                 self._device_mapping("row-1:1-8", "1-4"), Path("/tmp"),
                 resolve_controller=lambda root: (controller, "ctrl.nt")),
             ErrorCode.SEMANTIC_VALIDATION, "8", "4")
+
+
+class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
+    """A device switch button stored in `switch_maps` that shares a physical
+    control with another mapping in the same mode used to escape the clash
+    check (validate_mappings only walked `midi_maps`). It must now clash."""
+
+    # Two-row controller: row 1 knobs (CC), row 2 buttons (note).
+    _CONTROLLER = (
+        "control_groups:\n"
+        "  -\n"
+        "    layout: row\n"
+        "    number: 1\n"
+        "    type: knob\n"
+        "    midi_channel: 1\n"
+        "    midi_type: CC\n"
+        "    midi_range: 21-28\n"
+        "  -\n"
+        "    layout: row\n"
+        "    number: 2\n"
+        "    type: button\n"
+        "    midi_channel: 1\n"
+        "    midi_type: note\n"
+        "    midi_range: C2-G2\n")
+
+    def _build(self, mapping):
+        return build_validated_model(
+            mapping, Path("/tmp"),
+            resolve_controller=lambda root: (self._CONTROLLER, "ctrl.nt"))
+
+    def test_switch_clashing_with_mixer_button_rejected(self):
+        # device switch1 and mixer mute both bind row-2:1 in the same mode.
+        mapping = (
+            _ROOT_BASE + "modes:\n"
+            "    -\n        name: m1\n"
+            "        mappings:\n"
+            "            -\n                type: device\n"
+            "                track: selected\n"
+            "                device: selected\n"
+            "                mappings:\n"
+            "                    switch1: row-2:1\n"
+            "            -\n                type: mixer\n"
+            "                track: selected\n"
+            "                mappings:\n"
+            "                    mute: row-2:1\n")
+        # The whole-config pass aggregates problems under SEMANTIC_VALIDATION
+        # (like TestRangeVsSlots); the clash message names both mappings and the
+        # shared note (C2 = 48).
+        self.assert_gen_error(
+            lambda: self._build(mapping),
+            ErrorCode.SEMANTIC_VALIDATION, "Clashing", "device", "mixer", "48")
+
+    def test_switches_without_overlap_build(self):
+        # switch buttons that don't collide with anything must still build.
+        mapping = (
+            _ROOT_BASE + "modes:\n"
+            "    -\n        name: m1\n"
+            "        mappings:\n"
+            "            -\n                type: device\n"
+            "                track: selected\n"
+            "                device: selected\n"
+            "                mappings:\n"
+            "                    switch1: row-2:1\n"
+            "            -\n                type: mixer\n"
+            "                track: selected\n"
+            "                mappings:\n"
+            "                    mute: row-2:2\n")
+        root, controller_v2, mode_with_midi = self._build(mapping)
+        self.assertEqual(1, len(root.modes))

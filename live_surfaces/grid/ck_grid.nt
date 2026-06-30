@@ -25,7 +25,7 @@ modes:
 #                    on-off: grid-2:3
                     switch-list:
                         -
-                            range: grid-2:1-4
+                            range: grid-2:2::1-4
                             slots: 1-4
             -
                 type: mixer
@@ -71,10 +71,14 @@ modes:
                 mappings:
                     switch-list:
                         -
-                            range: grid-2:1-8
-                            slots: 5-12
+                            range: grid-2:1-12
+                            slots: 5-16
+            -
+                type: functions
+                mappings:
+                    press_rack_random_button: grid-2:4::2
             -
                 type: parameter-pager
                 encoders:
-                    inc: grid-2:4::3
-                    dec: grid-2:4::4
+                    inc: grid-2:4::4
+                    dec: grid-2:4::3

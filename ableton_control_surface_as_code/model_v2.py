@@ -227,25 +227,37 @@ class ModeGroupWithMidi(BaseModel):
         ) for i, name in enumerate(mode_names)]
 
 
+def _bound_coords(withMidi) -> List[MidiCoords]:
+    """Every physical control a mapping binds, across all of its coord-bearing
+    fields. `midi_maps` covers encoders/mixer/nav/functions; `switch_maps`
+    (device switch-list / explicit switchN) is a separate field that the clash
+    check would otherwise miss, so a device switch sharing a button with a
+    mixer button slipped through silently."""
+    coords: List[MidiCoords] = []
+    for midi_map in withMidi.midi_maps:
+        coords.extend(midi_map.midi_coords)
+    for switch_map in getattr(withMidi, 'switch_maps', []):
+        coords.append(switch_map.midi_coords)
+    return coords
+
+
 def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = "", acc=None):
     seen = {}
     mode_prefix = f" in mode '{mode_name}'" if mode_name else ""
     for withMidi in mappings:
-        for midi_maps in withMidi.midi_maps:
-            mcs = midi_maps.midi_coords
-            for mc in mcs:
-                if mc.ch_num in seen:
-                    (pmc, previous) = seen[mc.ch_num]
-                    message = (
-                        f"Clashing mappings{mode_prefix}: {withMidi.type} and {previous.type} both use chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
-                        + f"\n from source 1: {mc.source_info}"
-                        + f"\n from source 2: {pmc.source_info}")
-                    if acc is not None:
-                        acc.add(message)
-                    else:
-                        raise GenError(message, ErrorCode.CLASHING_MAPPINGS)
+        for mc in _bound_coords(withMidi):
+            if mc.ch_num in seen:
+                (pmc, previous) = seen[mc.ch_num]
+                message = (
+                    f"Clashing mappings{mode_prefix}: {withMidi.type} and {previous.type} both use chanel:{mc.channel} no:{mc.number} type:{mc.type.value}"
+                    + f"\n from source 1: {mc.source_info}"
+                    + f"\n from source 2: {pmc.source_info}")
+                if acc is not None:
+                    acc.add(message)
                 else:
-                    seen[mc.ch_num] = (mc, withMidi)
+                    raise GenError(message, ErrorCode.CLASHING_MAPPINGS)
+            else:
+                seen[mc.ch_num] = (mc, withMidi)
 
 
 def print_model_with_mappings(model: ControllerV2, mappings):
