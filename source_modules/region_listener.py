@@ -31,7 +31,10 @@ class RegionListener:
     def tick(self):
         try:
             while True:
-                data, _addr = self._socket.recvfrom(4096)
+                # 64K: the secondary now coalesces each region burst into one
+                # datagram; a read shorter than the datagram truncates it (UDP),
+                # which would drop the burst's trailing COMMIT.
+                data, _addr = self._socket.recvfrom(65536)
                 text = data.decode('utf-8', errors='replace')
                 self._region_state.handle_data(text)
         except socket.error as e:

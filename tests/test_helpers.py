@@ -687,6 +687,39 @@ class TestRemoteBurstSuppression(unittest.TestCase):
         self.hud.send_device.assert_called_once_with("EQ Eight")
 
 
+class TestRemoteBurstAtomicity(unittest.TestCase):
+    """The whole burst must be framed by begin_burst/flush_burst so HudClient
+    coalesces it into one datagram (burst-atomic on the wire). See
+    hud-burst-datagram-atomicity-plan."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def _names(self):
+        return [c[0] for c in self.hud.method_calls]
+
+    def test_burst_wrapped_in_begin_before_device_and_flush_after_commit(self):
+        params = [_make_real_param(_make_param("On/Off")),
+                  _make_real_param(_make_param("Freq", value=0.5))]
+        self.remote.device_update("EQ Eight", params, hud_layout=[(0, 0, 'dial', 8, 0)])
+        names = self._names()
+        self.assertEqual(names.count('begin_burst'), 1)
+        self.assertEqual(names.count('flush_burst'), 1)
+        self.assertLess(names.index('begin_burst'), names.index('send_device'))
+        self.assertGreater(names.index('flush_burst'), names.index('commit'))
+
+    def test_suppressed_burst_still_pairs_begin_and_flush(self):
+        # A suppressed burst sends no HUD lines, but must still open/close the
+        # buffer so it can't leak into the next burst's datagram.
+        self.remote.refresh_burst(
+            BurstSnapshot("D", [], [], page=PageInfo(), suppress_hud=True))
+        names = self._names()
+        self.assertEqual(names.count('begin_burst'), 1)
+        self.assertEqual(names.count('flush_burst'), 1)
+        self.hud.send_device.assert_not_called()
+
+
 class TestFeedbackSinkFanout(unittest.TestCase):
     """Generic feedback sinks (e.g. the EC4 text readouts) ride the same burst
     as the HUD: Remote fans the dial/button payloads out to every sink so an

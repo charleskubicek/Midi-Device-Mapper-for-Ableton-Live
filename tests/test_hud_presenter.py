@@ -48,6 +48,18 @@ class TestHudPresenterDirect(unittest.TestCase):
         p.emit_burst(None)
         remote.device_update.assert_not_called()
 
+    def test_emit_burst_resets_paging_for_new_device_bypassing_funnel(self):
+        # Reproduces the stale-index bug: a burst arrives for a different device
+        # without the Helpers funnel having reset the resolver (e.g. page left at
+        # 4 by the previous device). emit_burst must self-correct to page 1.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        dev_a = FakeDevice("A", [FakeParam("On/Off"), FakeParam("A")])
+        p.emit_burst(dev_a)
+        p._resolver.encoder_page = 4          # stale paging from dev_a
+        dev_b = FakeDevice("B", [FakeParam("On/Off"), FakeParam("B")])
+        p.emit_burst(dev_b)                   # funnel never ran for dev_b
+        self.assertEqual(p._resolver.encoder_page, 1)
+
     def test_emit_burst_clears_dismiss_intent(self):
         p, remote = _presenter(slot_assignments=[(1, 'slot1')])
         p.hud_dismissed = True

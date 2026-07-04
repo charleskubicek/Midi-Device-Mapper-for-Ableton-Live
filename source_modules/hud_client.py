@@ -15,6 +15,17 @@ class HudClient:
         self._host = host
         self._port = port
         self._socket = None
+        # When a list, `_send` buffers lines instead of emitting them, so a whole
+        # burst can be flushed as ONE datagram (burst-atomic on the wire — a lost
+        # datagram then loses the whole burst rather than mixing devices). See
+        # hud_protocol.md "Burst semantics".
+        self._burst_buffer = None
+        # A single UDP datagram is OS-capped (macOS net.inet.udp.maxdgram default
+        # 9216); over it, `sendto` raises EMSGSIZE and the whole burst is lost.
+        # Above this threshold `flush_burst` degrades to per-line datagrams — the
+        # pre-coalescing behavior — so an oversized burst is never *dropped*, only
+        # non-atomic. Real bursts are a few KB, so this never trips in practice.
+        self._max_datagram = 8192
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             logger.info(f"HudClient created: {host}:{port}")
@@ -22,12 +33,40 @@ class HudClient:
             logger.error(f"HudClient: failed to create socket: {e}")
 
     def _send(self, line: str):
+        if self._burst_buffer is not None:
+            self._burst_buffer.append(line)
+            return
+        self._sendto(line + '\n')
+
+    def _sendto(self, payload: str):
         if self._socket is None:
             return
         try:
-            self._socket.sendto((line + '\n').encode('utf-8'), (self._host, self._port))
+            self._socket.sendto(payload.encode('utf-8'), (self._host, self._port))
         except Exception as e:
-            logger.error(f"HudClient._send: {e}")
+            logger.error(f"HudClient._sendto: {e}")
+
+    def begin_burst(self):
+        """Start buffering lines. Everything sent until `flush_burst` is held so
+        the burst goes out as a single datagram. Idempotent; a second call just
+        drops any half-buffered lines (a burst is always assembled start-to-end
+        on Live's single thread, so this can't split a live burst)."""
+        self._burst_buffer = []
+
+    def flush_burst(self):
+        """Emit the buffered burst as one datagram and return to pass-through.
+        No-op when nothing was buffered (e.g. a suppressed burst)."""
+        lines, self._burst_buffer = self._burst_buffer, None
+        if not lines:
+            return
+        payload = ''.join(line + '\n' for line in lines)
+        if len(payload.encode('utf-8')) <= self._max_datagram:
+            self._sendto(payload)
+        else:
+            # Oversized burst: send per line so it's delivered (non-atomic) rather
+            # than rejected wholesale by the OS datagram cap.
+            for line in lines:
+                self._sendto(line + '\n')
 
     def send_layout(self, cells):
         self._send(hud_protocol.encode_layout(cells))
@@ -64,6 +103,8 @@ class HudClient:
 
 class NullHudClient:
     def __init__(self, host='127.0.0.1', port=5006): pass
+    def begin_burst(self): pass
+    def flush_burst(self): pass
     def send_layout(self, cells): pass
     def send_device(self, name: str): pass
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass

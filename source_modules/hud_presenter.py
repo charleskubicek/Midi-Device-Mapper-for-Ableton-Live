@@ -75,6 +75,10 @@ class HudPresenter:
     def emit_burst(self, device, suppress_hud=False, preview_mode_name=None):
         if device is None:
             return
+        # Single source of truth: if this burst is for a device the funnel never
+        # reset (a bypassed selection path), drop the stale name index + paging
+        # here so the burst can't inherit the previous device's page/index.
+        self._resolver.ensure_focused(device)
         # Page-preview (parameter-pager pressed from a shift mode): resolve this
         # one burst against the *base* mode's device bindings so the user sees the
         # new page's params, while staying in shift (current mode + visibility

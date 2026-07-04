@@ -120,8 +120,12 @@ class ParameterResolver:
         # Paging state — reset on every device focus via focus().
         self.encoder_page = 1
         self.button_page = 1
-        self._name_index = None  # {original_name: (idx, param)}, rebuilt on device focus change
-        self._display_name_index = None  # {name: (idx, param)}, bank fallback only
+        self._name_index = None  # {original_name: idx}, rebuilt on device focus change
+        self._display_name_index = None  # {name: idx}, bank fallback only
+        # The device this resolver's per-device state was last built for. Lets
+        # `ensure_focused` detect a burst assembled for a device the Helpers
+        # funnel never reset and self-correct. None = no device focused yet.
+        self._focused_device = None
 
     @property
     def device_table(self):
@@ -134,6 +138,19 @@ class ParameterResolver:
         self._display_name_index = None
         self.encoder_page = 1
         self.button_page = 1
+
+    def ensure_focused(self, device):
+        """Defensive per-device guard, called at burst assembly so the burst is
+        the single source of truth for per-device state. If `device` differs
+        from the device this resolver was last focused on, hard-reset (drop the
+        name index + return paging to page 1). A burst assembled for a device
+        the Helpers funnel never reset — a bypassed selection path — thus
+        self-corrects its index and page instead of inheriting the previous
+        device's (the stale-index / "opened on the wrong page" bug). Idempotent
+        on the same device, so it never disturbs live paging."""
+        if device is not None and device != self._focused_device:
+            self.focus()
+            self._focused_device = device
 
     def group_selector_names(self, device):
         """Ordered, de-duplicated `controlledBy` selector names for this
@@ -164,17 +181,69 @@ class ParameterResolver:
         """Builds a strict `original_name` index used by BOB and switch
         resolvers — keeps user-renamed Rack macros from hijacking lookups.
         Also builds a secondary `name` (display-name) index, consulted only
-        by the standard-bank resolver via `_resolve_bank_param`."""
+        by the standard-bank resolver via `_resolve_bank_param`.
+
+        Both indices map name -> *integer index* into `device.parameters`, not
+        the parameter object. Caching the object is unsafe: devices that
+        rebuild their parameter list in place (notably Live 12.4's new
+        Operator, as oscillators/filters toggle) leave a cached object as a
+        dead Boost.Python handle that raises `ArgumentError` on any attribute
+        access. We re-fetch live by index in `_live_param` instead."""
         if self._name_index is None and device is not None:
+            # Use the dead-handle-safe reader: the rebuild path can run mid-burst,
+            # where a freshly-rebuilt parameter tuple could still hold an
+            # unreadable entry; `_attr` treats that as absent rather than raising.
             self._name_index = {
-                getattr(p, 'original_name', getattr(p, 'name', '')): (i, p)
+                (self._attr(p, 'original_name') or self._attr(p, 'name') or ''): i
                 for i, p in enumerate(device.parameters)
             }
             self._display_name_index = {
-                getattr(p, 'name', ''): (i, p)
+                self._attr(p, 'name'): i
                 for i, p in enumerate(device.parameters)
-                if getattr(p, 'name', '')
+                if self._attr(p, 'name')
             }
+
+    @staticmethod
+    def _attr(param, attr):
+        """Read an attribute off a Live parameter, treating a dead-handle
+        failure the same as 'absent'. Boost.Python raises ArgumentError (a
+        TypeError subclass) — not AttributeError — so plain getattr defaults
+        don't shield us."""
+        try:
+            return getattr(param, attr, None)
+        except Exception:
+            return None
+
+    def _live_param(self, device, name, index_map, key_attr):
+        """Resolve `name` to the *live* `device.parameters` entry via a cached
+        name -> index map, revalidating against `key_attr` (`original_name` for
+        the strict index, `name` for the display index). If the live list
+        reordered/resized so the cached index no longer matches — or the cached
+        index is dead — rebuild the indices once and retry, so consumers always
+        get a current handle."""
+        if device is None or not name or not index_map:
+            return None
+        p = self._param_at(device, index_map.get(name))
+        if p is not None and self._attr(p, key_attr) == name:
+            return p
+        # Stale index (list rebuilt). Rebuild once and retry against the fresh map.
+        self._name_index = None
+        self._display_name_index = None
+        self._ensure_name_index(device)
+        fresh_map = self._name_index if key_attr == 'original_name' else self._display_name_index
+        p = self._param_at(device, (fresh_map or {}).get(name))
+        if p is not None and self._attr(p, key_attr) == name:
+            return p
+        return None
+
+    @staticmethod
+    def _param_at(device, idx):
+        if idx is None:
+            return None
+        try:
+            return device.parameters[idx]
+        except (IndexError, TypeError):
+            return None
 
     def resolve_param_by_name(self, device, name):
         """Single name → Parameter lookup. Uses `original_name` (Live's stable
@@ -184,8 +253,7 @@ class ParameterResolver:
         if device is None or not name:
             return None
         self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        return entry[1] if entry is not None else None
+        return self._live_param(device, name, self._name_index, 'original_name')
 
     def _resolve_bank_param(self, device, name):
         """Standard-bank lookup: prefers `original_name` like the strict
@@ -197,19 +265,17 @@ class ParameterResolver:
         if device is None or not name:
             return None
         self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        if entry is not None:
-            return entry[1]
-        entry = (self._display_name_index or {}).get(name)
-        return entry[1] if entry is not None else None
+        p = self._live_param(device, name, self._name_index, 'original_name')
+        if p is not None:
+            return p
+        return self._live_param(device, name, self._display_name_index, 'name')
 
     def _resolve_param_d_idx(self, device, name):
         """Return device.parameters index for the named param, or None."""
         if device is None or not name:
             return None
         self._ensure_name_index(device)
-        entry = (self._name_index or {}).get(name)
-        return entry[0] if entry is not None else None
+        return (self._name_index or {}).get(name)
 
     def _bob_encoders(self, device):
         entry = self.device_entry(device)

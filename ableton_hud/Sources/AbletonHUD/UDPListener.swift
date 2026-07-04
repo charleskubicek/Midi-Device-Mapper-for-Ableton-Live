@@ -62,7 +62,10 @@ class UDPListener {
     }
 
     private func recvLoop() {
-        var buf = [UInt8](repeating: 0, count: 4096)
+        // 64K: the surface coalesces each device burst into one datagram; a read
+        // buffer shorter than the datagram truncates it (UDP), dropping the
+        // burst's trailing COMMIT. Bursts are a few KB, well under this.
+        var buf = [UInt8](repeating: 0, count: 65536)
         while running {
             let n = recv(fd, &buf, buf.count, 0)
             if n <= 0 { break }

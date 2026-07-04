@@ -15,6 +15,65 @@ class CapturingHudClient(HudClient):
         self.sent.append(line)
 
 
+class FakeSocket:
+    """Captures each `sendto` payload so tests can assert datagram boundaries."""
+    def __init__(self):
+        self.datagrams = []
+
+    def sendto(self, data, addr):
+        self.datagrams.append(data.decode('utf-8'))
+
+
+class TestHudClientDatagrams(unittest.TestCase):
+    def _client(self):
+        c = HudClient()
+        c._socket = FakeSocket()
+        return c
+
+    def test_burst_coalesces_into_single_datagram(self):
+        c = self._client()
+        c.begin_burst()
+        c.send_layout([(0, 0, 'button', 4, 0, 0)])
+        c.send_device("EQ Eight")
+        c.send_slot('dial', 0, "Freq", 0.5, 0.0, 1.0)
+        c.commit(1)
+        c.flush_burst()
+        self.assertEqual(len(c._socket.datagrams), 1)
+        self.assertEqual(
+            c._socket.datagrams[0],
+            "LAYOUT|1|0|0|button|4|0|0\n"
+            "DEVICE|EQ Eight\n"
+            "SLOT|dial|0|Freq|0.5|0.0|1.0\n"
+            "COMMIT|1\n",
+        )
+
+    def test_outside_burst_each_line_is_its_own_datagram(self):
+        c = self._client()
+        c.send_ping()
+        c.send_ping()
+        self.assertEqual(c._socket.datagrams, ["PING\n", "PING\n"])
+
+    def test_oversized_burst_degrades_to_per_line_datagrams(self):
+        # A burst that would exceed the OS datagram cap must not be dropped: it
+        # falls back to one datagram per line (pre-coalescing behavior).
+        c = self._client()
+        c._max_datagram = 40  # force the fallback with a tiny cap
+        c.begin_burst()
+        c.send_device("EQ Eight")
+        c.send_slot('dial', 0, "Freq", 0.5, 0.0, 1.0)
+        c.commit(1)
+        c.flush_burst()
+        self.assertEqual(len(c._socket.datagrams), 3)
+        self.assertEqual(c._socket.datagrams[0], "DEVICE|EQ Eight\n")
+        self.assertEqual(c._socket.datagrams[2], "COMMIT|1\n")
+
+    def test_flush_without_buffered_lines_is_noop(self):
+        c = self._client()
+        c.begin_burst()  # suppressed burst: nothing sent
+        c.flush_burst()
+        self.assertEqual(c._socket.datagrams, [])
+
+
 class TestHudClientWire(unittest.TestCase):
     def test_single_source_lines(self):
         c = CapturingHudClient()

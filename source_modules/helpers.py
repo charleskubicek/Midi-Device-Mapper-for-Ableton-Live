@@ -198,16 +198,13 @@ class Helpers:
             f"[funnel] selected_device_changed device={dev_name!r} source={source} "
             f"guard=pass prev={getattr(self._last_selected_device, 'name', None)!r}"
         )
-        # TEMP diag (operator-paging-dead-param-plan): always-on so a single repro
-        # shows whether focus()/index-reset actually fires on the device switch
-        # that left the resolver index stale. Remove once root cause is confirmed.
-        self.log_message(
-            f"[focuschg] {getattr(self._last_selected_device, 'class_name', None)!r}"
-            f" -> {getattr(device, 'class_name', None)!r} source={source} (focus reset)")
         self._teardown_group_selector_listeners()
         self._last_selected_device = device
-        # Reset the resolver's per-device state: name indices + paging back to 1.
-        self._resolver.focus()
+        # Reset the resolver's per-device state (name indices + paging) before
+        # re-attaching group-selector listeners, which resolve against the fresh
+        # index. ensure_focused records the device so the burst-side guard in
+        # emit_burst is a no-op on this same-device path.
+        self._resolver.ensure_focused(device)
         self._attach_group_selector_listeners(device)
         self._log_device_focus(device)
         # show-hud-on gating now lives in the HudVisibility table (R10): in
@@ -483,6 +480,12 @@ class Helpers:
     def refresh_hud_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the active
         overlay and re-emits a burst so the HUD reflects the new labels."""
+        # A bare assignment is safe for the reported index/paging staleness:
+        # refresh_for_mode -> emit_current_burst -> emit_burst runs the resolver's
+        # ensure_focused guard, which resets a stale index/page for a changed
+        # device. (Residual: on a mode+device change together this skips
+        # group-selector listener re-attach until the next real selection —
+        # tracked as a follow-up, not part of the reported bug.)
         if device is not None:
             self._last_selected_device = device
         self._presenter.refresh_for_mode(mode_name, self._last_selected_device)
@@ -602,6 +605,12 @@ class Remote:
         on a non-nav selection change). Feedback sinks (EC4 readouts) still fire
         — they reflect device state regardless of the HUD trigger."""
         self._in_burst = True
+        # Buffer the whole burst into one datagram so it lands atomically: a
+        # dropped datagram loses the entire burst (HUD stays on the last good
+        # device) rather than dropping a lone DEVICE frame and publishing the new
+        # device's slots under the previous device's name. See
+        # hud-burst-datagram-atomicity-plan.
+        self._hud_client.begin_burst()
         try:
             if not snapshot.suppress_hud:
                 # Re-emit LAYOUT at the head of the burst so a HUD that started
@@ -653,6 +662,7 @@ class Remote:
                     except Exception:
                         logger.error(f"feedback sink {type(sink).__name__} failed: {e}")
         finally:
+            self._hud_client.flush_burst()
             self._in_burst = False
 
     def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, page: PageInfo = None, suppress_hud=False):

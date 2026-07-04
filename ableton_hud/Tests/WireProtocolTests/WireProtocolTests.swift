@@ -288,6 +288,30 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertNil(state.dialSlots[0]) // cleared
     }
 
+    func test_coalesced_burst_datagram_commits_correctly() async {
+        // The sender now coalesces a whole burst into ONE datagram (burst-atomic
+        // on the wire). The receiver must be transparent to that: parseAll splits
+        // it back into messages and applying them in order commits as if each had
+        // arrived on its own datagram.
+        let state = makeState()
+        let datagram = [
+            "LAYOUT|1|0|0|dial|2|0|0",
+            "DEVICE|EQ Eight",
+            "PAGE|1|1|1|1",
+            "SLOT|dial|0|Frequency|440.0|20.0|20000.0",
+            "SLOT|dial|1|Resonance|0.5|0.0|1.0",
+            "COMMIT|2",
+        ].joined(separator: "\n").data(using: .utf8)!
+
+        for msg in WireProtocol.parseAll(data: datagram) {
+            state.apply(message: msg)
+        }
+
+        XCTAssertEqual(state.deviceName, "EQ Eight")
+        XCTAssertEqual(state.dialSlots[0]?.name, "Frequency")
+        XCTAssertEqual(state.dialSlots[1]?.name, "Resonance")
+    }
+
     func test_out_of_range_index_ignored() async {
         let state = makeState()
         state.apply(message: .device("X"))

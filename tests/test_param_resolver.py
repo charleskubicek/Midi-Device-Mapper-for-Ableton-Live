@@ -43,6 +43,29 @@ class TestResolverDirect(unittest.TestCase):
         self.assertEqual((r.encoder_page, r.button_page), (1, 1))
         self.assertIsNone(r._name_index)
 
+    def test_ensure_focused_resets_on_device_change(self):
+        # A burst for a device the funnel never reset must drop stale paging +
+        # index rather than inherit the previous device's page (stale-index bug).
+        r, _ = _resolver()
+        dev_a, dev_b = FakeDevice("A", []), FakeDevice("B", [])
+        r.ensure_focused(dev_a)
+        r.encoder_page = 4
+        r.button_page = 3
+        r._name_index = {'stale': 0}
+        r.ensure_focused(dev_b)  # different device
+        self.assertEqual((r.encoder_page, r.button_page), (1, 1))
+        self.assertIsNone(r._name_index)
+
+    def test_ensure_focused_is_noop_on_same_device(self):
+        # Idempotent on the same device so live paging (pager, group-selector
+        # refresh) survives repeated bursts.
+        r, _ = _resolver()
+        dev = FakeDevice("A", [])
+        r.ensure_focused(dev)
+        r.encoder_page = 4
+        r.ensure_focused(dev)  # same device
+        self.assertEqual(r.encoder_page, 4)
+
     def test_bob_encoder_resolves_by_original_name(self):
         raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass", "display": "Bass"}], "buttons": []}]}
         r, _ = _resolver(raw)
@@ -51,6 +74,32 @@ class TestResolverDirect(unittest.TestCase):
         self.assertIsNotNone(rp)
         self.assertEqual(rp.alias, "Bass")
         self.assertIs(rp.param, dev.parameters[1])
+
+    def test_resolve_refetches_live_param_after_handle_swap(self):
+        """The new Operator rebuilds its parameter objects in place; the cache
+        must hand back the *live* handle, not the stale one captured at index
+        build time (a stale handle raises Boost.Python.ArgumentError on access)."""
+        raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass", "display": "Bass"}], "buttons": []}]}
+        r, _ = _resolver(raw)
+        p0, p1 = FakeParam("On/Off"), FakeParam("Bass", value=0.1)
+        dev = FakeDevice("Amp", [p0, p1])
+        self.assertIs(r.resolve_encoder(dev, 1).param, p1)  # builds the index
+        p1_live = FakeParam("Bass", value=0.9)
+        dev.parameters = [p0, p1_live]  # Live swapped the handle in place
+        self.assertIs(r.resolve_encoder(dev, 1).param, p1_live)
+
+    def test_resolve_rebuilds_index_when_list_reordered(self):
+        """If the live list reordered/resized so the cached index no longer
+        points at the named param, the resolver rebuilds the index and finds it
+        at its new position rather than returning the wrong (or dead) param."""
+        raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass", "display": "Bass"}], "buttons": []}]}
+        r, _ = _resolver(raw)
+        p0, p1 = FakeParam("On/Off"), FakeParam("Bass", value=0.3)
+        dev = FakeDevice("Amp", [p0, p1])
+        self.assertIs(r.resolve_encoder(dev, 1).param, p1)  # index: Bass -> 1
+        bass_moved = FakeParam("Bass", value=0.7)
+        dev.parameters = [p0, FakeParam("Inserted"), bass_moved]  # Bass now at 2
+        self.assertIs(r.resolve_encoder(dev, 1).param, bass_moved)
 
     def test_unknown_class_fallback_skips_onoff_and_quantized(self):
         r, _ = _resolver()
