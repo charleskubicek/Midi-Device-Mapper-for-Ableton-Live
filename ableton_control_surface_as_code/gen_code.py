@@ -209,10 +209,11 @@ def _switch_template(mb: SwitchMidiMapping, mode_name: str, track: str = "select
     )
 
 
-def _switch_action_dispatch_fn(fn_name: str, slot: str, track: str, device: str) -> str:
+def _switch_action_dispatch_fn(fn_name: str, slot: int, track: str, device: str) -> str:
     """
     Switch listener — dispatches to the runtime Helpers, which resolves the
     slot against the loaded parameter_mappings JSON (or the identity fallback).
+    `slot` is a 1-based device switch-slot index (an int, not a 'switchN' name).
     """
     return Template("""
 def ${fn_name}(self, value):
@@ -229,7 +230,7 @@ def ${fn_name}(self, value):
     # bool slot toggles twice per press (net nothing); with a 127-only guard a
     # toggle-hardware button fires every *other* press.
     if self._helpers.should_act_on_edge(value):
-        self._helpers.switch_slot_action(device, "${slot}", value, "${fn_name}")
+        self._helpers.switch_slot_action(device, ${slot}, value, "${fn_name}")
     """).substitute(fn_name=fn_name, track=track, device=device, slot=slot)
 
 
@@ -248,17 +249,15 @@ def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[
 
 def code_from_switch_slot_assignments(switch_maps, controller=None, hud_cells=None) -> List[str]:
     """
-    Emit (wire_idx, slot_name) tuples — wire_idx is the HUD button-array
-    index assigned by the global layout allocator. The runtime uses
-    wire_idx for HUD lookups; the slot_name still drives device-table
-    parameter resolution.
+    Emit (wire_idx, slot) tuples — wire_idx is the HUD button-array index
+    assigned by the global layout allocator. The runtime uses wire_idx for
+    HUD lookups; slot (a 1-based device switch-slot int) still drives
+    device-table parameter resolution.
     """
     from ableton_control_surface_as_code.hud_layout import find_wire_index
     out: List[str] = []
     seen_slots: set = set()
     for mb in switch_maps:
-        if not mb.slot.startswith('switch'):
-            continue
         if mb.slot in seen_slots:
             continue
         seen_slots.add(mb.slot)
@@ -269,8 +268,8 @@ def code_from_switch_slot_assignments(switch_maps, controller=None, hud_cells=No
                 wire_idx = resolved.index
         if wire_idx is None:
             # Fallback to the legacy logical index when controller info is missing
-            wire_idx = int(mb.slot.replace('switch', '')) - 1
-        out.append(f"({wire_idx}, '{mb.slot}')")
+            wire_idx = mb.slot - 1
+        out.append(f"({wire_idx}, {mb.slot})")
     return out
 
 

@@ -64,9 +64,10 @@ modes:
                 track: selected
                 device: selected
                 mappings:
-                    switch-list:
+                    button-list:
                         -
                             range: grid-2:1-15
+                            slots: 1-15
             -
                 type: functions
                 mappings:

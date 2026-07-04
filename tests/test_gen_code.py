@@ -175,21 +175,21 @@ class TestDeviceTemplatesWithSlots(unittest.TestCase):
         self.assertIn("(1, 'slot1')", joined)
         self.assertIn("(4, 'slot4')", joined)
 
-    def test_mode_button_listener_calls_switch_slot_action(self):
+    def test_button_listener_calls_switch_slot_action(self):
         controller = ControllerV2.build_from(build_raw_controller_v2())
         dev = DeviceV2(
             track="selected",
             device="selected",
             mappings=DeviceEncoderMappings.model_validate({
                 "encoders": {"range": "row-1:1-4", "slots": "1-4"},
-                "mode-buttons": [{"coord": "row-1:5", "slot": "switch1"}],
+                "button": {"range": "row-1:5", "slots": "1"},
             }),
         )
         device_with_midi = build_device_model_v2_1(controller, dev, root_dir="")
         result = GeneratedCodes.merge_all(device_templates(device_with_midi, "main"))
         all_fns = "\n".join(result.listener_fns)
 
-        self.assertIn('self._helpers.switch_slot_action(device, "switch1", value,', all_fns)
+        self.assertIn('self._helpers.switch_slot_action(device, 1, value,', all_fns)
 
 
 class TestMergeConcatenatesParameterMappings(unittest.TestCase):
@@ -309,7 +309,7 @@ class TestSwitchSlotPressGuard(unittest.TestCase):
             track="selected", device="selected",
             mappings=DeviceEncoderMappings.model_validate({
                 "encoders": {"range": "row-1:1-4", "slots": "1-4"},
-                "mode-buttons": [{"coord": "row-1:5", "slot": "switch1"}],
+                "button": {"range": "row-1:5", "slots": "1"},
             }),
         )
         device_with_midi = build_device_model_v2_1(controller, dev, root_dir="")

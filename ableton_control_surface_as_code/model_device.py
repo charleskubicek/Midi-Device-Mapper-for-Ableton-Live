@@ -9,6 +9,7 @@ from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 # module so `core_model` can use them without importing this model module.
 from ableton_control_surface_as_code.slots import (  # noqa: F401
     SWITCH_SLOT_NAMES, is_switch_slot, parse_slot_token, parse_continuous_slot_list,
+    parse_button_slot_list,
 )
 
 
@@ -37,30 +38,16 @@ class DeviceParameterMidiMapping(BaseModel):
         return self.only_midi_coord.controller_listener_fn_name(f"_mode_{mode_name}_{suffix}")
 
 
-_SWITCH_LITERAL = Literal['switch1', 'switch2', 'switch3', 'switch4',
-                           'switch5', 'switch6', 'switch7', 'switch8']
-
-
-class SwitchEntry(BaseModel):
-    coord: EncoderCoords
-    slot: _SWITCH_LITERAL
-
-    @field_validator('coord', mode='before')
-    @classmethod
-    def _parse_coord(cls, value):
-        return parse_coords(value)
-
-
 class SwitchMidiMapping(BaseModel):
     midi_coords: MidiCoords
-    slot: str  # 'switch1' or 'switch2'
+    slot: int  # 1-based device switch-slot index
 
     @property
     def only_midi_coord(self) -> MidiCoords:
         return self.midi_coords
 
     def short_info_string(self):
-        return f"{self.slot}-cycle"
+        return f"button{self.slot}-cycle"
 
     def info_string(self):
         return f"ch{self.midi_coords.channel}_no{self.midi_coords.number}_{self.midi_coords.type.value}__{self.short_info_string()}"
@@ -69,15 +56,23 @@ class SwitchMidiMapping(BaseModel):
         return self.midi_coords.controller_variable_name()
 
     def controller_listener_fn_name(self, mode_name):
-        return self.midi_coords.controller_listener_fn_name(f"_mode_{mode_name}_{self.slot}")
+        return self.midi_coords.controller_listener_fn_name(f"_mode_{mode_name}_button{self.slot}")
 
 
-class SwitchListEntry(BaseModel):
+class ButtonRowMap(BaseModel):
+    """`button:` / `button-list:` entry — mirrors `RowMapV2_1` but for device
+    switch (button) slots: a `range` of controller coords paired with a
+    `slots` list of 1-based device switch-slot integers, one per control."""
     range_raw: str = Field(alias='range')
+    slots_raw: str = Field(alias='slots')
 
     @property
-    def encoder_coords_list(self) -> List[EncoderCoords]:
+    def multi_encoder_coords(self) -> List[EncoderCoords]:
         return parse_multiple_coords(self.range_raw)
+
+    @property
+    def button_slots(self) -> List[int]:
+        return parse_button_slot_list(self.slots_raw)
 
 
 class DeviceWithMidi(BaseModel):
@@ -95,16 +90,8 @@ class DeviceEncoderMappings(BaseModel):
     encoders: Optional[RowMapV2_1] = Field(None, alias='encoders')
     encoder_list: List[RowMapV2_1] = Field([], alias='encoder-list')
     on_off: Optional[EncoderCoords] = Field(None, alias='on-off')
-    mode_buttons: List[SwitchEntry] = Field(default_factory=list, alias='mode-buttons')
-    switch1: Optional[EncoderCoords] = Field(None, alias='switch1')
-    switch2: Optional[EncoderCoords] = Field(None, alias='switch2')
-    switch3: Optional[EncoderCoords] = Field(None, alias='switch3')
-    switch4: Optional[EncoderCoords] = Field(None, alias='switch4')
-    switch5: Optional[EncoderCoords] = Field(None, alias='switch5')
-    switch6: Optional[EncoderCoords] = Field(None, alias='switch6')
-    switch7: Optional[EncoderCoords] = Field(None, alias='switch7')
-    switch8: Optional[EncoderCoords] = Field(None, alias='switch8')
-    switch_list: List[SwitchListEntry] = Field(default_factory=list, alias='switch-list')
+    button: Optional[ButtonRowMap] = Field(None, alias='button')
+    button_list: List[ButtonRowMap] = Field([], alias='button-list')
 
     @model_validator(mode='before')
     @classmethod
@@ -126,38 +113,24 @@ class DeviceEncoderMappings(BaseModel):
             hint = ""
             if any(k in row_map_keys for k in unknown):
                 hint = (" Note: 'range'/'parameters'/'slots' go *inside* an "
-                        "'encoders:' (or 'encoder-list:') block, not directly "
-                        "under 'mappings:'.")
+                        "'encoders:' (or 'encoder-list:'/'button:'/'button-list:') "
+                        "block, not directly under 'mappings:'.")
             raise ValueError(
                 f"Unknown device mapping key(s): {unknown}. Valid keys: "
-                f"encoders, encoder-list, on-off, switch1-8, switch-list, "
-                f"mode-buttons.{hint}")
+                f"encoders, encoder-list, on-off, button, button-list.{hint}")
         return data
-
-    @field_validator('switch1', 'switch2', 'switch3', 'switch4',
-                     'switch5', 'switch6', 'switch7', 'switch8', mode='before')
-    @classmethod
-    def parse_switch(cls, value):
-        return parse_coords(value) if value is not None else None
-
-    @model_validator(mode='after')
-    def _no_mix_switch_list_and_explicit(self):
-        if self.switch_list:
-            explicit = [name for name, coord in self.switch_entries() if coord is not None]
-            if explicit:
-                raise ValueError(
-                    f"Cannot mix 'switch-list' with explicit switch entries: {explicit}"
-                )
-        return self
-
-    def switch_entries(self) -> List[Tuple[str, Optional[EncoderCoords]]]:
-        return [(f"switch{i}", getattr(self, f"switch{i}")) for i in range(1, 9)]
 
     def encoders_all(self) -> List[RowMapV2_1]:
         if self.encoders is None:
             return self.encoder_list
         else:
             return [self.encoders] + self.encoder_list
+
+    def buttons_all(self) -> List[ButtonRowMap]:
+        if self.button is None:
+            return self.button_list
+        else:
+            return [self.button] + self.button_list
 
     @field_validator('on_off', mode='before')
     @classmethod
@@ -234,30 +207,25 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
         ))
 
     switch_maps: List[SwitchMidiMapping] = []
-    for entry in device.mappings.mode_buttons:
-        midi_coord = controller.build_midi_coords(entry.coord)[0][0]
-        switch_maps.append(SwitchMidiMapping(
-            midi_coords=midi_coord,
-            slot=entry.slot,
-        ))
-    for slot_name, coord in device.mappings.switch_entries():
-        if coord is not None:
-            midi_coord = controller.build_midi_coords(coord)[0][0]
-            switch_maps.append(SwitchMidiMapping(
-                midi_coords=midi_coord,
-                slot=slot_name,
-            ))
-    if device.mappings.switch_list:
-        switch_index = 1
-        for entry in device.mappings.switch_list:
-            for ec in entry.encoder_coords_list:
-                midis, _ = controller.build_midi_coords(ec)
-                for midi_coord in midis:
-                    switch_maps.append(SwitchMidiMapping(
-                        midi_coords=midi_coord,
-                        slot=f"switch{switch_index}",
-                    ))
-                    switch_index += 1
+    for buttons in device.mappings.buttons_all():
+        slot_list = buttons.button_slots
+        for ec in buttons.multi_encoder_coords:
+            midis, _ = controller.build_midi_coords(ec)
+            # Per-group, like the encoder slots branch: the slot list restarts
+            # for each coord-group, so each group must match the slot count
+            # on its own.
+            if len(midis) != len(slot_list):
+                raise GenError(
+                    f"device mapping for '{device.device}': the button range "
+                    f"covers {len(midis)} control(s) but {len(slot_list)} slot(s) "
+                    f"were listed — these counts must match",
+                    ErrorCode.SEMANTIC_VALIDATION,
+                )
+            for midi_coord, slot in zip(midis, slot_list):
+                switch_maps.append(SwitchMidiMapping(
+                    midi_coords=midi_coord,
+                    slot=slot,
+                ))
 
     slot_groups = [e for e in device.mappings.encoders_all() if e.uses_slots]
     total_slots = sum(len(e.slots) for e in slot_groups)

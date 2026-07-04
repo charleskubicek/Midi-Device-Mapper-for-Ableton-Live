@@ -197,13 +197,17 @@ Controls device parameters.
 *   **`device`**: `selected` (follows active device), name string, or integer index.
 *   **`encoder-list`**: Maps encoder ranges to target slots.
 *   **`on-off`**: A button mapping to toggle the device activator.
-*   **`switch-list`**: Binds a consecutive list of buttons to switch parameters.
+*   **`button` / `button-list`**: Mirror `encoders`/`encoder-list` but for device
+    *switch* (cycle/toggle) slots — a `range` of buttons paired with a `slots`
+    list of 1-based device switch-slot indices:
     ```nt
     mappings:
-        switch-list:
-            - { range: row-3:5-8 }
+        button: { range: row-3:5-8, slots: 1-4 }
     ```
-    *Note: This generates sequential mappings (`switch1`..`switch4`) without needing separate lines. You cannot mix explicit `switch1:` parameters and a `switch-list:` in the same device mapping.*
+    *Note: Slots are honored literally (not renumbered), so a `shift_mode` can
+    expose a higher band of switch slots on the same physical buttons (e.g.
+    `slots: 5-16` while the base mode uses `slots: 1-4`). Use `button-list` for
+    several non-contiguous ranges, each with its own `slots`.*
 
 ### `mixer`
 Adjusts mixer controls for the specified track.
@@ -240,6 +244,64 @@ Maps hardware keys to timeline transport functions.
 Allows scrolling through pages of device parameters when you have more parameters than physical knobs.
 *   Mapped via `inc` and `dec` buttons.
 *   The HUD automatically draws a page tracker (e.g. `Page 1/3`) when a device contains multi-page mappings.
+
+#### Shift vs. paging: two independent axes
+
+`shift` and `parameter-pager` both change what your buttons show, but they move
+different things, and they stack:
+
+*   **Shift** picks a different `button`/`button-list` *slot band* for the
+    same physical buttons — instant, no paging involved. It is purely a
+    config-time mapping switch (see [`button` / `button-list`](#device)).
+*   **Paging** advances the device resolver's page index. This shifts
+    *every* mode's button assignment by the same page-width offset, because
+    page state lives on the device (reset when you change focus), not on the
+    mode — so a page you reach while holding shift is still active after you
+    let go of shift.
+
+Use shift to reach a different band of slots on the buttons you already have;
+use paging to scroll further into a device that has more switch-parameters
+than any one band can show.
+
+**Worked example** — `live_surfaces/grid/ck_grid.nt` binds a device with 32
+switch-type parameters (curated as a 32-entry `buttons` list in
+`custom_device_mappings.json`) to 12 physical buttons:
+
+```nt
+modes:
+    -
+        name: main_mode
+        mappings:
+            -
+                type: device
+                mappings:
+                    button: { range: grid-2:2::1-4, slots: 1-4 }
+    -
+        name: shift_mode
+        mappings:
+            -
+                type: device
+                mappings:
+                    button: { range: grid-2:1-12, slots: 5-16 }
+            -
+                type: parameter-pager
+                encoders:
+                    inc: grid-2:4::4
+                    dec: grid-2:4::3
+```
+
+| State | What the buttons show |
+|---|---|
+| `main_mode`, page 1 | 4 buttons → device switch-slots **1-4** |
+| hold `shift`, page 1 | 12 buttons → switch-slots **5-16** (the literal band from `slots:`) |
+| press pager `inc` (only reachable while holding shift) | page advances to 2 — this is a device-wide page change, not a mode change |
+| `main_mode`, page 2 | the same 4 buttons → switch-slots **17-20** |
+| hold `shift`, page 2 | the same 12 buttons → switch-slots **21-32**, the last of the device's 32 |
+
+The page width here (16) is the largest slot number used anywhere in the
+config — the page stride is computed once across every mode's `slots:`, not
+per mode. Shift picks *which band within the current page*; paging picks
+*which page*. Together a 12-button surface reaches all 32 switch-slots.
 
 ### `clip`
 Controls attributes of the currently-detailed clip in Ableton Live's detail view (`song().view.detail_clip`).
@@ -321,7 +383,7 @@ If a device has more parameters than physical knobs, the pager manages bank layo
 *   **Page 1 (BOB / Best of Bank)**: Pulled directly from the curated custom JSON config.
 *   **Pages 2+**: Extracted from default Ableton Device Bank presets. The compiler pairs two standard 8-knob banks onto each 16-encoder page (e.g., Page 2 maps standard banks 1 and 2, Page 3 maps banks 3 and 4).
 *   **Page Labels**: The HUD combines paired bank names (e.g. "Amplitude / Filter").
-*   *Note: Button mappings only exist on Page 1 (BOB page). Standard bank page dials do not cycle buttons.*
+*   *Note: Standard banks (pages 2+) are encoder-only — there is no built-in standard "button bank" data source. The curated BOB `buttons` table can itself span multiple pages, paged in lockstep with the encoders by the same `parameter-pager`; see [Shift vs. paging](#parameter-pager) for a worked example.*
 
 ---
 
@@ -390,4 +452,8 @@ To check for compiler syntax bugs, run-time crashes, or function tracebacks insi
 1.  **Non-Device HUD Values**:
     *   HUD elements for mixer controls (volume, pan, etc.) display static names but do not track live value indicators (the level indicator bar does not refresh). Only `device` parameters display real-time live value bars on the HUD.
 2.  **Button Pages**:
-    *   Buttons are fixed to Page 1 (BOB Page). Paging to pages 2+ only updates encoder controls; buttons do not change context.
+    *   Buttons do page (a `parameter-pager` bound to `encoders` advances the
+        button page in lockstep — see [Shift vs. paging](#parameter-pager)).
+        The one real gap: there is no built-in *standard* button bank, so
+        paging only reveals more buttons when the device's curated BOB
+        `buttons` table itself has more entries than fit in one band.

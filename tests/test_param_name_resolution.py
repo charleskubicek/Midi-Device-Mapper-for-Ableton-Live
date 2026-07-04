@@ -304,12 +304,12 @@ class TestNamedSwitchResolution(unittest.TestCase):
                 "encoders": [],
                 "buttons": [{"name": "Trigger Mode"}],
             }]},
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
         )
         device = _simpler_device()
         device.parameters.append(FakeParameter(original_name='Trigger Mode',
                                                min=0, max=2, is_quantized=True))
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         target = next(p for p in device.parameters if p.original_name == 'Trigger Mode')
         self.assertEqual(target.value, 1)
 
@@ -320,11 +320,11 @@ class TestNamedSwitchResolution(unittest.TestCase):
                 "encoders": [],
                 "buttons": [{"name": "Nonexistent"}],
             }]},
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
         )
         device = _simpler_device()
         before = [p.value for p in device.parameters]
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual([p.value for p in device.parameters], before)
 
 

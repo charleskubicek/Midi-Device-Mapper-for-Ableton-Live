@@ -112,7 +112,7 @@ class TestPerModeAssignments(unittest.TestCase):
     def test_switch_device_bound_only_in_its_mode(self):
         p, remote = _presenter(
             button_switch_count=1,
-            switch_slot_assignments_by_mode={'a': [(0, 'switch1')], 'b': []})
+            switch_slot_assignments_by_mode={'a': [(0, 1)], 'b': []})
         dev = FakeDevice("X", [FakeParam("On/Off"),
                                FakeParam("Q", is_quantized=True, mn=0, mx=2)])
 

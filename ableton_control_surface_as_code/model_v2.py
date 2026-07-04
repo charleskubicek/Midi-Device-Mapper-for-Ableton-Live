@@ -230,9 +230,9 @@ class ModeGroupWithMidi(BaseModel):
 def _bound_coords(withMidi) -> List[MidiCoords]:
     """Every physical control a mapping binds, across all of its coord-bearing
     fields. `midi_maps` covers encoders/mixer/nav/functions; `switch_maps`
-    (device switch-list / explicit switchN) is a separate field that the clash
-    check would otherwise miss, so a device switch sharing a button with a
-    mixer button slipped through silently."""
+    (device `button`/`button-list` switch slots) is a separate field that the
+    clash check would otherwise miss, so a device switch sharing a button with
+    a mixer button slipped through silently."""
     coords: List[MidiCoords] = []
     for midi_map in withMidi.midi_maps:
         coords.extend(midi_map.midi_coords)

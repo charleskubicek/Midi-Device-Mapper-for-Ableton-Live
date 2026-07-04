@@ -147,7 +147,7 @@ class TestEncoderResolution(unittest.TestCase):
         self.helpers = Helpers(
             self.manager, self.remote,
             slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
-            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            switch_slot_assignments=[(0, 1), (1, 2)],
             parameter_mappings_raw=_amp_mappings(),
         )
 
@@ -211,7 +211,7 @@ class TestSwitchAction(unittest.TestCase):
         self.helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[],
-            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            switch_slot_assignments=[(0, 1), (1, 2)],
             parameter_mappings_raw=_amp_mappings(),
         )
 
@@ -220,11 +220,11 @@ class TestSwitchAction(unittest.TestCase):
             class_name="Amp",
             parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, max=2, value=0),
         )
-        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.parameters[4].value, 1)
-        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.parameters[4].value, 2)
-        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.parameters[4].value, 0)
 
     def test_switch_without_range_pulses(self):
@@ -232,7 +232,7 @@ class TestSwitchAction(unittest.TestCase):
             class_name="Amp",
             parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, value=0),
         )
-        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.helpers.switch_slot_action(device, 2, 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
 
     def test_switch_fires_on_any_value(self):
@@ -243,11 +243,11 @@ class TestSwitchAction(unittest.TestCase):
             class_name="Amp",
             parameters=_build_named_params([(4, "Type"), (5, "Mono")], total=10, max=2, value=0),
         )
-        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.parameters[4].value, 1)
-        self.helpers.switch_slot_action(device, 'switch1', 0, 'fn')
+        self.helpers.switch_slot_action(device, 1, 0, 'fn')
         self.assertEqual(device.parameters[4].value, 2)
-        self.helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        self.helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.parameters[4].value, 0)
 
     def test_switch_quantized_without_json_range_cycles_param_range(self):
@@ -258,11 +258,11 @@ class TestSwitchAction(unittest.TestCase):
             p.is_quantized = True
         device = FakeDevice(class_name="Amp", parameters=params)
         # switch2 → buttons[1] = "Mono", number=5, no min/max in JSON
-        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.helpers.switch_slot_action(device, 2, 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
-        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.helpers.switch_slot_action(device, 2, 127, 'fn')
         self.assertEqual(device.parameters[5].value, 0)
-        self.helpers.switch_slot_action(device, 'switch2', 127, 'fn')
+        self.helpers.switch_slot_action(device, 2, 127, 'fn')
         self.assertEqual(device.parameters[5].value, 1)
 
 
@@ -303,7 +303,7 @@ class TestSimplerEncoderRegression(unittest.TestCase):
         return Helpers(
             Mock(), Mock(),
             slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
             parameter_mappings_raw={"devices": [{
                 "className": "OriginalSimpler",
                 "encoders": self.SIMPLER_ENCODERS,
@@ -404,7 +404,7 @@ class TestLomButtonActions(unittest.TestCase):
         return Helpers(
             Mock(), Mock(),
             slot_assignments=[],
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
             parameter_mappings_raw={"devices": [{
                 "className": "OriginalSimpler",
                 "encoders": [],
@@ -415,25 +415,25 @@ class TestLomButtonActions(unittest.TestCase):
     def test_enum_button_cycles_through_members(self):
         helpers = self._make([{"lom_property": "playback_mode", "type": "enum"}])
         device = FakeSimpler(parameters=[FakeParameter()])
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.playback_mode, _FakePlaybackMode.one_shot)
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.playback_mode, _FakePlaybackMode.slicing)
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.playback_mode, _FakePlaybackMode.classic)
 
     def test_bool_button_toggles(self):
         helpers = self._make([{"lom_property": "pad_slicing", "type": "bool"}])
         device = FakeSimpler(parameters=[FakeParameter()])
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertTrue(device.pad_slicing)
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertFalse(device.pad_slicing)
 
     def test_function_button_calls(self):
         helpers = self._make([{"lom_function": "crop", "type": "function"}])
         device = FakeSimpler(parameters=[FakeParameter()])
-        helpers.switch_slot_action(device, 'switch1', 127, 'fn')
+        helpers.switch_slot_action(device, 1, 127, 'fn')
         self.assertEqual(device.crop_calls, 1)
 
     def test_enum_button_hud_payload(self):
@@ -594,6 +594,62 @@ def _make_real_param(param, alias=None, button=None):
     rp.alias = alias
     rp.button = button
     return rp
+
+
+class _DeadParam:
+    """A Live parameter whose underlying C++ handle has been freed: every
+    attribute access raises Boost.Python.ArgumentError (here a RuntimeError
+    stand-in). The new Operator rebuilds its parameter list in place, leaving
+    such dead references behind."""
+    @property
+    def name(self):
+        raise RuntimeError("Boost.Python.ArgumentError: dead handle")
+
+    @property
+    def value(self):
+        raise RuntimeError("Boost.Python.ArgumentError: dead handle")
+
+    @property
+    def min(self):
+        raise RuntimeError("Boost.Python.ArgumentError: dead handle")
+
+    @property
+    def max(self):
+        raise RuntimeError("Boost.Python.ArgumentError: dead handle")
+
+
+class TestDeadParamGuard(unittest.TestCase):
+    """A single un-readable parameter (dead Boost.Python handle) must not abort
+    the whole burst — that propagates up to crash the mode switch. It degrades
+    to a skipped/empty slot plus a loud [deadparam] log line instead."""
+
+    def setUp(self):
+        self.manager = Mock()
+        self.osc = Mock()
+        self.hud = Mock()
+        self.remote = Remote(manager=self.manager, osc_client=self.osc, hud_client=self.hud)
+
+    def test_parameter_updated_skips_dead_handle_without_raising(self):
+        self.remote.parameter_updated(_make_real_param(_DeadParam()), parameter_no=3)
+        self.osc.send_message.assert_not_called()
+        self.hud.send_update.assert_not_called()
+        logged = " ".join(str(c.args[0]) for c in self.manager.log_message.call_args_list)
+        self.assertIn("deadparam", logged)
+
+    def test_parameter_updated_skips_dead_handle_even_with_alias(self):
+        # alias avoids reading .name, but .value/.min/.max still throw.
+        self.remote.parameter_updated(_make_real_param(_DeadParam(), alias="Live Alias"), parameter_no=2)
+        self.osc.send_message.assert_not_called()
+
+    def test_device_update_survives_dead_param_in_burst(self):
+        params = [
+            _make_real_param(_make_param("On/Off")),
+            _make_real_param(_DeadParam()),
+            _make_real_param(_make_param("Freq", value=0.5)),
+        ]
+        # Must not raise, and must still finish the burst (commit fires).
+        self.remote.device_update("Operator", params, hud_layout=[(0, 0, 'dial', 8, 0)])
+        self.hud.commit.assert_called_once()
 
 
 class TestRemoteBurstSuppression(unittest.TestCase):
@@ -860,7 +916,7 @@ class TestSurfaceConfigEquivalence(unittest.TestCase):
         from source_modules.helpers import SurfaceConfig
         kwargs = dict(
             slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(4, 'switch1')],
+            switch_slot_assignments=[(4, 1)],
             parameter_mappings_raw=None,
             encoder_slot_count=16,
             hud_cells=[(0, 0, 'dial', 8, 0, 0)],
@@ -882,7 +938,7 @@ def _simpler_with_4_switches(buttons):
     return Helpers(
         Mock(), Mock(),
         slot_assignments=[],
-        switch_slot_assignments=[(4, 'switch1'), (5, 'switch2'), (6, 'switch3'), (7, 'switch4')],
+        switch_slot_assignments=[(4, 1), (5, 2), (6, 3), (7, 4)],
         parameter_mappings_raw={"devices": [{
             "className": "OriginalSimpler",
             "encoders": [],
@@ -985,7 +1041,7 @@ class TestButtonPagingUnknownClass(unittest.TestCase):
         helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[],
-            switch_slot_assignments=[(0, 'switch1'), (1, 'switch2')],
+            switch_slot_assignments=[(0, 1), (1, 2)],
             button_slot_count=2,
         )
         params = [FakeParameter(name="q0", is_quantized=True, min=0, max=1),
@@ -1043,7 +1099,7 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
         helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
             parameter_mappings_raw=self._mappings(),
         )
         device = FakeDevice(
@@ -1065,7 +1121,7 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
         helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
             parameter_mappings_raw=self._mappings(),
         )
         device = FakeDevice(
@@ -1238,7 +1294,7 @@ class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
         helpers = Helpers(
             Mock(), Mock(),
             slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 'switch1')],
+            switch_slot_assignments=[(0, 1)],
             parameter_mappings_raw=mappings,
             device_banks={"AudioEffectGroupDevice": (
                 ("Macro 1", "Macro 2", "Macro 3", "Macro 4",

@@ -76,10 +76,9 @@ modes:
                 track: selected
                 device: selected
                 mappings:
-                    switch1: row-3:5
-                    switch2: row-3:6
-                    switch3: row-3:7
-                    switch4: row-3:8
+                    button:
+                        range: row-3:5-8
+                        slots: 1-4
             -
                 type: functions
                 mappings:

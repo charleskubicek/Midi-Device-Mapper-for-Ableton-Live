@@ -110,9 +110,10 @@ class HudPresenter:
             )
         switch_entries = []
         for wire_idx, slot in self._active_switch_slot_assignments(burst_mode):
-            # slot_name ("switch1", "switch2", …) drives JSON-table parameter
-            # resolution; wire_idx is the HUD button index assigned at codegen.
-            logical_idx = int(slot.replace('switch', '')) - 1
+            # slot is a 1-based device switch-slot int; it drives JSON-table
+            # parameter resolution. wire_idx is the HUD button index assigned
+            # at codegen.
+            logical_idx = slot - 1
             info = self._resolver.resolve_switch(device, logical_idx)
             if info is None:
                 continue

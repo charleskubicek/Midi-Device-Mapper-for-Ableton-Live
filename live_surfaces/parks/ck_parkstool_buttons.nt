@@ -22,7 +22,10 @@ mappings:
         track: selected
         device: selected
         mappings:
-            switch1: row-1:1
-            switch2: row-1:2
-            switch3: row-2:1
-            switch4: row-2:2
+            button-list:
+                -
+                    range: row-1:1-2
+                    slots: 1-2
+                -
+                    range: row-2:1-2
+                    slots: 3-4

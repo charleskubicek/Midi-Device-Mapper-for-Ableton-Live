@@ -201,7 +201,7 @@ class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
             resolve_controller=lambda root: (self._CONTROLLER, "ctrl.nt"))
 
     def test_switch_clashing_with_mixer_button_rejected(self):
-        # device switch1 and mixer mute both bind row-2:1 in the same mode.
+        # device button slot 1 and mixer mute both bind row-2:1 in the same mode.
         mapping = (
             _ROOT_BASE + "modes:\n"
             "    -\n        name: m1\n"
@@ -210,7 +210,9 @@ class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
             "                track: selected\n"
             "                device: selected\n"
             "                mappings:\n"
-            "                    switch1: row-2:1\n"
+            "                    button:\n"
+            "                        range: row-2:1\n"
+            "                        slots: 1\n"
             "            -\n                type: mixer\n"
             "                track: selected\n"
             "                mappings:\n"
@@ -223,7 +225,7 @@ class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
             ErrorCode.SEMANTIC_VALIDATION, "Clashing", "device", "mixer", "48")
 
     def test_switches_without_overlap_build(self):
-        # switch buttons that don't collide with anything must still build.
+        # button slots that don't collide with anything must still build.
         mapping = (
             _ROOT_BASE + "modes:\n"
             "    -\n        name: m1\n"
@@ -232,7 +234,9 @@ class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
             "                track: selected\n"
             "                device: selected\n"
             "                mappings:\n"
-            "                    switch1: row-2:1\n"
+            "                    button:\n"
+            "                        range: row-2:1\n"
+            "                        slots: 1\n"
             "            -\n                type: mixer\n"
             "                track: selected\n"
             "                mappings:\n"

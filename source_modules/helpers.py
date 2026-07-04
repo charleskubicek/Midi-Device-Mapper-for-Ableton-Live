@@ -16,6 +16,22 @@ import logging
 logger = logging.getLogger("helpers")
 
 
+def _safe_param_fields(param, alias):
+    """Read (name, value, min, max) off a live device parameter, tolerating a
+    dead Boost.Python handle. The new Operator rebuilds its parameter list in
+    place, so a reference resolved a moment ago can already be freed — any
+    attribute access then raises `Boost.Python.ArgumentError`. The resolver now
+    hands back live handles (see ParameterResolver._live_param); this is the
+    last-line net so one un-readable param degrades to an empty/skipped slot
+    instead of aborting the whole burst (which propagates up and crashes the
+    mode switch). Returns None when the handle can't be read."""
+    try:
+        name = param.name if alias is None else alias
+        return (name, param.value, param.min, param.max)
+    except Exception:
+        return None
+
+
 def _overlay_labels(payloads, labels, kind):
     """Replace EMPTY slots with labeled placeholders when the active mode
     binds that wire index to a non-device mapping. Real device data stays
@@ -81,11 +97,11 @@ class Helpers:
         bank_names = config.bank_names if config.bank_names is not None else _default_bank_names()
         # 16-slot controllers pack two 8-param banks per page; 8-slot pack one.
         banks_per_page = 2 if config.encoder_slot_count >= 16 else 1
-        # Number of distinct physical button switches: max switch number from assignments.
-        # Used as the per-page stride when paging BOB buttons for known devices.
+        # Number of distinct physical button switches: max switch slot number from
+        # assignments. Used as the per-page stride when paging BOB buttons for
+        # known devices.
         button_switch_count = (
-            max((int(slot.replace('switch', ''))
-                 for _, slot in switch_slot_assignments), default=0)
+            max((slot for _, slot in switch_slot_assignments), default=0)
             if switch_slot_assignments else 0
         )
         # Pure parameter-resolution + paging math lives in ParameterResolver
@@ -182,6 +198,12 @@ class Helpers:
             f"[funnel] selected_device_changed device={dev_name!r} source={source} "
             f"guard=pass prev={getattr(self._last_selected_device, 'name', None)!r}"
         )
+        # TEMP diag (operator-paging-dead-param-plan): always-on so a single repro
+        # shows whether focus()/index-reset actually fires on the device switch
+        # that left the resolver index stale. Remove once root cause is confirmed.
+        self.log_message(
+            f"[focuschg] {getattr(self._last_selected_device, 'class_name', None)!r}"
+            f" -> {getattr(device, 'class_name', None)!r} source={source} (focus reset)")
         self._teardown_group_selector_listeners()
         self._last_selected_device = device
         # Reset the resolver's per-device state: name indices + paging back to 1.
@@ -266,15 +288,16 @@ class Helpers:
             parameter.value = next_value
             self._remote.parameter_updated(rp, raw_parameter_no)
 
-    def switch_slot_action(self, device, slot_name, value, fn_name):
-        self.log_message(f"[switch] enter fn={fn_name} slot={slot_name} value={value} device={getattr(device,'class_name','None')}")
+    def switch_slot_action(self, device, slot, value, fn_name):
+        """`slot` is a 1-based device switch-slot index (int)."""
+        self.log_message(f"[switch] enter fn={fn_name} slot={slot} value={value} device={getattr(device,'class_name','None')}")
         if device is None:
             return
         self.selected_device_changed(device)
-        switch_idx = int(slot_name.replace('switch', '')) - 1
+        switch_idx = slot - 1
         info = self._resolver.resolve_switch(device, switch_idx)
         if info is None:
-            self.log_message(f"[switch] {slot_name} not resolvable on {device.class_name}")
+            self.log_message(f"[switch] {slot} not resolvable on {device.class_name}")
             return
         kind = info.get('kind', 'param')
         if kind == 'enum':
@@ -552,12 +575,21 @@ class Remote:
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):
         param = real_param.param
-        name = param.name if real_param.alias is None else real_param.alias
+        fields = _safe_param_fields(param, real_param.alias)
+        if fields is None:
+            # Dead Live handle — skip this slot loudly rather than abort the burst.
+            try:
+                self._manager.log_message(
+                    f"[deadparam] skipped parameter_no={parameter_no}: unreadable Live handle")
+            except Exception:
+                logger.error(f"[deadparam] skipped parameter_no={parameter_no}")
+            return
+        name, value, pmin, pmax = fields
         self._osc_client.send_message(f"/selected-device/parameter-update",
-                                      [parameter_no, param.value, name, param.min, param.max, real_param.button])
+                                      [parameter_no, value, name, pmin, pmax, real_param.button])
         # Live HUD update — skip on/off (index 0) and skip during the initial burst
         if parameter_no > 0 and not self._in_burst:
-            self._hud_client.send_update('dial', parameter_no - 1, name, param.value, param.min, param.max)
+            self._hud_client.send_update('dial', parameter_no - 1, name, value, pmin, pmax)
 
     def refresh_burst(self, snapshot: BurstSnapshot):
         """Generic dense burst. `snapshot.dials` / `snapshot.buttons` are
@@ -666,9 +698,12 @@ class Remote:
                     if pm is None:
                         payloads.append((wire_idx, EMPTY_SLOT))
                         continue
-                    p = pm.param
-                    name = p.name if pm.alias is None else pm.alias
-                    payloads.append((wire_idx, SlotPayload(name, p.value, p.min, p.max)))
+                    fields = _safe_param_fields(pm.param, pm.alias)
+                    if fields is None:
+                        payloads.append((wire_idx, EMPTY_SLOT))
+                        continue
+                    name, value, vmin, vmax = fields
+                    payloads.append((wire_idx, SlotPayload(name, value, vmin, vmax)))
                 else:
                     payloads.append((wire_idx, EMPTY_SLOT))
         return payloads
@@ -691,9 +726,13 @@ class Remote:
                     if entry.d_idx is not None and device_parameters:
                         try:
                             p = device_parameters[entry.d_idx]
-                            payloads.append((wire_idx, SlotPayload(entry.alias or p.name, p.value, p.min, p.max)))
-                            continue
                         except IndexError:
-                            pass
+                            p = None
+                        if p is not None:
+                            fields = _safe_param_fields(p, entry.alias or None)
+                            if fields is not None:
+                                name, value, vmin, vmax = fields
+                                payloads.append((wire_idx, SlotPayload(name, value, vmin, vmax)))
+                                continue
                 payloads.append((wire_idx, EMPTY_SLOT))
         return payloads

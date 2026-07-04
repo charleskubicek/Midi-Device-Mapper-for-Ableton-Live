@@ -157,8 +157,23 @@ Each entry under a mode's `mappings:` (or top-level modeless `mappings:`) has a
   (parameter slot indices, 1-based). The slot numbers feed into the custom
   device-mapping JSON, or fall back to the device's parameter list by index.
 - `mappings.on-off`: a button that toggles the device's on/off state.
-- Other keys: `switch1`..`switch4` map buttons to discrete switch positions
-  on the focused device (used in `shift_mode` in the example).
+- `mappings.button` / `mappings.button-list`: mirror `encoders` / `encoder-list`
+  but for device *switch* (cycle/toggle) slots — a `range` of buttons paired
+  with a `slots` list of 1-based device switch-slot indices:
+
+  ```nt
+  - type: device
+    track: selected
+    device: selected
+    mappings:
+        button: { range: row-2:1-4, slots: 1-4 }
+  ```
+
+  Slots are honored literally — they are not renumbered — so a `shift_mode`
+  can expose a *higher band* of switch slots on the same physical buttons
+  (e.g. `slots: 5-16` while the base mode uses `slots: 1-4`). Use
+  `button-list` for several non-contiguous ranges; each entry carries its own
+  `slots`.
 
 ### `mixer` — bind to selected track's mixer
 
