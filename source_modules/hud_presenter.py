@@ -1,11 +1,11 @@
-"""HUD burst assembly + HUD show/hide intent, extracted from Helpers (R9).
+"""HUD burst assembly + HUD show/hide intent, extracted from Helpers.
 
 `HudPresenter` turns the focused device (resolved via `ParameterResolver`) into
 a HUD/feedback burst on `Remote`, and owns the local mirror of the Swift sticky
 "dismissed" flag plus the active mode-label overlay. It does no Live writes and
 holds no manager/song — Helpers passes it the focused device on each call.
 
-Show/hide intent is owned by the `HudVisibility` table (R10): the presenter
+Show/hide intent is owned by the `HudVisibility` table: the presenter
 fires events (`DeviceFocus`, `ModeChange`, `UserToggle`, `ViewLeft`,
 `RegionCommit`) and acts on the returned `Decision`; the `dismissed` flag only
 changes inside `HudVisibility.apply`.
@@ -40,10 +40,10 @@ class HudPresenter:
         self._mode_hud_labels = mode_hud_labels or {}
         self._current_mode_name = None
         self._log = log
-        # Gated protocol-trace sink (hud-protocol-instrumentation-plan); no-op by
-        # default so unit tests and pre-flag surfaces stay silent.
+        # Gated protocol-trace sink; no-op by default so unit tests and
+        # pre-flag surfaces stay silent.
         self._fine = fine or (lambda msg: None)
-        # Single owner of show/hide intent (R10). Its `dismissed` flag mirrors
+        # Single owner of show/hide intent. Its `dismissed` flag mirrors
         # the Swift sticky-dismiss flag; a real burst clears it. Shares the trace
         # sink so the decide() line interleaves with the presenter's own lines.
         self._visibility = HudVisibility(hud_trigger, fine=self._fine)

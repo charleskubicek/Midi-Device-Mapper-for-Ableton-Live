@@ -73,6 +73,27 @@ class TestHudClientDatagrams(unittest.TestCase):
         c.flush_burst()
         self.assertEqual(c._socket.datagrams, [])
 
+    def test_disabled_client_sends_nothing(self):
+        # hud-owner-election-plan: a non-owner surface calls set_enabled(False)
+        # and must go fully silent, including HIDE (the flicker trigger).
+        c = self._client()
+        c.set_enabled(False)
+        c.send_ping()
+        c.send_hide()
+        c.begin_burst()
+        c.send_device("EQ Eight")
+        c.commit(1)
+        c.flush_burst()
+        self.assertEqual(c._socket.datagrams, [])
+
+    def test_set_enabled_true_restores_output(self):
+        c = self._client()
+        c.set_enabled(False)
+        c.send_ping()
+        c.set_enabled(True)
+        c.send_ping()
+        self.assertEqual(c._socket.datagrams, ["PING\n"])
+
 
 class TestHudClientWire(unittest.TestCase):
     def test_single_source_lines(self):
@@ -102,6 +123,10 @@ class TestHudClientWire(unittest.TestCase):
 
     def test_null_client_accepts_host_port(self):
         NullHudClient(host='127.0.0.1', port=5023)
+
+    def test_null_client_set_enabled_is_noop(self):
+        NullHudClient().set_enabled(False)
+        NullHudClient().set_enabled(True)
 
 
 if __name__ == '__main__':

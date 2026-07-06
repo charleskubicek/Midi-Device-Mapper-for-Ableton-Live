@@ -9,12 +9,22 @@
 
 controller: parks_controller.nt
 ableton_dir: /Applications/Ableton Live 12 Suite.app
-# Follow Live's selected device: this surface has no device-nav control of its
-# own, so without this it would never burst (controller-nav suppresses every
-# burst that isn't nav-sourced) and its HUD region would stay empty.
 parameter_mappings_file: ../../data/custom_device_mappings.json
 remote_on: false
+
+# hud — what the HUD shows (uncomment exactly one):
+hud: on
+# on = every mapped cell shows its label (dials + buttons)
+#hud: device_only   — only the focused device's parameters; other cells blank
+#hud: off           — HUD disabled entirely
+
+# show-hud-on — when the HUD appears (uncomment exactly one):
+# NOTE: must stay 'selection' here — this forwarder has no device-nav control of
+# its own, so under controller-nav it would never burst and its HUD region would
+# stay empty.
 show-hud-on: selection
+# selection = follow Live's selected device; HUD shows on any device change (mouse or controller)
+#show-hud-on: controller-nav   — only a controller device-nav action shows the HUD; mouse/track selection stays hidden
 
 mappings:
     -

@@ -11,7 +11,7 @@ from typing import Dict, List, Tuple
 
 from ableton_control_surface_as_code.core_model import EncoderType, MidiCoords
 # LayoutCell / SlotAddress live in the wire-format owner so codegen and runtime
-# share one definition (R3). Re-exported here for callers that import from
+# share one definition. Re-exported here for callers that import from
 # hud_layout.
 from source_modules.hud_protocol import LayoutCell, SlotAddress
 

@@ -16,7 +16,7 @@ import unittest
 from dataclasses import dataclass, field
 from unittest.mock import Mock
 
-from source_modules.helpers import Helpers
+from source_modules.helpers import Helpers, SurfaceConfig
 
 
 @dataclass
@@ -95,15 +95,18 @@ def _simpler_device(missing=()):
 def _helpers(parameter_mappings_raw=None, slot_count=16, button_slot_count=8,
              slot_assignments=None, switch_slot_assignments=None):
     return Helpers(
-        Mock(), Mock(),
-        slot_assignments=slot_assignments or [(c, f'slot{c}') for c in range(1, slot_count + 1)],
-        switch_slot_assignments=switch_slot_assignments or [],
-        parameter_mappings_raw=parameter_mappings_raw,
-        encoder_slot_count=slot_count,
-        button_slot_count=button_slot_count,
-        device_banks=_device_banks(),
-        bank_names=_bank_names(),
-    )
+               Mock(),
+               Mock(),
+               SurfaceConfig(
+                   slot_assignments=slot_assignments or [(c, f'slot{c}') for c in range(1, slot_count + 1)],
+                   switch_slot_assignments=switch_slot_assignments or [],
+                   parameter_mappings_raw=parameter_mappings_raw,
+                   encoder_slot_count=slot_count,
+                   button_slot_count=button_slot_count,
+                   device_banks=_device_banks(),
+                   bank_names=_bank_names(),
+               ),
+           )
 
 
 class TestResolveParamByName(unittest.TestCase):

@@ -4,7 +4,18 @@ ableton_dir: /Applications/Ableton Live 12 Suite.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
 
 remote_on: false
+
+# hud — what the HUD shows (uncomment exactly one):
 hud: on
+#hud: on = every mapped cell shows its label (dials + buttons)
+#hud: device_only   — only the focused device's parameters; other cells blank
+#hud: off           — HUD disabled entirely
+
+# show-hud-on — when the HUD appears (uncomment exactly one):
+#show-hud-on: selection
+# selection = follow Live's selected device; HUD shows on any device change (mouse or controller)
+#  — only a controller device-nav action shows the HUD; mouse/track selection stays hidden
+show-hud-on: controller-nav
 
 mode-button:
     button: row-3:1

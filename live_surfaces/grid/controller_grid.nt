@@ -18,19 +18,39 @@ control_groups:
     -
         layout: grid
         number: 1
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C-2-DS-1
+        rows: 4
+        columns: 4
+    -
+        layout: grid
+        number: 2
+        type: knob
+        midi_channel: 1
+        midi_type: CC
+        midi_range: 48-63
+        rows: 4
+        columns: 4
+        right_of: 1
+    -
+        layout: grid
+        number: 3
         type: knob
         midi_channel: 1
         midi_type: CC
         midi_range: 32-47
         rows: 4
         columns: 4
+        right_of: 2
     -
         layout: grid
-        number: 2
+        number: 4
         type: button
         midi_channel: 1
         midi_type: note
         midi_range: C2-DS3
         rows: 4
         columns: 4
-        right_of: 1
+        right_of: 3

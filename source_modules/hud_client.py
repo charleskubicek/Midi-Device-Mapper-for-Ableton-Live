@@ -26,6 +26,11 @@ class HudClient:
         # pre-coalescing behavior — so an oversized burst is never *dropped*, only
         # non-atomic. Real bursts are a few KB, so this never trips in practice.
         self._max_datagram = 8192
+        # Owner gate for co-loaded surfaces: a surface that lost HUD-owner
+        # election calls set_enabled(False) so it
+        # goes fully silent on the wire -- including HIDE, which is what was
+        # tearing down the elected owner's HUD burst before this existed.
+        self._enabled = True
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             logger.info(f"HudClient created: {host}:{port}")
@@ -39,12 +44,21 @@ class HudClient:
         self._sendto(line + '\n')
 
     def _sendto(self, payload: str):
-        if self._socket is None:
+        if self._socket is None or not self._enabled:
             return
         try:
             self._socket.sendto(payload.encode('utf-8'), (self._host, self._port))
         except Exception as e:
             logger.error(f"HudClient._sendto: {e}")
+
+    def set_enabled(self, flag: bool):
+        """Gate all outgoing datagrams. Used by HudArbiter: only the elected
+        HUD owner stays enabled; a non-owner surface goes silent -- including
+        HIDE -- rather than fighting the owner over the shared HUD sink.
+        Gated in `_sendto` (not `_send`), so burst buffering is untouched:
+        a disabled client still buffers/coalesces normally, it just discards
+        the assembled datagram(s) at the last step."""
+        self._enabled = flag
 
     def begin_burst(self):
         """Start buffering lines. Everything sent until `flush_burst` is held so
@@ -103,6 +117,7 @@ class HudClient:
 
 class NullHudClient:
     def __init__(self, host='127.0.0.1', port=5006): pass
+    def set_enabled(self, flag: bool): pass
     def begin_burst(self): pass
     def flush_burst(self): pass
     def send_layout(self, cells): pass

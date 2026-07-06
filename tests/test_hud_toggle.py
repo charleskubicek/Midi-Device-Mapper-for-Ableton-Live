@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 
-from source_modules.helpers import Helpers
+from source_modules.helpers import Helpers, SurfaceConfig
 from ableton_control_surface_as_code.core_model import MidiCoords, EncoderType, EncoderMode
 from ableton_control_surface_as_code.gen_code import functions_templates
 from ableton_control_surface_as_code.model_functions import (
@@ -91,11 +91,14 @@ class TestToggleHudRuntime(unittest.TestCase):
         # no slot/switch assignments and no focused device → toggle_hud's show
         # path emits the label-only burst directly on the (mock) remote.
         return Helpers(
-            Mock(), Mock(),
-            slot_assignments=[],
-            switch_slot_assignments=[],
-            parameter_mappings_raw={"devices": []},
-        )
+                   Mock(),
+                   Mock(),
+                   SurfaceConfig(
+                       slot_assignments=[],
+                       switch_slot_assignments=[],
+                       parameter_mappings_raw={"devices": []},
+                   ),
+               )
 
     def test_first_press_hides(self):
         h = self._helpers()

@@ -30,7 +30,7 @@ def _controller(channel="3", midi_range="21-28", channel2=None, range2=None):
     return doc
 
 
-_ROOT_BASE = "controller: ec4.nt\nableton_dir: /tmp\n"
+_ROOT_BASE = "controller: ec4.nt\nableton_dir: /tmp\nhud: on\nshow-hud-on: selection\n"
 
 
 def _two_modes(name1, name2):

@@ -13,6 +13,8 @@ from ableton_control_surface_as_code.model_v2 import (
 _BASE = """\
 controller: ec4.nt
 ableton_dir: /tmp
+hud: on
+show-hud-on: selection
 """
 
 

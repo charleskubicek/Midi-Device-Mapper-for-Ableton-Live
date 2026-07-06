@@ -15,6 +15,7 @@ from . import modules
 from .modules import main_component
 from .modules import helpers
 from .modules.listener import OSCListener
+from .modules import hud_arbiter
 
 try:
     from .modules import functions
@@ -24,6 +25,16 @@ except ImportError:
 class $surface_name(ControlSurface):
     def __init__(self, c_instance):
         super($surface_name, self).__init__(c_instance)
+
+        # HUD-owner election markers. Sibling surfaces read these off
+        # `self._control_surfaces` (Ableton's shared
+        # cross-script registry) to decide who owns the shared HUD sink at
+        # 127.0.0.1:5006 -- set immediately after super().__init__ (which is
+        # where ControlSurface publishes `self` into that registry) so the
+        # window where we're registered but unmarked is as small as possible.
+        self._acsac_hud_enabled = $hud_mode_on
+        self._acsac_surface_name = "$surface_name"
+
         self.ops = None
         self.log_message("$surface_name custom script loaded")
 
@@ -37,15 +48,35 @@ class $surface_name(ControlSurface):
 
             self.init_modules()
 
+            # Elect a single HUD owner among all co-loaded HUD-enabled
+            # surfaces. Re-runs on every control_surfaces change so ownership
+            # self-heals as surfaces load/unload.
+            self._hud_arbiter = hud_arbiter.HudArbiter(self)
+            self._hud_arbiter.register()
+
             self.schedule_message(1, self.tick)
             self.show_message("Connected to $surface_name")
             self.debug = False
-            # Gated HUD protocol-trace flag (hud-protocol-instrumentation-plan).
+            # Gated HUD protocol-trace flag.
             # Off by default; toggled by the `hudtrace` command. Read by
             # Helpers.fine to emit `[hudtrace]` lines for the HUD<->surface path.
             self.fine = False
 
             self.schedule_message(5, self.update_main_component_with_selected_device)
+            # Re-election runs on a recurring tick, not just the
+            # control_surfaces observer registered above: that observer's
+            # method name is Live-API-guessed and unverifiable outside a real
+            # Ableton session, and it fails silently (logged + swallowed) if
+            # wrong. The observer gives near-instant ownership transfer when
+            # it works; this loop is the guarantee that ownership still
+            # converges (within ~1.5s) even if it doesn't -- correctness must
+            # not depend on an assumption we can't test.
+            self.schedule_message(10, self._hud_arbiter_tick)
+
+    def _hud_arbiter_tick(self):
+        self._hud_arbiter.reelect()
+        fifteen_ticks = 15
+        self.schedule_message(fifteen_ticks, self._hud_arbiter_tick)
 
     def update_main_component_with_selected_device(self):
         self.main_component.update_selected_device()
@@ -247,7 +278,7 @@ class $surface_name(ControlSurface):
                 response = b'PONG'
 
             elif cmd == 'HELLO':
-                self.main_component._remote.init_layout(self.main_component._helpers._hud_cells)
+                self.main_component._remote.resend_layout()
                 self.main_component._helpers.update_remote_parameters()
 
             elif cmd == 'GET_DEVICE':
@@ -288,6 +319,7 @@ class $surface_name(ControlSurface):
                         self.log_message(traceback.format_exc())
 
                     importlib.reload(modules.helpers)
+                    importlib.reload(modules.hud_arbiter)
                     importlib.reload(modules.main_component)
 
                     if self.functions_file_exsits():
@@ -374,6 +406,10 @@ class $surface_name(ControlSurface):
 
     def disconnect(self):
         self.show_message("Disconnecting...")
+        try:
+            self._hud_arbiter.unregister()
+        except Exception as e:
+            self.log_message(f"Error unregistering HUD arbiter: {e}")
         try:
             self.main_component.remove_app_view_listeners()
         except Exception as e:

@@ -116,7 +116,7 @@ def _render_assignments_by_mode(by_mode: dict) -> str:
     return "{" + ", ".join(parts) + "}"
 
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.ControllerNav, feedback=None, outputs=None, hud_cells_override=None) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.Selection, feedback=None, outputs=None, hud_cells_override=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
     # Global wire-index allocation: every physical control on the surface
@@ -208,6 +208,10 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         }
 
     hud_client_class = 'NullHudClient' if hud_mode == HudMode.Off else 'HudClient'
+    # Election marker: a HUD-off surface must never win HUD-owner election
+    # and silence a real one, so this mirrors the same
+    # condition used for hud_client_class above.
+    hud_mode_on = hud_mode != HudMode.Off
 
     # Generic feedback sinks listed under `feedback:` in the mapping file. Each
     # maps to a constructor expression rendered into main_component.py. The HUD
@@ -240,7 +244,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         # boundary: the generated surface evals this literal without needing the
         # NamedTuple classes in scope. Helpers.__init__ re-wraps cells via
         # LayoutCell.from_raw; label keys stay (kind, wire_idx) tuples, which the
-        # runtime looks up with plain tuples anyway (R3 step 5).
+        # runtime looks up with plain tuples anyway.
         'hud_cells': repr([tuple(c) for c in hud_cells_raw]),
         'mode_hud_labels': repr({
             mode_name: {tuple(k): v for k, v in labels.items()}
@@ -250,6 +254,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         'code_switch_slot_assignments_by_mode': _render_assignments_by_mode(switch_slot_assignments_by_mode),
         'code_pager_preview_mode': repr(pager_preview_mode),
         'hud_client_class': hud_client_class,
+        'hud_mode_on': repr(hud_mode_on),
         'hud_trigger': repr(hud_trigger.value),
         # Hardware button mode (momentary vs toggle): drives the runtime
         # press-once guard so the same mapping works on both kinds of hardware.
@@ -315,8 +320,6 @@ def write_templates(template_path: Path, target: Path, vars: dict):
     template_file(root_dir, template_path / 'surface_name', vars, "__init__.py", "__init__.py")
     template_file(root_dir, template_path / 'surface_name', vars, f'modules/main_component.py',
                   f"modules/main_component.py", verify_python=True)
-    # template_file(root_dir, template_path / 'surface_name', vars, "modules/helpers.py", "modules/helpers.py")
-    # template_file(root_dir, template_path / 'surface_name', vars, "modules/nav.py", "modules/nav.py")
     template_file(root_dir, template_path / 'surface_name', vars, 'surface_name.py', f"{vars['surface_name']}.py")
     template_file(root_dir, template_path, vars, 'deploy.sh', 'deploy.sh')
     template_file(root_dir, template_path, vars, 'tail_logs.sh', 'tail_logs.sh')
@@ -332,8 +335,7 @@ def template_file(root_dir, template_path, vars: dict, source_file_name, target_
     if verify_python:
         err = get_python_code_error(new_text)
         if err is not None:
-            error_text = f"Code failed validation for file {target_file}: error {err}"
-            print("\033[31m" + error_text + ".\033[0m")
+            raise RuntimeError(f"Code failed validation for file {target_file}: error {err}")
 
     target_file.write_text(new_text)
 
@@ -611,5 +613,3 @@ if __name__ == '__main__':
         # message and exit non-zero, without a Python traceback.
         print(f"\nCould not generate from {script_file}:\n{e}", file=sys.stderr)
         sys.exit(1)
-    #     # exit(-1)
-    #     # sys.exit(e.error_code)

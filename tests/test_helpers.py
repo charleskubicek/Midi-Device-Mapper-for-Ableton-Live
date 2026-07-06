@@ -2,7 +2,7 @@ import unittest
 from dataclasses import dataclass, field
 from unittest.mock import Mock
 
-from source_modules.helpers import Helpers, ParameterMapping, Remote, SwitchSlotMapping
+from source_modules.helpers import Helpers, ParameterMapping, Remote, SwitchSlotMapping, SurfaceConfig
 from source_modules.hud_protocol import EMPTY_SLOT, SlotPayload, BurstSnapshot, PageInfo
 
 
@@ -98,7 +98,7 @@ class TestButtonEdgeGuard(unittest.TestCase):
     This is the fix for the toggle-hardware-fires-every-other-press regression."""
 
     def _helpers(self, behaviour):
-        return Helpers(Mock(), Mock(), button_behaviour=behaviour)
+        return Helpers(Mock(), Mock(), SurfaceConfig(button_behaviour=behaviour))
 
     def test_momentary_acts_on_down_not_release(self):
         h = self._helpers('momentary')
@@ -145,11 +145,14 @@ class TestEncoderResolution(unittest.TestCase):
         self.manager = Mock()
         self.remote = Mock()
         self.helpers = Helpers(
-            self.manager, self.remote,
-            slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
-            switch_slot_assignments=[(0, 1), (1, 2)],
-            parameter_mappings_raw=_amp_mappings(),
-        )
+                           self.manager,
+                           self.remote,
+                           SurfaceConfig(
+                               slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
+                               switch_slot_assignments=[(0, 1), (1, 2)],
+                               parameter_mappings_raw=_amp_mappings(),
+                           ),
+                       )
 
     def test_encoder_resolves_to_json_entry(self):
         device = FakeDevice(
@@ -177,11 +180,14 @@ class TestEncoderFallbackSkipsQuantized(unittest.TestCase):
 
     def setUp(self):
         self.helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=None,  # no file → fully fallback
-        )
+                           Mock(),
+                           Mock(),
+                           SurfaceConfig(
+                               slot_assignments=[(1, 'slot1'), (2, 'slot2'), (3, 'slot3')],
+                               switch_slot_assignments=[],
+                               parameter_mappings_raw=None,
+                           ),
+                       )
 
     def test_encoders_skip_quantized_in_fallback(self):
         # idx 0 = on/off; 1 = quantized (skip); 2 = continuous; 3 = quantized (skip); 4 = continuous; 5 = continuous
@@ -209,11 +215,14 @@ class TestEncoderFallbackSkipsQuantized(unittest.TestCase):
 class TestSwitchAction(unittest.TestCase):
     def setUp(self):
         self.helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[],
-            switch_slot_assignments=[(0, 1), (1, 2)],
-            parameter_mappings_raw=_amp_mappings(),
-        )
+                           Mock(),
+                           Mock(),
+                           SurfaceConfig(
+                               slot_assignments=[],
+                               switch_slot_assignments=[(0, 1), (1, 2)],
+                               parameter_mappings_raw=_amp_mappings(),
+                           ),
+                       )
 
     def test_switch_with_range_cycles(self):
         device = FakeDevice(
@@ -301,16 +310,19 @@ class TestSimplerEncoderRegression(unittest.TestCase):
     def _helpers(self, raw_buttons):
         # 16 encoder slots (two rows of 8) — matches ck_launch_control_16.
         return Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
-            switch_slot_assignments=[(0, 1)],
-            parameter_mappings_raw={"devices": [{
+                   Mock(),
+                   Mock(),
+                   SurfaceConfig(
+                       slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+                       switch_slot_assignments=[(0, 1)],
+                       parameter_mappings_raw={"devices": [{
                 "className": "OriginalSimpler",
                 "encoders": self.SIMPLER_ENCODERS,
                 "buttons": raw_buttons,
             }]},
-            encoder_slot_count=16,
-        )
+                       encoder_slot_count=16,
+                   ),
+               )
 
     def _device(self):
         entries = [(e['number'], e['name']) for e in self.SIMPLER_ENCODERS]
@@ -402,15 +414,18 @@ class FakeSimpler:
 class TestLomButtonActions(unittest.TestCase):
     def _make(self, buttons):
         return Helpers(
-            Mock(), Mock(),
-            slot_assignments=[],
-            switch_slot_assignments=[(0, 1)],
-            parameter_mappings_raw={"devices": [{
+                   Mock(),
+                   Mock(),
+                   SurfaceConfig(
+                       slot_assignments=[],
+                       switch_slot_assignments=[(0, 1)],
+                       parameter_mappings_raw={"devices": [{
                 "className": "OriginalSimpler",
                 "encoders": [],
                 "buttons": buttons,
             }]},
-        )
+                   ),
+               )
 
     def test_enum_button_cycles_through_members(self):
         helpers = self._make([{"lom_property": "playback_mode", "type": "enum"}])
@@ -482,11 +497,14 @@ class TestGroupedEncoder(unittest.TestCase):
 
     def setUp(self):
         self.helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1'), (2, 'slot2')],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=self._mappings(),
-        )
+                           Mock(),
+                           Mock(),
+                           SurfaceConfig(
+                               slot_assignments=[(1, 'slot1'), (2, 'slot2')],
+                               switch_slot_assignments=[],
+                               parameter_mappings_raw=self._mappings(),
+                           ),
+                       )
 
     def test_grouped_encoder_routes_to_member_for_selector_value_0(self):
         device = self._make_device(selector_value=0)
@@ -547,20 +565,23 @@ class TestPager(unittest.TestCase):
         # Two-bank fake device on an 8-slot controller: 1 BOB page + 1 standard
         # bank page = 2 pages total (banks_per_page=1 when slot_count<16).
         self.helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1'), (2, 'slot2')],
-            switch_slot_assignments=[],
-            parameter_mappings_raw={
+                           Mock(),
+                           Mock(),
+                           SurfaceConfig(
+                               slot_assignments=[(1, 'slot1'), (2, 'slot2')],
+                               switch_slot_assignments=[],
+                               parameter_mappings_raw={
                 "devices": [{
                     "className": "Big",
                     "encoders": [{"name": "p1"}],
                     "buttons": [],
                 }]
             },
-            encoder_slot_count=8,
-            device_banks={'Big': (('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'),)},
-            bank_names={'Big': ('Main',)},
-        )
+                               encoder_slot_count=8,
+                               device_banks={'Big': (('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'),)},
+                               bank_names={'Big': ('Main',)},
+                           ),
+                       )
 
     def test_encoder_page_inc_dec_within_bounds(self):
         device = FakeDevice(
@@ -810,6 +831,29 @@ class TestHudLayoutSeparation(unittest.TestCase):
             "Expected one SLOT|button per button cell slot even when no params resolved")
 
 
+class TestRemoteResendLayout(unittest.TestCase):
+    """Remote.resend_layout() is the public re-handshake entry point (HELLO
+    handler, HudArbiter re-election on ownership change) — callers must never
+    reach through Remote into its stored `_hud_cells` themselves."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_resends_stored_layout(self):
+        hud_cells = [(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 0)]
+        self.remote.init_layout(hud_cells)
+        self.hud.reset_mock()
+
+        self.remote.resend_layout()
+
+        self.hud.send_layout.assert_called_once_with(self.remote._hud_cells)
+
+    def test_no_op_when_no_layout_known(self):
+        self.remote.resend_layout()
+        self.hud.send_layout.assert_not_called()
+
+
 class TestDenseSymmetricEmission(unittest.TestCase):
     """Dials and buttons must follow the same emission rule: one SLOT per cell
     position, whether or not a parameter resolves. Empty slots use the
@@ -941,43 +985,21 @@ class TestRefreshBurst(unittest.TestCase):
         self.hud.send_page_info.assert_called_once_with(2, 4, 1, 2, 'Best of', 'Toggles')
 
 
-class TestSurfaceConfigEquivalence(unittest.TestCase):
-    """SurfaceConfig (the template path) and the legacy keyword path must build
-    an identically-configured Helpers."""
-
-    def test_config_object_matches_legacy_kwargs(self):
-        from source_modules.helpers import SurfaceConfig
-        kwargs = dict(
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(4, 1)],
-            parameter_mappings_raw=None,
-            encoder_slot_count=16,
-            hud_cells=[(0, 0, 'dial', 8, 0, 0)],
-            hud_trigger='selection',
-        )
-        legacy = Helpers(Mock(), Mock(), **kwargs)
-        via_config = Helpers(Mock(), Mock(), SurfaceConfig(**kwargs))
-        self.assertEqual(legacy._presenter._slot_assignments, via_config._presenter._slot_assignments)
-        self.assertEqual(legacy._presenter._switch_slot_assignments,
-                         via_config._presenter._switch_slot_assignments)
-        self.assertEqual(legacy._resolver._banks_per_page, via_config._resolver._banks_per_page)
-        self.assertEqual(legacy._presenter._visibility.trigger,
-                         via_config._presenter._visibility.trigger)
-        self.assertEqual(legacy._presenter._hud_cells, via_config._presenter._hud_cells)
-
-
 def _simpler_with_4_switches(buttons):
     """Helper: Helpers instance with 4 physical switches, matching the LC setup."""
     return Helpers(
-        Mock(), Mock(),
-        slot_assignments=[],
-        switch_slot_assignments=[(4, 1), (5, 2), (6, 3), (7, 4)],
-        parameter_mappings_raw={"devices": [{
+               Mock(),
+               Mock(),
+               SurfaceConfig(
+                   slot_assignments=[],
+                   switch_slot_assignments=[(4, 1), (5, 2), (6, 3), (7, 4)],
+                   parameter_mappings_raw={"devices": [{
             "className": "OriginalSimpler",
             "encoders": [],
             "buttons": buttons,
         }]},
-    )
+               ),
+           )
 
 
 def _simpler_device(param_names):
@@ -1072,11 +1094,14 @@ class TestButtonPagingUnknownClass(unittest.TestCase):
 
     def test_unknown_class_still_uses_button_slot_count(self):
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[],
-            switch_slot_assignments=[(0, 1), (1, 2)],
-            button_slot_count=2,
-        )
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[],
+                          switch_slot_assignments=[(0, 1), (1, 2)],
+                          button_slot_count=2,
+                      ),
+                  )
         params = [FakeParameter(name="q0", is_quantized=True, min=0, max=1),
                   FakeParameter(name="q1", is_quantized=True, min=0, max=1),
                   FakeParameter(name="q2", is_quantized=True, min=0, max=1),
@@ -1130,11 +1155,14 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
 
     def test_matching_m4l_device_resolves_to_its_own_entry(self):
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 1)],
-            parameter_mappings_raw=self._mappings(),
-        )
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[(1, 'slot1')],
+                          switch_slot_assignments=[(0, 1)],
+                          parameter_mappings_raw=self._mappings(),
+                      ),
+                  )
         device = FakeDevice(
             class_name="MxDeviceMidiEffect", name="Other M4L",
             parameters=[
@@ -1152,11 +1180,14 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
         """An M4L device with no JSON entry must not pick up another M4L
         device's mapping. It should be treated as unknown."""
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 1)],
-            parameter_mappings_raw=self._mappings(),
-        )
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[(1, 'slot1')],
+                          switch_slot_assignments=[(0, 1)],
+                          parameter_mappings_raw=self._mappings(),
+                      ),
+                  )
         device = FakeDevice(
             class_name="MxDeviceMidiEffect", name="Yet Another M4L",
             parameters=[
@@ -1174,13 +1205,16 @@ class TestM4LDeviceDisambiguation(unittest.TestCase):
         """Even if a class_name collision existed in DEVICE_BANKS, no M4L
         plugin should ever receive standard-bank pages."""
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=None,
-            device_banks={"MxDeviceMidiEffect": (("X", "Y", "Z", "W", "V", "U", "T", "S"),)},
-            bank_names={},
-        )
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[],
+                          switch_slot_assignments=[],
+                          parameter_mappings_raw=None,
+                          device_banks={"MxDeviceMidiEffect": (("X", "Y", "Z", "W", "V", "U", "T", "S"),)},
+                          bank_names={},
+                      ),
+                  )
         device = FakeDevice(class_name="MxDeviceMidiEffect", name="Anything")
         self.assertEqual(helpers._resolver.standard_banks(device), ())
 
@@ -1209,14 +1243,18 @@ class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
         banks = {"Reverb": (tuple(bank_names_in_order[:8]), tuple(bank_names_in_order[8:]))}
         hud = Mock()
         helpers = Helpers(
-            Mock(), Remote(manager=Mock(), osc_client=Mock(), hud_client=hud),
-            slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=None,
-            encoder_slot_count=16,
-            hud_cells=[(0, 0, 'dial', 16, 0)],
-            device_banks=banks, bank_names={},
-        )
+                      Mock(),
+                      Remote(manager=Mock(), osc_client=Mock(), hud_client=hud),
+                      SurfaceConfig(
+                          slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+                          switch_slot_assignments=[],
+                          parameter_mappings_raw=None,
+                          encoder_slot_count=16,
+                          hud_cells=[(0, 0, 'dial', 16, 0)],
+                          device_banks=banks,
+                          bank_names={},
+                      ),
+                  )
         # encoder 1 fails to resolve (bank says "In Filter Freq" — i.e. WRONG_NAME);
         # encoder 13 resolves to "HiShelf Gain"
         self.assertIsNone(helpers._resolver.resolve_encoder(device, 1))
@@ -1254,14 +1292,17 @@ class TestBankResolverFallsBackToDisplayName(unittest.TestCase):
         ]
         device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=None,
-            encoder_slot_count=16,
-            device_banks={"Reverb": (("In Filter Freq", "x", "x", "x", "x", "x", "x", "x"),)},
-            bank_names={},
-        )
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[(1, 'slot1')],
+                          switch_slot_assignments=[],
+                          parameter_mappings_raw=None,
+                          encoder_slot_count=16,
+                          device_banks={"Reverb": (("In Filter Freq", "x", "x", "x", "x", "x", "x", "x"),)},
+                          bank_names={},
+                      ),
+                  )
         rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNotNone(rp, "bank resolver should fall back to Parameter.name")
         self.assertIs(rp.param, params[1])
@@ -1277,7 +1318,7 @@ class TestBankResolverFallsBackToDisplayName(unittest.TestCase):
         params = [FakeParameter(name="Device On", original_name="Device On"),
                   authored, collider]
         device = FakeDevice(class_name="Rack", name="Rack", parameters=params)
-        helpers = Helpers(Mock(), Mock(), parameter_mappings_raw=None)
+        helpers = Helpers(Mock(), Mock(), SurfaceConfig(parameter_mappings_raw=None))
         self.assertIs(helpers._resolver.resolve_param_by_name(device, "Macro 1"), authored)
 
 
@@ -1291,14 +1332,17 @@ class TestBankResolveLogsAvailableNames(unittest.TestCase):
                   FakeParameter(name="Real", original_name="Real")]
         device = FakeDevice(class_name="Reverb", name="Reverb", parameters=params)
         helpers = Helpers(
-            manager, Mock(),
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[],
-            parameter_mappings_raw=None,
-            encoder_slot_count=16,
-            device_banks={"Reverb": (("Not Real", "x", "x", "x", "x", "x", "x", "x"),)},
-            bank_names={},
-        )
+                      manager,
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[(1, 'slot1')],
+                          switch_slot_assignments=[],
+                          parameter_mappings_raw=None,
+                          encoder_slot_count=16,
+                          device_banks={"Reverb": (("Not Real", "x", "x", "x", "x", "x", "x", "x"),)},
+                          bank_names={},
+                      ),
+                  )
         rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNone(rp)
         manager.log_message.assert_called()
@@ -1325,15 +1369,18 @@ class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
         device = FakeDevice(class_name="AudioEffectGroupDevice", name="MyRack",
                             parameters=params)
         helpers = Helpers(
-            Mock(), Mock(),
-            slot_assignments=[(1, 'slot1')],
-            switch_slot_assignments=[(0, 1)],
-            parameter_mappings_raw=mappings,
-            device_banks={"AudioEffectGroupDevice": (
+                      Mock(),
+                      Mock(),
+                      SurfaceConfig(
+                          slot_assignments=[(1, 'slot1')],
+                          switch_slot_assignments=[(0, 1)],
+                          parameter_mappings_raw=mappings,
+                          device_banks={"AudioEffectGroupDevice": (
                 ("Macro 1", "Macro 2", "Macro 3", "Macro 4",
                  "Macro 5", "Macro 6", "Macro 7", "Macro 8"),)},
-            bank_names={},
-        )
+                          bank_names={},
+                      ),
+                  )
         rp = helpers._resolver.resolve_encoder(device, 1)
         self.assertIsNotNone(rp, "encoder 1 should resolve to Macro 1 on page 1")
         self.assertIs(rp.param, params[1])

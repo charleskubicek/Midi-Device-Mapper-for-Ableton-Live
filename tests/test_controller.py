@@ -182,6 +182,63 @@ class TestBuildModeModelV2(unittest.TestCase):
         self.assertEqual(e[14].number, 54)
         self.assertEqual(tps, EncoderType.button)
 
+    def _multi_block_grid_controller(self):
+        """Four physical 4x4 `layout: grid` blocks in a right_of chain, mirroring
+        controller_grid.nt: block1 buttons, block2 knobs, block3 knobs, block4
+        buttons. Unlike the ec4 (rows merged by type), each grid block is its own
+        grid-N."""
+        groups = [
+            ControlGroupPartV2(layout='grid', number=1, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='0-15',
+                               rows=4, columns=4),
+            ControlGroupPartV2(layout='grid', number=2, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='48-63',
+                               rows=4, columns=4, right_of=1),
+            ControlGroupPartV2(layout='grid', number=3, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='32-47',
+                               rows=4, columns=4, right_of=2),
+            ControlGroupPartV2(layout='grid', number=4, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='64-79',
+                               rows=4, columns=4, right_of=3),
+        ]
+        return ControllerV2.build_from(build_raw_controller_v2(groups))
+
+    def test_each_grid_block_is_its_own_grid(self):
+        # grid-3 must resolve to physical block 3 (knobs, CC 32-47), not a
+        # type-merged bucket. There are 4 grids, one per block.
+        controller = self._multi_block_grid_controller()
+        e, tps = controller.build_midi_coords(
+            EncoderCoords(row=3, range_=(1, 16), axis_kind="grid", encoder_refs=[]))
+        self.assertEqual(16, len(e))
+        self.assertEqual([c.number for c in e], list(range(32, 48)))
+        self.assertEqual(tps, EncoderType.knob)
+
+    def test_grid_4_is_fourth_block_not_out_of_range(self):
+        controller = self._multi_block_grid_controller()
+        e, tps = controller.build_midi_coords(
+            EncoderCoords(row=4, range_=(1, 1), axis_kind="grid", encoder_refs=[]))
+        self.assertEqual(1, len(e))
+        self.assertEqual(e[0].number, 64)
+        self.assertEqual(tps, EncoderType.button)
+
+    def test_grid_block_2d_indexing_stays_within_block(self):
+        # grid-4:4::1 = block 4, row 4, col 1 -> idx 12 within the block.
+        controller = self._multi_block_grid_controller()
+        e, tps = controller.build_midi_coords(
+            EncoderCoords(row=4, grid_row=4, range_=(1, 1), axis_kind="grid",
+                          encoder_refs=[]))
+        self.assertEqual(1, len(e))
+        self.assertEqual(e[0].number, 64 + 12)
+
+    def test_multi_block_grid_out_of_range_reports_four_grids(self):
+        controller = self._multi_block_grid_controller()
+        with self.assertRaises(GenError) as ctx:
+            controller.build_midi_coords(
+                EncoderCoords(row=5, range_=(1, 1), axis_kind="grid", encoder_refs=[]))
+        msg = str(ctx.exception)
+        self.assertIn('grid', msg)
+        self.assertIn('4', msg)  # how many grids exist
+
     def test_grid_number_out_of_range_raises_readable_error(self):
         controller = self._ec4_style_controller()
         with self.assertRaises(GenError) as ctx:

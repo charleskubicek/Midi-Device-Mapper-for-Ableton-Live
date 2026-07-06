@@ -7,12 +7,15 @@ from ableton_control_surface_as_code.model_v2 import (
 from ableton_control_surface_as_code.gen import generate_code_as_template_vars
 from source_modules.helpers import Helpers
 from source_modules.helpers import Remote
+from source_modules.helpers import SurfaceConfig
 from tests.builders import build_mixer_with_midi, midi_coords_ch2_cc_50_knob
 
 
+# `hud` is required; `show-hud-on` is appended per-test (or asserted missing).
 _BASE = """\
 controller: ec4.nt
 ableton_dir: /tmp
+hud: on
 """
 
 
@@ -27,9 +30,11 @@ class FakeDevice:
 # Parsing: the new `show-hud-on:` trigger key.
 # ---------------------------------------------------------------------------
 class TestShowHudOnParsing(unittest.TestCase):
-    def test_defaults_to_controller_nav(self):
-        root = read_root(_BASE)
-        self.assertEqual(root.show_hud_on, HudTrigger.ControllerNav)
+    def test_missing_show_hud_on_raises(self):
+        # show-hud-on is required now — omitting it is a config error, not a
+        # silent default. (The message lists the allowed values.)
+        with self.assertRaises(Exception):
+            read_root(_BASE)
 
     def test_controller_nav_parsed(self):
         root = read_root(_BASE + "show-hud-on: controller-nav\n")
@@ -56,9 +61,11 @@ class TestShowHudOnCodegen(unittest.TestCase):
         )
         return generate_code_as_template_vars(m, **kwargs)
 
-    def test_default_trigger_is_controller_nav(self):
+    def test_default_trigger_is_selection(self):
+        # The codegen fallback errs toward shown (Selection), matching the
+        # "never silently hide" invariant.
         res = self._vars()
-        self.assertEqual(res['hud_trigger'], "'controller-nav'")
+        self.assertEqual(res['hud_trigger'], "'selection'")
 
     def test_controller_nav_trigger_rendered(self):
         res = self._vars(hud_trigger=HudTrigger.ControllerNav)
@@ -71,7 +78,7 @@ class TestShowHudOnCodegen(unittest.TestCase):
 # ---------------------------------------------------------------------------
 class TestHelpersBurstGating(unittest.TestCase):
     def _helpers(self, trigger):
-        return Helpers(Mock(), Mock(), hud_trigger=trigger)
+        return Helpers(Mock(), Mock(), SurfaceConfig(hud_trigger=trigger))
 
     def _suppress_arg(self, remote):
         # device_update is called with a keyword suppress_hud=...

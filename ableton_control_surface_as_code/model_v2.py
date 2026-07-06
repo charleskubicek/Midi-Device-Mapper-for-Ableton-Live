@@ -67,8 +67,10 @@ class HudMode(str, Enum):
 
 class HudTrigger(str, Enum):
     """When the HUD burst is allowed to fire. Orthogonal to HudMode (which is
-    *content*): this is *when it shows*.
-      - Selection: follows Live's selected device (the 1.5s poll) — the default.
+    *content*): this is *when it shows*. Required in every surface config (no
+    silent default) — see `read_root`.
+      - Selection: follows Live's selected device (the 1.5s poll); shows on any
+        device change, mouse or controller.
       - ControllerNav: only a controller device-nav action shows the HUD;
         selection changes from the mouse / track-select stay silent."""
     Selection = 'selection'
@@ -140,7 +142,10 @@ class RootV2(BaseModel):
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
     hud: HudMode = HudMode.On
-    show_hud_on: HudTrigger = HudTrigger.ControllerNav
+    # Built model: always constructed with an explicit value from the (now
+    # required) parsed model, so this default is only a safety net for direct
+    # construction — kept as Selection so nothing ever silently hides the HUD.
+    show_hud_on: HudTrigger = HudTrigger.Selection
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
 
@@ -156,8 +161,10 @@ class RootV2ModesOrModeless(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
-    hud: HudMode = HudMode.On
-    show_hud_on: HudTrigger = Field(default=HudTrigger.ControllerNav, alias='show-hud-on')
+    # Required — no default. A surface must state what the HUD shows and when it
+    # appears; `read_root` pre-checks their presence for a friendly error.
+    hud: HudMode
+    show_hud_on: HudTrigger = Field(alias='show-hud-on')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
 
@@ -406,6 +413,15 @@ def read_root(mapping_path, source: str = "mapping file", acc=None) -> RootV2:
             raise GenError(
                 f"Invalid config in {source}: expected a mapping (key: value) at the "
                 f"top level, got a {type(data).__name__}.", ErrorCode.CONFIG_VALIDATION)
+        missing = [k for k in ('hud', 'show-hud-on') if k not in data]
+        if missing:
+            raise GenError(
+                f"Invalid config in {source}: missing required HUD setting(s): "
+                f"{', '.join(missing)}. Every surface must state both explicitly:\n"
+                f"  - hud: on | device_only | off            (what the HUD shows)\n"
+                f"  - show-hud-on: selection | controller-nav (when it appears)\n"
+                f"See any config under live_surfaces/ for the documented block.",
+                ErrorCode.CONFIG_VALIDATION)
         root = RootV2ModesOrModeless(**data).buildRootV2()
     except nt.NestedTextError as e:
         e.terminate()

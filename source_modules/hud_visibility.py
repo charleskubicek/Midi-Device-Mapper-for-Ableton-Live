@@ -81,8 +81,8 @@ class HudVisibility:
         self.trigger = trigger
         # Mirrors the Swift sticky dismissed flag.
         self.dismissed = False
-        # Gated trace sink (Part A of hud-protocol-instrumentation-plan). Off by
-        # default so unit tests and pre-flag surfaces stay silent.
+        # Gated trace sink. Off by default so unit tests and pre-flag
+        # surfaces stay silent.
         self._fine = fine or (lambda msg: None)
 
     def decide(self, event) -> Decision:

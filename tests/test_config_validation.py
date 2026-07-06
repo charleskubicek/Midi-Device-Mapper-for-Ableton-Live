@@ -11,6 +11,8 @@ from tests.custom_assertions import CustomAssertions
 _ROOT_BASE = """\
 controller: ec4.nt
 ableton_dir: /tmp
+hud: on
+show-hud-on: selection
 """
 
 _CONTROLLER_BASE = """\

@@ -1,7 +1,7 @@
 """Generate a per-surface BEHAVIOR.md: one row per button describing, in plain
 words, what a single press does. Doubles as living documentation of the
-press-once-by-default model (see momentary-vs-toggle-made-explicit-plan):
-buttons act once on press unless they carry the `momentary` refinement.
+press-once-by-default model: buttons act once on press unless they carry
+the `momentary` refinement.
 
 Pure codegen — no runtime cost. Built from the resolved ModeGroupWithMidi so it
 reflects exactly what the generated surface will do."""

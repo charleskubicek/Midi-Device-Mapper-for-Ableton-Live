@@ -80,12 +80,9 @@ class SurfaceConfig:
 
 
 class Helpers:
-    def __init__(self, manager, remote, config: 'SurfaceConfig' = None, **legacy):
-        # Back-compat: older call sites (and tests) pass the static config as
-        # keyword args; bundle them into a SurfaceConfig. The generated template
-        # passes a SurfaceConfig directly.
+    def __init__(self, manager, remote, config: 'SurfaceConfig' = None):
         if config is None:
-            config = SurfaceConfig(**legacy)
+            config = SurfaceConfig()
         self._manager = manager
         self._remote = remote
         # Generated surfaces bake hud_cells as plain tuples (see gen.py boundary);
@@ -175,7 +172,7 @@ class Helpers:
         self._manager.log_message(message)
 
     def fine(self, message):
-        """Gated protocol-trace channel (hud-protocol-instrumentation-plan).
+        """Gated protocol-trace channel.
         Silent unless the surface's `manager.fine` flag is on; every line is
         `[hudtrace]`-tagged so a captured trace is greppable in tail_logs.sh.
         Threaded into HudPresenter/HudVisibility the same way `log_message` is."""
@@ -183,10 +180,11 @@ class Helpers:
             self._manager.log_message(f"[hudtrace] {message}")
 
     def selected_device_changed(self, device, source='selection'):
-        # THE funnel: both device_nav_* and on_device_selected pass through here,
-        # and the same-device guard below is where Bug 1's nav-then-listener race
-        # is decided. Trace device + source + whether the guard short-circuited so
-        # a captured HIDE can be attributed to its cause.
+        # Both device_nav_* and on_device_selected pass through here, and the
+        # same-device guard below is where a nav-call-vs-listener-fire race
+        # gets decided (see the [hudtrace] lines in device_nav_* / on_device_selected
+        # for the ordering evidence). Trace device + source + whether the guard
+        # short-circuited so a captured HIDE can be attributed to its cause.
         dev_name = getattr(device, 'name', None)
         if device is None or device == self._last_selected_device:
             self.fine(
@@ -207,7 +205,7 @@ class Helpers:
         self._resolver.ensure_focused(device)
         self._attach_group_selector_listeners(device)
         self._log_device_focus(device)
-        # show-hud-on gating now lives in the HudVisibility table (R10): in
+        # show-hud-on gating lives in the HudVisibility table: in
         # 'controller-nav' mode only an explicit nav action shows the HUD; a
         # selection-poll change still remaps encoders + pushes OSC but the HUD
         # burst is suppressed (and HIDE sent). 'selection' mode never suppresses.
@@ -352,7 +350,7 @@ class Helpers:
             nxt = members[(idx + 1) % len(members)]
             try:
                 setattr(device, prop, nxt)
-            except (TypeError, Exception):
+            except Exception:
                 try:
                     setattr(device, prop, int(nxt))
                 except Exception:
@@ -571,6 +569,14 @@ class Remote:
         if self._hud_cells:
             self._hud_client.send_layout(self._hud_cells)
 
+    def resend_layout(self):
+        """Re-emit the stored LAYOUT without re-deriving it. Public entry point
+        for re-handshake callers (HELLO command, HudArbiter on election) that
+        need the layout Remote already holds -- they must not reach into
+        Remote's private `_hud_cells` themselves."""
+        if self._hud_cells:
+            self._hud_client.send_layout(self._hud_cells)
+
     def hide(self):
         """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
         self._hud_client.send_hide()
@@ -643,16 +649,10 @@ class Remote:
                     self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
                     count += 1
                 self._hud_client.commit(count)
-            # Fan the whole snapshot out to generic feedback sinks (EC4 readouts,
-            # etc.). on_burst(snapshot) gives sinks room to grow; older sinks
-            # implementing only on_device_burst are bridged for one release.
+            # Fan the whole snapshot out to generic feedback sinks (EC4 readouts, etc.).
             for sink in self._feedback_sinks:
                 try:
-                    if hasattr(sink, 'on_burst'):
-                        sink.on_burst(snapshot)
-                    else:
-                        sink.on_device_burst(snapshot.device_name,
-                                             list(snapshot.dials), list(snapshot.buttons))
+                    sink.on_burst(snapshot)
                 except Exception as e:
                     # Surface log so a sink mismatch is visible in tail_logs.sh
                     # rather than silently swallowed during a burst.

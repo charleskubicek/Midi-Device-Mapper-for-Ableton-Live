@@ -241,18 +241,29 @@ class ControllerV2:
         return ControllerV2(control_groups, c.light_colors, c.encoder_mode, c.button_behaviour)
 
     def _grids(self) -> List[List[ControlGroup]]:
-        """Group control groups into grids by control `type`, ordered by first
-        appearance in spatial reading order (`(grid_row, grid_col)`, the same
-        sort key used in hud_layout.allocate_global_layout). Each grid is a list
-        of ControlGroups already in layout order. On the ec4 this yields
-        grid-1 = knobs, grid-2 = buttons."""
-        by_type, order = {}, []
+        """Return the logical grids that `grid-N` indexes, ordered by spatial
+        reading order (`(grid_row, grid_col)`, the same sort key used in
+        hud_layout.allocate_global_layout).
+
+        A `layout: grid` group (`columns` set) is already a complete 2D grid, so
+        each such block is its own grid — on a 4-block controller this yields
+        grid-1..grid-4, one per physical block. `layout: row` groups (`columns`
+        None) are 1D strips that merge with same-type strips into one grid — on
+        the ec4 this yields grid-1 = knobs, grid-2 = buttons. Each grid is a list
+        of ControlGroups in layout order."""
+        grids = []                 # (sort_key, [ControlGroup]) in first-seen order
+        row_bucket_index = {}      # type -> index into `grids` of its merged strip
         for g in sorted(self.control_groups, key=lambda g: (g.grid_row, g.grid_col)):
-            if g.type not in by_type:
-                by_type[g.type] = []
-                order.append(g.type)
-            by_type[g.type].append(g)
-        return [by_type[t] for t in order]
+            key = (g.grid_row, g.grid_col)
+            if g.columns is not None:
+                grids.append((key, [g]))
+            elif g.type in row_bucket_index:
+                grids[row_bucket_index[g.type]][1].append(g)
+            else:
+                row_bucket_index[g.type] = len(grids)
+                grids.append((key, [g]))
+        grids.sort(key=lambda gk: gk[0])
+        return [group for _, group in grids]
 
     def _resolve_grid_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
         grids = self._grids()

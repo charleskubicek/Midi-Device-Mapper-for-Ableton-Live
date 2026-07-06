@@ -230,7 +230,7 @@ $code_setup_listeners
         self.manager.log_message(message)
 
     def fine(self, message):
-        # Gated protocol-trace channel (hud-protocol-instrumentation-plan):
+        # Gated protocol-trace channel:
         # silent unless `manager.fine` is on (toggle with `update.py hudtrace`).
         # Delegates to Helpers.fine so all `[hudtrace]` lines share one gate/tag.
         self._helpers.fine(message)
@@ -242,9 +242,12 @@ $code_setup_listeners
     # show-hud-on='controller-nav'. track-nav keeps the default 'selection'
     # source (silent in controller-nav mode, per the show-hud-on contract).
     # Each nav method logs the focused device name before and after the _nav
-    # call. A synchronous appointed-device listener fire inside scroll_view shows
-    # up as on_device_selected's line landing *between* these two (single-threaded
-    # log order = execution order) — the Bug 1 ordering signal.
+    # call, so a [hudtrace] capture shows whether Live's appointed-device
+    # listener fired synchronously inside scroll_view: if it did,
+    # on_device_selected's line lands *between* these two (single-threaded
+    # log order = execution order), which matters because that ordering
+    # decides whether selected_device_changed's same-device guard sees the
+    # nav call or the listener call first.
     def device_nav_left(self):
         self.fine(f"[nav] device_nav_left enter dev={getattr(self.selected_device(),'name',None)!r}")
         self._nav.device_nav_left()
@@ -307,7 +310,8 @@ $code_setup_listeners
         # HUD: refresh labels for the new mode's bindings (mixer/functions/etc.).
         # Device-bound slots are repopulated by the next selected_device_changed.
         # Trace the order of refresh_hud_for_mode -> send_mode -> mode_sender:
-        # Bug 2 is suspected to be a MODE send-ordering / stray-HIDE interleave.
+        # a stray MODE/HIDE interleave here is order-dependent, so a [hudtrace]
+        # capture needs to see these three sends in the order they actually fire.
         self.fine(f"[mode] goto_mode {next_mode_name!r} is_shift={next_mode['is_shift']} -> refresh_hud_for_mode")
         self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
@@ -336,8 +340,9 @@ $code_setup_listeners
             self.goto_mode(self.current_mode['next_mode_name'])
         elif value == 0 and self.current_mode['is_shift']:
             # Shift release: goto_mode (which sends send_mode(next.is_shift)) is
-            # immediately followed by an explicit send_mode(False) — the suspected
-            # transient MODE inversion in Bug 2. Trace both sends in order.
+            # immediately followed by an explicit send_mode(False), so the HUD
+            # briefly sees the wrong MODE value between the two sends. Trace
+            # both in order so a [hudtrace] capture can confirm the interleave.
             self.fine(f"[mode] mode_button_listener value=0 branch=shift-release cur={self.current_mode['name']!r}")
             self.goto_mode(self.current_mode['next_mode_name'])
             self.fine("[mode] mode_button_listener shift-release -> send_mode(False)")
@@ -345,8 +350,9 @@ $code_setup_listeners
 
     def on_device_selected(self):
         # Live's appointed_device listener. If this line lands between a nav
-        # method's enter/post-scroll lines, scroll_view fired it synchronously
-        # (the Bug 1 hypothesis). source defaults to 'selection'.
+        # method's enter/post-scroll lines, scroll_view fired it synchronously,
+        # racing selected_device_changed's same-device guard. source defaults
+        # to 'selection'.
         self.fine(f"[listener] on_device_selected dev={getattr(self.selected_device(),'name',None)!r}")
         self._helpers.selected_device_changed(self.selected_device())
 
