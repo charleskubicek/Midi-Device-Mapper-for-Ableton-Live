@@ -24,6 +24,23 @@ class FakeDevice:
         self.parameters = parameters
 
 
+class _DeadDevice:
+    """A device whose C++ handle was freed (replaced/deleted, e.g. Wavetable →
+    Drift). Every attribute access raises — modeling Boost.Python.ArgumentError
+    (a TypeError subclass, NOT AttributeError), which is exactly why
+    `getattr(device, 'name', None)` at the top of emit_burst used to crash the
+    whole burst instead of degrading."""
+    def __getattr__(self, name):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
+
+
+class _DeadDeviceRaisingEq(_DeadDevice):
+    __hash__ = object.__hash__
+
+    def __eq__(self, other):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
+
+
 def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=(),
                slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
                mode_hud_labels=None, button_switch_count=0):
@@ -91,6 +108,46 @@ class TestHudPresenterDirect(unittest.TestCase):
         remote.device_update.assert_called_once()
         # empty device name marks the label-only burst
         self.assertEqual(remote.device_update.call_args[0][0], '')
+
+
+class TestDeadDeviceGuard(unittest.TestCase):
+    """emit_burst must never touch a dead device handle. The reported crash was
+    a Boost.Python.ArgumentError raised by `getattr(device, 'name', None)` at
+    the top of emit_burst after a device was replaced (Wavetable → Drift),
+    which aborted the burst and left the HUD permanently dead."""
+
+    def test_emit_burst_on_dead_device_does_not_raise_and_hides(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        p.emit_burst(_DeadDevice())            # must not raise
+        remote.device_update.assert_not_called()
+        remote.hide.assert_called_once()
+
+    def test_emit_burst_on_dead_device_with_raising_eq(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        p.emit_burst(_DeadDeviceRaisingEq())   # must not raise
+        remote.device_update.assert_not_called()
+        remote.hide.assert_called_once()
+
+    def test_emit_burst_none_device_still_noop_no_hide(self):
+        # None is the pre-existing early-return contract: no burst AND no hide.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        p.emit_burst(None)
+        remote.device_update.assert_not_called()
+        remote.hide.assert_not_called()
+
+    def test_live_device_still_produces_full_burst(self):
+        # Regression: the dead-handle guard must not break the happy path.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')])
+        dev = FakeDevice("Drift", [FakeParam("On/Off"), FakeParam("A")])
+        p.emit_burst(dev)
+        remote.device_update.assert_called_once()
+        remote.hide.assert_not_called()
+
+    def test_getattr_default_does_not_swallow_dead_handle(self):
+        # Anti-vacuous: proves the double models the real (non-AttributeError)
+        # failure that getattr's default cannot catch.
+        with self.assertRaises(TypeError):
+            getattr(_DeadDevice(), 'name', None)
 
 
 class TestPerModeAssignments(unittest.TestCase):

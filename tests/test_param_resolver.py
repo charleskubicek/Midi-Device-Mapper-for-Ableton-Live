@@ -2,7 +2,10 @@
 with plain data + a log sink, no surface/manager/remote fakes required."""
 import unittest
 
-from source_modules.param_resolver import ParameterResolver, _build_device_table
+from source_modules.param_resolver import (
+    ParameterResolver, _build_device_table,
+    _device_alive, _same_device, _safe_device_attr,
+)
 
 
 class FakeParam:
@@ -20,6 +23,26 @@ class FakeDevice:
         self.class_name = class_name
         self.name = name or class_name
         self.parameters = parameters
+
+
+class _DeadDevice:
+    """A Live device whose C++ handle was freed (replaced/deleted, e.g.
+    Wavetable → Drift). Every attribute access raises — modeling
+    Boost.Python.ArgumentError, which is a TypeError subclass, NOT
+    AttributeError, so `getattr(dev, 'name', None)` does NOT swallow it.
+    __eq__ falls back to object identity (models 'Boost == answers False on a
+    dead handle')."""
+    def __getattr__(self, name):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
+
+
+class _DeadDeviceRaisingEq(_DeadDevice):
+    """Variant whose __eq__ itself raises (models 'Boost == throws on a dead
+    handle'). The fail-open guards must handle both variants identically."""
+    __hash__ = object.__hash__
+
+    def __eq__(self, other):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
 
 
 def _resolver(parameter_mappings_raw=None, device_banks=None, bank_names=None,
@@ -65,6 +88,31 @@ class TestResolverDirect(unittest.TestCase):
         r.encoder_page = 4
         r.ensure_focused(dev)  # same device
         self.assertEqual(r.encoder_page, 4)
+
+    def test_ensure_focused_resets_when_previous_device_is_dead(self):
+        # Fail-open: if the previously-focused device was replaced (dead Boost
+        # handle), the identity compare must treat the new device as changed and
+        # reset — never inherit the dead device's paging. Without fail-open the
+        # compare would raise (or wrongly compare), leaving stale state.
+        r, _ = _resolver()
+        r._focused_device = _DeadDevice()
+        r.encoder_page = 4
+        r.button_page = 3
+        r._name_index = {'stale': 0}
+        r.ensure_focused(FakeDevice("Drift", []))  # live replacement
+        self.assertEqual((r.encoder_page, r.button_page), (1, 1))
+        self.assertIsNone(r._name_index)
+
+    def test_ensure_focused_resets_when_previous_device_raises_on_eq(self):
+        # Same as above but the dead handle raises on __eq__ (the other plausible
+        # Boost behavior). The fail-open guard must handle both identically.
+        r, _ = _resolver()
+        r._focused_device = _DeadDeviceRaisingEq()
+        r.encoder_page = 4
+        new = FakeDevice("Drift", [])
+        r.ensure_focused(new)
+        self.assertEqual(r.encoder_page, 1)
+        self.assertIs(r._focused_device, new)
 
     def test_bob_encoder_resolves_by_original_name(self):
         raw = {"devices": [{"className": "Amp", "encoders": [{"name": "Bass", "display": "Bass"}], "buttons": []}]}
@@ -123,6 +171,42 @@ class TestResolverDirect(unittest.TestCase):
         dev = FakeDevice("Amp", [FakeParam("On/Off"), FakeParam("Bass")])
         self.assertIsNone(r.resolve_encoder(dev, 1))
         self.assertTrue(any("[bob]" in m and "Missing" in m for m in logs))
+
+
+class TestDeviceLivenessPrimitives(unittest.TestCase):
+    """The shared dead-handle guards used by the burst path and the
+    focus/selection guards. Boost.Python.ArgumentError is a TypeError subclass,
+    so the whole point is that a plain getattr-default does NOT shield callers —
+    these primitives do."""
+
+    def test_getattr_default_does_not_swallow_dead_handle(self):
+        # Anti-vacuous guard: if this ever stops raising, the _DeadDevice double
+        # is wrong and every dead-handle test below is meaningless.
+        with self.assertRaises(TypeError):
+            getattr(_DeadDevice(), 'name', None)
+
+    def test_device_alive_true_for_live_false_for_dead_and_none(self):
+        self.assertTrue(_device_alive(FakeDevice("Live", [])))
+        self.assertFalse(_device_alive(_DeadDevice()))
+        self.assertFalse(_device_alive(_DeadDeviceRaisingEq()))
+        self.assertFalse(_device_alive(None))
+
+    def test_safe_device_attr_returns_default_on_dead_handle(self):
+        self.assertEqual(_safe_device_attr(_DeadDevice(), 'name', '?'), '?')
+        self.assertEqual(_safe_device_attr(FakeDevice("X", []), 'name'), "X")
+
+    def test_same_device_fail_open_when_prev_dead(self):
+        new = FakeDevice("Drift", [])
+        # Dead / raising-eq / None prev must never count as "same" — proceed.
+        self.assertFalse(_same_device(new, _DeadDevice()))
+        self.assertFalse(_same_device(new, _DeadDeviceRaisingEq()))
+        self.assertFalse(_same_device(new, None))
+
+    def test_same_device_true_only_for_live_equal(self):
+        dev = FakeDevice("X", [])
+        self.assertTrue(_same_device(dev, dev))
+        self.assertFalse(_same_device(dev, FakeDevice("Y", [])))
+        self.assertFalse(_same_device(None, dev))
 
 
 if __name__ == "__main__":

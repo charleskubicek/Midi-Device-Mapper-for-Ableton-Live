@@ -94,6 +94,14 @@ class MainComponent(ControlSurfaceComponent):
             button_behaviour=$button_behaviour))
 
         self._song.add_appointed_device_listener(self.on_device_selected)
+        # A device *replace* (e.g. Wavetable → Drift) doesn't reliably fire the
+        # appointed-device listener, so also observe the selected track and its
+        # device chain. The devices-list observer fires on any add/remove/replace
+        # and re-bursts against the live device; it is re-attached whenever the
+        # selected track changes.
+        self._devices_listener_track = None
+        self._song.view.add_selected_track_listener(self.on_selected_track_changed)
+        self._attach_track_devices_listener()
 
 
         self.log_message(f"main_component finish init.")
@@ -151,7 +159,49 @@ class MainComponent(ControlSurfaceComponent):
         except Exception as e:
             self.log_message(f"HUD dismiss: failed to add Detail/DeviceChain visibility listener: {e}")
 
+    def _attach_track_devices_listener(self):
+        """Observe the selected track's device chain so a device *replace*
+        (Wavetable → Drift) — which doesn't reliably fire the appointed-device
+        listener — still re-bursts. Idempotent: detaches the previous track's
+        observer first, so repeated calls (e.g. on every track change) don't
+        stack listeners."""
+        self._teardown_track_devices_listener()
+        try:
+            track = self._song.view.selected_track
+        except Exception:
+            track = None
+        if track is None:
+            return
+        try:
+            track.add_devices_listener(self._on_track_devices_changed)
+            self._devices_listener_track = track
+        except Exception as e:
+            self.log_message(f"HUD: failed to add devices listener: {e}")
+
+    def _teardown_track_devices_listener(self):
+        track = getattr(self, '_devices_listener_track', None)
+        if track is None:
+            return
+        try:
+            track.remove_devices_listener(self._on_track_devices_changed)
+        except Exception:
+            pass
+        self._devices_listener_track = None
+
+    def _on_track_devices_changed(self):
+        # Device chain changed (add/remove/replace). Re-resolve the focused
+        # device and funnel through selected_device_changed; its fail-open guard
+        # treats a now-dead previous handle as changed and re-bursts for the live
+        # device.
+        self.fine(f"[listener] _on_track_devices_changed dev={getattr(self.selected_device(),'name',None)!r}")
+        self._helpers.selected_device_changed(self.selected_device())
+
     def remove_app_view_listeners(self):
+        self._teardown_track_devices_listener()
+        try:
+            self._song.view.remove_selected_track_listener(self.on_selected_track_changed)
+        except Exception:
+            pass
         try:
             self._app_view.remove_focused_document_view_listener(self._on_doc_view_changed)
         except Exception:
@@ -359,4 +409,6 @@ $code_setup_listeners
     def on_selected_track_changed(self):
         ### This is called when the selected track changes
         self.fine(f"[listener] on_selected_track_changed dev={getattr(self.selected_device(),'name',None)!r}")
+        # Follow the new track's device chain (see _attach_track_devices_listener).
+        self._attach_track_devices_listener()
         self._helpers.selected_device_changed(self.selected_device())

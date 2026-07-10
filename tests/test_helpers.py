@@ -27,6 +27,23 @@ class FakeDevice:
     class_name: str = "Test Device"
 
 
+class _DeadDevice:
+    """A Live device whose C++ handle was freed (replaced/deleted, e.g.
+    Wavetable → Drift). Every attribute access raises — modeling
+    Boost.Python.ArgumentError (a TypeError subclass, NOT AttributeError). Used
+    to pin `_last_selected_device` to a dead reference and prove the funnel
+    recovers instead of short-circuiting forever."""
+    def __getattr__(self, name):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
+
+
+class _DeadDeviceRaisingEq(_DeadDevice):
+    __hash__ = object.__hash__
+
+    def __eq__(self, other):
+        raise TypeError("Boost.Python.ArgumentError: dead device handle")
+
+
 def _build_named_params(entries, total=50, min=0.0, max=1.0, value=0.0):
     """Build a parameter list whose names match a list of (number, name) JSON
     entries. Defaults to 50 unnamed parameters with names overridden at the
@@ -1385,6 +1402,74 @@ class TestRackBobButtonsOnlyKeepsMacrosOnPageOne(unittest.TestCase):
         self.assertIsNotNone(rp, "encoder 1 should resolve to Macro 1 on page 1")
         self.assertIs(rp.param, params[1])
         self.assertEqual(helpers._resolver.encoder_pages_count(device), 1)
+
+
+class TestDeviceReplaceRecovery(unittest.TestCase):
+    """The reported catastrophe: replacing a device (Wavetable → Drift) left
+    `_last_selected_device` pinned to a dead Boost handle. The same-device guard
+    must fail OPEN — a dead previous device can't equal a live selection, so the
+    funnel proceeds and re-bursts — otherwise the HUD stays permanently dead."""
+
+    def _helpers(self, hud_trigger='selection'):
+        remote = Mock()
+        return Helpers(Mock(), remote,
+                       SurfaceConfig(slot_assignments=[(1, 'slot1')],
+                                     hud_trigger=hud_trigger)), remote
+
+    def test_recovers_when_prev_device_is_dead(self):
+        helpers, remote = self._helpers()
+        helpers._last_selected_device = _DeadDevice()
+        new = FakeDevice(class_name="Drift",
+                         parameters=[FakeParameter(name="On/Off"), FakeParameter(name="A")])
+        helpers.selected_device_changed(new, source='selection')  # must not raise
+        self.assertIs(helpers._last_selected_device, new)
+        remote.device_update.assert_called()
+
+    def test_recovers_when_prev_device_raises_on_eq(self):
+        helpers, remote = self._helpers()
+        helpers._last_selected_device = _DeadDeviceRaisingEq()
+        new = FakeDevice(class_name="Drift",
+                         parameters=[FakeParameter(name="On/Off"), FakeParameter(name="A")])
+        helpers.selected_device_changed(new, source='selection')
+        self.assertIs(helpers._last_selected_device, new)
+
+    def test_same_live_device_still_short_circuits(self):
+        # Fail-open must not become fire-always: a genuinely unchanged live
+        # device must still short-circuit (no re-burst).
+        helpers, remote = self._helpers()
+        dev = FakeDevice(class_name="Drift",
+                         parameters=[FakeParameter(name="On/Off"), FakeParameter(name="A")])
+        helpers.selected_device_changed(dev, source='selection')
+        remote.reset_mock()
+        helpers.selected_device_changed(dev, source='selection')  # same object
+        remote.device_update.assert_not_called()
+
+    def test_none_device_short_circuits(self):
+        helpers, remote = self._helpers()
+        helpers.selected_device_changed(None)
+        remote.device_update.assert_not_called()
+
+    def test_dead_new_device_short_circuits_without_pinning(self):
+        # During a delete/replace Live can momentarily return a freed handle as
+        # the "selection". Processing it (log/attach/burst) would raise; instead
+        # it must be dropped, leaving the prior reference untouched.
+        helpers, remote = self._helpers()
+        prev = FakeDevice(class_name="Wavetable",
+                          parameters=[FakeParameter(name="On/Off")])
+        helpers._last_selected_device = prev
+        helpers.selected_device_changed(_DeadDevice(), source='selection')  # must not raise
+        self.assertIs(helpers._last_selected_device, prev)  # not pinned to the dead handle
+
+    def test_burst_against_dead_pinned_device_does_not_raise(self):
+        # The stray-callback race: a group-selector value listener attached to
+        # the replaced device fires during teardown while _last_selected_device
+        # is still the dead handle. update_remote_parameters -> emit_burst(dead)
+        # must degrade, not crash.
+        helpers, remote = self._helpers()
+        helpers._last_selected_device = _DeadDevice()
+        helpers.update_remote_parameters()   # must not raise
+        remote.device_update.assert_not_called()
+        remote.hide.assert_called()
 
 
 class TestHudViewLeft(unittest.TestCase):

@@ -77,10 +77,51 @@ def _build_device_table(raw):
 
 
 def _device_table_key(device):
-    cn = getattr(device, 'class_name', None)
+    cn = _safe_device_attr(device, 'class_name')
     if cn in NAME_DISAMBIGUATED_CLASSES:
-        return (cn, getattr(device, 'name', None))
+        return (cn, _safe_device_attr(device, 'name'))
     return (cn, None)
+
+
+def _safe_device_attr(device, attr, default=None):
+    """Read an attribute off a Live *device*, treating a dead Boost.Python
+    handle the same as absent. A replaced/deleted device (e.g. Wavetable
+    swapped for Drift) becomes a dead handle whose every attribute access
+    raises Boost.Python.ArgumentError — a TypeError subclass, NOT
+    AttributeError, so a plain `getattr(device, attr, default)` does not
+    shield us. Mirrors `ParameterResolver._attr` for the device object."""
+    try:
+        return getattr(device, attr, default)
+    except Exception:
+        return default
+
+
+def _device_alive(device):
+    """True iff `device` is a readable (non-dead) Live handle. Reading the
+    cheapest attribute exercises the underlying C++ handle; a freed handle
+    raises instead of returning."""
+    if device is None:
+        return False
+    try:
+        device.name
+        return True
+    except Exception:
+        return False
+
+
+def _same_device(new, prev):
+    """Fail-OPEN device-identity check for the focus/selection guards. Returns
+    True only when `prev` is a *live* handle equal to `new`; a dead or None
+    `prev` can never legitimately equal a live selection, so it returns False
+    (treat as changed → proceed). This is what lets a session self-recover
+    after a device replace left a dead handle pinned: without fail-open the
+    same-device guard short-circuits forever and the HUD stays dead."""
+    if new is None or not _device_alive(prev):
+        return False
+    try:
+        return new == prev
+    except Exception:
+        return False
 
 
 def _load_bundled_banks():
@@ -148,7 +189,7 @@ class ParameterResolver:
         self-corrects its index and page instead of inheriting the previous
         device's (the stale-index / "opened on the wrong page" bug). Idempotent
         on the same device, so it never disturbs live paging."""
-        if device is not None and device != self._focused_device:
+        if device is not None and not _same_device(device, self._focused_device):
             self.focus()
             self._focused_device = device
 
