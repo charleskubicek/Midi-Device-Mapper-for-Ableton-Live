@@ -10,7 +10,7 @@ fires events (`DeviceFocus`, `ModeChange`, `UserToggle`, `ViewLeft`,
 `RegionCommit`) and acts on the returned `Decision`; the `dismissed` flag only
 changes inside `HudVisibility.apply`.
 """
-from .param_resolver import ParameterMapping, SwitchSlotMapping
+from .param_resolver import ParameterMapping, SwitchSlotMapping, _device_alive
 from .hud_protocol import PageInfo
 from .hud_visibility import (
     HudVisibility, Decision, DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit,
@@ -74,6 +74,16 @@ class HudPresenter:
 
     def emit_burst(self, device, suppress_hud=False, preview_mode_name=None):
         if device is None:
+            return
+        # The focused device may have been deleted/replaced (e.g. Wavetable →
+        # Drift): its Boost handle is dead and every attribute read below
+        # (`device.name`, `device.parameters`) would raise ArgumentError and
+        # abort the burst — which propagates up and, historically, left the HUD
+        # permanently dead. Drop the now-stale HUD and bail; the devices-listener
+        # funnel re-bursts against the live device.
+        if not _device_alive(device):
+            self._fine("[burst] emit_burst skipped: dead/removed device handle")
+            self._remote.hide()
             return
         # Single source of truth: if this burst is for a device the funnel never
         # reset (a bypassed selection path), drop the stale name index + paging

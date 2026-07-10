@@ -7,6 +7,7 @@ from .param_resolver import (
     ParameterResolver, RealParameter, ParameterMapping, SwitchSlotMapping,
     M4L_CLASSES, _device_table_key, _build_device_table,
     _default_device_banks, _default_bank_names,
+    _device_alive, _safe_device_attr, _same_device,
 )
 from .hud_presenter import HudPresenter
 from .doctor import Doctor
@@ -185,16 +186,32 @@ class Helpers:
         # gets decided (see the [hudtrace] lines in device_nav_* / on_device_selected
         # for the ordering evidence). Trace device + source + whether the guard
         # short-circuited so a captured HIDE can be attributed to its cause.
-        dev_name = getattr(device, 'name', None)
-        if device is None or device == self._last_selected_device:
+        dev_name = _safe_device_attr(device, 'name')
+        # Fail-OPEN same-device guard: short-circuit only when the previous
+        # device is a *live* handle equal to the new one. A dead previous handle
+        # (device was replaced out from under us) is treated as changed so the
+        # funnel proceeds and re-bursts — otherwise a stale dead reference makes
+        # this guard short-circuit forever and the HUD never recovers.
+        if device is None or _same_device(device, self._last_selected_device):
             self.fine(
                 f"[funnel] selected_device_changed device={dev_name!r} source={source} "
                 f"guard=short-circuit ({'none' if device is None else 'same-device'})"
             )
             return
+        # A freshly-read selection is normally a live handle, but during a
+        # device delete/replace Live can momentarily hand back a freed one.
+        # Reading class_name/params below or attaching group listeners would
+        # then raise ArgumentError, so drop it (don't pin a dead reference); the
+        # settled devices/appointed listener re-fires with a live device.
+        if not _device_alive(device):
+            self.fine(
+                f"[funnel] selected_device_changed device=<dead> source={source} "
+                f"guard=short-circuit (dead-new-device)"
+            )
+            return
         self.fine(
             f"[funnel] selected_device_changed device={dev_name!r} source={source} "
-            f"guard=pass prev={getattr(self._last_selected_device, 'name', None)!r}"
+            f"guard=pass prev={_safe_device_attr(self._last_selected_device, 'name')!r}"
         )
         self._teardown_group_selector_listeners()
         self._last_selected_device = device

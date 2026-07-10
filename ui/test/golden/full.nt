@@ -1,0 +1,94 @@
+controller: controller.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+remote_on: false
+hud: on
+show-hud-on: selection
+mode-button:
+    button: grid-4:4::1
+    type: shift
+modes:
+    -
+        name: main_mode
+        on_color: red_low
+        mappings:
+            -
+                type: device
+                track: selected
+                device: selected
+                mappings:
+                    encoders:
+                        range: grid-3:1-16
+                        slots: 1-16
+                    on-off: grid-1:4::1
+                    button:
+                        range: grid-1:1-12
+                        slots: 1-12
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    mute: grid-4:1
+                    solo: grid-4:2
+            -
+                type: functions
+                mappings:
+                    iterate_midi_pattern: grid-4:1::4
+                    hud_toggle: grid-4:4::2
+            -
+                type: device-nav
+                mappings:
+                    left: grid-4:4::3
+                    right: grid-4:4::4
+            -
+                type: track-nav
+                mappings:
+                    left: grid-4:3::1
+                    right: grid-4:3::2
+            -
+                type: transport
+                mappings:
+                    play-stop: grid-4:3::3
+                    loop: grid-4:3::4
+            -
+                type: clip
+                mappings:
+                    gain: grid-2:1
+                    pitch-coarse: grid-2:2
+                    looping: grid-4:2::1
+                    warping: grid-4:2::2
+    -
+        name: shift_mode
+        on_color: green_full
+        mappings:
+            -
+                type: mixer
+                track: selected
+                mappings:
+                    volume: grid-3:4
+                    pan: grid-3:3
+                    sends: grid-3:5-8,grid-3:9-12
+            -
+                type: device
+                track: selected
+                device: selected
+                mappings:
+                    encoder-list:
+                        -
+                            range: grid-2:1-8
+                            slots: 1-8
+                        -
+                            range: grid-2:9-16
+                            slots: 9-16
+                    button-list:
+                        -
+                            range: grid-4:1-12
+                            slots: 5-16
+            -
+                type: functions
+                mappings:
+                    press_rack_random_button: grid-4:4::2 momentary
+            -
+                type: parameter-pager
+                encoders:
+                    inc: grid-4:4::4
+                    dec: grid-4:4::3

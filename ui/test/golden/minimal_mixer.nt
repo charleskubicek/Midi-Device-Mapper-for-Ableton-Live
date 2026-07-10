@@ -1,0 +1,10 @@
+controller: controller.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+hud: off
+show-hud-on: selection
+mappings:
+    -
+        type: mixer
+        track: selected
+        mappings:
+            volume: grid-2:1

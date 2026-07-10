@@ -1,0 +1,56 @@
+# The launch_control's function/switch/nav buttons are configured as TOGGLE in
+# Novation Components (one alternating 127/0 event per press). The hold-style
+# shift button is separate (handled by the mode FSM) and stays momentary.
+#button-behaviour: toggle
+
+light_colors:
+    off: 12
+    red_low: 13
+    green_full: 60
+
+
+
+# Control groups are rows of controllers,
+
+control_groups:
+
+  # Each group contains one row or column of controllers and a range of MIDI CC numbers,
+    -
+        layout: grid
+        number: 1
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C-2-DS-1
+        rows: 4
+        columns: 4
+    -
+        layout: grid
+        number: 2
+        type: knob
+        midi_channel: 1
+        midi_type: CC
+        midi_range: 48-63
+        rows: 4
+        columns: 4
+        right_of: 1
+    -
+        layout: grid
+        number: 3
+        type: knob
+        midi_channel: 1
+        midi_type: CC
+        midi_range: 32-47
+        rows: 4
+        columns: 4
+        right_of: 2
+    -
+        layout: grid
+        number: 4
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C2-DS3
+        rows: 4
+        columns: 4
+        right_of: 3

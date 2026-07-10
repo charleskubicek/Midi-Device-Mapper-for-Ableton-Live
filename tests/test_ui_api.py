@@ -140,12 +140,20 @@ class TestValidate(UiApiDirBase):
         self.assertTrue(any("99" in p["message"] for p in r["problems"]))
 
     def test_multiple_problems_reported_individually(self):
-        bad = MAPPING_OK.replace(
-            "            volume: grid-1:1",
-            "            volume: grid-1:99\n            pan: grid-1:98")
+        # Problems in two separate mapping blocks must come back as two
+        # entries, not one collapsed "Found 2 config problem(s)" message.
+        bad = MAPPING_OK + (
+            "    -\n"
+            "        type: mixer\n"
+            "        track: selected\n"
+            "        mappings:\n"
+            "            pan: grid-1:98\n"
+        )
+        bad = bad.replace("volume: grid-1:1", "volume: grid-1:99")
         r = self._validate(bad)
         self.assertFalse(r["valid"])
         self.assertGreaterEqual(len(r["problems"]), 2)
+        self.assertFalse(any("config problem(s)" in p["message"] for p in r["problems"]))
 
     def test_clash_detected(self):
         bad = MAPPING_OK.replace(
@@ -182,6 +190,23 @@ class TestValidate(UiApiDirBase):
         self.assertTrue(any("mixxer" in p["message"] for p in r["problems"]))
 
 
+class TestSchemaInfo(unittest.TestCase):
+    def test_exports_clip_actions_and_action_lists(self):
+        resp = handle_request(req("schema_info"))
+        self.assertTrue(resp["ok"])
+        r = resp["result"]
+        clip = {a["key"]: a for a in r["clip_actions"]}
+        self.assertEqual(len(clip), 22)
+        self.assertEqual(clip["gain"]["kind"], "encoder")
+        self.assertEqual(clip["loop-start"]["kind"], "nudge")
+        self.assertEqual(clip["looping"]["kind"], "button")
+        self.assertTrue(all(a["label"] for a in r["clip_actions"]))
+        self.assertIn("play-stop", r["transport_actions"])
+        self.assertEqual(r["track_nav_actions"], ["left", "right"])
+        self.assertIn("first-last", r["device_nav_actions"])
+        self.assertEqual(r["builtin_functions"], ["hud_toggle"])
+
+
 class TestParseNt(unittest.TestCase):
     def test_parses_to_json(self):
         resp = handle_request(req("parse_nt", text="a: 1\nb:\n    c: x\n"))
@@ -192,6 +217,46 @@ class TestParseNt(unittest.TestCase):
         resp = handle_request(req("parse_nt", text=": :\n  ::bad"))
         self.assertFalse(resp["ok"])
         self.assertEqual(resp["error"]["kind"], "parse")
+
+
+class TestListFunctions(UiApiDirBase):
+    def test_lists_functions_class_methods(self):
+        (self.dir / "functions.py").write_text(
+            "class Functions:\n"
+            "    def __init__(self):\n"
+            "        pass\n"
+            "    def toggle_thing(self):\n"
+            "        pass\n"
+            "    def with_value(self, value):\n"
+            "        pass\n")
+        resp = handle_request(req("list_functions", dir=str(self.dir)))
+        self.assertTrue(resp["ok"], resp)
+        fns = {f["name"]: f["params"] for f in resp["result"]["functions"]}
+        self.assertEqual(fns, {"toggle_thing": 0, "with_value": 1})
+
+    def test_no_functions_py(self):
+        resp = handle_request(req("list_functions", dir=str(self.dir)))
+        self.assertTrue(resp["ok"])
+        self.assertEqual(resp["result"], {"functions": None})
+
+
+class TestGenerate(UiApiDirBase):
+    def test_generates_a_surface_directory(self):
+        (self.dir / "my_surface.nt").write_text(
+            MAPPING_OK.replace("ableton_dir: /tmp", f"ableton_dir: {self.dir}"))
+        resp = handle_request(req("generate", mapping_path=str(self.dir / "my_surface.nt")))
+        self.assertTrue(resp["ok"], resp)
+        self.assertIn("Finished generating", resp["result"]["output"])
+        self.assertTrue((self.dir / "my_surface" / "my_surface.py").exists())
+        self.assertTrue((self.dir / "my_surface" / "deploy.sh").exists())
+
+    def test_generate_error_is_structured(self):
+        (self.dir / "bad.nt").write_text(
+            MAPPING_OK.replace("grid-1:1", "grid-1:99").replace(
+                "ableton_dir: /tmp", f"ableton_dir: {self.dir}"))
+        resp = handle_request(req("generate", mapping_path=str(self.dir / "bad.nt")))
+        self.assertFalse(resp["ok"])
+        self.assertIn("99", resp["error"]["message"])
 
 
 class TestStdioLoop(unittest.TestCase):
@@ -210,6 +275,31 @@ class TestStdioLoop(unittest.TestCase):
         self.assertEqual(len(responses), 2)
         self.assertFalse(responses[0]["ok"])
         self.assertTrue(responses[1]["ok"])
+
+    def test_handler_prints_never_pollute_the_json_stream(self):
+        # Device mappings make the generator print info tables to stdout; every
+        # line the loop emits must still be valid JSON.
+        with TemporaryDirectory() as tmp:
+            (Path(tmp) / "controller.nt").write_text(CONTROLLER)
+            device_mapping = MAPPING_OK.replace(
+                "        type: mixer\n"
+                "        track: selected\n"
+                "        mappings:\n"
+                "            volume: grid-1:1\n",
+                "        type: device\n"
+                "        track: selected\n"
+                "        device: selected\n"
+                "        mappings:\n"
+                "            encoders:\n"
+                "                range: grid-1:1-8\n"
+                "                slots: 1-8\n")
+            out = io.StringIO()
+            run(io.StringIO(json.dumps(req("validate", mapping_text=device_mapping,
+                                           mapping_dir=tmp)) + "\n"), out)
+        lines = [l for l in out.getvalue().splitlines() if l.strip()]
+        self.assertEqual(len(lines), 1)
+        parsed = json.loads(lines[0])  # raises if a table line leaked
+        self.assertTrue(parsed["ok"])
 
     def test_handler_crash_does_not_kill_loop(self):
         lines = (json.dumps(req("load_controller", _id=1, path=123))  # wrong type
