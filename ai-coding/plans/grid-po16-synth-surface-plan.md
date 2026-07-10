@@ -1,246 +1,333 @@
-# Grid PO16 synth surface — generic per-synth mapping + LEDs
+# Grid dual-PO16 smart-zoning synth surface
 
-**Goal:** turn the new left `PO16` (16 linear pots) + `BU16` (16 RGB buttons) of an Intech
-Studio Grid into a *predictable* synth control surface: the **same physical control drives
-the same semantic parameter on every synth** (Wavetable, Drift, Operator, Analog, Diva),
-with each synth's signature controls in a fixed "special" area, and the Grid's per-element
-LEDs used to make the layout self-documenting.
+**Goal:** turn BOTH PO16 modules (32 linear pots) + the left BU16 (16 RGB buttons) of the
+Intech Studio Grid into a *predictable* synth control surface via a new first-class
+concept: **smart-zoning**. The same physical pot drives the same semantic parameter on
+every enrolled synth (Wavetable, Drift, Operator, Analog), each synth's signature
+controls live in a fixed "special" area, and the Grid's per-element LEDs make the layout
+self-documenting.
 
-Handoff doc — self-contained. The design rationale was worked out interactively; this
-captures the decisions, the exact parameter matrix, and the implementation steps.
-
----
-
-## 1. Hardware reality (drives the whole design)
-
-Physical row (magnetic modules, left→right): **`BU16 · PO16 · PO16 · BU16`**.
-Currently only `PO16 · BU16` (existing compact rig) is wired. The **new left pair**
-(`BU16` + `PO16`) is the synth zone; the existing right pair keeps its current
-mixer/nav duties and is **out of scope** here.
-
-- **Synth zone now = 16 pots + 16 buttons** (one PO16 + one BU16). Designed to extend to
-  32 pots later when the second PO16 joins the synth zone — this 16 stays the
-  highest-priority core so muscle memory transfers.
-- **PO16 = absolute linear potentiometers** (physical position, ~300°). This creates the
-  **jump problem** (§6, open decision) and reshapes the LED plan (§7).
-- **Every Grid element has an RGB LED**, set in Lua: `led_color(layer, {{r,g,b,a}})`
-  (shortname `glc`), plus `led_intensity` and blink animations. **Layer 1** is the
-  button/potmeter layer. Ref: docs.intech.studio → Actions → LED Actions.
-- **Grid has MIDI RX** (receive) and MIDI TX (7-bit / 14-bit / NRPN / SysEx). So the
-  generated surface can send MIDI *to* the Grid and a small Lua handler lights LEDs from
-  it. Ref: docs.intech.studio → Actions → MIDI Actions.
-- Pots send **absolute CC** as configured in Grid Editor.
+Handoff doc — self-contained. Decisions were resolved interactively (2026-07-10); this
+captures them, the exact 32-slot parameter matrix (DRAFT — review §5 before building),
+and the implementation steps.
 
 ---
 
-## 2. The layout (muscle-memory blocks)
+## 1. What smart-zoning is (and is not)
 
-One 4×4 PO16 bank, read top row → bottom row. Blocks occupy whole rows where possible:
+Smart-zoning is a **new resolution tier**, not more entries in
+`data/custom_device_mappings.json`:
 
-| Row (pots) | Block | Slots |
-|---|---|---|
-| 1 | Filter | 1–4 |
-| 2 | Oscillators | 5–8 |
-| 3 | Amp envelope | 9–12 |
-| 4 | Mod / Global (glide, LFO, volume) | 13–16 |
+- `custom_device_mappings.json` stays **effects-only**. Its lists are *positional*
+  (list index = physical knob), so editing an entry silently reshuffles knobs — exactly
+  the muscle-memory failure smart-zoning exists to prevent. No synth entries go there.
+- Smart-zoning is **role-keyed**: a fixed zone template (semantic roles at fixed
+  physical positions) plus shipped per-synth tables saying which parameter fills each
+  role. The layout can never drift because positions belong to the template, not to any
+  per-synth list.
+- Enrollment is a **surface toggle**: the mapping `.nt` says `smart-zoning: on`. Any
+  focused synth that has a shipped zone table gets the zoned layout; everything else
+  behaves exactly as today. The shipped table IS the enrollment list — no per-instrument
+  config anywhere.
+- A synth **without** a zone table (random VST, Meld/Serum before extraction) falls back
+  to today's behavior (BOB → factory banks → param-order paging). Zoning never guesses.
+- For a zoned synth, the zone layout is **page 1**; the parameter-pager still pages
+  onward into Live's factory banks (full access preserved). Standard banks start at
+  page 2, same as the existing BOB behavior.
 
-This mirrors Ableton's own "Best of Bank" taxonomy (e.g. Wavetable's factory banks are
-literally Osc / Filter / Amp Env / LFO / Global), so it is validated, not just intuited.
-
-Block colours (used for LEDs + the HUD): filter=teal, osc=amber, env=rose, LFO=violet,
-global=green.
-
----
-
-## 3. Per-synth pot matrix (16 slots)
-
-**Parameter names are byte-exact** — they are what the generated surface binds to.
-Source of truth: `data/devices_12.json` (already gathered for these five) and
-`data/live_device_banks.py`. Watch trailing spaces and exact casing.
-
-`className` keys for `custom_device_mappings.json`:
-Wavetable → **`InstrumentVector`**, Drift → **`Drift`**, Operator → **`Operator`**,
-Analog → **`UltraAnalog`**, Diva → **`Diva`**.
-
-| # | Role | Wavetable (`InstrumentVector`) | Drift (`Drift`) | Operator (`Operator`) | Analog (`UltraAnalog`) | Diva (`Diva`) |
-|---|---|---|---|---|---|---|
-| 1 | Cutoff | `Filter 1 Freq` | `LP Freq` | `Filter Freq` | `F1 Freq` | `VCF1: Frequency` |
-| 2 | Resonance | `Filter 1 Res` | `LP Reso` | `Filter Res` | `F1 Resonance` | `VCF1: Resonance` |
-| 3 | Filter env amt | `Filter 1 Drive` | `LP Mod Amt 1` | `Fe Amount` | `F1 Freq < Env` | `VCF1: FreqModDepth` |
-| 4 | Drive / morph | `Filter 1 Morph` | `HP Freq` | `Filter Drive` | `F1 Drive` | `VCF1: FilterFM` |
-| 5 | Osc 1 timbre | `Osc 1 Pos` | `Osc 1 Shape` | `A Coarse` † | `OSC1 Shape` | `OSC: Shape1` |
-| 6 | Osc 2 timbre | `Osc 2 Pos` | `Osc 2 Wave` | `B Coarse` † | `OSC2 Shape` | `OSC: Shape2` |
-| 7 | Osc 2 pitch | `Osc 2 Transp` | `Osc 2 Oct` | `Osc-B Level` † | `OSC2 Octave` | `OSC: Tune2` |
-| 8 | Osc balance / detune | `Osc 2 Gain` | `Osc 2 Gain` | `Osc-A Feedb` † | `OSC2 Detune` | `OSC: OscMix` |
-| 9 | Amp attack | `Amp Attack` | `Env 1 Attack` | `Ae Attack` | `AEG1 Attack` | `ENV1: Attack` |
-| 10 | Amp decay | `Amp Decay` | `Env 1 Decay` | `Ae Decay` | `AEG1 Decay` | `ENV1: Decay` |
-| 11 | Amp sustain | `Amp Sustain` | `Env 1 Sustain` | `Ae Sustain` | `AEG1 Sustain` | `ENV1: Sustain` |
-| 12 | Amp release | `Amp Release` | `Env 1 Release` | `Ae Release` | `AEG1 Rel` | `ENV1: Release` |
-| 13 | Glide | `Glide` | `Glide Time` | `Glide Time` | `Glide Time` | `VCC: Glide` |
-| 14 | LFO rate | `LFO 1 Rate` | `LFO Rate` | `LFO Rate` | `LFO1 Speed` | `LFO1: Rate` |
-| 15 | LFO depth | `LFO 1 Amount` | `LFO Amt` | `LFO Amt` | `F1 Freq < LFO` | `LFO1: DepthMod Dpt1` |
-| 16 | Volume | `Volume` | `Volume` | `Volume` | `Volume` | *(none — see §5)* |
-
-† **Operator is an FM deviation** (documented, wanted): a 2-osc × 4-control template can't
-represent 4 FM operators, so the "osc" row becomes coarse ratios + operator level +
-feedback, and `Algorithm` moves to a button. Do **not** try to force it back into the osc
-template.
+Resolution order per focused device when `smart-zoning: on`:
+**zone table → BOB (custom mappings) → factory banks → unknown-class fallback.**
+With the toggle off, the chain is unchanged from today.
 
 ---
 
-## 4. Per-synth button matrix (16 keys, BU16)
+## 2. Hardware reality
 
-Toggles grouped to match the pot blocks. `—` = no equivalent on that synth (leave the key
-unmapped). **B16 is reserved** for shift/mode (the existing FSM), not a parameter.
+Physical row (magnetic modules, left→right): **`BU16 · PO16 · PO16 · BU16`** —
+**all four already modeled** in `live_surfaces/grid/controller_grid.nt` as groups
+1 (buttons, note C-2–DS-1), 2 (knobs, CC 48–63), 3 (knobs, CC 32–47),
+4 (buttons, note C2–DS3), all channel 1, no MIDI clashes. **No controller-file changes
+needed.**
 
-| # | Role | Wavetable | Drift | Operator | Analog | Diva |
-|---|---|---|---|---|---|---|
-| B1 | Filter on | `Filter 1 On` | `Osc 1 Flt On` | `Filter On` | `F1 On/Off` | — |
-| B2 | Filter type | `Filter 1 Type` | `LP Type` | `Filter Type` | `F1 Type` | `VCF1: Model` |
-| B3 | LP / HP | `Filter 1 LP/HP` | — | — | — | — |
-| B4 | Filter 2 on | `Filter 2 On` | `Osc 2 Flt On` | — | `F2 On/Off` | — |
-| B5 | Osc 1 on | `Osc 1 On` | `Osc 1 On` | `Osc-A On` | `OSC1 On/Off` | `OSC: Saw1On` |
-| B6 | Osc 2 on | `Osc 2 On` | `Osc 2 On` | `Osc-B On` | `OSC2 On/Off` | `OSC: Saw2On` |
-| B7 | Sub / noise on | `Sub On` | `Noise On` | `Osc-C On` | `Noise On/Off` | `OSC: Noise1On` |
-| B8 | Osc wave / sync | — | `Osc 1 Wave` | `Osc-D On` | — | `OSC: Pwm1On` |
-| B9 | LFO sync | `LFO 1 Sync` | `LFO Synced` | `LFO Sync` | `LFO1 Sync` | `LFO1: Sync` |
-| B10 | LFO retrig | `LFO 1 Retrigger` | `LFO Retrig On` | `LFO Retrigger` | `LFO1 Retrig` | `LFO1: Restart` |
-| B11 | Env loop / mode | `Amp Loop Mode` | `Env 2 Cyc On` | `Ae Loop` | `AEG1 Loop` | `ENV1: Release On` |
-| B12 | Unison on | — | — | — | `Unison On/Off` | — |
-| B13 | Glide on | — | — | `Glide On` | `Glide On/Off` | `ARP: OnOff` |
-| B14 | Mono / legato | — | `Legato On` | — | `Glide Legato` | — |
-| B15 | Device on | `Device On` | `Device On` | `Device On` | `Device On` | `Device On` |
-| B16 | Shift / page | *(reserved — mode FSM)* | | | | |
+`ck_grid.nt` **already binds everything this plan needs**: `grid-3:1-16` → device
+slots 1–16, `grid-2:1-16` → slots 17–32, `grid-1:1-16` → device button slots. So there
+is **no new mapping `.nt`** — the change is resolution-side (`smart-zoning: on` in
+`ck_grid.nt`) plus the shipped zone tables.
+
+- `grid-1` (left BU16) = the 16 synth-zone buttons.
+- `grid-4` (right BU16) keeps ALL current duties: shift/mode (`grid-4:4::1`),
+  mute/solo, functions, device-nav, parameter-pager. **Out of scope.**
+- **PO16 = absolute linear potentiometers** → the jump problem (§7) and the LED plan (§8).
+- Every Grid element has an RGB LED, set in Lua: `led_color(layer, {r,g,b,a})` (`glc`),
+  plus `led_intensity`; layer 1 is the button/pot layer. Grid has MIDI RX, so the surface
+  can drive LEDs over MIDI. Ref: docs.intech.studio → Actions → LED / MIDI Actions.
 
 ---
 
-## 5. Meld & Serum — parameter extraction required
+## 3. The zone layout — one zone group per module
 
-Neither is in `data/devices_12.json` (Meld = Live 12.1+, Serum = VST). They get the **same
-16-slot template**, but the exact param strings must be **extracted from the live device**
-— guessed names silently fail to bind (the JSON matches on exact parameter name).
+**Decision: each module reads as a self-contained unit.** Left module (grid-2) = sound
+generation; right module (grid-3) = shaping/global.
 
-Steps:
-1. Load Meld / Serum on a track, focus it.
-2. Dump its exact parameter names via the runtime-query flow (`update.py` on the generated
-   surface, or `data/list_device_params.sh`), read from `./bin/tail_logs.sh`. Mirror how
-   `data/live_device_banks.py` / `data/gathered_*.json` were produced.
-3. Fill the 16 slots by the semantic roles in §2–3.
+```
+grid-2 (left PO16)                grid-3 (right PO16)
+O1  O2  O3  O4   osc 1            E1  E2  E3  E4   amp env (ADSR)
+O5  O6  O7  O8   osc 2            E5  E6  E7  E8   env 2 / mod env (ADSR)
+F1  F2  F3  F4   filter           G1  G2  G3  G4   global (fixed roles)
+L1  L2  L3  L4   LFO              G5  G6  G7  G8   signature (per-synth)
+```
 
-**Diva slot 16:** Diva exposes no master-volume parameter, so slot 16 is intentionally
-empty for Diva (dim LED, §7). Confirm during implementation whether the mappings format
-wants the entry omitted or an explicit empty placeholder.
+**Slot numbering** (keeps `ck_grid.nt` bindings untouched, so non-zoned devices —
+effect BOBs, banks — stay exactly where they are today on the right module):
+- grid-3 = slots **1–16**: E1–E8 = slots 1–8, G1–G8 = slots 9–16.
+- grid-2 = slots **17–32**: O1–O8 = slots 17–24, F1–F4 = slots 25–28, L1–L4 = slots 29–32.
 
----
+Zone colours (LEDs + HUD): **osc=amber, filter=teal, LFO=violet, env=rose, global=green**
+(signature row shares green, dimmer or warmer variant — pick during LED work).
 
-## 6. Open decisions (need a call before / during build)
-
-1. **Scope — 16 or 32 pots now?** This plan assumes **16** (one PO16) for the synth zone,
-   extensible to 32. If both PO16 modules are for synths *today*, the pot matrix expands to
-   the full 8-osc / 4-filter / 4-LFO / 8-env / 8-global layout (that design already exists;
-   ask the user).
-2. **Jump handling (absolute pots).** One physical pot mapped across many synths won't match
-   the new value after a device switch, so a touch jumps the parameter. Options:
-   - **(a) Accept it** for Phase 1 and lean on the LED brightness cue (§7). Lowest effort.
-   - **(b) Soft-takeover** — suppress output until the pot passes through Live's current
-     value. Implementable in Grid Lua (MIDI RX + stored target + comparison) or Ableton-side.
-     Better feel, more work, and it interacts with where value-feedback lives.
-   Recommendation: ship (a), design the LED feedback so (b) can be layered on later.
-3. **Where the synth mapping lives.** Recommend a **new mapping `.nt`** targeting only the new
-   modules (leave the existing compact `ck_grid.nt` untouched), rather than adding a mode to
-   `ck_grid`. Confirm with user.
+Global row split (decision): **G1–G4 fixed roles** (identical meaning on every synth),
+**G5–G8 signature** (each synth's character controls, free choice per synth).
 
 ---
 
-## 7. LED plan (PO16 specifics)
+## 4. Per-synth pot matrix — 32 slots (DRAFT, review before building)
 
-Pots have physical position, so the LED is **not** a position indicator. Repurpose each
-pot's RGB LED for:
+**Parameter names are byte-exact** — verified against `data/devices_12.json`
+(all four synths present). Watch exact casing/spacing; Operator has params with
+trailing spaces (e.g. `A Fix On `) — none used here, but never hand-retype names.
 
-- **Hue = block** — filter teal / osc amber / env rose / LFO violet / global green. The bank
-  reads as blocks at rest and matches the HUD colours. This is the free win.
-- **Brightness = live value** — LED intensity tracks the parameter's *actual* Live value, so
-  a stale pot (position ≠ Live after a device switch) still shows the truth until you catch
-  up. More useful on absolute pots than it would be on encoders.
-- **Dim = unmapped** — a slot the current device can't fill (Diva's Volume, a borrowed slot)
-  sits dimmed, not misleading.
+`className` keys: Wavetable → **`InstrumentVector`**, Drift → **`Drift`**,
+Operator → **`Operator`**, Analog → **`UltraAnalog`**.
+*(Diva is not part of the current synth set — ignore any old references.)*
 
-**Buttons:** hue = block + on/off state read back from the device (light when on, dim when
-off) so colour reflects Live, not the last press; action keys flash on press; shift/mode
-reuses the existing `on_color` (red/green) convention.
+† **Operator is an FM deviation** (documented, wanted): a 2-osc template can't represent
+4 FM operators, so its osc rows become operator-A/B coarse+fine+level+feedback, and
+`Algorithm` goes on button B16. Do **not** force it into the osc template.
+
+### Left module — osc 1 (slots 17–20), osc 2 (21–24), filter (25–28), LFO (29–32)
+
+| Slot | Role | Wavetable | Drift | Operator † | Analog |
+|---|---|---|---|---|---|
+| O1 (17) | Osc 1 timbre | `Osc 1 Pos` | `Osc 1 Shape` | `A Coarse` | `OSC1 Shape` |
+| O2 (18) | Osc 1 timbre 2 | `Osc 1 Effect 1` | `Osc 1 Shape Mod Amt` | `A Fine` | `OSC1 PW` |
+| O3 (19) | Osc 1 pitch | `Osc 1 Transp` | `Osc 1 Oct` | `Osc-A Feedb` | `OSC1 Octave` |
+| O4 (20) | Osc 1 level | `Osc 1 Gain` | `Osc 1 Gain` | `Osc-A Level` | `OSC1 Level` |
+| O5 (21) | Osc 2 timbre | `Osc 2 Pos` | `Osc 2 Wave` | `B Coarse` | `OSC2 Shape` |
+| O6 (22) | Osc 2 detune / timbre 2 | `Osc 2 Detune` | `Osc 2 Detune` | `B Fine` | `OSC2 Detune` |
+| O7 (23) | Osc 2 pitch | `Osc 2 Transp` | `Osc 2 Oct` | `Osc-B Feedb` | `OSC2 Octave` |
+| O8 (24) | Osc 2 level | `Osc 2 Gain` | `Osc 2 Gain` | `Osc-B Level` | `OSC2 Level` |
+| F1 (25) | Cutoff | `Filter 1 Freq` | `LP Freq` | `Filter Freq` | `F1 Freq` |
+| F2 (26) | Resonance | `Filter 1 Res` | `LP Reso` | `Filter Res` | `F1 Resonance` |
+| F3 (27) | Filter env amt | `Filter 1 Drive` | `LP Mod Amt 1` | `Fe Amount` | `F1 Freq < Env` |
+| F4 (28) | Drive / morph | `Filter 1 Morph` | `HP Freq` | `Filter Drive` | `F1 Drive` |
+| L1 (29) | LFO rate | `LFO 1 Rate` | `LFO Rate` | `LFO Rate` | `LFO1 Speed` |
+| L2 (30) | LFO depth | `LFO 1 Amount` | `LFO Amt` | `LFO Amt` | `F1 Freq < LFO` |
+| L3 (31) | LFO shape | `LFO 1 Shape` | `LFO Wave` | `LFO Type` | `LFO1 Shape` |
+| L4 (32) | LFO extra ⚠ | `LFO 1 Shaping` | `LFO Mod Amt` | `LFO Amt B` | `LFO1 Fade In` |
+
+⚠ **L4 is the weakest row of the draft** — confirm each choice (or nominate better)
+during review. L3 lands on quantized params for Drift/Operator/Analog; acceptable on an
+absolute pot (steps divide the throw), flagged for feel-testing.
+
+### Right module — amp env (slots 1–4), env 2 (5–8), global (9–12), signature (13–16)
+
+| Slot | Role | Wavetable | Drift | Operator † | Analog |
+|---|---|---|---|---|---|
+| E1 (1) | Amp attack | `Amp Attack` | `Env 1 Attack` | `Ae Attack` | `AEG1 Attack` |
+| E2 (2) | Amp decay | `Amp Decay` | `Env 1 Decay` | `Ae Decay` | `AEG1 Decay` |
+| E3 (3) | Amp sustain | `Amp Sustain` | `Env 1 Sustain` | `Ae Sustain` | `AEG1 Sustain` |
+| E4 (4) | Amp release | `Amp Release` | `Env 1 Release` | `Ae Release` | `AEG1 Rel` |
+| E5 (5) | Env 2 attack | `Env 2 Attack` | `Env 2 Attack` | `Fe Attack` | `FEG1 Attack` |
+| E6 (6) | Env 2 decay | `Env 2 Decay` | `Env 2 Decay` | `Fe Decay` | `FEG1 Decay` |
+| E7 (7) | Env 2 sustain | `Env 2 Sustain` | `Env 2 Sustain` | `Fe Sustain` | `FEG1 Sustain` |
+| E8 (8) | Env 2 release | `Env 2 Release` | `Env 2 Release` | `Fe Release` | `FEG1 Rel` |
+| G1 (9) | Volume | `Volume` | `Volume` | `Volume` | `Volume` |
+| G2 (10) | Glide | `Glide` | `Glide Time` | `Glide Time` | `Glide Time` |
+| G3 (11) | Transpose | `Transpose` | `Transpose` | `Transpose` | `Semitone` |
+| G4 (12) | Spread / unison amt | `Unison Amount` | `Spread` | `Spread` | `Unison Detune` |
+| S1 (13) | Signature 1 | `Sub Gain` | `Drift` | `Tone` | `Vib Amount` |
+| S2 (14) | Signature 2 | `Osc 1 Effect 2` | `Thickness` | `Time` | `Vib Speed` |
+| S3 (15) | Signature 3 | `Global Mod Amount` | `Strength` | `Pe Amount` | `Noise Level` |
+| S4 (16) | Signature 4 | `Filter 2 Freq` | `Noise Gain` | `Shaper Drive` | `Noise Color` |
+
+Env-2 semantics per synth: Wavetable/Drift = their literal `Env 2` (mod env);
+Operator/Analog = the **filter envelope** (`Fe *` / `FEG1 *`) — the musically dominant
+second envelope on those two.
+
+---
+
+## 5. Per-synth button matrix — 16 keys on grid-1 (kept design; B16 un-reserved)
+
+Shift/mode lives on `grid-4:4::1`, so **B16 is a real per-synth slot now**, not
+reserved. `—` = no equivalent on that synth: the key stays **unbound silently** (dim
+LED, blank HUD cell — a role-miss is legitimate, not an error to log on every resolve).
+
+| # | Role | Wavetable | Drift | Operator | Analog |
+|---|---|---|---|---|---|
+| B1 | Filter on | `Filter 1 On` | `Osc 1 Flt On` | `Filter On` | `F1 On/Off` |
+| B2 | Filter type | `Filter 1 Type` | `LP Type` | `Filter Type` | `F1 Type` |
+| B3 | LP / HP | `Filter 1 LP/HP` | — | — | — |
+| B4 | Filter 2 on | `Filter 2 On` | `Osc 2 Flt On` | — | `F2 On/Off` |
+| B5 | Osc 1 on | `Osc 1 On` | `Osc 1 On` | `Osc-A On` | `OSC1 On/Off` |
+| B6 | Osc 2 on | `Osc 2 On` | `Osc 2 On` | `Osc-B On` | `OSC2 On/Off` |
+| B7 | Sub / noise on | `Sub On` | `Noise On` | `Osc-C On` | `Noise On/Off` |
+| B8 | Osc wave / osc D | — | `Osc 1 Wave` | `Osc-D On` | — |
+| B9 | LFO sync | `LFO 1 Sync` | `LFO Synced` | `LFO Sync` | `LFO1 Sync` |
+| B10 | LFO retrig | `LFO 1 Retrigger` | `LFO Retrig On` | `LFO Retrigger` | `LFO1 Retrig` |
+| B11 | Env loop / mode | `Amp Loop Mode` | `Env 2 Cyc On` | `Ae Loop` | `AEG1 Loop` |
+| B12 | Unison on | — | — | — | `Unison On/Off` |
+| B13 | Glide on | — | — | `Glide On` | `Glide On/Off` |
+| B14 | Mono / legato | — | `Legato On` | — | `Glide Legato` |
+| B15 | Device on | `Device On` | `Device On` | `Device On` | `Device On` |
+| B16 | Synth special | `Filter 2 Type` | `Osc Retrig On` | `Algorithm` | `Vib On/Off` |
+
+B16 for Operator = **`Algorithm`** — this is where the documented FM deviation's
+algorithm control lands (it was missing from the old table).
+
+---
+
+## 6. Data + config design
+
+### `data/synth_zone_tables.json` (new shipped file)
+
+Role-keyed, two parts (exact JSON shape may be adjusted during TDD, spirit is fixed):
+
+- **`template`** — defined once: the zone list (name, colour, slot numbers, ordered role
+  ids) for the 32 pot slots and 16 button slots. This is what makes positions immovable.
+- **`synths`** — one entry per `className`: `display` name plus `role → { name, display? }`
+  maps for encoders and buttons. A missing role = legitimately unmapped (silent, dim LED).
+
+Validated at generation by a new `model_synth_zones.py` (mirror
+`validate_custom_device_mappings`): every synth's roles must exist in the template,
+no duplicate parameter names within a synth, template slots must cover 1–32 / B1–B16
+exactly once.
+
+### Mapping `.nt`
+
+One new top-level key in `ck_grid.nt`:
+
+```
+smart-zoning: on
+```
+
+`gen.py` bakes `synth_zone_tables.json` into the generated surface (same pattern as
+`parameter_mappings_file`) and passes an enabled flag through the Helpers config.
+Default off: other surfaces (launch_control, parks) are untouched until they opt in —
+and a 32-slot template on a 16-encoder surface would show only slots 1–16 (right-module
+content), which is another reason enrollment is per-surface.
+
+### Resolver (`source_modules/param_resolver.py`)
+
+New tier ahead of BOB in `resolve_encoder` / `resolve_switch`, active only when the
+surface flag is on AND the focused device's `class_name` has a `synths` entry:
+
+- Page 1, slot N → template slot N's role → synth's param name → `resolve_param_by_name`
+  (strict `original_name`, dead-handle-safe — all existing machinery reused).
+- Role miss or param-name miss on a *mapped* role: return `None`; only log when a
+  **mapped** name fails to resolve (byte-drift bug), never for template holes.
+- `encoder_pages_count` / `page_label_for` / `_first_standard_page`: a zoned device
+  behaves like a BOB-with-encoders device — zone is page 1 (label e.g. `"Zoned"`),
+  factory banks from page 2.
+- Buttons: same pattern via the template's 16 button roles; `button_pages_count`
+  accordingly.
+- Precedence: zone table beats BOB if both exist (shouldn't happen — custom mappings
+  stay effects-only).
+
+---
+
+## 7. Open decisions
+
+1. **Jump handling (absolute pots).** Unchanged from before:
+   - **(a) Accept it** for Phase 1, lean on LED brightness (§8). Lowest effort. ← ship this
+   - **(b) Soft-takeover** (Grid Lua MIDI-RX compare, or Ableton-side) — layer on later;
+     the LED design below keeps that door open.
+2. **§4 draft review** — especially row L4 and the four signature slots per synth.
+   User signs off on the matrix before the data file is written.
+3. **Meld & Serum** — not in `devices_12.json` (Live 12.1+ / VST). Same template; exact
+   param strings must be **extracted from the live device** (guessed names silently fail):
+   load device → dump names via `update.py` / `data/list_device_params.sh` → read
+   `./bin/tail_logs.sh` → fill roles → add `synths` entries. Do after the four built-ins ship.
+
+---
+
+## 8. LED plan (32 pots + 16 buttons)
+
+Pots are absolute, so the LED is **not** a position indicator:
+
+- **Hue = zone** — per-module blocks (§3 colours). The rig reads as six blocks at rest
+  and matches the HUD. Free win.
+- **Brightness = live value** — intensity tracks the parameter's actual Live value, so a
+  stale pot (position ≠ Live after device switch) shows the truth until you catch up.
+- **Dim = unmapped** — a role the current synth can't fill sits dimmed, not misleading.
+
+**Buttons (grid-1):** hue = zone; on/off state read back from Live (lit when on, dim
+when off); action keys flash on press.
 
 ### Architecture — mirror `HudClient`
 
-Add a `GridLedClient` alongside `source_modules/hud_client.py`, hooked at the **same point**
-in `templates/surface_name/modules/main_component.py` that already calls
-`send_device()` / `send_slot()` / `commit()` on device focus. It rides the same coalesced
-device-switch burst (consistent with the recent transactional-focus work) but emits **MIDI
-to the Grid's RX** instead of UDP to the HUD — so HUD and hardware stay coherent because they
-fire from one event. Provide a `NullGridLedClient` no-op fallback (same pattern as
-`NullHudClient`) so generated code never branches.
+`GridLedClient` alongside `source_modules/hud_client.py`, hooked at the **same point** in
+`templates/surface_name/modules/main_component.py` that calls
+`send_device()` / `send_slot()` / `commit()` on device focus. Rides the same coalesced
+device-switch burst but emits **MIDI to the Grid's RX** instead of UDP — HUD and hardware
+stay coherent because they fire from one event. `NullGridLedClient` no-op fallback (same
+pattern as `NullHudClient`) so generated code never branches.
 
-On the Grid side, a short Lua handler maps each incoming CC → `led_color` / `led_intensity`
-on the matching element (layer 1).
+Grid side: a short Lua handler maps incoming CC → `led_color` / `led_intensity` (layer 1).
 
 **Phasing:**
-- **Phase 1 (zero Ableton code):** set static block colours locally in Grid Editor via
-  `led_color` on each element's init event. Instant self-documenting bank.
-- **Phase 2 (dynamic):** `GridLedClient` streams value + on/off; Grid Lua renders brightness
-  and button state. Unlocks the stale-pot cue, per-device recolour, and dimming.
+- **Phase 1 (zero Ableton code):** static zone colours set locally in Grid Editor on each
+  element's init event. Instant self-documenting rig.
+- **Phase 2 (dynamic):** `GridLedClient` streams value + on/off; Lua renders brightness,
+  button state, and dimming of unmapped roles.
 
 ---
 
-## 8. Implementation steps
+## 9. Implementation steps
 
-**A. Controller config (`live_surfaces/grid/controller_grid.nt`)**
-- It currently models only 16 knobs + 16 buttons (two 4×4 `grid` groups). Add the new left
-  `PO16` and `BU16` as new `grid` groups (rows 4, columns 4), chained with `right_of`, each
-  with a **distinct, non-clashing `midi_channel` / `midi_range`** matching what the Grid
-  Editor profile emits. Verify against the existing groups so CCs/notes don't collide.
-- Confirm the grid coordinate names (e.g. `grid-3:1-16`) the new groups expose.
+**A. Matrix sign-off** — user reviews §4/§5 (L4 row, signature slots, B16 picks).
 
-**B. Device parameter mappings (`data/custom_device_mappings.json`)**
-- Add five `devices[]` entries keyed by `className` (§3), each with a 16-entry `encoders`
-  list (slot order) and a `buttons` list (§4). Follow the existing entry shape
-  (`{ "name": ..., "display": ... }`, buttons `{ "name": ..., "type": "param" }`).
-- Optionally set `display` aliases for cleaner HUD/LED labels.
-- `validate_custom_device_mappings` (`model_custom_devices.py`) runs at generation — keep it
-  passing.
+**B. Zone data + validator (TDD)** — failing tests first: `model_synth_zones.py`
+validator + `data/synth_zone_tables.json` with the template and four synths.
 
-**C. Meld/Serum** — §5 extraction, then add their two entries.
+**C. Config plumbing** — `smart-zoning` key in `model_v2.py` (RootV2), `gen.py` bakes the
+zone file + flag into the surface (mirror `parameter_mappings_file`), template config
+passes it to Helpers.
 
-**D. Synth mapping `.nt`** — new file (per §6.3) referencing `controller_grid.nt`, mapping
-the new PO16 coords to a `device` block (`slots: 1-16`) and the new BU16 coords to
-`device` `button` slots + the reserved shift button. Reuse `hud: on` / `show-hud-on`.
+**D. Resolver tier** — `param_resolver.py` per §6: zoned page 1, banks from page 2,
+silent role-misses, button roles. Unit tests with plain fakes (the resolver has no Live
+coupling).
 
-**E. LED feedback** — §7: `GridLedClient` + `NullGridLedClient`, hook in `main_component.py`,
-plus the Grid Editor Lua profile. Phase 1 first (static colours, no Ableton change).
+**E. Surface flip** — `smart-zoning: on` in `ck_grid.nt`; regenerate; user deploys and
+restarts Live (never run `deploy.sh` yourself).
+
+**F. LEDs** — §8 Phase 1 (Grid Editor only), then Phase 2 (`GridLedClient` +
+`NullGridLedClient` + tests mirroring `tests/test_hud_client.py`).
 
 ---
 
-## 9. Test plan (TDD — failing tests first, per CLAUDE.md)
+## 10. Test plan (TDD — failing tests first, per CLAUDE.md)
 
-- **Config validation:** a test that the five new `custom_device_mappings.json` entries load
-  and validate (extend `tests/test_config_validation.py` / the custom-devices validator test).
-- **Mapping resolution:** generating the new synth `.nt` resolves all 16 pot coords + button
-  coords to MIDI without clash (mirror existing `tests/test_gen.py` device-mapping tests and
-  the switch-coord clash detection).
-- **Slot ↔ parameter binding:** for each synth `className`, slot N → expected parameter name
-  from §3 (guards against byte-exact drift, e.g. Operator trailing spaces, Diva colons).
-- **`GridLedClient`:** unit tests mirroring `tests/test_hud_client.py` — burst
-  buffering/coalescing, `set_enabled` gate, `Null` no-op parity. Assert it emits on the same
-  device-focus event the HUD does (integration-level).
-- **Controller expansion:** grid group cell-count vs MIDI-range validation still passes for
-  the new 4×4 groups (`model_controller.py` already checks `rows*columns == len(range)`).
-- Full suite green; run `./build.sh` before committing and report how quality changed.
+- **Zone-table validation:** template covers slots 1–32/B1–B16 exactly once; synth roles
+  all exist in template; the shipped file for all four synths loads and validates.
+- **Slot ↔ parameter binding:** for each synth `className`, slot N → the byte-exact §4
+  name (guards drift; Operator's trailing-space params make hand-retyping fatal).
+- **Resolver:** zoned synth → zone param on page 1, factory bank on page 2, page label;
+  unknown synth → identical to today (regression pin); toggle off → identical to today;
+  role-miss → None without log spam; mapped-name miss → logged.
+- **Gen integration:** `ck_grid.nt` with `smart-zoning: on` generates; zone file baked;
+  existing gen/clash tests stay green.
+- **`GridLedClient`:** burst buffering/coalescing, `set_enabled` gate, Null parity,
+  fires on the same device-focus event as the HUD (integration-level).
+- Full suite green; run `./build.sh` before committing and report quality change.
 
 ---
 
-## 10. Guardrails (from CLAUDE.md)
+## 11. Guardrails (from CLAUDE.md)
 
 - Let the **user redeploy** (they restart Ableton). Don't run `deploy.sh` yourself.
 - **Never commit with a failing test**, even unrelated. Mention **this plan name**
   (`grid-po16-synth-surface-plan`) in the commit message. Run `./build.sh` first.
 - Runtime info from inside Live comes via `update.py` + `./bin/tail_logs.sh`.
-- Flag any product/UX contradiction before coding (e.g. don't dismiss the HUD when it's
-  needed; don't silently force Operator into the osc template).
+- Flag product/UX contradictions before coding (don't silently force Operator into the
+  osc template; don't let per-synth data creep back into positional
+  `custom_device_mappings.json`).
