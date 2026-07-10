@@ -29,10 +29,13 @@ modes:
                 track: selected
                 device: selected
                 mappings:
-                    encoders:
-                        range: grid-3:1-16
-                        slots: 1-16
-#                    on-off: grid-4:3
+                    encoder-list:
+                        -
+                            range: grid-3:1-16
+                            slots: 1-16
+                        -
+                            range: grid-2:1-16
+                            slots: 17-32
                     button:
                         range: grid-1:1-16
                         slots: 1-16
@@ -79,8 +82,8 @@ modes:
                 device: selected
                 mappings:
                     button:
-                        range: grid-4:1-12
-                        slots: 5-16
+                        range: grid-1:1-16
+                        slots: 17-32
             -
                 type: functions
                 mappings:
