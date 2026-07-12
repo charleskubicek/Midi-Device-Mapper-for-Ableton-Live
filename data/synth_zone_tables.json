@@ -198,99 +198,99 @@
     "buttons": [
       {
         "slot": 1,
-        "role": "filter_on",
+        "role": "filt1",
         "zone": "filter",
-        "display": "Filter on"
+        "display": "Filter A"
       },
       {
         "slot": 2,
-        "role": "filter_type",
+        "role": "filt2",
         "zone": "filter",
-        "display": "Filter type"
+        "display": "Filter B"
       },
       {
         "slot": 3,
-        "role": "lp_hp",
+        "role": "filt3",
         "zone": "filter",
-        "display": "LP / HP"
+        "display": "Filter C"
       },
       {
         "slot": 4,
-        "role": "filter2_on",
+        "role": "filt4",
         "zone": "filter",
-        "display": "Filter 2 on"
+        "display": "Filter D"
       },
       {
         "slot": 5,
-        "role": "osc1_on",
+        "role": "osc_b1",
         "zone": "osc",
-        "display": "Osc 1 on"
+        "display": "Osc A"
       },
       {
         "slot": 6,
-        "role": "osc2_on",
+        "role": "osc_b2",
         "zone": "osc",
-        "display": "Osc 2 on"
+        "display": "Osc B"
       },
       {
         "slot": 7,
-        "role": "sub_noise_on",
+        "role": "osc_b3",
         "zone": "osc",
-        "display": "Sub / noise on"
+        "display": "Osc C"
       },
       {
         "slot": 8,
-        "role": "osc_wave_d",
+        "role": "osc_b4",
         "zone": "osc",
-        "display": "Osc wave / osc D"
+        "display": "Osc D"
       },
       {
         "slot": 9,
-        "role": "lfo_sync",
-        "zone": "lfo",
+        "role": "char1",
+        "zone": "character",
         "display": "LFO sync"
       },
       {
         "slot": 10,
-        "role": "lfo_retrig",
-        "zone": "lfo",
+        "role": "char2",
+        "zone": "character",
         "display": "LFO retrig"
       },
       {
         "slot": 11,
-        "role": "env_loop",
-        "zone": "env",
-        "display": "Env loop / mode"
+        "role": "char3",
+        "zone": "character",
+        "display": "Char 3"
       },
       {
         "slot": 12,
-        "role": "unison_on",
-        "zone": "global",
-        "display": "Unison on"
+        "role": "char4",
+        "zone": "character",
+        "display": "Char 4"
       },
       {
         "slot": 13,
-        "role": "glide_on",
-        "zone": "global",
-        "display": "Glide on"
+        "role": "char5",
+        "zone": "character",
+        "display": "Char 5"
       },
       {
         "slot": 14,
-        "role": "mono_legato",
-        "zone": "global",
-        "display": "Mono / legato"
+        "role": "char6",
+        "zone": "character",
+        "display": "Char 6"
       },
       {
         "slot": 15,
-        "role": "device_on",
-        "zone": "global",
-        "display": "Device on"
+        "role": "char7",
+        "zone": "character",
+        "display": "Char 7"
       },
       {
         "slot": 16,
-        "role": "signature",
-        "zone": "signature",
-        "display": "Synth special"
+        "role": "char8",
+        "zone": "character",
+        "display": "Device on"
       }
     ]
   },
@@ -396,41 +396,53 @@
         }
       },
       "buttons": {
-        "filter_on": {
+        "filt1": {
           "name": "Filter 1 On"
         },
-        "filter_type": {
+        "filt2": {
           "name": "Filter 1 Type"
         },
-        "lp_hp": {
+        "filt3": {
           "name": "Filter 1 LP/HP"
         },
-        "filter2_on": {
+        "filt4": {
           "name": "Filter 2 On"
         },
-        "osc1_on": {
+        "osc_b1": {
           "name": "Osc 1 On"
         },
-        "osc2_on": {
+        "osc_b2": {
           "name": "Osc 2 On"
         },
-        "sub_noise_on": {
+        "osc_b3": {
           "name": "Sub On"
         },
-        "lfo_sync": {
+        "osc_b4": {
+          "name": "Sub Transpose"
+        },
+        "char1": {
           "name": "LFO 1 Sync"
         },
-        "lfo_retrig": {
+        "char2": {
           "name": "LFO 1 Retrigger"
         },
-        "env_loop": {
+        "char3": {
+          "name": "LFO 2 Sync"
+        },
+        "char4": {
+          "name": "LFO 2 Retrigger"
+        },
+        "char5": {
           "name": "Amp Loop Mode"
         },
-        "device_on": {
-          "name": "Device On"
+        "char6": {
+          "name": "Env 2 Loop Mode"
         },
-        "signature": {
-          "name": "Filter 2 Type"
+        "char7": {
+          "name": "Filter 1 Slope"
+        },
+        "char8": {
+          "name": "Device On"
         }
       }
     },
@@ -535,44 +547,53 @@
         }
       },
       "buttons": {
-        "filter_on": {
+        "filt1": {
           "name": "Osc 1 Flt On"
         },
-        "filter_type": {
+        "filt2": {
           "name": "LP Type"
         },
-        "filter2_on": {
+        "filt3": {
           "name": "Osc 2 Flt On"
         },
-        "osc1_on": {
+        "filt4": {
+          "name": "Noise Flt On"
+        },
+        "osc_b1": {
           "name": "Osc 1 On"
         },
-        "osc2_on": {
+        "osc_b2": {
           "name": "Osc 2 On"
         },
-        "sub_noise_on": {
+        "osc_b3": {
           "name": "Noise On"
         },
-        "osc_wave_d": {
+        "osc_b4": {
           "name": "Osc 1 Wave"
         },
-        "lfo_sync": {
+        "char1": {
           "name": "LFO Synced"
         },
-        "lfo_retrig": {
+        "char2": {
           "name": "LFO Retrig On"
         },
-        "env_loop": {
+        "char3": {
+          "name": "LFO Time Mode"
+        },
+        "char4": {
+          "name": "Osc Retrig On"
+        },
+        "char5": {
           "name": "Env 2 Cyc On"
         },
-        "mono_legato": {
+        "char6": {
           "name": "Legato On"
         },
-        "device_on": {
-          "name": "Device On"
+        "char7": {
+          "name": "Cyc Env Time Mode"
         },
-        "signature": {
-          "name": "Osc Retrig On"
+        "char8": {
+          "name": "Device On"
         }
       }
     },
@@ -677,41 +698,53 @@
         }
       },
       "buttons": {
-        "filter_on": {
+        "filt1": {
           "name": "Filter On"
         },
-        "filter_type": {
+        "filt2": {
           "name": "Filter Type"
         },
-        "osc1_on": {
+        "filt3": {
+          "name": "Filter Circuit - LP/HP"
+        },
+        "filt4": {
+          "name": "Filt < LFO"
+        },
+        "osc_b1": {
           "name": "Osc-A On"
         },
-        "osc2_on": {
+        "osc_b2": {
           "name": "Osc-B On"
         },
-        "sub_noise_on": {
-          "name": "Osc-C On"
+        "osc_b3": {
+          "name": "A Fix On "
         },
-        "osc_wave_d": {
-          "name": "Osc-D On"
+        "osc_b4": {
+          "name": "B Fix On "
         },
-        "lfo_sync": {
+        "char1": {
           "name": "LFO Sync"
         },
-        "lfo_retrig": {
+        "char2": {
           "name": "LFO Retrigger"
         },
-        "env_loop": {
+        "char3": {
+          "name": "LFO On"
+        },
+        "char4": {
+          "name": "Algorithm"
+        },
+        "char5": {
           "name": "Ae Loop"
         },
-        "glide_on": {
+        "char6": {
+          "name": "Fe Loop"
+        },
+        "char7": {
           "name": "Glide On"
         },
-        "device_on": {
+        "char8": {
           "name": "Device On"
-        },
-        "signature": {
-          "name": "Algorithm"
         }
       }
     },
@@ -816,47 +849,53 @@
         }
       },
       "buttons": {
-        "filter_on": {
+        "filt1": {
           "name": "F1 On/Off"
         },
-        "filter_type": {
+        "filt2": {
           "name": "F1 Type"
         },
-        "filter2_on": {
+        "filt3": {
           "name": "F2 On/Off"
         },
-        "osc1_on": {
+        "filt4": {
+          "name": "F2 Type"
+        },
+        "osc_b1": {
           "name": "OSC1 On/Off"
         },
-        "osc2_on": {
+        "osc_b2": {
           "name": "OSC2 On/Off"
         },
-        "sub_noise_on": {
+        "osc_b3": {
           "name": "Noise On/Off"
         },
-        "lfo_sync": {
+        "osc_b4": {
+          "name": "O1 Sub/Sync"
+        },
+        "char1": {
           "name": "LFO1 Sync"
         },
-        "lfo_retrig": {
+        "char2": {
           "name": "LFO1 Retrig"
         },
-        "env_loop": {
-          "name": "AEG1 Loop"
-        },
-        "unison_on": {
+        "char3": {
           "name": "Unison On/Off"
         },
-        "glide_on": {
+        "char4": {
+          "name": "Vib On/Off"
+        },
+        "char5": {
           "name": "Glide On/Off"
         },
-        "mono_legato": {
+        "char6": {
           "name": "Glide Legato"
         },
-        "device_on": {
-          "name": "Device On"
+        "char7": {
+          "name": "Glide Mode"
         },
-        "signature": {
-          "name": "Vib On/Off"
+        "char8": {
+          "name": "Device On"
         }
       }
     }

@@ -165,33 +165,46 @@ second envelope on those two.
 
 ---
 
-## 5. Per-synth button matrix — 16 keys on grid-1 (kept design; B16 un-reserved)
+## 5. Button matrix — 16 keys on grid-1, AREA-BASED (revised 2026-07-12)
 
-Shift/mode lives on `grid-4:4::1`, so **B16 is a real per-synth slot now**, not
-reserved. `—` = no equivalent on that synth: the key stays **unbound silently** (dim
-LED, blank HUD cell — a role-miss is legitimate, not an error to log on every resolve).
+**Design change:** grid-1 is now grouped into **areas**, not 16 fixed cross-synth
+roles. Mechanically the button slots became positional per-synth free choice (like
+the signature pots) — a **data/template-only change, no resolver code**.
 
-| # | Role | Wavetable | Drift | Operator | Analog |
+- **B1–B4 = filter area**, **B5–B8 = osc area**, **B9–B16 = character area**
+  (each synth's best-fit discrete controls).
+- Muscle-memory anchors kept aligned across synths: **B1/B2** (filter on / type),
+  **B5/B6** (osc 1 / 2 on), **B9/B10** (LFO sync / retrig), **B16** (Device on).
+  B3–B4, B7–B8, B11–B15 vary per synth (topologies differ).
+- **Operator osc B7/B8 = `A Fix On ` / `B Fix On `** (fixed-freq toggles for ops
+  A/B — **trailing spaces are the exact Live names**), replacing the C/D on
+  toggles per ck. Operator `Algorithm` lands in the character area (B12).
+- Every cell is filled for all four synths; verified byte-exact vs
+  `devices_12.json` with **no pot/button collision** per synth (a param never sits
+  on both a pot and a button).
+
+The authoritative slot→param map is `data/synth_zone_tables.json`; a rendered
+snapshot lives in `data/synth_zone_tables.md` (visualization only). The old
+16-fixed-role table is superseded.
+
+| # | Area | Wavetable | Drift | Operator | Analog |
 |---|---|---|---|---|---|
-| B1 | Filter on | `Filter 1 On` | `Osc 1 Flt On` | `Filter On` | `F1 On/Off` |
-| B2 | Filter type | `Filter 1 Type` | `LP Type` | `Filter Type` | `F1 Type` |
-| B3 | LP / HP | `Filter 1 LP/HP` | — | — | — |
-| B4 | Filter 2 on | `Filter 2 On` | `Osc 2 Flt On` | — | `F2 On/Off` |
-| B5 | Osc 1 on | `Osc 1 On` | `Osc 1 On` | `Osc-A On` | `OSC1 On/Off` |
-| B6 | Osc 2 on | `Osc 2 On` | `Osc 2 On` | `Osc-B On` | `OSC2 On/Off` |
-| B7 | Sub / noise on | `Sub On` | `Noise On` | `Osc-C On` | `Noise On/Off` |
-| B8 | Osc wave / osc D | — | `Osc 1 Wave` | `Osc-D On` | — |
-| B9 | LFO sync | `LFO 1 Sync` | `LFO Synced` | `LFO Sync` | `LFO1 Sync` |
-| B10 | LFO retrig | `LFO 1 Retrigger` | `LFO Retrig On` | `LFO Retrigger` | `LFO1 Retrig` |
-| B11 | Env loop / mode | `Amp Loop Mode` | `Env 2 Cyc On` | `Ae Loop` | `AEG1 Loop` |
-| B12 | Unison on | — | — | — | `Unison On/Off` |
-| B13 | Glide on | — | — | `Glide On` | `Glide On/Off` |
-| B14 | Mono / legato | — | `Legato On` | — | `Glide Legato` |
-| B15 | Device on | `Device On` | `Device On` | `Device On` | `Device On` |
-| B16 | Synth special | `Filter 2 Type` | `Osc Retrig On` | `Algorithm` | `Vib On/Off` |
-
-B16 for Operator = **`Algorithm`** — this is where the documented FM deviation's
-algorithm control lands (it was missing from the old table).
+| B1 | filter | `Filter 1 On` | `Osc 1 Flt On` | `Filter On` | `F1 On/Off` |
+| B2 | filter | `Filter 1 Type` | `LP Type` | `Filter Type` | `F1 Type` |
+| B3 | filter | `Filter 1 LP/HP` | `Osc 2 Flt On` | `Filter Circuit - LP/HP` | `F2 On/Off` |
+| B4 | filter | `Filter 2 On` | `Noise Flt On` | `Filt < LFO` | `F2 Type` |
+| B5 | osc | `Osc 1 On` | `Osc 1 On` | `Osc-A On` | `OSC1 On/Off` |
+| B6 | osc | `Osc 2 On` | `Osc 2 On` | `Osc-B On` | `OSC2 On/Off` |
+| B7 | osc | `Sub On` | `Noise On` | `A Fix On ` | `Noise On/Off` |
+| B8 | osc | `Sub Transpose` | `Osc 1 Wave` | `B Fix On ` | `O1 Sub/Sync` |
+| B9 | character | `LFO 1 Sync` | `LFO Synced` | `LFO Sync` | `LFO1 Sync` |
+| B10 | character | `LFO 1 Retrigger` | `LFO Retrig On` | `LFO Retrigger` | `LFO1 Retrig` |
+| B11 | character | `LFO 2 Sync` | `LFO Time Mode` | `LFO On` | `Unison On/Off` |
+| B12 | character | `LFO 2 Retrigger` | `Osc Retrig On` | `Algorithm` | `Vib On/Off` |
+| B13 | character | `Amp Loop Mode` | `Env 2 Cyc On` | `Ae Loop` | `Glide On/Off` |
+| B14 | character | `Env 2 Loop Mode` | `Legato On` | `Fe Loop` | `Glide Legato` |
+| B15 | character | `Filter 1 Slope` | `Cyc Env Time Mode` | `Glide On` | `Glide Mode` |
+| B16 | character | `Device On` | `Device On` | `Device On` | `Device On` |
 
 ---
 
