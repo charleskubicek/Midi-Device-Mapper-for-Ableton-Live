@@ -5,7 +5,7 @@ from .hud_client import HudClient, NullHudClient
 from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot
 from .param_resolver import (
     ParameterResolver, RealParameter, ParameterMapping, SwitchSlotMapping,
-    M4L_CLASSES, _device_table_key, _build_device_table,
+    M4L_CLASSES, _device_table_key, _build_device_table, _build_zone_tables,
     _default_device_banks, _default_bank_names,
     _device_alive, _safe_device_attr, _same_device,
 )
@@ -68,6 +68,10 @@ class SurfaceConfig:
     # while holding shift). None when there's no distinct base device mode.
     pager_preview_mode: Any = None
     parameter_mappings_raw: Any = None
+    # Smart-zoning (grid-po16-synth-surface-plan): flag + shipped zone tables,
+    # both baked by gen.py. Off/None -> resolver behaves exactly as today.
+    smart_zoning: bool = False
+    zone_tables_raw: Any = None
     encoder_slot_count: int = 8
     button_slot_count: int = 8
     hud_cells: Any = None
@@ -110,7 +114,9 @@ class Helpers:
             device_table=_build_device_table(config.parameter_mappings_raw),
             device_banks=device_banks, bank_names=bank_names,
             banks_per_page=banks_per_page, button_switch_count=button_switch_count,
-            button_slot_count=config.button_slot_count, log=self.log_message)
+            button_slot_count=config.button_slot_count, log=self.log_message,
+            smart_zoning=config.smart_zoning,
+            zone_tables=_build_zone_tables(config.zone_tables_raw))
         self._presenter = HudPresenter(
             remote=remote, resolver=self._resolver,
             slot_assignments=slot_assignments,

@@ -25,6 +25,7 @@ from ableton_control_surface_as_code.hud_layout import (
 )
 from ableton_control_surface_as_code.model_composition import is_composition_file, read_composition
 from ableton_control_surface_as_code.model_custom_devices import validate_custom_device_mappings
+from ableton_control_surface_as_code.model_synth_zones import validate_synth_zone_tables
 from source_modules.hud_protocol import encode_layout
 
 tab = " " * 4
@@ -438,6 +439,18 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
         parameter_mappings_raw = json.loads(pm_path.read_text())
         validate_custom_device_mappings(parameter_mappings_raw)
 
+    # Smart-zoning (grid-po16-synth-surface-plan): when the surface opts in, bake
+    # the shipped role-keyed zone tables into the generated surface (same pattern
+    # as parameter_mappings_raw). The file is a fixed shipped asset, not a
+    # per-surface path.
+    zone_tables_raw = None
+    if mappings.smart_zoning:
+        zone_path = Path('data/synth_zone_tables.json')
+        if not zone_path.exists():
+            raise ValueError(f"smart-zoning: on but zone tables not found: {zone_path}")
+        zone_tables_raw = json.loads(zone_path.read_text())
+        validate_synth_zone_tables(zone_tables_raw)
+
     vars = {
         'surface_name': surface_name,
         'udp_port': generate_5_digit_number(surface_name) + 1,
@@ -448,6 +461,8 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
         'class_name_camel': 'ControlMappings',
         'ableton_dir': validate_path(mappings.ableton_dir),
         'parameter_mappings_raw': repr(parameter_mappings_raw),
+        'smart_zoning': repr(bool(mappings.smart_zoning)),
+        'zone_tables_raw': repr(zone_tables_raw),
         # HUD client target as data. None -> the HUD on 127.0.0.1:5006; the parks
         # forwarder sets (host, port) to reach the compositor's region port.
         'hud_target': repr(overrides.hud_target),

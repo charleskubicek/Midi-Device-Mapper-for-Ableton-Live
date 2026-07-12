@@ -77,10 +77,19 @@ F1  F2  F3  F4   filter           G1  G2  G3  G4   global (fixed roles)
 L1  L2  L3  L4   LFO              G5  G6  G7  G8   signature (per-synth)
 ```
 
-**Slot numbering** (keeps `ck_grid.nt` bindings untouched, so non-zoned devices —
-effect BOBs, banks — stay exactly where they are today on the right module):
-- grid-3 = slots **1–16**: E1–E8 = slots 1–8, G1–G8 = slots 9–16.
-- grid-2 = slots **17–32**: O1–O8 = slots 17–24, F1–F4 = slots 25–28, L1–L4 = slots 29–32.
+**Slot numbering** — ⚠ **SHIPPED orientation differs from the original draft
+below.** ck kept `ck_grid.nt` binding grid-2 (LEFT PO16) → slots **1–16** and
+grid-3 (RIGHT) → slots **17–32**, and wants osc/filter/LFO under the LEFT hand.
+So the **zone template swaps its two halves** (the fix lives in
+`synth_zone_tables.json`, not the `.nt`):
+- grid-2 (LEFT) = slots **1–16**: O1–O8 = slots 1–8, F1–F4 = slots 9–12, L1–L4 = slots 13–16.
+- grid-3 (RIGHT) = slots **17–32**: E1–E8 = slots 17–24, G1–G4 = slots 25–28, S1–S4 = slots 29–32.
+- Within-module row order (§3 diagram) is preserved; only the ±16 block offset flips.
+- Pinned by `test_model_synth_zones.py::test_module_orientation`.
+
+*Original draft (superseded — kept for context): grid-3 = slots 1–16 (E/G),
+grid-2 = slots 17–32 (O/F/L). The §4 per-row (N) values still use this old
+numbering; the authoritative slot→role map is the shipped JSON + the block above.*
 
 Zone colours (LEDs + HUD): **osc=amber, filter=teal, LFO=violet, env=rose, global=green**
 (signature row shares green, dimmer or warmer variant — pick during LED work).
@@ -284,24 +293,35 @@ Grid side: a short Lua handler maps incoming CC → `led_color` / `led_intensity
 
 ## 9. Implementation steps
 
-**A. Matrix sign-off** — user reviews §4/§5 (L4 row, signature slots, B16 picks).
+**A. Matrix sign-off** ✅ — user signed off §4/§5 (2026-07-10). Every param name
+verified byte-exact against `data/devices_12.json`.
 
-**B. Zone data + validator (TDD)** — failing tests first: `model_synth_zones.py`
-validator + `data/synth_zone_tables.json` with the template and four synths.
+**B. Zone data + validator (TDD)** ✅ — `model_synth_zones.py`
+(`SynthZoneTables`/`validate_synth_zone_tables`) + `data/synth_zone_tables.json`
+(template + four synths, generated from the §4/§5 matrix). Tests:
+`test_model_synth_zones.py`, incl. a non-circular ground-truth check that every
+shipped name is a member of its className's param set in `devices_12.json`.
 
-**C. Config plumbing** — `smart-zoning` key in `model_v2.py` (RootV2), `gen.py` bakes the
-zone file + flag into the surface (mirror `parameter_mappings_file`), template config
-passes it to Helpers.
+**C. Config plumbing** ✅ — `smart-zoning` key on `RootV2`/`RootV2ModesOrModeless`
+(`model_v2.py`); `gen.py` loads+validates+bakes `synth_zone_tables.json` and the
+enabled flag (`smart_zoning`, `zone_tables_raw`) into the surface; threaded
+through `SurfaceConfig → Helpers → ParameterResolver`.
 
-**D. Resolver tier** — `param_resolver.py` per §6: zoned page 1, banks from page 2,
-silent role-misses, button roles. Unit tests with plain fakes (the resolver has no Live
-coupling).
+**D. Resolver tier** ✅ — `param_resolver.py`: `_build_zone_tables`, `_zone_synth`/
+`_is_zoned`, three-way `_zone_lookup` (fallthrough / unmapped / mapped) wired into
+`resolve_encoder` + `resolve_switch` ahead of BOB; zone = page 1 ("Zoned" label),
+banks from page 2; slots outside the template fall through (preserves shift-mode's
+grid-1 second bank). Tests: `test_synth_zone_resolver.py` + regression pins in
+`test_param_resolver.py`.
 
-**E. Surface flip** — `smart-zoning: on` in `ck_grid.nt`; regenerate; user deploys and
-restarts Live (never run `deploy.sh` yourself).
+**E. Surface flip** ✅ — `smart-zoning: on` in `ck_grid.nt`; regenerated. User
+deploys + restarts Live (never run `deploy.sh` here).
 
-**F. LEDs** — §8 Phase 1 (Grid Editor only), then Phase 2 (`GridLedClient` +
-`NullGridLedClient` + tests mirroring `tests/test_hud_client.py`).
+**LED work (§8) — deferred** to a follow-up pass (scope decision 2026-07-11:
+ship functional zoning first). Phase 1 = static zone hues in the Grid Editor (zero
+Ableton code); Phase 2 = `GridLedClient` streaming value/state over MIDI on the
+device-focus burst.
+
 
 ---
 

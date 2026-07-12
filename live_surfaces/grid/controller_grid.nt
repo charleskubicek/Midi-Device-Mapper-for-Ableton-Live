@@ -30,7 +30,7 @@ control_groups:
         type: knob
         midi_channel: 1
         midi_type: CC
-        midi_range: 48-63
+        midi_range: 16-31
         rows: 4
         columns: 4
         right_of: 1

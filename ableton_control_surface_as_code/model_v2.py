@@ -141,6 +141,7 @@ class RootV2(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    smart_zoning: bool = False
     hud: HudMode = HudMode.On
     # Built model: always constructed with an explicit value from the (now
     # required) parsed model, so this default is only a safety net for direct
@@ -161,6 +162,10 @@ class RootV2ModesOrModeless(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    # Smart-zoning enrollment (grid-po16-synth-surface-plan). Off by default so
+    # other surfaces are untouched until they opt in; a 32-slot template only
+    # makes sense on this surface's 32 pots.
+    smart_zoning: bool = Field(default=False, alias='smart-zoning')
     # Required — no default. A surface must state what the HUD shows and when it
     # appears; `read_root` pre-checks their presence for a friendly error.
     hud: HudMode
@@ -184,6 +189,7 @@ class RootV2ModesOrModeless(BaseModel):
             ableton_dir=self.ableton_dir,
             remote_on=self.remote_on,
             parameter_mappings_file=self.parameter_mappings_file,
+            smart_zoning=self.smart_zoning,
             hud=self.hud,
             show_hud_on=self.show_hud_on,
             feedback=self.feedback,

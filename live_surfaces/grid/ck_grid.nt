@@ -3,6 +3,11 @@ ableton_dir: /Applications/Ableton Live 12 Suite.app
 #ableton_dir: /Applications/Ableton Live 12 Beta.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
 
+# smart-zoning (grid-po16-synth-surface-plan): each enrolled synth (Wavetable,
+# Drift, Operator, Analog) gets the fixed 32-pot / 16-button zone layout as
+# page 1; non-enrolled devices fall back to BOB/banks exactly as before.
+smart-zoning: on
+
 remote_on: false
 
 # hud — what the HUD shows (uncomment exactly one):
@@ -31,10 +36,10 @@ modes:
                 mappings:
                     encoder-list:
                         -
-                            range: grid-3:1-16
+                            range: grid-2:1-16
                             slots: 1-16
                         -
-                            range: grid-2:1-16
+                            range: grid-3:1-16
                             slots: 17-32
                     button:
                         range: grid-1:1-16
@@ -84,6 +89,9 @@ modes:
                     button:
                         range: grid-1:1-16
                         slots: 17-32
+                    encoders:
+                        range: grid-2:1-16
+                        slots: 33-48
             -
                 type: functions
                 mappings:

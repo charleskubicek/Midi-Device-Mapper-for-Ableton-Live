@@ -76,6 +76,31 @@ def _build_device_table(raw):
     return table
 
 
+def _build_zone_tables(raw):
+    """Compile the shipped smart-zoning tables into the lookup form the resolver
+    uses: slot -> role maps (from the immovable template) plus the per-className
+    role -> param tables. Returns None when zoning ships no data, so the resolver
+    can treat "no zone tables" and "zoning off" identically. See
+    grid-po16-synth-surface-plan §6."""
+    if not raw:
+        return None
+    template = raw.get('template', {}) or {}
+    enc_slot_role = {e['slot']: e['role'] for e in template.get('encoders', [])}
+    btn_slot_role = {e['slot']: e['role'] for e in template.get('buttons', [])}
+    synths = {}
+    for class_name, entry in (raw.get('synths', {}) or {}).items():
+        synths[class_name] = {
+            'display': entry.get('display', class_name),
+            'encoders': entry.get('encoders', {}) or {},
+            'buttons': entry.get('buttons', {}) or {},
+        }
+    return {
+        'enc_slot_role': enc_slot_role,
+        'btn_slot_role': btn_slot_role,
+        'synths': synths,
+    }
+
+
 def _device_table_key(device):
     cn = _safe_device_attr(device, 'class_name')
     if cn in NAME_DISAMBIGUATED_CLASSES:
@@ -150,7 +175,8 @@ def _default_bank_names():
 
 class ParameterResolver:
     def __init__(self, device_table, device_banks, bank_names,
-                 banks_per_page, button_switch_count, button_slot_count, log):
+                 banks_per_page, button_switch_count, button_slot_count, log,
+                 smart_zoning=False, zone_tables=None):
         self._device_table = device_table
         self._device_banks = device_banks
         self._bank_names = bank_names
@@ -158,6 +184,12 @@ class ParameterResolver:
         self._button_switch_count = button_switch_count
         self._button_slot_count = button_slot_count
         self._log = log
+        # Smart-zoning tier (grid-po16-synth-surface-plan): active only when the
+        # surface toggle is on AND the focused device's class_name has a shipped
+        # zone table. Off/no-tables -> `_is_zoned` is always False and every
+        # resolution path below is byte-for-byte today's behavior.
+        self._smart_zoning = bool(smart_zoning)
+        self._zone_tables = zone_tables
         # Paging state — reset on every device focus via focus().
         self.encoder_page = 1
         self.button_page = 1
@@ -351,6 +383,44 @@ class ParameterResolver:
     def _has_bob(self, device):
         return self.device_entry(device) is not None
 
+    def _zone_synth(self, device):
+        """The zone table for `device`'s className, or None. A device is zoned
+        iff the surface toggle is on AND its className has a shipped `synths`
+        entry — never guessed. Dead-handle-safe on class_name."""
+        if not self._smart_zoning or not self._zone_tables or device is None:
+            return None
+        cn = _safe_device_attr(device, 'class_name')
+        if cn is None:
+            return None
+        return self._zone_tables['synths'].get(cn)
+
+    def _is_zoned(self, device):
+        return self._zone_synth(device) is not None
+
+    def _zone_lookup(self, device, kind, slot):
+        """Resolve a zone slot to one of three outcomes, so callers can tell a
+        slot the template doesn't own (fall through to BOB/fallback) from a
+        template slot the current synth can't fill (silent dim):
+          - ('fallthrough', None): `slot` is outside the zone template — e.g.
+            the shift-mode second button bank binds slots 17-32, which the
+            16-button template never claims. Behave exactly as pre-zoning.
+          - ('unmapped', None): a real template role this synth doesn't fill —
+            legitimately blank, dim LED, no log.
+          - ('mapped', entry): the role's param spec, ready to resolve.
+        `kind` is 'encoders' or 'buttons'; `slot` is the 1-based template slot."""
+        synth = self._zone_synth(device)
+        if synth is None:
+            return ('fallthrough', None)
+        slot_role = self._zone_tables[
+            'enc_slot_role' if kind == 'encoders' else 'btn_slot_role']
+        role = slot_role.get(slot)
+        if role is None:
+            return ('fallthrough', None)
+        entry = synth[kind].get(role)
+        if entry is None:
+            return ('unmapped', None)
+        return ('mapped', entry)
+
     def _has_bob_encoders(self, device):
         """BOB takes encoder page 1 only if it actually defines encoders.
         A buttons-only BOB (e.g. a Rack with `min_max` switches) must not
@@ -358,9 +428,9 @@ class ParameterResolver:
         return bool(self._bob_encoders(device))
 
     def _first_standard_page(self, device):
-        """Page index where standard banks start. 2 if BOB has encoders
-        (encoder page 1 is BOB); 1 otherwise so banks lead."""
-        return 2 if self._has_bob_encoders(device) else 1
+        """Page index where standard banks start. 2 if page 1 is taken by a zone
+        layout or BOB encoders; 1 otherwise so banks lead."""
+        return 2 if (self._is_zoned(device) or self._has_bob_encoders(device)) else 1
 
     def _standard_bank_name_for(self, device, page, slot_in_page):
         """Page is 1-based. Standard banks are paired self._banks_per_page
@@ -386,12 +456,13 @@ class ParameterResolver:
     def encoder_pages_count(self, device):
         if device is None:
             return 1
-        bob_pages = 1 if self._has_bob_encoders(device) else 0
+        # A zone layout and a BOB both occupy exactly encoder page 1.
+        lead_pages = 1 if (self._is_zoned(device) or self._has_bob_encoders(device)) else 0
         banks = self.standard_banks(device)
         if banks:
             std_pages = (len(banks) + self._banks_per_page - 1) // self._banks_per_page
-            return max(1, bob_pages + std_pages)
-        if bob_pages:
+            return max(1, lead_pages + std_pages)
+        if lead_pages:
             return 1
         # Unknown class fallback — chunk continuous params by 8s then pair.
         params_per_page = 8 * self._banks_per_page
@@ -400,6 +471,10 @@ class ParameterResolver:
 
     def button_pages_count(self, device):
         if device is None:
+            return 1
+        if self._is_zoned(device):
+            # Zone buttons are the single 16-role template page; factory-bank
+            # button paging is not offered on a zoned synth.
             return 1
         if self._has_bob(device):
             stride = self._button_switch_count or self._button_slot_count
@@ -412,6 +487,8 @@ class ParameterResolver:
         if device is None:
             return ''
         class_name = getattr(device, 'class_name', None)
+        if page == 1 and self._is_zoned(device):
+            return 'Zoned'
         if page == 1 and self._has_bob_encoders(device):
             return 'Best of'
         names = self._bank_names.get(class_name)
@@ -434,7 +511,28 @@ class ParameterResolver:
         page = self.encoder_page
         slot_in_page = c_idx - 1
         class_name = getattr(device, 'class_name', None)
-        known = self._has_bob(device) or bool(self.standard_banks(device))
+        known = (self._has_bob(device) or bool(self.standard_banks(device))
+                 or self._is_zoned(device))
+
+        # Zone tier — page 1 of an enrolled synth. Precedes BOB (zone beats BOB;
+        # by design they never both apply — custom mappings stay effects-only).
+        # A slot outside the template falls through; only a mapped-but-unfilled
+        # role dims.
+        if page == 1 and self._is_zoned(device):
+            outcome, entry = self._zone_lookup(device, 'encoders', c_idx)
+            if outcome == 'unmapped':
+                return None  # dim LED, blank HUD — a legitimate role miss
+            if outcome == 'mapped':
+                name = entry['name']
+                p = self.resolve_param_by_name(device, name)
+                if p is None:
+                    self._log(
+                        f"[zone] '{name}' (slot {c_idx}) not found in "
+                        f"{class_name} original_names — zone table drift."
+                    )
+                    return None
+                return RealParameter(p, entry.get('display') or name, entry.get('button'))
+            # outcome == 'fallthrough' — slot not owned by the template
 
         if page == 1 and self._has_bob_encoders(device):
             encoders = self._bob_encoders(device)
@@ -503,6 +601,33 @@ class ParameterResolver:
         if device is None:
             return None
         class_name = getattr(device, 'class_name', None)
+        # Zone tier — button slot on an enrolled synth (page 1 only). Precedes
+        # BOB, same precedence as the encoder path. A slot outside the 16-button
+        # template (e.g. shift-mode's grid-1 second bank on slots 17-32) falls
+        # through to BOB/fallback so pre-zoning behavior is preserved there.
+        if self._is_zoned(device):
+            outcome, entry = self._zone_lookup(device, 'buttons', switch_idx + 1)
+            if outcome != 'fallthrough':
+                if self.button_page != 1 or outcome == 'unmapped':
+                    return None  # dim LED / no zone paging beyond page 1
+                name = entry['name']
+                p = self.resolve_param_by_name(device, name)
+                if p is None:
+                    self._log(
+                        f"[zone] button '{name}' (slot {switch_idx + 1}) not found in "
+                        f"{class_name} original_names — zone table drift."
+                    )
+                    return None
+                # has_range=False: a quantized param (Algorithm 0-10, filter
+                # type, on/off) is cycled by the switch handler over its own
+                # min/max — identical to a rangeless BOB toggle button.
+                return {
+                    'kind': 'param',
+                    'param': p,
+                    'alias': entry.get('display') or name,
+                    'd_idx': self._resolve_param_d_idx(device, name),
+                    'has_range': False, 'min': None, 'max': None, 'min_max': False,
+                }
         if self._has_bob(device):
             buttons = self._bob_buttons(device)
             stride = self._button_switch_count or self._button_slot_count

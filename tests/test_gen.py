@@ -361,5 +361,32 @@ class TestHudOwnerElectionCodegen(unittest.TestCase):
         self.assertTrue(arbiter_module.exists())
 
 
+class TestSmartZoningCodegen(unittest.TestCase):
+    """End-to-end: `smart-zoning: on` in ck_grid.nt must bake the shipped zone
+    tables + the enabled flag into the generated surface, and the baked repr
+    must be valid Python (grid-po16-synth-surface-plan step C/E)."""
+
+    def test_ck_grid_bakes_zone_tables(self):
+        from pathlib import Path
+        import py_compile
+        from ableton_control_surface_as_code.gen import generate
+
+        repo = Path(__file__).resolve().parent.parent
+        generate(repo / "live_surfaces" / "grid" / "ck_grid.nt")
+
+        main = (repo / "live_surfaces" / "grid" / "ck_grid" / "modules"
+                / "main_component.py")
+        self.assertTrue(main.exists())
+        # A bad repr() of the large baked dict would only fail at Ableton load;
+        # py_compile catches it here.
+        py_compile.compile(str(main), doraise=True)
+
+        src = main.read_text()
+        self.assertIn("smart_zoning=True", src)
+        # all four enrolled synth classNames present in the baked table
+        for cn in ("InstrumentVector", "Drift", "Operator", "UltraAnalog"):
+            self.assertIn(cn, src)
+
+
 if __name__ == '__main__':
     unittest.main()
