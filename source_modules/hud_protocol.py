@@ -94,6 +94,10 @@ class BurstSnapshot:
     buttons: tuple = ()
     page: 'PageInfo' = None
     suppress_hud: bool = False
+    # Zone-colour tints for this burst: sequence of (kind, wire_idx, hex6).
+    # Empty => emit `ZONES|0` (clears any prior tint). See
+    # grid-zone-colour-coding-plan.
+    zone_colors: tuple = ()
 
 
 # ---- encode -----------------------------------------------------------------
@@ -164,6 +168,19 @@ def encode_set_mode(name: str) -> str:
     # names" validation and generalizes past two modes. Distinct verb from the
     # secondary->primary `MODE|shift|normal` (which RegionState ignores).
     return f"SETMODE|{name}"
+
+
+def encode_zones(entries) -> str:
+    """Per-burst zone-colour message (grid-zone-colour-coding-plan). `entries`
+    is an iterable of (kind, wire_idx, hex6) — the zone tint for HUD dial/button
+    outlines, keyed by the same wire index the SLOT uses. An empty iterable
+    yields `ZONES|0`, which the receiver treats as "no tint" (clears any
+    previous synth's colours on a non-zoned focus)."""
+    entries = list(entries)
+    parts = [str(len(entries))]
+    for kind, idx, hexv in entries:
+        parts += [kind, str(idx), hexv]
+    return "ZONES|" + "|".join(parts)
 
 
 def encode_event(kind: str, wire_idx: int, text: str) -> str:

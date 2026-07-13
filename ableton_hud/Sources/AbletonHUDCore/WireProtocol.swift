@@ -37,6 +37,17 @@ public struct HudCell: Equatable {
     }
 }
 
+/// One zone-colour tint on the wire: which slot (kind + wire index) gets which
+/// RRGGBB hue. See grid-zone-colour-coding-plan.
+public struct ZoneTint: Equatable {
+    public let kind: SlotKind
+    public let index: Int
+    public let hex: String
+    public init(kind: SlotKind, index: Int, hex: String) {
+        self.kind = kind; self.index = index; self.hex = hex
+    }
+}
+
 public enum WireMessage: Equatable {
     case layout([HudCell])
     case device(String)
@@ -56,6 +67,9 @@ public enum WireMessage: Equatable {
     /// press, rendered + faded on the HUD. `wireIdx` is the HUD button-array
     /// index (-1 when the press isn't tied to a cell). `text` may contain '|'.
     case event(kind: String, wireIdx: Int, text: String)
+    /// Per-burst zone tints for dial/button outlines. Empty array = clear (a
+    /// non-zoned device focus). Keyed by the same wire index as SLOT.
+    case zones([ZoneTint])
     case unknown
 }
 
@@ -140,6 +154,19 @@ public enum WireProtocol {
             guard fields.count >= 4, let wireIdx = Int(fields[2]) else { return .unknown }
             let text = fields[3...].joined(separator: "|")
             return .event(kind: fields[1], wireIdx: wireIdx, text: text)
+
+        case "ZONES":
+            // ZONES|<n>|<kind>|<idx>|<hex>| × n. n=0 clears all tints.
+            guard fields.count >= 2, let n = Int(fields[1]) else { return .unknown }
+            guard fields.count == 2 + n * 3 else { return .unknown }
+            var tints: [ZoneTint] = []
+            for i in 0..<n {
+                let base = 2 + i * 3
+                guard let kind = SlotKind(rawValue: fields[base]),
+                      let idx = Int(fields[base+1]) else { return .unknown }
+                tints.append(ZoneTint(kind: kind, index: idx, hex: fields[base+2]))
+            }
+            return .zones(tints)
 
         default:
             return .unknown

@@ -72,6 +72,8 @@ private struct RegionSnapshot: Equatable {
     let encoderPage: Int
     let pageTotal: Int
     let bankLabel: String
+    let dialColors: [Int: String]
+    let buttonColors: [Int: String]
 
     @MainActor
     init(from s: DeviceState) {
@@ -83,6 +85,8 @@ private struct RegionSnapshot: Equatable {
         encoderPage = s.encoderPage
         pageTotal = s.pageTotal
         bankLabel = s.bankLabel
+        dialColors = s.dialColors
+        buttonColors = s.buttonColors
     }
 }
 
@@ -210,7 +214,7 @@ private struct SourceRegionView: View {
                     let idx = cell.startIndex + i
                     let slot: Slot? = (cell.startIndex >= 0 && idx < region.dialSlots.count)
                         ? region.dialSlots[idx] : nil
-                    DialSlotView(slot: slot, zoom: zoom)
+                    DialSlotView(slot: slot, zoom: zoom, zoneHex: region.dialColors[idx])
                 }
             }
         case .button:
@@ -219,7 +223,8 @@ private struct SourceRegionView: View {
                     let idx = cell.startIndex + i
                     let slot: Slot? = (cell.startIndex >= 0 && idx < region.buttonSlots.count)
                         ? region.buttonSlots[idx] : nil
-                    ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: region.isShiftMode)
+                    ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: region.isShiftMode,
+                                   zoneHex: region.buttonColors[idx])
                 }
             }
         }
@@ -242,11 +247,45 @@ private struct ArcShape: Shape {
     }
 }
 
+extension Color {
+    /// RRGGBB hex -> Color (grid-zone-colour-coding-plan zone tints). Returns
+    /// nil on malformed input so callers fall back to the default stroke.
+    init?(zoneHex: String) {
+        let h = zoneHex.trimmingCharacters(in: .whitespaces)
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        self.init(red: Double((v >> 16) & 0xff) / 255,
+                  green: Double((v >> 8) & 0xff) / 255,
+                  blue: Double(v & 0xff) / 255)
+    }
+}
+
 private struct DialSlotView: View {
     let slot: Slot?
     let zoom: Double
+    /// Zone tint (RRGGBB) for the ring outline; nil = default grey.
+    var zoneHex: String? = nil
 
     private var scale: CGFloat { CGFloat(zoom) }
+
+    /// (full, dull) zone colours for this dial. `full` paints the value arc
+    /// (0→current, the primary hue); `dull` is a desaturated, dimmed near-grey
+    /// version for the unfilled track. nil when the device isn't zoned, so
+    /// non-zoned dials keep the default grey track + cyan value arc.
+    private var zoneTint: (full: Color, dull: Color)? {
+        guard let hex = zoneHex else { return nil }
+        let h = hex.trimmingCharacters(in: .whitespaces)
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        let r = Double((v >> 16) & 0xff) / 255
+        let g = Double((v >> 8) & 0xff) / 255
+        let b = Double(v & 0xff) / 255
+        // Pull each channel most of the way to its own luminance (desaturate),
+        // then darken — reads as "almost grey with a hint of the hue".
+        let lum = 0.299 * r + 0.587 * g + 0.114 * b
+        let sat = 0.30, dim = 0.50
+        func dull(_ c: Double) -> Double { (c * sat + lum * (1 - sat)) * dim }
+        return (Color(red: r, green: g, blue: b),
+                Color(red: dull(r), green: dull(g), blue: dull(b)))
+    }
 
     private var fillFraction: Double {
         guard let s = slot, s.max > s.min else { return 0 }
@@ -260,13 +299,13 @@ private struct DialSlotView: View {
         VStack(spacing: 4 * scale) {
             ZStack {
                 ArcShape(startAngle: .zero, endAngle: .degrees(sweep * 360))
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 2 * scale)
+                    .stroke(zoneTint?.dull ?? Color.gray.opacity(0.3), lineWidth: 2 * scale)
                     .frame(width: 25 * scale, height: 25 * scale)
                     .rotationEffect(.degrees(rotation))
 
                 if slot != nil {
                     ArcShape(startAngle: .zero, endAngle: .degrees(fillFraction * sweep * 360))
-                        .stroke(Color.cyan, lineWidth: 2 * scale)
+                        .stroke(zoneTint?.full ?? Color.cyan, lineWidth: 2 * scale)
                         .frame(width: 25 * scale, height: 25 * scale)
                         .rotationEffect(.degrees(rotation))
                 }
@@ -290,6 +329,9 @@ private struct ButtonSlotView: View {
     let slot: Slot?
     let zoom: Double
     let isShiftMode: Bool
+    /// Zone tint (RRGGBB) for the border outline; nil = default white. This is
+    /// the same hue the physical Grid button LED shows.
+    var zoneHex: String? = nil
 
     private var scale: CGFloat { CGFloat(zoom) }
 
@@ -298,13 +340,17 @@ private struct ButtonSlotView: View {
         return s.value > (s.min + s.max) / 2
     }
 
+    private var borderColor: Color {
+        zoneHex.flatMap { Color(zoneHex: $0) } ?? Color.white.opacity(slot != nil ? 0.35 : 0.25)
+    }
+
     var body: some View {
         VStack(spacing: 4 * scale) {
             RoundedRectangle(cornerRadius: 5 * scale)
                 .fill(isActive ? Color.white.opacity(0.35) : Color.clear)
                 .overlay(
                     RoundedRectangle(cornerRadius: 5 * scale)
-                        .stroke(Color.white.opacity(slot != nil ? 0.35 : 0.25), lineWidth: 1.5 * scale)
+                        .stroke(borderColor, lineWidth: 1.5 * scale)
                 )
                 .frame(width: 36 * scale, height: 20 * scale)
 

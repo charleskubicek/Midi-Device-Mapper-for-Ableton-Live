@@ -20,6 +20,12 @@ public class DeviceState: ObservableObject {
     @Published public var bankLabel: String = ""
     @Published public var dismissed: Bool = false
 
+    /// Zone-colour tints, wire index -> RRGGBB hex (grid-zone-colour-coding-plan).
+    /// Empty when the focused device isn't zoned. The view colours dial ring /
+    /// button border strokes from these.
+    @Published public var dialColors: [Int: String] = [:]
+    @Published public var buttonColors: [Int: String] = [:]
+
     /// Show-info: the most recent button-press explanation (EVENT). The view
     /// renders it as a transient footer + cell pulse and fades it; `seq` lets
     /// the view restart its fade even when the same text repeats. Orthogonal to
@@ -36,6 +42,8 @@ public class DeviceState: ObservableObject {
     private var pendingButtonPage: Int = 1
     private var pendingButtonTotal: Int = 1
     private var pendingBankLabel: String = ""
+    private var pendingDialColors: [Int: String] = [:]
+    private var pendingButtonColors: [Int: String] = [:]
 
     public let commitReceived = PassthroughSubject<Void, Never>()
     public let hideRequested = PassthroughSubject<Void, Never>()
@@ -73,6 +81,8 @@ public class DeviceState: ObservableObject {
             pendingButtonPage = 1
             pendingButtonTotal = 1
             pendingBankLabel = ""
+            pendingDialColors = [:]
+            pendingButtonColors = [:]
 
         case .slot(let kind, let index, let slot):
             guard index >= 0 else { return }
@@ -100,6 +110,8 @@ public class DeviceState: ObservableObject {
             encoderPage = pendingEncoderPage
             pageTotal = max(pendingEncoderTotal, pendingButtonTotal)
             bankLabel = pendingBankLabel
+            dialColors = pendingDialColors
+            buttonColors = pendingButtonColors
             let totalDials = pendingCells.filter { $0.kind == .dial }.reduce(0) { $0 + $1.count }
             let totalButtons = pendingCells.filter { $0.kind == .button }.reduce(0) { $0 + $1.count }
             dialSlots = (0..<totalDials).map { pendingDials[$0] }
@@ -137,6 +149,19 @@ public class DeviceState: ObservableObject {
             eventSeq += 1
             lastEvent = ButtonEvent(kind: kind, wireIdx: wireIdx, text: text, seq: eventSeq)
             hudLog("apply EVENT kind=\(kind) idx=\(wireIdx)", level: .fine)
+
+        case .zones(let tints):
+            // Per-burst zone tints; replace pending colours wholesale (an empty
+            // ZONES clears them, so a non-zoned device commits no tint).
+            pendingDialColors = [:]
+            pendingButtonColors = [:]
+            for t in tints {
+                switch t.kind {
+                case .dial:   pendingDialColors[t.index] = t.hex
+                case .button: pendingButtonColors[t.index] = t.hex
+                }
+            }
+            hudLog("apply ZONES count=\(tints.count)", level: .fine)
 
         case .unknown:
             hudLog("apply UNKNOWN", level: .fine)

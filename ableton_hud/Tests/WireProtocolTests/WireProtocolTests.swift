@@ -152,6 +152,28 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(WireProtocol.parse(line: "EVENT|info|x|text"), .unknown)
     }
 
+    // MARK: - ZONES
+
+    func test_zones_parses() {
+        let msg = WireProtocol.parse(line: "ZONES|2|dial|0|E0A33E|button|3|33B5A6")
+        XCTAssertEqual(msg, .zones([
+            ZoneTint(kind: .dial, index: 0, hex: "E0A33E"),
+            ZoneTint(kind: .button, index: 3, hex: "33B5A6"),
+        ]))
+    }
+
+    func test_zones_empty_clears() {
+        XCTAssertEqual(WireProtocol.parse(line: "ZONES|0"), .zones([]))
+    }
+
+    func test_zones_field_count_mismatch_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "ZONES|2|dial|0|E0A33E"), .unknown)
+    }
+
+    func test_zones_bad_kind_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "ZONES|1|knob|0|E0A33E"), .unknown)
+    }
+
     // MARK: - HIDE
 
     func test_hide() {
@@ -562,6 +584,33 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertTrue(state.dismissed)
         state.apply(message: .ping)
         XCTAssertTrue(state.dismissed)
+    }
+
+    // MARK: - Zone colours
+
+    func test_zones_publish_on_commit() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0)]))
+        state.apply(message: .device("Synth"))
+        state.apply(message: .zones([ZoneTint(kind: .dial, index: 0, hex: "E0A33E"),
+                                     ZoneTint(kind: .button, index: 1, hex: "33B5A6")]))
+        XCTAssertTrue(state.dialColors.isEmpty)  // pending until COMMIT
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.dialColors[0], "E0A33E")
+        XCTAssertEqual(state.buttonColors[1], "33B5A6")
+    }
+
+    func test_empty_zones_burst_clears_previous_tint() async {
+        let state = makeState()
+        state.apply(message: .device("Synth"))
+        state.apply(message: .zones([ZoneTint(kind: .dial, index: 0, hex: "E0A33E")]))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.dialColors[0], "E0A33E")
+        // A non-zoned device: DEVICE + empty ZONES + COMMIT must wipe the tint.
+        state.apply(message: .device("PlainDevice"))
+        state.apply(message: .zones([]))
+        state.apply(message: .commit(0))
+        XCTAssertTrue(state.dialColors.isEmpty)
     }
 
     // MARK: - isVisible

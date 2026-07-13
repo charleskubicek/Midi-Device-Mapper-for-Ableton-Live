@@ -654,6 +654,10 @@ class Remote:
                     self._hud_client.send_page_info(
                         p.enc_page, p.enc_total, p.btn_page, p.btn_total,
                         p.enc_label, p.btn_label)
+                # Zone tints, keyed by wire index. Emitted every (non-suppressed)
+                # burst — empty for a non-zoned device, which clears any previous
+                # synth's tint (same stale-state care as HIDE).
+                self._hud_client.send_zones(snapshot.zone_colors)
                 # Append the secondary region's cached slots (lc_parks). These
                 # carry combined wire indices already; sent after the primary's
                 # so any same-index empty placeholder is overridden on the
@@ -688,7 +692,7 @@ class Remote:
             self._hud_client.flush_burst()
             self._in_burst = False
 
-    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, page: PageInfo = None, suppress_hud=False):
+    def device_update(self, device_name, real_parameters, info_text="", switch_entries=None, device_parameters=None, hud_layout=None, mode_labels=None, page: PageInfo = None, suppress_hud=False, dial_zone_colors=None, button_zone_colors=None):
         self._osc_client.send_message(f"/selected-device/name", [f"{device_name} [{info_text}]"])
 
         # HUD burst: suppress live UPDATE calls while we build the full snapshot.
@@ -707,10 +711,12 @@ class Remote:
         if mode_labels:
             dial_payloads = _overlay_labels(dial_payloads, mode_labels, 'dial')
             button_payloads = _overlay_labels(button_payloads, mode_labels, 'button')
+        zone_colors = self._build_zone_color_entries(
+            dial_zone_colors, button_zone_colors, hud_layout)
         self.refresh_burst(BurstSnapshot(
             device_name, dial_payloads, button_payloads,
             page=page if page is not None else PageInfo(),
-            suppress_hud=suppress_hud))
+            suppress_hud=suppress_hud, zone_colors=zone_colors))
 
         self._osc_client.send_message(f"/selected-device/parameter-update-complete", [min(len(real_parameters), 16)])
 
@@ -740,6 +746,33 @@ class Remote:
                 else:
                     payloads.append((wire_idx, EMPTY_SLOT))
         return payloads
+
+    @staticmethod
+    def _build_zone_color_entries(dial_zone_colors, button_zone_colors, hud_layout):
+        """Zone tints as [(kind, wire_idx, hex)], aligned to the SLOT wire.
+
+        Dials mirror `_build_dial_payloads` exactly: wire idx W ->
+        real-parameter index W+1, so `dial_zone_colors` (parallel to
+        `real_parameters`, hence None at index 0 = Device On) is indexed the
+        same way — no contiguity assumption. Buttons are keyed by wire index
+        directly (the presenter knows each button's wire_idx). Empty inputs =>
+        no entries => `ZONES|0` clears the tint."""
+        entries = []
+        if dial_zone_colors:
+            for cell in map(LayoutCell.from_raw, hud_layout or []):
+                if cell.kind != 'dial' or cell.start < 0:
+                    continue
+                for i in range(cell.count):
+                    wire_idx = cell.start + i
+                    rp_idx = wire_idx + 1
+                    hexv = dial_zone_colors[rp_idx] if rp_idx < len(dial_zone_colors) else None
+                    if hexv:
+                        entries.append(('dial', wire_idx, hexv))
+        if button_zone_colors:
+            for wire_idx, hexv in sorted(button_zone_colors.items()):
+                if hexv:
+                    entries.append(('button', wire_idx, hexv))
+        return tuple(entries)
 
     @staticmethod
     def _build_button_payloads(switch_entries, device_parameters, hud_layout):

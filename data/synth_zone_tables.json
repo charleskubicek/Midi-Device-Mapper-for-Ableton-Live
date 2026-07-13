@@ -1,5 +1,14 @@
 {
   "comment": "Smart-zoning tables for the Grid dual-PO16 synth surface. Generated from grid-po16-synth-surface-plan \u00a74/\u00a75; names byte-exact vs devices_12.json.",
+  "zone_colors": {
+    "osc": "E0A33E",
+    "filter": "33B5A6",
+    "lfo": "9B8CE0",
+    "env": "E06B86",
+    "global": "57B368",
+    "signature": "8A9A4B",
+    "character": "5B8BC4"
+  },
   "template": {
     "encoders": [
       {

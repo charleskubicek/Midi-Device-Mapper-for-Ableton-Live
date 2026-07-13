@@ -17,6 +17,7 @@ from source_modules.hud_protocol import (
     SetModeMsg,
     UnknownMsg,
     encode_event,
+    encode_zones,
     encode_set_mode,
     encode_layout,
     encode_device,
@@ -146,6 +147,14 @@ class TestEncodeBytes(unittest.TestCase):
             encode_page_info(2, 4, 1, 2, enc_label='Best of', btn_label='Toggles'),
             "PAGE|2|4|1|2|Best of|Toggles",
         )
+
+    def test_zones_empty(self):
+        self.assertEqual(encode_zones([]), "ZONES|0")
+
+    def test_zones_entries(self):
+        self.assertEqual(
+            encode_zones([('dial', 0, 'E0A33E'), ('button', 3, '33B5A6')]),
+            "ZONES|2|dial|0|E0A33E|button|3|33B5A6")
 
     def test_event(self):
         self.assertEqual(encode_event('button', 4, 'row-3:5 acted'), "EVENT|button|4|row-3:5 acted")

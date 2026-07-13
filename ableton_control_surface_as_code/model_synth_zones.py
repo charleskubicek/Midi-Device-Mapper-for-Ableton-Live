@@ -10,11 +10,13 @@ must exist in the template, and no synth may bind the same parameter to two
 different pots (or two buttons) — that duplicate is the muscle-memory reshuffle
 smart-zoning exists to prevent. See grid-po16-synth-surface-plan §6.
 """
+import re
 from typing import Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ENCODER_SLOTS = 32
 BUTTON_SLOTS = 16
+_HEX6 = re.compile(r'^[0-9A-Fa-f]{6}$')
 
 
 class ZoneTemplateEntry(BaseModel):
@@ -54,6 +56,10 @@ class SynthZoneTables(BaseModel):
     comment: Optional[str] = None
     template: ZoneTemplate
     synths: Dict[str, SynthZoneEntry]
+    # zone -> "RRGGBB". Optional (colours are opt-in), but when present must
+    # colour every template zone exactly once — no missing zone, no orphan
+    # colour. Single source for HUD outline tints + Grid LED hues.
+    zone_colors: Optional[Dict[str, str]] = None
 
     @staticmethod
     def _check_slot_cover(entries, count, kind):
@@ -88,6 +94,21 @@ class SynthZoneTables(BaseModel):
                         f"synth {class_name!r} button role {role!r} is not in the template")
             self._check_no_dupe_params(class_name, 'encoder', synth.encoders)
             self._check_no_dupe_params(class_name, 'button', synth.buttons)
+
+        if self.zone_colors is not None:
+            template_zones = {e.zone for e in self.template.encoders} | \
+                             {e.zone for e in self.template.buttons}
+            colored = set(self.zone_colors)
+            missing = template_zones - colored
+            orphan = colored - template_zones
+            if missing:
+                raise ValueError(f"zone_colors missing colour for zone(s): {sorted(missing)}")
+            if orphan:
+                raise ValueError(f"zone_colors has orphan colour(s) for non-existent "
+                                 f"zone(s): {sorted(orphan)}")
+            for zone, hexv in self.zone_colors.items():
+                if not _HEX6.match(hexv):
+                    raise ValueError(f"zone_colors[{zone!r}]={hexv!r} is not RRGGBB hex")
         return self
 
     @staticmethod

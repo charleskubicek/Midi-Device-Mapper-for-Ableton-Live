@@ -53,7 +53,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are nine message types.
+There are ten message types.
 
 ### `LAYOUT`
 
@@ -295,6 +295,36 @@ EVENT|<kind>|<wire_idx>|<text...>
 > moving the enable toggle into HUD chrome (which needs a HUD→surface back
 > channel) are the remaining follow-up; today the toggle is the `showinfo`
 > update.py command. See momentary-vs-toggle-made-explicit-plan, item #7.
+
+### `ZONES`
+
+Per-burst zone-colour tints for the HUD dial-ring and button-border outlines
+(smart-zoning). Sent inside a burst, after `PAGE`, before the `SLOT` lines. Not
+counted in `COMMIT|<count>` — metadata, not slots.
+
+```
+ZONES|<n>|<kind0>|<idx0>|<hex0>|<kind1>|<idx1>|<hex1>|...
+```
+
+| Field   | Type   | Meaning                                             |
+|---------|--------|-----------------------------------------------------|
+| `n`     | int    | number of tint triples that follow                  |
+| `kind`  | string | `dial` or `button`                                  |
+| `idx`   | int    | wire index — **same index space as `SLOT`**         |
+| `hex`   | string | `RRGGBB` (no `#`) — the slot's zone colour           |
+
+- Colour is a property of the **template slot**, not the resolved parameter, so a
+  tint is emitted for every zoned slot including empty/unmapped ones (a dim slot
+  still shows its zone hue).
+- **Emitted:** every non-suppressed burst by `Remote.refresh_burst()`. A zoned
+  device sends the full map; a non-zoned device sends `ZONES|0`, which **clears**
+  any previous synth's tint (same stale-state care as `HIDE`). Single source of the
+  colours is `zone_colors` in `data/synth_zone_tables.json` (also drives the Grid
+  LEDs, so HUD button outline == physical Grid button LED).
+- **Receiver effect:** written to `pendingDialColors` / `pendingButtonColors`;
+  published to `dialColors` / `buttonColors` on `COMMIT`. `DEVICE` clears the
+  pending colours, so an absent `ZONES` in a burst also renders as no tint. Old
+  receivers that don't know `ZONES` parse it as `.unknown` and ignore it.
 
 ---
 

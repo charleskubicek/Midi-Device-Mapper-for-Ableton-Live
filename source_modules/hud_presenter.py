@@ -103,8 +103,16 @@ class HudPresenter:
             f"suppress_hud={suppress_hud} mode={self._current_mode_name!r} "
             f"burst_mode={burst_mode!r}"
         )
+        # Zone colour tints apply only to a zoned device, but then to EVERY
+        # template slot — an unmapped/dim slot still shows its zone hue (colour
+        # is a template property, not tied to what resolved).
+        zoned = self._resolver.is_zoned(device)
         on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
         real_params = [on_off]
+        # dial_zone_colors is kept parallel to real_params (index 0 = Device On
+        # = no tint), so `_build_zone_color_entries` can index it exactly like
+        # the dial payloads.
+        dial_zone_colors = [None]
         # Append unconditionally — a None placeholder for a failed resolve
         # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
         # Nones here shifts every later encoder one slot left on the HUD.
@@ -112,6 +120,8 @@ class HudPresenter:
         for c_idx, _slot in sorted(self._active_slot_assignments(burst_mode)):
             rp = self._resolver.resolve_encoder(device, c_idx)
             real_params.append(rp)
+            dial_zone_colors.append(
+                self._resolver.color_for_slot('dial', c_idx) if zoned else None)
             if rp is None:
                 missing_c_idxs.append(c_idx)
         if missing_c_idxs:
@@ -123,10 +133,17 @@ class HudPresenter:
                 f"enc_page={self._resolver.encoder_page} unresolved_c_idxs={missing_c_idxs}"
             )
         switch_entries = []
+        button_zone_colors = {}
         for wire_idx, slot in self._active_switch_slot_assignments(burst_mode):
             # slot is a 1-based device switch-slot int; it drives JSON-table
             # parameter resolution. wire_idx is the HUD button index assigned
             # at codegen.
+            # Tint by zone before resolving — an unmapped button still shows its
+            # zone hue (dim), so the colour must not depend on info being non-None.
+            if zoned:
+                c = self._resolver.color_for_slot('button', slot)
+                if c:
+                    button_zone_colors[wire_idx] = c
             logical_idx = slot - 1
             info = self._resolver.resolve_switch(device, logical_idx)
             if info is None:
@@ -152,6 +169,8 @@ class HudPresenter:
                           btn_page=self._resolver.button_page, btn_total=btn_total,
                           enc_label=enc_label, btn_label=btn_label),
             suppress_hud=suppress_hud,
+            dial_zone_colors=dial_zone_colors,
+            button_zone_colors=button_zone_colors,
         )
         if not suppress_hud:
             # A real burst clears the Swift sticky dismissed flag — re-sync intent.

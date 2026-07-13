@@ -69,6 +69,42 @@ class TestShippedFileValidates(unittest.TestCase):
                          list(range(1, 17)))
 
 
+class TestZoneColors(unittest.TestCase):
+    def test_shipped_colors_cover_every_template_zone(self):
+        raw = _load()
+        self.assertIn('zone_colors', raw)
+        zones = ({e['zone'] for e in raw['template']['encoders']} |
+                 {e['zone'] for e in raw['template']['buttons']})
+        self.assertEqual(set(raw['zone_colors']), zones)
+
+    def test_shipped_colors_are_6_hex(self):
+        import re
+        for zone, hexv in _load()['zone_colors'].items():
+            self.assertRegex(hexv, r'^[0-9A-Fa-f]{6}$', f"{zone}={hexv!r}")
+
+    def test_missing_zone_color_rejected(self):
+        raw = _minimal()  # template uses only 'osc'
+        raw['zone_colors'] = {}  # present but missing 'osc'
+        with self.assertRaises(Exception):
+            SynthZoneTables.model_validate(raw)
+
+    def test_orphan_zone_color_rejected(self):
+        raw = _minimal()
+        raw['zone_colors'] = {'osc': '112233', 'nosuchzone': '445566'}
+        with self.assertRaises(Exception):
+            SynthZoneTables.model_validate(raw)
+
+    def test_bad_hex_rejected(self):
+        raw = _minimal()
+        raw['zone_colors'] = {'osc': 'ZZZ'}
+        with self.assertRaises(Exception):
+            SynthZoneTables.model_validate(raw)
+
+    def test_zone_colors_optional_when_absent(self):
+        # A table with no zone_colors still validates (colours are opt-in).
+        SynthZoneTables.model_validate(_minimal())
+
+
 class TestGroundTruthNames(unittest.TestCase):
     def test_every_zoned_name_exists_in_device(self):
         raw = _load()

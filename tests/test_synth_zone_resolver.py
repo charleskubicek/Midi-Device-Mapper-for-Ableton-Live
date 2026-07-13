@@ -184,6 +184,49 @@ class TestZonedButtons(unittest.TestCase):
         self.assertEqual((info['param'].min, info['param'].max), (0.0, 10.0))
 
 
+class TestZoneColors(unittest.TestCase):
+    _TABLES = {
+        'template': {
+            'encoders': [{'slot': 1, 'role': 'a', 'zone': 'osc'},
+                         {'slot': 2, 'role': 'b', 'zone': 'filter'}],
+            'buttons': [{'slot': 1, 'role': 'c', 'zone': 'filter'},
+                        {'slot': 2, 'role': 'd', 'zone': 'character'}],
+        },
+        'zone_colors': {'osc': 'E0A33E', 'filter': '33B5A6', 'character': '5B8BC4'},
+        'synths': {'InstrumentVector': {'display': 'Wavetable',
+                                        'encoders': {'a': {'name': 'Osc 1 Pos'}},
+                                        'buttons': {}}},
+    }
+
+    def _r(self, smart_zoning=True):
+        return ParameterResolver(
+            device_table={}, device_banks={}, bank_names={}, banks_per_page=2,
+            button_switch_count=0, button_slot_count=16, log=lambda *_: None,
+            smart_zoning=smart_zoning, zone_tables=_build_zone_tables(self._TABLES))
+
+    def test_zone_for_slot(self):
+        r = self._r()
+        self.assertEqual(r.zone_for_slot('dial', 1), 'osc')
+        self.assertEqual(r.zone_for_slot('dial', 2), 'filter')
+        self.assertEqual(r.zone_for_slot('button', 2), 'character')
+
+    def test_color_for_slot(self):
+        r = self._r()
+        self.assertEqual(r.color_for_slot('dial', 1), 'E0A33E')
+        self.assertEqual(r.color_for_slot('button', 1), '33B5A6')
+        self.assertEqual(r.color_for_slot('button', 2), '5B8BC4')
+
+    def test_slot_outside_template_has_no_color(self):
+        self.assertIsNone(self._r().color_for_slot('dial', 99))
+
+    def test_no_zone_tables_no_color(self):
+        r = ParameterResolver(device_table={}, device_banks={}, bank_names={},
+                              banks_per_page=2, button_switch_count=0,
+                              button_slot_count=16, log=lambda *_: None)
+        self.assertIsNone(r.color_for_slot('dial', 1))
+        self.assertIsNone(r.zone_for_slot('dial', 1))
+
+
 class TestZonedPaging(unittest.TestCase):
     def test_zone_is_page1_banks_from_page2(self):
         banks = {'InstrumentVector': (('Bk A p0', 'Bk A p1'),)}

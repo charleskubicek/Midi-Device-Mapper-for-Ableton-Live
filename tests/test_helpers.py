@@ -848,6 +848,43 @@ class TestHudLayoutSeparation(unittest.TestCase):
             "Expected one SLOT|button per button cell slot even when no params resolved")
 
 
+class TestRemoteZoneColors(unittest.TestCase):
+    """ZONES emission (grid-zone-colour-coding-plan): dial tints are keyed by
+    wire index via the parallel `dial_zone_colors` list (index 0 = Device On =
+    no tint); buttons are keyed by wire index directly. A burst with no colours
+    emits `ZONES|0` to clear any previous tint."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_zone_colors_emitted_keyed_by_wire_index(self):
+        real_params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        # parallel to real_params: idx0=Device On (no tint), idx1/2 = slots 1/2
+        dial_zone_colors = [None, 'AAAAAA', 'BBBBBB']
+        self.remote.device_update(
+            "Synth", real_params,
+            switch_entries=[], device_parameters=[],
+            hud_layout=[(0, 0, 'dial', 8, 0, 0), (2, 0, 'button', 4, 0, 0)],
+            dial_zone_colors=dial_zone_colors,
+            button_zone_colors={0: 'CCCCCC', 2: 'CCCCCC'})
+        entries = self.hud.send_zones.call_args[0][0]
+        self.assertIn(('dial', 0, 'AAAAAA'), entries)
+        self.assertIn(('dial', 1, 'BBBBBB'), entries)
+        self.assertIn(('button', 0, 'CCCCCC'), entries)
+        self.assertIn(('button', 2, 'CCCCCC'), entries)
+        # dial wire idx 2 had no colour (rp_idx 3 out of range) -> absent
+        self.assertNotIn(('dial', 2, 'AAAAAA'), entries)
+
+    def test_no_colors_emits_empty_zones_to_clear(self):
+        real_params = [_make_real_param(_make_param(f"p{i}")) for i in range(3)]
+        self.remote.device_update(
+            "PlainDevice", real_params,
+            hud_layout=[(0, 0, 'dial', 8, 0, 0)])
+        self.hud.send_zones.assert_called_once()
+        self.assertEqual(tuple(self.hud.send_zones.call_args[0][0]), ())
+
+
 class TestRemoteResendLayout(unittest.TestCase):
     """Remote.resend_layout() is the public re-handshake entry point (HELLO
     handler, HudArbiter re-election on ownership change) — callers must never

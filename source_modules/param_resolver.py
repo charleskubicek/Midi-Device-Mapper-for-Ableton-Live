@@ -87,6 +87,10 @@ def _build_zone_tables(raw):
     template = raw.get('template', {}) or {}
     enc_slot_role = {e['slot']: e['role'] for e in template.get('encoders', [])}
     btn_slot_role = {e['slot']: e['role'] for e in template.get('buttons', [])}
+    # slot -> zone (fixed template property; drives LED/HUD colour, independent
+    # of which param resolves — an unmapped slot still shows its zone hue).
+    enc_slot_zone = {e['slot']: e.get('zone') for e in template.get('encoders', [])}
+    btn_slot_zone = {e['slot']: e.get('zone') for e in template.get('buttons', [])}
     synths = {}
     for class_name, entry in (raw.get('synths', {}) or {}).items():
         synths[class_name] = {
@@ -97,6 +101,9 @@ def _build_zone_tables(raw):
     return {
         'enc_slot_role': enc_slot_role,
         'btn_slot_role': btn_slot_role,
+        'enc_slot_zone': enc_slot_zone,
+        'btn_slot_zone': btn_slot_zone,
+        'zone_colors': raw.get('zone_colors', {}) or {},
         'synths': synths,
     }
 
@@ -396,6 +403,28 @@ class ParameterResolver:
 
     def _is_zoned(self, device):
         return self._zone_synth(device) is not None
+
+    def is_zoned(self, device):
+        """Public: is the focused device driven by the smart-zoning tier? Callers
+        gate zone-colour emission on this so a non-zoned focus shows no tint."""
+        return self._is_zoned(device)
+
+    def zone_for_slot(self, kind, surface_slot):
+        """Template zone for a 1-based surface slot ('dial'|'button' kind), or
+        None if there are no zone tables or the slot isn't in the template.
+        Independent of any device — a pure template lookup."""
+        if not self._zone_tables:
+            return None
+        key = 'enc_slot_zone' if kind == 'dial' else 'btn_slot_zone'
+        return self._zone_tables[key].get(surface_slot)
+
+    def color_for_slot(self, kind, surface_slot):
+        """RRGGBB hex for a slot's zone, or None. Callers apply this only for a
+        zoned device (so a non-zoned focus shows no tint)."""
+        zone = self.zone_for_slot(kind, surface_slot)
+        if zone is None:
+            return None
+        return self._zone_tables['zone_colors'].get(zone)
 
     def _zone_lookup(self, device, kind, slot):
         """Resolve a zone slot to one of three outcomes, so callers can tell a
