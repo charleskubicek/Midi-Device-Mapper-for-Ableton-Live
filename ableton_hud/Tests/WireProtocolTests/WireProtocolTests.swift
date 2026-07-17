@@ -214,6 +214,24 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(msg, .unknown)
     }
 
+    // MARK: - Dividers (hud_dividers plan)
+
+    func test_dividers_parses() {
+        XCTAssertEqual(WireProtocol.parse(line: "DIVIDERS|2|1|2"), .dividers([1, 2]))
+    }
+
+    func test_dividers_empty() {
+        XCTAssertEqual(WireProtocol.parse(line: "DIVIDERS|0"), .dividers([]))
+    }
+
+    func test_dividers_field_count_mismatch_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "DIVIDERS|3|1|2"), .unknown)
+    }
+
+    func test_dividers_non_int_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "DIVIDERS|1|x"), .unknown)
+    }
+
     // MARK: - Unknown commands
 
     func test_unknown_command_ignored() {
@@ -293,6 +311,22 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertEqual(state.dialSlots[0]?.name, "Size")
         XCTAssertNil(state.dialSlots[1])
         XCTAssertEqual(state.dialSlots[2]?.name, "Damp")
+    }
+
+    func test_dividers_publish_on_commit_and_persist_across_device() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 0)]))
+        state.apply(message: .dividers([1, 2]))
+        XCTAssertEqual(state.dividerCols, [])  // not published until COMMIT
+        state.apply(message: .device("Reverb"))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.dividerCols, [1, 2])
+
+        // DEVICE must NOT clear the buffered dividers (like LAYOUT cells): a
+        // second burst without a fresh DIVIDERS still commits them.
+        state.apply(message: .device("Delay"))
+        state.apply(message: .commit(0))
+        XCTAssertEqual(state.dividerCols, [1, 2])
     }
 
     func test_second_burst_clears_first() async {

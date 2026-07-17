@@ -268,3 +268,33 @@ class TestMalformed(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestDividers(unittest.TestCase):
+    """DIVIDERS wire message (hud_dividers plan): cosmetic HUD column rules."""
+
+    def test_encode_dividers(self):
+        from source_modules.hud_protocol import encode_dividers
+        self.assertEqual(encode_dividers([1, 2]), "DIVIDERS|2|1|2")
+
+    def test_encode_empty_dividers(self):
+        from source_modules.hud_protocol import encode_dividers
+        self.assertEqual(encode_dividers([]), "DIVIDERS|0")
+
+    def test_parse_dividers(self):
+        from source_modules.hud_protocol import DividersMsg
+        self.assertEqual(parse("DIVIDERS|2|1|2"), DividersMsg([1, 2]))
+
+    def test_parse_empty_dividers(self):
+        from source_modules.hud_protocol import DividersMsg
+        self.assertEqual(parse("DIVIDERS|0"), DividersMsg([]))
+
+    def test_parse_dividers_roundtrip(self):
+        from source_modules.hud_protocol import encode_dividers, DividersMsg
+        self.assertEqual(parse(encode_dividers([1, 3, 5])), DividersMsg([1, 3, 5]))
+
+    def test_parse_dividers_bad_count_is_unknown(self):
+        self.assertIsInstance(parse("DIVIDERS|3|1|2"), UnknownMsg)
+
+    def test_parse_dividers_non_int_is_unknown(self):
+        self.assertIsInstance(parse("DIVIDERS|1|x"), UnknownMsg)

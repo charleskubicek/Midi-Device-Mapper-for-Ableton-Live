@@ -14,6 +14,9 @@ public class DeviceState: ObservableObject {
     @Published public var dialSlots: [Slot?] = []
     @Published public var buttonSlots: [Slot?] = []
     @Published public var hudCells: [HudCell] = []
+    /// Cosmetic column dividers (hud_dividers plan): grid_col boundaries where
+    /// the view draws a full-height vertical rule to the left of that column.
+    @Published public var dividerCols: [Int] = []
     @Published public var isShiftMode: Bool = false
     @Published public var encoderPage: Int = 1
     @Published public var pageTotal: Int = 1
@@ -37,6 +40,7 @@ public class DeviceState: ObservableObject {
     private var pendingButtons: [Int: Slot] = [:]
     private var pendingName: String = ""
     private var pendingCells: [HudCell] = []
+    private var pendingDividerCols: [Int] = []
     private var pendingEncoderPage: Int = 1
     private var pendingEncoderTotal: Int = 1
     private var pendingButtonPage: Int = 1
@@ -67,6 +71,12 @@ public class DeviceState: ObservableObject {
         case .layout(let cells):
             pendingCells = cells
             hudLog("apply LAYOUT cells=\(cells.count)", level: .fine)
+
+        case .dividers(let cols):
+            // Like LAYOUT: buffered here, published on COMMIT, and NOT cleared by
+            // DEVICE so it persists across device changes.
+            pendingDividerCols = cols
+            hudLog("apply DIVIDERS cols=\(cols)", level: .fine)
 
         case .device(let name):
             // A new device burst means the user (re)selected a device — clear the
@@ -106,6 +116,7 @@ public class DeviceState: ObservableObject {
         case .commit:
             dismissed = false
             hudCells = pendingCells
+            dividerCols = pendingDividerCols
             deviceName = pendingName
             encoderPage = pendingEncoderPage
             pageTotal = max(pendingEncoderTotal, pendingButtonTotal)

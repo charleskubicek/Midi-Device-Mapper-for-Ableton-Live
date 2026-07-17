@@ -92,6 +92,7 @@ class MainComponent(ControlSurfaceComponent):
             zone_tables_raw=$zone_tables_raw,
             encoder_slot_count=$encoder_slot_count,
             hud_cells=$hud_cells,
+            hud_dividers=$hud_dividers,
             mode_hud_labels=$mode_hud_labels,
             hud_trigger=$hud_trigger,
             button_behaviour=$button_behaviour))

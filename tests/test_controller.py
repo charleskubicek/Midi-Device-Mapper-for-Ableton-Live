@@ -5,7 +5,7 @@ from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.gen_error import GenError, ProblemAccumulator
 from ableton_control_surface_as_code.hud_layout import allocate_global_layout, find_wire_index
 from ableton_control_surface_as_code.model_controller import ControllerV2, ControlGroupPartV2, \
-    validate_controller_semantics
+    ControllerRawV2, Divider, validate_controller_semantics
 from tests.test_gen_build_model_v2 import build_raw_controller_v2, build_control_group_part, build_control_group
 
 
@@ -424,3 +424,100 @@ class TestBuildModeModelV2(unittest.TestCase):
         self.assertEqual(e[1].number, 12)
         self.assertEqual(e[2].number, 37)
         self.assertEqual(e[3].number, 38)
+
+
+class TestDividers(unittest.TestCase):
+    """Cosmetic HUD dividers (hud_dividers plan): `dividers` resolves grid-N
+    pairs to HUD grid_col boundaries."""
+
+    def _four_block_grid(self, dividers):
+        """controller_grid.nt shape: four 4x4 blocks in a right_of chain, so
+        grid-1..grid-4 sit at grid_col 0..3."""
+        groups = [
+            ControlGroupPartV2(layout='grid', number=1, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='0-15',
+                               rows=4, columns=4),
+            ControlGroupPartV2(layout='grid', number=2, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='16-31',
+                               rows=4, columns=4, right_of=1),
+            ControlGroupPartV2(layout='grid', number=3, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='32-47',
+                               rows=4, columns=4, right_of=2),
+            ControlGroupPartV2(layout='grid', number=4, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='64-79',
+                               rows=4, columns=4, right_of=3),
+        ]
+        raw = ControllerRawV2(light_colors={}, control_groups=groups,
+                              dividers=dividers)
+        return ControllerV2.build_from(raw)
+
+    def test_no_dividers_is_empty(self):
+        controller = self._four_block_grid([])
+        self.assertEqual(controller.divider_columns(), [])
+
+    def test_adjacent_dividers_resolve_to_boundary_columns(self):
+        # grid-1|grid-2 boundary is before col 1; grid-2|grid-3 before col 2.
+        controller = self._four_block_grid([
+            Divider(a='grid-1', b='grid-2'),
+            Divider(a='grid-2', b='grid-3'),
+        ])
+        self.assertEqual(controller.divider_columns(), [1, 2])
+
+    def test_boundary_is_deduped_and_sorted(self):
+        controller = self._four_block_grid([
+            Divider(a='grid-3', b='grid-4'),
+            Divider(a='grid-1', b='grid-2'),
+            Divider(a='grid-2', b='grid-1'),  # same boundary as 1|2, reversed
+        ])
+        self.assertEqual(controller.divider_columns(), [1, 3])
+
+    def test_out_of_range_grid_ref_raises(self):
+        controller = self._four_block_grid([Divider(a='grid-1', b='grid-9')])
+        with self.assertRaises(GenError) as ctx:
+            controller.divider_columns()
+        self.assertIn('grid-9', str(ctx.exception))
+
+    def test_malformed_grid_ref_raises(self):
+        controller = self._four_block_grid([Divider(a='grid-1', b='row-2')])
+        with self.assertRaises(GenError) as ctx:
+            controller.divider_columns()
+        self.assertIn('row-2', str(ctx.exception))
+
+    def test_same_column_stacked_grids_raises(self):
+        # Two 4x4 knob blocks stacked vertically (under), same grid_col -> a
+        # horizontal (row) boundary, which the vertical-only MVP rejects.
+        groups = [
+            ControlGroupPartV2(layout='grid', number=1, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='0-15',
+                               rows=4, columns=4),
+            ControlGroupPartV2(layout='grid', number=2, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='16-31',
+                               rows=4, columns=4, under=1),
+        ]
+        raw = ControllerRawV2(light_colors={}, control_groups=groups,
+                              dividers=[Divider(a='grid-1', b='grid-2')])
+        controller = ControllerV2.build_from(raw)
+        with self.assertRaises(GenError) as ctx:
+            controller.divider_columns()
+        self.assertIn('column', str(ctx.exception).lower())
+
+
+class TestDividerAdjacency(unittest.TestCase):
+    def test_non_adjacent_grids_raise(self):
+        groups = [
+            ControlGroupPartV2(layout='grid', number=1, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='0-15',
+                               rows=4, columns=4),
+            ControlGroupPartV2(layout='grid', number=2, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='16-31',
+                               rows=4, columns=4, right_of=1),
+            ControlGroupPartV2(layout='grid', number=3, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='32-47',
+                               rows=4, columns=4, right_of=2),
+        ]
+        raw = ControllerRawV2(light_colors={}, control_groups=groups,
+                              dividers=[Divider(a='grid-1', b='grid-3')])
+        controller = ControllerV2.build_from(raw)
+        with self.assertRaises(GenError) as ctx:
+            controller.divider_columns()
+        self.assertIn('adjacent', str(ctx.exception).lower())

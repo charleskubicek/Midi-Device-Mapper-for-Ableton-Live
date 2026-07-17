@@ -75,6 +75,9 @@ class SurfaceConfig:
     encoder_slot_count: int = 8
     button_slot_count: int = 8
     hud_cells: Any = None
+    # Cosmetic HUD column dividers (hud_dividers plan): grid_col boundaries where
+    # the HUD draws a vertical rule. None/empty -> no dividers emitted.
+    hud_dividers: Any = None
     mode_hud_labels: Any = None
     device_banks: Any = None
     bank_names: Any = None
@@ -127,7 +130,7 @@ class Helpers:
             mode_hud_labels=config.mode_hud_labels or {},
             log=self.log_message, hud_trigger=config.hud_trigger,
             fine=self.fine)
-        self._remote.init_layout(hud_cells)
+        self._remote.init_layout(hud_cells, config.hud_dividers)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
         self._button_behaviour = config.button_behaviour
@@ -577,6 +580,10 @@ class Remote:
         # renders an empty grid. Re-emitting at the head of each burst makes the
         # HUD/Ableton startup order irrelevant.
         self._hud_cells = []
+        # Cosmetic HUD column dividers (hud_dividers plan). Re-emitted with LAYOUT
+        # each burst for the same restart-resilience reason. Empty -> no DIVIDERS
+        # line, so non-divider surfaces are byte-identical on the wire.
+        self._hud_dividers = []
         # Optional secondary-region cache (lc_parks compositor). When set, its
         # cached dial/button payloads are appended to the HUD burst so the parks
         # region rides along in the single combined stream.
@@ -585,12 +592,15 @@ class Remote:
     def set_region_state(self, region_state):
         self._region_state = region_state
 
-    def init_layout(self, cells):
+    def init_layout(self, cells, dividers=None):
         # Remember the layout so every burst can re-emit it (restart-resilient),
         # and send it once now for the common case where the HUD is already up.
         self._hud_cells = [LayoutCell.from_raw(c) for c in cells] if cells else []
+        self._hud_dividers = list(dividers) if dividers else []
         if self._hud_cells:
             self._hud_client.send_layout(self._hud_cells)
+        if self._hud_dividers:
+            self._hud_client.send_dividers(self._hud_dividers)
 
     def resend_layout(self):
         """Re-emit the stored LAYOUT without re-deriving it. Public entry point
@@ -599,6 +609,8 @@ class Remote:
         Remote's private `_hud_cells` themselves."""
         if self._hud_cells:
             self._hud_client.send_layout(self._hud_cells)
+        if self._hud_dividers:
+            self._hud_client.send_dividers(self._hud_dividers)
 
     def hide(self):
         """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
@@ -648,6 +660,8 @@ class Remote:
                 # publishes on COMMIT; DEVICE clears pending slots but not cells.
                 if self._hud_cells:
                     self._hud_client.send_layout(self._hud_cells)
+                if self._hud_dividers:
+                    self._hud_client.send_dividers(self._hud_dividers)
                 self._hud_client.send_device(snapshot.device_name)
                 if snapshot.page is not None:
                     p = snapshot.page

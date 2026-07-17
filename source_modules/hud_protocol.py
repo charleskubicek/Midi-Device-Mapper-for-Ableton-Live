@@ -183,6 +183,15 @@ def encode_zones(entries) -> str:
     return "ZONES|" + "|".join(parts)
 
 
+def encode_dividers(cols) -> str:
+    """Cosmetic HUD column dividers (hud_dividers plan). `cols` is an iterable of
+    HUD grid_col boundaries — the HUD draws a full-height vertical rule to the
+    left of each listed column. `DIVIDERS|0` carries no dividers."""
+    cols = list(cols)
+    parts = [str(len(cols))] + [str(c) for c in cols]
+    return "DIVIDERS|" + "|".join(parts)
+
+
 def encode_event(kind: str, wire_idx: int, text: str) -> str:
     # Show-info feedback: explains a button press on the HUD at the moment it
     # happens (see momentary-vs-toggle-made-explicit-plan, item #7). `kind` is
@@ -262,11 +271,16 @@ class EventMsg:
 
 
 @dataclass(frozen=True)
+class DividersMsg:
+    cols: List[int]
+
+
+@dataclass(frozen=True)
 class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, SetModeMsg, PageMsg, EventMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, SetModeMsg, PageMsg, EventMsg, DividersMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -371,6 +385,22 @@ def parse(line: str) -> Message:
             return UnknownMsg(line)
         text = '|'.join(fields[3:])
         return EventMsg(fields[1], wire_idx, text)
+
+    if verb == 'DIVIDERS':
+        # DIVIDERS|<n>|<col0>|<col1>|... — cosmetic HUD column rules.
+        if len(fields) < 2:
+            return UnknownMsg(line)
+        try:
+            n = int(fields[1])
+        except ValueError:
+            return UnknownMsg(line)
+        if len(fields) != 2 + n:
+            return UnknownMsg(line)
+        try:
+            cols = [int(f) for f in fields[2:]]
+        except ValueError:
+            return UnknownMsg(line)
+        return DividersMsg(cols)
 
     if verb == 'PAGE':
         if len(fields) not in (5, 7):

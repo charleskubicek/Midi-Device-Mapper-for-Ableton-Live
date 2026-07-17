@@ -53,7 +53,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are ten message types.
+There are eleven message types.
 
 ### `LAYOUT`
 
@@ -325,6 +325,36 @@ ZONES|<n>|<kind0>|<idx0>|<hex0>|<kind1>|<idx1>|<hex1>|...
   published to `dialColors` / `buttonColors` on `COMMIT`. `DEVICE` clears the
   pending colours, so an absent `ZONES` in a burst also renders as no tint. Old
   receivers that don't know `ZONES` parse it as `.unknown` and ignore it.
+
+### `DIVIDERS`
+
+Cosmetic vertical rules that group the HUD into readable zones (hud_dividers
+plan) — e.g. separating the two PO16 synth banks on the grid surface. Purely
+visual: dividers never affect slot indexing, modes, or mappings. Configured in
+the controller `.nt` file with a `dividers:` block of `{a: grid-N, b: grid-M}`
+pairs; codegen resolves each pair to the HUD `grid_col` boundary between the two
+grids.
+
+```
+DIVIDERS|<n>|<col0>|<col1>|...
+```
+
+| Field   | Type   | Meaning                                                  |
+|---------|--------|----------------------------------------------------------|
+| `n`     | int    | number of boundary columns that follow                   |
+| `col`   | int    | HUD `grid_col`; a full-height rule is drawn to its left  |
+
+- **Emitted:** alongside `LAYOUT` — once at init (`Remote.init_layout`), on
+  re-handshake (`resend_layout`), and at the head of every non-suppressed burst
+  (`refresh_burst`). Only emitted when the surface actually declares dividers,
+  so a surface with none is byte-identical on the wire to before this message
+  existed.
+- **Receiver effect:** buffered into `pendingDividerCols`; published to
+  `dividerCols` on `COMMIT`. Like `LAYOUT` cells (and unlike `ZONES`), `DEVICE`
+  does **not** clear it — the physical dividers persist across device changes.
+  Old receivers that don't know `DIVIDERS` parse it as `.unknown` and ignore it.
+- Vertical-only (MVP): two grids that share a `grid_col` (vertically stacked)
+  raise a generation-time error rather than emitting a divider.
 
 ---
 

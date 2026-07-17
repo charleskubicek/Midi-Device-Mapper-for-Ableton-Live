@@ -1,6 +1,6 @@
 import itertools
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from itertools import groupby
 from typing import Optional, List, Union
@@ -93,9 +93,19 @@ class ControlGroupPartV2(BaseModel):
         ) for i, midi_number in enumerate(self._midi_list)]
 
 
+class Divider(BaseModel):
+    """A cosmetic HUD divider between two named grids (hud_dividers plan). `a`
+    and `b` are grid identifiers (`grid-N`); the HUD draws a vertical rule at
+    the boundary between them. Purely visual — no effect on slot indexing,
+    modes, or mappings."""
+    a: str
+    b: str
+
+
 class ControllerRawV2(BaseModel):
     control_groups: List[ControlGroupPartV2]
     light_colors: dict[str, int] = dict()
+    dividers: List[Divider] = Field(default_factory=list)
     encoder_mode: EncoderMode = Field(alias='encoder-mode', default=EncoderMode.Absolute)
     button_behaviour: ButtonBehaviour = Field(alias='button-behaviour', default=ButtonBehaviour.momentary)
 
@@ -162,12 +172,26 @@ class ControlGroup:
 def flatten(nested_list): return [item for sublist in nested_list for item in sublist]
 
 
+def _parse_grid_ref(ref: str):
+    """Parse a divider grid identifier 'grid-N' -> N (int), or None if it isn't
+    of that form."""
+    s = str(ref).strip()
+    prefix = "grid-"
+    if not s.startswith(prefix):
+        return None
+    rest = s[len(prefix):]
+    if not rest.isdigit():
+        return None
+    return int(rest)
+
+
 @dataclass
 class ControllerV2:
     control_groups: List[ControlGroup]
     light_colors: dict[str, int]
     encoder_mode: EncoderMode
     button_behaviour: ButtonBehaviour = ButtonBehaviour.momentary
+    dividers: List[Divider] = field(default_factory=list)
 
     @staticmethod
     def build_from(c: ControllerRawV2, acc=None):
@@ -238,7 +262,8 @@ class ControllerV2:
             for key, group in groupby(c.control_groups, lambda x: x.number)
         ]
 
-        return ControllerV2(control_groups, c.light_colors, c.encoder_mode, c.button_behaviour)
+        return ControllerV2(control_groups, c.light_colors, c.encoder_mode,
+                            c.button_behaviour, list(c.dividers))
 
     def _grids(self) -> List[List[ControlGroup]]:
         """Return the logical grids that `grid-N` indexes, ordered by spatial
@@ -264,6 +289,52 @@ class ControllerV2:
                 grids.append((key, [g]))
         grids.sort(key=lambda gk: gk[0])
         return [group for _, group in grids]
+
+    def divider_columns(self) -> List[int]:
+        """Resolve the cosmetic `dividers` (hud_dividers plan) to a sorted,
+        de-duped list of HUD `grid_col` boundaries. Each divider names two grids
+        (`grid-N`); the boundary column is the larger of their two grid columns,
+        and the HUD draws a full-height vertical rule immediately to its left.
+
+        Vertical-only MVP: two grids sharing a `grid_col` (vertically stacked)
+        raise, since that would be a horizontal (row) boundary."""
+        if not self.dividers:
+            return []
+        grids = self._grids()
+
+        def grid_col(ref: str) -> int:
+            n = _parse_grid_ref(ref)
+            if n is None:
+                raise GenError(
+                    f"Divider grid reference '{ref}' is malformed — expected "
+                    f"'grid-N' (e.g. grid-1)",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            if not (1 <= n <= len(grids)):
+                raise GenError(
+                    f"Divider refers to {ref}, but the controller has "
+                    f"{len(grids)} grid(s) (valid: grid-1 to grid-{len(grids)})",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            return grids[n - 1][0].grid_col
+
+        boundaries = set()
+        for d in self.dividers:
+            col_a = grid_col(d.a)
+            col_b = grid_col(d.b)
+            if col_a == col_b:
+                raise GenError(
+                    f"Divider between {d.a} and {d.b} can't be drawn — both grids "
+                    f"sit in the same HUD column (they are vertically stacked). "
+                    f"Only vertical dividers between side-by-side grids are "
+                    f"supported.",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            if abs(col_a - col_b) != 1:
+                raise GenError(
+                    f"Divider between {d.a} and {d.b} spans non-adjacent HUD "
+                    f"columns ({col_a} and {col_b}); a divider must sit between two "
+                    f"side-by-side grids. Add dividers for the grids in between.",
+                    ErrorCode.SEMANTIC_VALIDATION)
+            boundaries.add(max(col_a, col_b))
+        return sorted(boundaries)
 
     def _resolve_grid_coords(self, coords: EncoderCoords) -> ([MidiCoords], EncoderType):
         grids = self._grids()

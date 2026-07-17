@@ -85,6 +85,9 @@ class HudClient:
     def send_layout(self, cells):
         self._send(hud_protocol.encode_layout(cells))
 
+    def send_dividers(self, cols):
+        self._send(hud_protocol.encode_dividers(cols))
+
     def send_device(self, name: str):
         self._send(hud_protocol.encode_device(name))
 
@@ -124,6 +127,7 @@ class NullHudClient:
     def begin_burst(self): pass
     def flush_burst(self): pass
     def send_layout(self, cells): pass
+    def send_dividers(self, cols): pass
     def send_device(self, name: str): pass
     def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass
     def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass

@@ -70,6 +70,11 @@ public enum WireMessage: Equatable {
     /// Per-burst zone tints for dial/button outlines. Empty array = clear (a
     /// non-zoned device focus). Keyed by the same wire index as SLOT.
     case zones([ZoneTint])
+    /// Cosmetic column dividers (hud_dividers plan). Each Int is a grid_col
+    /// boundary; the HUD draws a full-height vertical rule to the left of that
+    /// column. Empty array = no dividers. Behaves like LAYOUT: buffered, then
+    /// published on COMMIT.
+    case dividers([Int])
     case unknown
 }
 
@@ -154,6 +159,17 @@ public enum WireProtocol {
             guard fields.count >= 4, let wireIdx = Int(fields[2]) else { return .unknown }
             let text = fields[3...].joined(separator: "|")
             return .event(kind: fields[1], wireIdx: wireIdx, text: text)
+
+        case "DIVIDERS":
+            // DIVIDERS|<n>|<col0>|<col1>|... — cosmetic HUD column rules.
+            guard fields.count >= 2, let n = Int(fields[1]) else { return .unknown }
+            guard fields.count == 2 + n else { return .unknown }
+            var cols: [Int] = []
+            for i in 0..<n {
+                guard let c = Int(fields[2 + i]) else { return .unknown }
+                cols.append(c)
+            }
+            return .dividers(cols)
 
         case "ZONES":
             // ZONES|<n>|<kind>|<idx>|<hex>| × n. n=0 clears all tints.

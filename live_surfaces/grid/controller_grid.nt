@@ -54,3 +54,10 @@ control_groups:
         rows: 4
         columns: 4
         right_of: 3
+
+# Cosmetic HUD divider (hud_dividers plan): a single vertical rule between the
+# two PO16 synth banks — grid-1/grid-2 on the left, grid-3/grid-4 on the right.
+dividers:
+    -
+        a: grid-2
+        b: grid-3

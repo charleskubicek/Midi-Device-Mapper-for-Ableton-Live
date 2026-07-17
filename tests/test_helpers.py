@@ -1524,3 +1524,36 @@ class TestHudViewLeft(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestRemoteDividers(unittest.TestCase):
+    """Cosmetic HUD dividers (hud_dividers plan): Remote emits DIVIDERS with
+    LAYOUT at init and re-emits at each non-suppressed burst; a surface with no
+    dividers emits none."""
+
+    def setUp(self):
+        self.hud = Mock()
+        self.remote = Remote(manager=Mock(), osc_client=Mock(), hud_client=self.hud)
+
+    def test_init_layout_sends_dividers_when_present(self):
+        self.remote.init_layout([(0, 0, 'dial', 8, 0)], dividers=[1, 2])
+        self.hud.send_dividers.assert_called_once_with([1, 2])
+
+    def test_init_layout_omits_dividers_when_empty(self):
+        self.remote.init_layout([(0, 0, 'dial', 8, 0)], dividers=[])
+        self.hud.send_dividers.assert_not_called()
+
+    def test_init_layout_omits_dividers_when_none(self):
+        self.remote.init_layout([(0, 0, 'dial', 8, 0)])
+        self.hud.send_dividers.assert_not_called()
+
+    def test_burst_reemits_dividers(self):
+        self.remote.init_layout([(0, 0, 'dial', 8, 0)], dividers=[1, 2])
+        self.hud.reset_mock()
+        self.remote.refresh_burst(BurstSnapshot(device_name="Dev"))
+        self.hud.send_dividers.assert_called_once_with([1, 2])
+
+    def test_burst_omits_dividers_when_none(self):
+        self.remote.init_layout([(0, 0, 'dial', 8, 0)])
+        self.remote.refresh_burst(BurstSnapshot(device_name="Dev"))
+        self.hud.send_dividers.assert_not_called()

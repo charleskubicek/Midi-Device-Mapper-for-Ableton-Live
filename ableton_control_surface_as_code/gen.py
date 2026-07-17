@@ -130,6 +130,15 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
     # their original (unchanged) wire indices within that combined grid.
     hud_cells_raw = hud_cells_override if hud_cells_override is not None else allocate_global_layout(controller)
 
+    # Cosmetic HUD column dividers (hud_dividers plan). Only the standalone path
+    # (no override) carries them — the compositor's combined grid doesn't model
+    # per-controller dividers yet, so it emits none.
+    hud_dividers_raw = (
+        controller.divider_columns()
+        if controller is not None and hud_cells_override is None
+        else []
+    )
+
     mode_codes = create_code_model(modes, controller=controller, hud_cells=hud_cells_raw)
 
     array_defs = []
@@ -248,6 +257,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         # LayoutCell.from_raw; label keys stay (kind, wire_idx) tuples, which the
         # runtime looks up with plain tuples anyway.
         'hud_cells': repr([tuple(c) for c in hud_cells_raw]),
+        'hud_dividers': repr(list(hud_dividers_raw)),
         'mode_hud_labels': repr({
             mode_name: {tuple(k): v for k, v in labels.items()}
             for mode_name, labels in mode_hud_labels.items()

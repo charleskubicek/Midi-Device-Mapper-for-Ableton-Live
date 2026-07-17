@@ -68,6 +68,7 @@ private struct RegionSnapshot: Equatable {
     let dialSlots: [Slot?]
     let buttonSlots: [Slot?]
     let hudCells: [HudCell]
+    let dividerCols: [Int]
     let isShiftMode: Bool
     let encoderPage: Int
     let pageTotal: Int
@@ -81,6 +82,7 @@ private struct RegionSnapshot: Equatable {
         dialSlots = s.dialSlots
         buttonSlots = s.buttonSlots
         hudCells = s.hudCells
+        dividerCols = s.dividerCols
         isShiftMode = s.isShiftMode
         encoderPage = s.encoderPage
         pageTotal = s.pageTotal
@@ -188,13 +190,51 @@ private struct SourceRegionView: View {
         .onPreferenceChange(GridWidthKey.self) { gridWidth = $0 }
     }
 
+    /// Partition `0..<colCount` into contiguous column groups, split immediately
+    /// before each boundary in `dividers`. Boundaries at 0 or ≥ colCount are
+    /// ignored (nothing to separate). No dividers → one group spanning all
+    /// columns, i.e. identical to the pre-divider layout.
+    private func columnGroups(colCount: Int, dividers: Set<Int>) -> [Range<Int>] {
+        guard colCount > 0 else { return [] }
+        var groups: [Range<Int>] = []
+        var start = 0
+        for col in 1..<max(1, colCount) where dividers.contains(col) {
+            groups.append(start..<col)
+            start = col
+        }
+        groups.append(start..<colCount)
+        return groups
+    }
+
     @ViewBuilder
     private func sectionGrid(forSection section: Int) -> some View {
+        let g = grid(forSection: section)
+        let colCount = g.map(\.count).max() ?? 0
+        let groups = columnGroups(colCount: colCount, dividers: Set(region.dividerCols))
+        // Cosmetic dividers (hud_dividers plan): render each column group as its
+        // own rows-major sub-grid with a full-height rule between groups — the
+        // same treatment as the section rule. With no dividers this is a single
+        // group, byte-for-byte the previous layout.
+        HStack(alignment: .top, spacing: 10 * scale) {
+            ForEach(Array(groups.enumerated()), id: \.offset) { idx, cols in
+                if idx > 0 {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.12))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                }
+                columnGroupGrid(grid: g, cols: cols)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func columnGroupGrid(grid g: [[HudCell?]], cols: Range<Int>) -> some View {
         VStack(alignment: .leading, spacing: 10 * scale) {
-            ForEach(Array(grid(forSection: section).enumerated()), id: \.offset) { _, row in
+            ForEach(Array(g.enumerated()), id: \.offset) { _, row in
                 HStack(alignment: .top, spacing: 10 * scale) {
-                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
-                        if let cell = cell {
+                    ForEach(cols, id: \.self) { col in
+                        if col < row.count, let cell = row[col] {
                             cellView(cell)
                         } else {
                             Color.clear.frame(width: 0)
