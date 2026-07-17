@@ -122,7 +122,15 @@ class TestGroundTruthNames(unittest.TestCase):
             self.assertIsNotNone(real, f"{cn} not present in devices_12.json")
             for kind in ('encoders', 'buttons'):
                 for role, spec in synth[kind].items():
-                    if spec['name'] not in real:
+                    # A grouped encoder (toggle-dependent params, e.g. Operator
+                    # Fixed) carries no top-level 'name'; check its selector plus
+                    # every member name — that's where the new/trailing-space
+                    # names live and must be byte-exact.
+                    if 'group' in spec:
+                        for probe in [spec['controlledBy']] + [m['name'] for m in spec['group']]:
+                            if probe not in real:
+                                missing.append((cn, kind, role, probe))
+                    elif spec['name'] not in real:
                         missing.append((cn, kind, role, spec['name']))
         self.assertEqual(missing, [], f"names not found in devices_12.json: {missing}")
 
@@ -155,6 +163,48 @@ class TestValidatorRejects(unittest.TestCase):
     def test_duplicate_template_role_rejected(self):
         raw = _minimal()
         raw['template']['encoders'][1]['role'] = 'e1'  # e1 twice
+        with self.assertRaises(Exception):
+            SynthZoneTables.model_validate(raw)
+
+
+class TestGroupedEncoderEntries(unittest.TestCase):
+    """Toggle-dependent encoder params (Operator Fixed): a synth encoder role may
+    be a grouped entry reusing GroupedEncoderEntry from the BOB schema."""
+
+    def test_group_entry_accepted(self):
+        raw = _minimal()
+        raw['synths']['Drift']['encoders']['e2'] = {
+            'controlledBy': 'A Fix On ',
+            'group': [
+                {'name': 'A Coarse', 'activeWhen': [0]},
+                {'name': 'A Fix Freq', 'display': 'A Freq', 'activeWhen': [1]},
+            ],
+        }
+        SynthZoneTables.model_validate(raw)
+
+    def test_group_member_name_duped_across_roles_rejected(self):
+        # A param bound in a plain role AND as a group member is still the
+        # muscle-memory reshuffle bug the dupe check guards.
+        raw = _minimal()
+        raw['synths']['Drift']['encoders']['e2'] = {
+            'controlledBy': 'A Fix On ',
+            'group': [
+                {'name': 'LP Freq', 'activeWhen': [0]},  # same as plain role e1
+                {'name': 'A Fix Freq', 'activeWhen': [1]},
+            ],
+        }
+        with self.assertRaises(Exception):
+            SynthZoneTables.model_validate(raw)
+
+    def test_overlapping_active_when_rejected(self):
+        raw = _minimal()
+        raw['synths']['Drift']['encoders']['e2'] = {
+            'controlledBy': 'A Fix On ',
+            'group': [
+                {'name': 'A Coarse', 'activeWhen': [0]},
+                {'name': 'A Fix Freq', 'activeWhen': [0]},  # 0 in both
+            ],
+        }
         with self.assertRaises(Exception):
             SynthZoneTables.model_validate(raw)
 

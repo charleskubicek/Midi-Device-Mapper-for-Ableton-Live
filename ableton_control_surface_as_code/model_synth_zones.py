@@ -11,8 +11,10 @@ different pots (or two buttons) — that duplicate is the muscle-memory reshuffl
 smart-zoning exists to prevent. See grid-po16-synth-surface-plan §6.
 """
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from .model_custom_devices import GroupedEncoderEntry
 
 ENCODER_SLOTS = 32
 BUTTON_SLOTS = 16
@@ -46,7 +48,10 @@ class SynthZoneEntry(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     display: str
-    encoders: Dict[str, ZoneRoleParam] = Field(default_factory=dict)
+    # An encoder role is either a plain param or a toggle-dependent group entry
+    # (reused from the BOB schema) — the same physical pot follows a selector
+    # param, e.g. Operator's Fixed swap. Buttons stay plain.
+    encoders: Dict[str, Union[GroupedEncoderEntry, ZoneRoleParam]] = Field(default_factory=dict)
     buttons: Dict[str, ZoneRoleParam] = Field(default_factory=dict)
 
 
@@ -113,7 +118,15 @@ class SynthZoneTables(BaseModel):
 
     @staticmethod
     def _check_no_dupe_params(class_name, kind, role_map):
-        names = [p.name for p in role_map.values()]
+        # A grouped encoder contributes all of its member param names — a param
+        # bound in two different roles is the muscle-memory bug regardless of
+        # whether it's plain or a group member.
+        names = []
+        for p in role_map.values():
+            if isinstance(p, GroupedEncoderEntry):
+                names.extend(m.name for m in p.group)
+            else:
+                names.append(p.name)
         dupes = {n for n in names if names.count(n) > 1}
         if dupes:
             raise ValueError(

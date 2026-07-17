@@ -658,10 +658,18 @@
           "name": "Shaper Drive"
         },
         "osc1_timbre": {
-          "name": "A Coarse"
+          "controlledBy": "A Fix On ",
+          "group": [
+            {"name": "A Coarse", "activeWhen": [0]},
+            {"name": "A Fix Freq", "display": "A Freq", "activeWhen": [1]}
+          ]
         },
         "osc1_timbre2": {
-          "name": "A Fine"
+          "controlledBy": "A Fix On ",
+          "group": [
+            {"name": "A Fine", "activeWhen": [0]},
+            {"name": "A Fix Freq Mul", "display": "A Multi", "activeWhen": [1]}
+          ]
         },
         "osc1_pitch": {
           "name": "Osc-A Feedb"
@@ -670,10 +678,18 @@
           "name": "Osc-A Level"
         },
         "osc2_timbre": {
-          "name": "B Coarse"
+          "controlledBy": "B Fix On ",
+          "group": [
+            {"name": "B Coarse", "activeWhen": [0]},
+            {"name": "B Fix Freq", "display": "B Freq", "activeWhen": [1]}
+          ]
         },
         "osc2_detune": {
-          "name": "B Fine"
+          "controlledBy": "B Fix On ",
+          "group": [
+            {"name": "B Fine", "activeWhen": [0]},
+            {"name": "B Fix Freq Mul", "display": "B Multi", "activeWhen": [1]}
+          ]
         },
         "osc2_pitch": {
           "name": "Osc-B Feedb"

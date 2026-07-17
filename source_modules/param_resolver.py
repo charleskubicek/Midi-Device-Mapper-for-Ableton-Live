@@ -233,20 +233,30 @@ class ParameterResolver:
             self._focused_device = device
 
     def group_selector_names(self, device):
-        """Ordered, de-duplicated `controlledBy` selector names for this
-        device's BOB encoders — the params the facade attaches value listeners
-        to so a group-selector turn re-emits the burst."""
-        entry = self.device_entry(device)
-        if not entry:
-            return []
+        """Ordered, de-duplicated `controlledBy` selector names for this device's
+        grouped encoders — the params the facade attaches value listeners to so a
+        selector turn (a BOB group selector, or a zoned synth's Fixed toggle)
+        re-emits the burst and the HUD relabels. Merges BOB and zone sources: a
+        zoned synth has no BOB entry, so the zone scan is load-bearing for the
+        relabel-on-toggle feature."""
         names = []
         seen = set()
-        for e in entry['encoders']:
-            name = e.get('controlledBy') if isinstance(e, dict) else None
-            if not name or name in seen:
-                continue
-            seen.add(name)
-            names.append(name)
+
+        def add(name):
+            if name and name not in seen:
+                seen.add(name)
+                names.append(name)
+
+        entry = self.device_entry(device)
+        if entry:
+            for e in entry['encoders']:
+                if isinstance(e, dict):
+                    add(e.get('controlledBy'))
+        synth = self._zone_synth(device)
+        if synth:
+            for e in synth['encoders'].values():
+                if isinstance(e, dict):
+                    add(e.get('controlledBy'))
         return names
 
     def has_user_defined_parameters(self, device):
@@ -552,6 +562,13 @@ class ParameterResolver:
             if outcome == 'unmapped':
                 return None  # dim LED, blank HUD — a legitimate role miss
             if outcome == 'mapped':
+                # Toggle-dependent zone role (e.g. Operator Fixed): resolve the
+                # currently-active member first, identical to the BOB branch. A
+                # None member (selector unreadable / no activeWhen match) dims.
+                if 'controlledBy' in entry and 'group' in entry:
+                    entry = self._resolve_group_member(device, entry)
+                    if entry is None:
+                        return None
                 name = entry['name']
                 p = self.resolve_param_by_name(device, name)
                 if p is None:

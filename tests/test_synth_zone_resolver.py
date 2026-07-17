@@ -184,6 +184,93 @@ class TestZonedButtons(unittest.TestCase):
         self.assertEqual((info['param'].min, info['param'].max), (0.0, 10.0))
 
 
+class TestZonedGroupedEncoders(unittest.TestCase):
+    """Toggle-dependent zone encoders (Operator Fixed): the same slot follows the
+    selector param, reusing the BOB group mechanism inside the zone tier."""
+
+    _TABLES = {
+        'template': {
+            'encoders': [{'slot': 1, 'role': 'osc1_timbre', 'zone': 'osc'},
+                         {'slot': 2, 'role': 'osc1_pitch', 'zone': 'osc'}],
+            'buttons': [{'slot': 1, 'role': 'b1', 'zone': 'osc'},
+                        {'slot': 2, 'role': 'b2', 'zone': 'osc'}],
+        },
+        'synths': {'Operator': {
+            'display': 'Operator',
+            'encoders': {
+                'osc1_timbre': {
+                    'controlledBy': 'A Fix On ',
+                    'group': [
+                        {'name': 'A Coarse', 'activeWhen': [0]},
+                        {'name': 'A Fix Freq', 'display': 'A Freq', 'activeWhen': [1]},
+                    ],
+                },
+                'osc1_pitch': {'name': 'Osc-A Feedb'},
+            },
+            'buttons': {},
+        }},
+    }
+
+    def _r(self):
+        logs = []
+        r = ParameterResolver(
+            device_table={}, device_banks={}, bank_names={}, banks_per_page=2,
+            button_switch_count=0, button_slot_count=16, log=logs.append,
+            smart_zoning=True, zone_tables=_build_zone_tables(self._TABLES))
+        return r, logs
+
+    def _dev(self, fix_on=0.0):
+        return FakeDevice('Operator', [
+            FakeParam('A Fix On ', value=fix_on, is_quantized=True),
+            FakeParam('A Coarse', value=0.2),
+            FakeParam('A Fix Freq', value=0.4),
+            FakeParam('Osc-A Feedb', value=0.1),
+        ])
+
+    def test_selector_0_resolves_coarse(self):
+        r, _ = self._r()
+        self.assertEqual(r.resolve_encoder(self._dev(fix_on=0.0), 1).param.name, 'A Coarse')
+
+    def test_selector_1_resolves_fixed_freq_with_alias(self):
+        r, _ = self._r()
+        rp = r.resolve_encoder(self._dev(fix_on=1.0), 1)
+        self.assertEqual(rp.param.name, 'A Fix Freq')
+        self.assertEqual(rp.alias, 'A Freq')
+
+    def test_no_active_when_match_dims(self):
+        # Selector value matches no member -> None (dim slot), no crash.
+        r, _ = self._r()
+        self.assertIsNone(r.resolve_encoder(self._dev(fix_on=2.0), 1))
+
+    def test_plain_role_still_works_alongside_group(self):
+        r, _ = self._r()
+        self.assertEqual(r.resolve_encoder(self._dev(), 2).param.name, 'Osc-A Feedb')
+
+    def test_group_selector_names_returns_zone_selector(self):
+        r, _ = self._r()
+        self.assertEqual(r.group_selector_names(self._dev()), ['A Fix On '])
+
+
+class TestGroupSelectorNamesBob(unittest.TestCase):
+    def test_bob_group_selector_still_returned(self):
+        # group_selector_names must keep serving BOB devices after the zone merge.
+        raw = {'devices': [{
+            'className': 'Reverb',
+            'encoders': [{
+                'controlledBy': 'Algo Type',
+                'group': [{'name': 'X', 'activeWhen': [0]},
+                          {'name': 'Y', 'activeWhen': [1]}],
+            }],
+            'buttons': [],
+        }]}
+        r = ParameterResolver(
+            device_table=_build_device_table(raw), device_banks={}, bank_names={},
+            banks_per_page=2, button_switch_count=0, button_slot_count=16,
+            log=lambda *_: None)
+        dev = FakeDevice('Reverb', [FakeParam('Algo Type')])
+        self.assertEqual(r.group_selector_names(dev), ['Algo Type'])
+
+
 class TestZoneColors(unittest.TestCase):
     _TABLES = {
         'template': {
