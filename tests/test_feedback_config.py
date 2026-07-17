@@ -27,6 +27,17 @@ feedback:
         self.assertIsInstance(root.feedback[0], FeedbackSinkDef)
         self.assertEqual(root.feedback[0].type, "ec4_text")
 
+    def test_grid_led_sink_parsed(self):
+        doc = _BASE + """\
+feedback:
+    -
+        type: grid_led
+"""
+        root = read_root(doc)
+        self.assertEqual(len(root.feedback), 1)
+        self.assertIsInstance(root.feedback[0], FeedbackSinkDef)
+        self.assertEqual(root.feedback[0].type, "grid_led")
+
     def test_unknown_sink_type_rejected(self):
         doc = _BASE + """\
 feedback:

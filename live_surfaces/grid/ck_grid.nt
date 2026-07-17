@@ -8,6 +8,14 @@ parameter_mappings_file: ../../data/custom_device_mappings.json
 # page 1; non-enrolled devices fall back to BOB/banks exactly as before.
 smart-zoning: on
 
+# grid_led (grid-po16-synth-surface-plan §F): stream a dense 48-slot RGB LED
+# frame (hue = zone colour, brightness = live value) to the Grid's MIDI RX on
+# every device-focus burst. Grid-side Lua: live_surfaces/grid/grid_led_handler.lua
+# Turned OFF for now — re-enable by uncommenting the feedback block below.
+#feedback:
+#    -
+#        type: grid_led
+
 remote_on: false
 
 # hud — what the HUD shows (uncomment exactly one):

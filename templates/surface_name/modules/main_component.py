@@ -9,6 +9,7 @@ from .helpers import Helpers, Remote, SurfaceConfig
 from .osc_client import OSCClient, OSCMultiClient, NullOSCClient
 from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
+from .grid_led_client import GridLedClient, NullGridLedClient
 from .clip_actions import ClipActions
 from .listener import OSCListener
 from .region_state import RegionState

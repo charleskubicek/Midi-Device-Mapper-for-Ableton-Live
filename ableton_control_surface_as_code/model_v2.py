@@ -96,6 +96,7 @@ class ModeDef(BaseModel, frozen=True):
 
 class FeedbackSinkType(str, Enum):
     Ec4Text = 'ec4_text'
+    GridLed = 'grid_led'
 
 
 class FeedbackSinkDef(BaseModel, frozen=True):

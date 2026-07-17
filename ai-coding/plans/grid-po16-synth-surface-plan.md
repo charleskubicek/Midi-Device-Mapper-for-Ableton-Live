@@ -335,6 +335,45 @@ ship functional zoning first). Phase 1 = static zone hues in the Grid Editor (ze
 Ableton code); Phase 2 = `GridLedClient` streaming value/state over MIDI on the
 device-focus burst.
 
+**F. Phase 2 GridLedClient (2026-07-13)** — Phase 1 skipped by ck (static hues
+add no value; the LEDs must follow the focused device). Decisions:
+scope = **device-focus only** (rides `on_burst`, no per-param hook);
+wire = **batched SysEx** (one datagram/burst, no RX flood); ck wants the Lua drafted.
+
+- **Architecture pivot from §8's "mirror `HudClient`":** the plan text predates the
+  generic `Ec4Client` feedback sink (`on_burst(snapshot)` → `manager._send_midi`).
+  `GridLedClient` is a **feedback sink** exactly like `Ec4Client`, not a UDP-mirror
+  client — same spirit as §8 ("ride the coalesced device-switch burst, emit MIDI to
+  the Grid"), reached more directly. No `begin_burst`/`flush_burst` machinery (the
+  whole snapshot is already in hand); no `NullGridLedClient` (unconfigured surfaces
+  get an empty sink list — nothing to no-op). Wired via `feedback: grid_led`
+  (`FeedbackSinkType.GridLed` + `feedback_sink_ctors['grid_led']` in `gen.py`).
+
+- **Wire protocol — Grid LED SysEx v1** (surface → Grid RX):
+  `F0 7D 4C 01 [r g b]×48 F7` — `7D`=non-commercial SysEx id, `4C`='L' LED cmd,
+  `01`=version. **Dense**: 48 fixed slots every burst (slots 0–31 = dial wire_idx
+  0–31, slots 32–47 = button wire_idx 0–15). Dense = a focused non-zoned device
+  auto-clears prior synth tints (empty `zone_colors` → all 0,0,0). Each `r/g/b` is
+  **7-bit (0–127)**, pre-multiplied hue×brightness (`rgb255 * brightness >> 1`);
+  Lua multiplies back up for `glc`.
+  - Hue = the slot's `zone_colors` hex6 (`E0A33E` etc.); **unmapped = 0,0,0 (off)**.
+  - Brightness = the slot's `SlotPayload.value` normalised over vmin..vmax, with a
+    `MAPPED_FLOOR` (~0.15) so a mapped-but-low pot / off button stays visibly dim
+    rather than reading as unmapped (§8 "dim = unmapped" vs "brightness = value").
+  - Fires on every `on_burst`, including `suppress_hud` bursts (LEDs are persistent
+    physical state, not the transient HUD). `hide()` does NOT fan to sinks, so LEDs
+    correctly persist through HUD auto-dismiss.
+
+- **Grid-side Lua** (`live_surfaces/grid/grid_led_handler.lua`, reference for the
+  user to paste into Grid Editor): `self.sysexrx_cb` parses the frame, maps each
+  slot → local element, calls `glc(element, layer, r, g, b)`. The **slot→element**
+  and **cross-module fan-out** wiring is the user's hardware bring-up knob (which
+  layer, sibling-module addressing) — documented, not test-verifiable here.
+
+- **Verification limits:** tests assert the emitted SysEx bytes, dense clearing,
+  floor, 7-bit safety, and that it fires on `on_burst`. **Lit LEDs** are hardware
+  bring-up after the Lua is pasted — not something these tests confirm.
+
 
 ---
 

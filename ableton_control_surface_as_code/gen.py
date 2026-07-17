@@ -220,6 +220,7 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
     # off the same burst (see Remote._feedback_sinks).
     feedback_sink_ctors = {
         'ec4_text': 'Ec4Client(self.manager)',
+        'grid_led': 'GridLedClient(self.manager)',
     }
     feedback_sinks = ", ".join(
         feedback_sink_ctors[d.type.value] for d in (feedback or [])
