@@ -120,6 +120,9 @@ class HudClient:
     def send_zones(self, entries):
         self._send(hud_protocol.encode_zones(entries))
 
+    def send_drum(self, pad_name: str, pattern: str):
+        self._send(hud_protocol.encode_drum(pad_name, pattern))
+
 
 class NullHudClient:
     def __init__(self, host='127.0.0.1', port=5006): pass
@@ -138,3 +141,4 @@ class NullHudClient:
     def send_page_info(self, enc_page, enc_total, btn_page, btn_total, enc_label='', btn_label=''): pass
     def send_event(self, kind, wire_idx, text): pass
     def send_zones(self, entries): pass
+    def send_drum(self, pad_name, pattern): pass

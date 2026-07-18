@@ -52,6 +52,17 @@ modes:
                     button:
                         range: grid-1:1-16
                         slots: 1-16
+                    # Drum-rack precedence (ai-coding/plans/drum_rack.md): inert
+                    # unless the focused device is a drum rack, then these share
+                    # controls with the switch/macro roles above and win.
+                    # MAIN mode: grid-1 buttons SELECT the pad (which drum the
+                    # sequencer edits); hold shift to edit that pad's steps.
+                    # grid-2 knobs -> per-step velocity. Pad audition (sound on
+                    # press) is the deferred spike seam.
+                    pads:
+                        range: grid-1:1-16
+                    velocities:
+                        range: grid-2:1-16
             -
                 type: mixer
                 track: selected
@@ -100,6 +111,14 @@ modes:
                     encoders:
                         range: grid-2:1-16
                         slots: 33-48
+                    # Drum-rack precedence: SHIFT mode edits the selected pad's
+                    # pattern — grid-1 buttons -> 16-step sequencer, grid-2 knobs
+                    # -> per-step velocity. The pad is chosen in main mode (pads
+                    # above); selection persists across the mode switch.
+                    sequencer:
+                        range: grid-1:1-16
+                    velocities:
+                        range: grid-2:1-16
             -
                 type: functions
                 mappings:

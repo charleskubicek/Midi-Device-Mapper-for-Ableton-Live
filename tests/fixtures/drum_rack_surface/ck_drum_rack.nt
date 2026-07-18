@@ -1,0 +1,42 @@
+# Drum-rack TEST surface fixture (ai-coding/plans/drum_rack.md).
+# Used only by tests/test_drum_rack.py — NOT a real live surface.
+#
+# The drum blocks live on a normal `device` mapping (precedence revision): they
+# are inert unless the focused device is a drum rack. This surface exercises all
+# roles in one modeless mapping:
+#   - macro `encoders:` on grid-3 (plain device role)
+#   - macro `encoders:` on grid-2 AND `velocities:` on grid-2 (SHARED control:
+#     macro normally, per-step velocity on a drum rack -> dispatching listener)
+#   - `sequencer:` on grid-4     (16 buttons -> per-step toggles)
+#   - `pads:` on grid-1          (16 buttons -> select the drum pad on press)
+#
+# Pad audition (the pad making sound on press) is the deferred spike seam; pad
+# SELECTION is wired.
+
+controller: controller_drum.nt
+ableton_dir: /Applications/Ableton Live 12 Suite.app
+
+remote_on: false
+
+hud: on
+show-hud-on: selection
+
+mappings:
+    -
+        type: device
+        track: selected
+        device: selected
+        mappings:
+            encoder-list:
+                -
+                    range: grid-3:1-16
+                    parameters: 1-16
+                -
+                    range: grid-2:1-16
+                    parameters: 17-32
+            pads:
+                range: grid-1:1-16
+            sequencer:
+                range: grid-4:1-16
+            velocities:
+                range: grid-2:1-16

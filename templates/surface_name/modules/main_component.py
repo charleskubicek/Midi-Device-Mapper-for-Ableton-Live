@@ -11,6 +11,7 @@ from .hud_client import HudClient, NullHudClient
 from .ec4_client import Ec4Client, NullEc4Client
 from .grid_led_client import GridLedClient, NullGridLedClient
 from .clip_actions import ClipActions
+from .drum_rack import DrumRackController
 from .listener import OSCListener
 from .region_state import RegionState
 from .region_listener import RegionListener
@@ -64,6 +65,14 @@ class MainComponent(ControlSurfaceComponent):
         self._hud_client = $hud_client_class(_hud_host, _hud_port)
         self._feedback_sinks = [$feedback_sinks]
         self._remote = Remote(self.manager, self._osc_client, self._hud_client, self._feedback_sinks)
+
+        # Drum-rack step/velocity editor. Resolves the focused drum rack + detail
+        # clip at call time and is inert when the focused device isn't a drum
+        # rack, so this instantiation is unconditional (like clip_actions).
+        # DEFERRED SEAM: controller pad-tap selection + audition are not wired
+        # yet (need a Live note-forwarding spike); step/velocity edits already
+        # work against Live's mouse-selected pad.
+        self.drum_rack = DrumRackController(self.manager, self._hud_client)
 
         $code_setup
 
@@ -389,18 +398,34 @@ $code_setup_listeners
     def mode_button_listener(self, value):
         self.log_message(f'mode_button_listener: {value}, current mode is {self.current_mode}')
 
-        if value == 127:# and self._modes[current_mode['next_mode_name']]['is_shift'] is not True:
-            self.fine(f"[mode] mode_button_listener value=127 branch=press cur={self.current_mode['name']!r}")
-            self.goto_mode(self.current_mode['next_mode_name'])
-        elif value == 0 and self.current_mode['is_shift']:
-            # Shift release: goto_mode (which sends send_mode(next.is_shift)) is
-            # immediately followed by an explicit send_mode(False), so the HUD
-            # briefly sees the wrong MODE value between the two sends. Trace
-            # both in order so a [hudtrace] capture can confirm the interleave.
-            self.fine(f"[mode] mode_button_listener value=0 branch=shift-release cur={self.current_mode['name']!r}")
-            self.goto_mode(self.current_mode['next_mode_name'])
-            self.fine("[mode] mode_button_listener shift-release -> send_mode(False)")
-            self._hud_client.send_mode(False)
+        if self.current_mode['is_shift']:
+            # Level-driven, self-healing shift: a press (127) means "be in the
+            # shift mode", a release (0) means "be in the base mode". This is
+            # idempotent per level, so a dropped or duplicated MIDI edge (e.g. a
+            # lost note-off) can NOT permanently invert the button — the next
+            # clean press/release re-syncs. The old "advance to next mode on every
+            # edge" logic assumed perfect 127,0,127,0 alternation, so one missed
+            # release flipped rest-state to shift forever. Assumes a 2-mode shift
+            # (base + shift), the only sensible config for a held button; every
+            # shift surface uses exactly two modes.
+            in_base = self.current_mode['name'] == self._first_mode
+            if value == 127:
+                self.fine(f"[mode] mode_button_listener value=127 branch=shift-press in_base={in_base}")
+                if in_base:
+                    self.goto_mode(self.current_mode['next_mode_name'])
+            else:
+                self.fine(f"[mode] mode_button_listener value=0 branch=shift-release in_base={in_base}")
+                if not in_base:
+                    # Return to base directly (not "next"), so this is correct
+                    # regardless of how the FSM got here.
+                    self.goto_mode(self._first_mode)
+                    self.fine("[mode] mode_button_listener shift-release -> send_mode(False)")
+                    self._hud_client.send_mode(False)
+        else:
+            # Switch-type: each press cycles to the next mode.
+            if value == 127:
+                self.fine(f"[mode] mode_button_listener value=127 branch=switch-press cur={self.current_mode['name']!r}")
+                self.goto_mode(self.current_mode['next_mode_name'])
 
     def on_device_selected(self):
         # Live's appointed_device listener. If this line lands between a nav

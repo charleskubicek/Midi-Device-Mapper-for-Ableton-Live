@@ -1,0 +1,54 @@
+# Drum-rack TEST controller fixture (ai-coding/plans/drum_rack.md).
+# Used only by tests/test_drum_rack.py — NOT a real live surface.
+#
+# button-behaviour defaults to momentary (physical down = on, release = 0). The
+# long-note step gesture (hold step A, tap step B) NEEDS momentary buttons — on
+# toggle hardware there is no release event, so the gesture can't be delivered.
+# A 4x4 grid controller: two button blocks (pads + sequencer) and two knob
+# blocks (velocities + macro encoders).
+
+light_colors:
+    off: 0
+    red: 5
+    green: 21
+
+control_groups:
+    -
+        layout: grid
+        number: 1
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C-2-DS-1
+        rows: 4
+        columns: 4
+    -
+        layout: grid
+        number: 2
+        type: knob
+        midi_channel: 1
+        midi_type: CC
+        midi_range: 16-31
+        rows: 4
+        columns: 4
+        right_of: 1
+    -
+        layout: grid
+        number: 3
+        type: knob
+        midi_channel: 1
+        midi_type: CC
+        midi_range: 32-47
+        rows: 4
+        columns: 4
+        right_of: 2
+    -
+        layout: grid
+        number: 4
+        type: button
+        midi_channel: 1
+        midi_type: note
+        midi_range: C2-DS3
+        rows: 4
+        columns: 4
+        right_of: 3

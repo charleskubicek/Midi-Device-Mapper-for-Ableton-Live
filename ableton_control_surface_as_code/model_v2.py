@@ -242,17 +242,35 @@ class ModeGroupWithMidi(BaseModel):
 
 
 def _bound_coords(withMidi) -> List[MidiCoords]:
-    """Every physical control a mapping binds, across all of its coord-bearing
-    fields. `midi_maps` covers encoders/mixer/nav/functions; `switch_maps`
-    (device `button`/`button-list` switch slots) is a separate field that the
-    clash check would otherwise miss, so a device switch sharing a button with
-    a mixer button slipped through silently."""
-    coords: List[MidiCoords] = []
+    """Every physical control a mapping binds, for the clash check.
+
+    `midi_maps` covers encoders/mixer/nav/functions; `switch_maps` (device
+    `button`/`button-list` switch slots) is a separate field the check would
+    otherwise miss. Drum-rack `pad_maps`/`step_maps`/`velocity_maps` are also
+    separate fields, so two mappings colliding on a grid button/knob would slip
+    through if we didn't include them.
+
+    SURGICAL precedence relaxation: a drum role that shares a control with THIS
+    mapping's own device role (macro encoder / switch button) is an intentional
+    overlap — the drum action wins on a drum rack, the device action otherwise,
+    via one dispatching listener (see `ai-coding/plans/drum_rack.md`). Those drum
+    coords are dropped so they don't self-clash. Everything else is kept as-is,
+    so a genuine mistake — two device roles on one control (e.g. mixer volume +
+    pan), or two DIFFERENT mappings sharing a control — still clashes."""
+    device_coords: List[MidiCoords] = []
     for midi_map in withMidi.midi_maps:
-        coords.extend(midi_map.midi_coords)
+        device_coords.extend(midi_map.midi_coords)
     for switch_map in getattr(withMidi, 'switch_maps', []):
-        coords.append(switch_map.midi_coords)
-    return coords
+        device_coords.append(switch_map.midi_coords)
+
+    device_ch = {mc.ch_num for mc in device_coords}
+    kept_drum: List[MidiCoords] = []
+    for field in ('pad_maps', 'step_maps', 'velocity_maps'):
+        for m in getattr(withMidi, field, []):
+            if m.midi_coords.ch_num not in device_ch:
+                kept_drum.append(m.midi_coords)
+
+    return device_coords + kept_drum
 
 
 def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = "", acc=None):

@@ -28,9 +28,30 @@ from source_modules.hud_protocol import (
     encode_ping,
     encode_hide,
     encode_page_info,
+    encode_drum,
+    DrumMsg,
     parse,
     parse_all,
 )
+
+
+class TestDrumMessage(unittest.TestCase):
+    def test_encode(self):
+        self.assertEqual(encode_drum('Kick', 'X...X...X...X...'),
+                         'DRUM|X...X...X...X...|Kick')
+
+    def test_roundtrip(self):
+        msg = parse(encode_drum('Snare 2', '................'))
+        self.assertEqual(msg, DrumMsg('................', 'Snare 2'))
+
+    def test_pad_name_with_pipe_roundtrips(self):
+        # Pad name is the final field, so a '|' in it survives.
+        msg = parse(encode_drum('Kick|Sub', 'X...............'))
+        self.assertEqual(msg, DrumMsg('X...............', 'Kick|Sub'))
+
+    def test_malformed_is_unknown(self):
+        from source_modules.hud_protocol import UnknownMsg as _U
+        self.assertIsInstance(parse('DRUM|onlyone'), _U)
 
 
 class TestLayoutCell(unittest.TestCase):

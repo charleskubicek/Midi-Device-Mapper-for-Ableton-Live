@@ -192,6 +192,16 @@ def encode_dividers(cols) -> str:
     return "DIVIDERS|" + "|".join(parts)
 
 
+def encode_drum(pad_name: str, pattern: str) -> str:
+    # Drum-rack step feedback: the selected pad's name plus a fixed-width step
+    # pattern ('X' filled, '.' empty), sent on pad select and after every
+    # step/velocity edit. Independent of the SLOT path (whose button-slot rules
+    # are flagged unstable). `pattern` is a compact fixed alphabet; the pad name
+    # is free-form and may contain '|', so it is always the FINAL field.
+    safe_pattern = pattern.replace('|', ' ')
+    return f"DRUM|{safe_pattern}|{pad_name}"
+
+
 def encode_event(kind: str, wire_idx: int, text: str) -> str:
     # Show-info feedback: explains a button press on the HUD at the moment it
     # happens (see momentary-vs-toggle-made-explicit-plan, item #7). `kind` is
@@ -271,6 +281,12 @@ class EventMsg:
 
 
 @dataclass(frozen=True)
+class DrumMsg:
+    pattern: str
+    pad_name: str
+
+
+@dataclass(frozen=True)
 class DividersMsg:
     cols: List[int]
 
@@ -280,7 +296,7 @@ class UnknownMsg:
     line: str
 
 
-Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, SetModeMsg, PageMsg, EventMsg, DividersMsg, UnknownMsg]
+Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, HideMsg, ModeMsg, SetModeMsg, PageMsg, EventMsg, DrumMsg, DividersMsg, UnknownMsg]
 
 
 def _parse_slot_fields(fields):
@@ -385,6 +401,12 @@ def parse(line: str) -> Message:
             return UnknownMsg(line)
         text = '|'.join(fields[3:])
         return EventMsg(fields[1], wire_idx, text)
+
+    if verb == 'DRUM':
+        # DRUM|<pattern>|<pad name...> — pad name is the rest, may contain '|'.
+        if len(fields) < 3:
+            return UnknownMsg(line)
+        return DrumMsg(fields[1], '|'.join(fields[2:]))
 
     if verb == 'DIVIDERS':
         # DIVIDERS|<n>|<col0>|<col1>|... — cosmetic HUD column rules.

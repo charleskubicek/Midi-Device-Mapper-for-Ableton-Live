@@ -160,31 +160,63 @@ def mixer_templates(mixer_with_midi: MixerWithMidi, mode_name: str) -> [Generate
 
 
 def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controller=None, hud_cells=None):
+    """Device mapping codegen, including the optional drum-rack roles.
+
+    A control may carry BOTH a device role (macro encoder / switch button) and a
+    drum role (per-step velocity / sequencer step) — the `velocities:`/`sequencer:`
+    blocks are declared on the same controls as `encoders:`/`button:`. For a
+    shared control we emit ONE dispatching listener that branches at call time:
+    a drum rack is focused -> the drum action, otherwise the device action (see
+    `ai-coding/plans/drum_rack.md`, precedence revision). Controls with only one
+    role keep their plain listener. `pads:` selects the drum pad on press (audition
+    — the pad making sound — is the deferred Live-spike seam)."""
     codes = []
 
-    for mm in device_with_midi.midi_maps:
-        enc_name = mm.controller_variable_name()
-        enc_listener_name = mm.controller_listener_fn_name(mode_name)
-        enc_refs = EncoderRefinements(mm.only_midi_coord.encoder_refs)
+    track = device_with_midi.track.name.value
+    device = device_with_midi.device
 
-        codes.append(GeneratedCode(
-            control_defs=mm.midi_coords,
-            setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})",
-                             f"self._previous_values['{enc_listener_name}'] = 0"],
-            remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
-            listener_fns=generate_parameter_listener_action(
-                mm.parameter,
-                mm.only_midi_coord.number,
-                device_with_midi.track.name.value,
-                device_with_midi.device,
-                enc_listener_name,
-                mm.only_midi_coord.encoder_type.is_button() and not enc_refs.has_momentary(),
-                mm.info_string(),
-                doctor=mm.only_midi_coord.encoder_type.is_button())
-        ))
+    # Drum roles keyed by the control they sit on, so a device encoder/switch can
+    # find its overlapping velocity/step/pad role.
+    vel_by_ch = {vm.midi_coords.ch_num: vm for vm in device_with_midi.velocity_maps}
+    step_by_ch = {sm.midi_coords.ch_num: sm for sm in device_with_midi.step_maps}
+    pad_by_ch = {pm.midi_coords.ch_num: pm for pm in device_with_midi.pad_maps}
+    consumed_vel, consumed_step, consumed_pad = set(), set(), set()
+
+    for mm in device_with_midi.midi_maps:
+        ch = mm.only_midi_coord.ch_num
+        vm = vel_by_ch.get(ch)
+        if vm is not None:
+            consumed_vel.add(ch)
+            codes.append(_dispatch_encoder_template(mm, vm, mode_name, track, device))
+        else:
+            codes.append(_plain_encoder_template(mm, mode_name, track, device))
 
     for mb in device_with_midi.switch_maps:
-        codes.append(_switch_template(mb, mode_name, device_with_midi.track.name.value, device_with_midi.device))
+        ch = mb.only_midi_coord.ch_num
+        # A button carries at most one drum role in a given mode (pads and steps
+        # live in different modes). Prefer step, then pad.
+        sm = step_by_ch.get(ch)
+        pm = pad_by_ch.get(ch)
+        if sm is not None:
+            consumed_step.add(ch)
+            codes.append(_dispatch_switch_template(mb, sm, mode_name, track, device))
+        elif pm is not None:
+            consumed_pad.add(ch)
+            codes.append(_dispatch_pad_template(mb, pm, mode_name, track, device))
+        else:
+            codes.append(_switch_template(mb, mode_name, track, device))
+
+    # Drum roles on controls with no device role -> standalone drum listeners
+    # (the runtime no-ops when the focused device isn't a drum rack).
+    for vm in device_with_midi.velocity_maps:
+        if vm.midi_coords.ch_num not in consumed_vel:
+            codes.append(_drum_velocity_template(vm, mode_name))
+    for sm in device_with_midi.step_maps:
+        if sm.midi_coords.ch_num not in consumed_step:
+            codes.append(_drum_step_template(sm, mode_name))
+    for pm in device_with_midi.pad_maps:
+        if pm.midi_coords.ch_num not in consumed_pad:
+            codes.append(_drum_pad_template(pm, mode_name))
 
     custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
     switch_mappings = code_from_switch_slot_assignments(device_with_midi.switch_maps, controller, hud_cells)
@@ -192,6 +224,203 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
                                switch_parameter_mappings=switch_mappings))
 
     return codes
+
+
+def _plain_encoder_template(mm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+    enc_name = mm.controller_variable_name()
+    enc_listener_name = mm.controller_listener_fn_name(mode_name)
+    enc_refs = EncoderRefinements(mm.only_midi_coord.encoder_refs)
+    return GeneratedCode(
+        control_defs=mm.midi_coords,
+        setup_listeners=[f"self.{enc_name}.add_value_listener(self.{enc_listener_name})",
+                         f"self._previous_values['{enc_listener_name}'] = 0"],
+        remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{enc_listener_name})"],
+        listener_fns=generate_parameter_listener_action(
+            mm.parameter,
+            mm.only_midi_coord.number,
+            track,
+            device,
+            enc_listener_name,
+            mm.only_midi_coord.encoder_type.is_button() and not enc_refs.has_momentary(),
+            mm.info_string(),
+            doctor=mm.only_midi_coord.encoder_type.is_button()),
+    )
+
+
+def _dispatch_encoder_template(mm, vm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+    """One knob, two roles: device-macro parameter normally, per-step velocity on
+    a drum rack. A single listener branches on the focused device type."""
+    enc_name = mm.controller_variable_name()
+    fn_name = mm.controller_listener_fn_name(mode_name)
+    fn = _dispatch_encoder_fn(fn_name, vm.step, mm.parameter, mm.only_midi_coord.number,
+                              track, device).split("\n")
+    return GeneratedCode(
+        control_defs=mm.midi_coords,
+        setup_listeners=[f"self.{enc_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _dispatch_encoder_fn(fn_name: str, step: int, parameter, midi_no, track: str, device: str) -> str:
+    return Template("""
+def ${fn_name}(self, value):
+    if self.drum_rack.is_active():
+        self.drum_rack.set_velocity(${step}, value)
+        self._hud_client.send_ping()
+        return
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+    self.device_parameter_action(device, ${parameter}, ${midi_no}, value, "${fn_name}", toggle=False)
+    """).substitute(fn_name=fn_name, step=step, parameter=parameter, midi_no=midi_no,
+                    track=track, device=device)
+
+
+def _dispatch_switch_template(mb, sm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+    """One button, two roles: device switch-slot cycle normally, sequencer step
+    toggle on a drum rack. A single listener branches on the focused device type."""
+    btn_name = mb.controller_variable_name()
+    fn_name = mb.controller_listener_fn_name(mode_name)
+    fn = _dispatch_switch_fn(fn_name, sm.step, mb.slot, track, device).split("\n")
+    return GeneratedCode(
+        control_defs=[mb.only_midi_coord],
+        setup_listeners=[f"self.{btn_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{btn_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _dispatch_switch_fn(fn_name: str, step: int, slot: int, track: str, device: str) -> str:
+    return Template("""
+def ${fn_name}(self, value):
+    if self.drum_rack.is_active():
+        self.drum_rack.step_event(${step}, value)
+        self._hud_client.send_ping()
+        return
+    self.log_message(f"calling : ${fn_name}")
+    self._helpers.button_event("${fn_name}", value)
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+    self._hud_client.send_ping()
+    if self._helpers.should_act_on_edge(value):
+        self._helpers.switch_slot_action(device, ${slot}, value, "${fn_name}")
+    """).substitute(fn_name=fn_name, step=step, slot=slot, track=track, device=device)
+
+
+def _dispatch_pad_template(mb, pm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+    """One button, two roles: device switch-slot cycle normally, drum-pad SELECT
+    on a drum rack. Select-on-press only (a pad tap picks the drum the sequencer
+    edits); audition — the pad sounding — is the deferred seam."""
+    btn_name = mb.controller_variable_name()
+    fn_name = mb.controller_listener_fn_name(mode_name)
+    fn = _dispatch_pad_fn(fn_name, pm.index, mb.slot, track, device).split("\n")
+    return GeneratedCode(
+        control_defs=[mb.only_midi_coord],
+        setup_listeners=[f"self.{btn_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{btn_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _dispatch_pad_fn(fn_name: str, index: int, slot: int, track: str, device: str) -> str:
+    return Template("""
+def ${fn_name}(self, value):
+    if self.drum_rack.is_active():
+        if self._helpers.should_act_on_edge(value):
+            self.drum_rack.select_pad(${index})
+        self._hud_client.send_ping()
+        return
+    self.log_message(f"calling : ${fn_name}")
+    self._helpers.button_event("${fn_name}", value)
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+    self._hud_client.send_ping()
+    if self._helpers.should_act_on_edge(value):
+        self._helpers.switch_slot_action(device, ${slot}, value, "${fn_name}")
+    """).substitute(fn_name=fn_name, index=index, slot=slot, track=track, device=device)
+
+
+def _drum_pad_template(pm, mode_name: str) -> 'GeneratedCode':
+    """Pad button with no device role -> standalone pad-select listener."""
+    mc = pm.midi_coords
+    var_name = mc.controller_variable_name()
+    fn_name = mc.controller_listener_fn_name(f"_mode_{mode_name}_drum_pad{pm.index}")
+    fn = _drum_pad_action_fn(fn_name, pm.index).split("\n")
+    return GeneratedCode(
+        control_defs=[mc],
+        setup_listeners=[f"self.{var_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{var_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _drum_pad_action_fn(fn_name: str, index: int) -> str:
+    # Select-on-press: the runtime no-ops when the focused device isn't a drum rack.
+    return Template("""
+def ${fn_name}(self, value):
+    if self._helpers.should_act_on_edge(value):
+        self.drum_rack.select_pad(${index})
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, index=index)
+
+
+def _drum_step_template(sm, mode_name: str) -> 'GeneratedCode':
+    mc = sm.midi_coords
+    var_name = mc.controller_variable_name()
+    fn_name = mc.controller_listener_fn_name(f"_mode_{mode_name}_drum_step{sm.step}")
+    fn = _drum_step_action_fn(fn_name, sm.step).split("\n")
+    return GeneratedCode(
+        control_defs=[mc],
+        setup_listeners=[f"self.{var_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{var_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _drum_step_action_fn(fn_name: str, step: int) -> str:
+    # Steps forward BOTH edges (press + release) to the runtime: the long-note
+    # gesture (hold step A, tap step B) needs the release, and a plain tap
+    # toggles on release. The runtime interprets press vs release from `value`.
+    return Template("""
+def ${fn_name}(self, value):
+    self.drum_rack.step_event(${step}, value)
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, step=step)
+
+
+def _drum_velocity_template(vm, mode_name: str) -> 'GeneratedCode':
+    mc = vm.midi_coords
+    var_name = mc.controller_variable_name()
+    fn_name = mc.controller_listener_fn_name(f"_mode_{mode_name}_drum_vel{vm.step}")
+    fn = _drum_velocity_action_fn(fn_name, vm.step).split("\n")
+    return GeneratedCode(
+        control_defs=[mc],
+        setup_listeners=[f"self.{var_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{var_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=fn,
+    )
+
+
+def _drum_velocity_action_fn(fn_name: str, step: int) -> str:
+    # Absolute encoder -> velocity of the existing note at this step. The runtime
+    # no-ops on an empty step (turning a knob there does nothing).
+    return Template("""
+def ${fn_name}(self, value):
+    self.drum_rack.set_velocity(${step}, value)
+    self._hud_client.send_ping()
+    """).substitute(fn_name=fn_name, step=step)
 
 
 def _switch_template(mb: SwitchMidiMapping, mode_name: str, track: str = "selected", device: str = "selected") -> 'GeneratedCode':
