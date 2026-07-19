@@ -337,16 +337,16 @@ def _build_drum_maps(controller, device: 'DeviceV2'):
 
     step_maps: List[DrumStepMidiMapping] = []
     if device.mappings.sequencer is not None:
-        # The step path (tap-toggles-on-release; hold-A-tap-B long note) depends on
-        # a real press AND release edge, i.e. momentary buttons. On toggle hardware
-        # there is no release event, so the gesture can't be delivered — flag it at
-        # gen time rather than shipping a surface that silently misbehaves.
+        # Toggle hardware emits an alternating 127/0 per press, so a step would
+        # only toggle on every second physical tap — the step sequencer needs one
+        # clean edge per tap, i.e. momentary buttons. Flag it at gen time rather
+        # than shipping a surface that silently misbehaves.
         if controller.button_behaviour == ButtonBehaviour.toggle:
             raise GenError(
-                "device 'sequencer' requires momentary buttons (the step toggle + "
-                "long-note gesture need a press and a release edge), but the "
-                "controller declares button-behaviour: toggle. Use a momentary "
-                "controller for the sequencer, or remove the sequencer block.",
+                "device 'sequencer' requires momentary buttons (each tap must send "
+                "one clean edge), but the controller declares button-behaviour: "
+                "toggle, which alternates 127/0 so only every second tap would "
+                "register. Use a momentary controller, or remove the sequencer block.",
                 ErrorCode.SEMANTIC_VALIDATION,
             )
         midis = _resolve_drum_range(controller, device.mappings.sequencer)

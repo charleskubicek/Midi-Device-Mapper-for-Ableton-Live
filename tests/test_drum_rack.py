@@ -16,7 +16,7 @@ from ableton_control_surface_as_code.model_v2 import (
     ModeGroupWithMidi, validate_mappings, build_validated_model,
 )
 from source_modules.drum_rack import (
-    DrumRackController, NoteSpec, STEP_BEATS, DEFAULT_VELOCITY,
+    DrumRackController, NoteSpec, STEP_BEATS, DEFAULT_VELOCITY, BAR_BEATS,
 )
 
 _SURFACE_DIR = Path(__file__).resolve().parent / 'fixtures' / 'drum_rack_surface'
@@ -115,7 +115,8 @@ class TestDrumRackModelBuild(unittest.TestCase):
             _device({'padz': {'range': 'grid-1:1-16'}})
 
     def test_sequencer_rejects_toggle_hardware(self):
-        # The step gesture needs a release edge; toggle hardware has none.
+        # Toggle hardware alternates 127/0, so only every second tap would register;
+        # the step sequencer needs momentary buttons (one clean edge per tap).
         ctrl = ControllerV2.build_from(ControllerRawV2(**{
             'light_colors': {},
             'button-behaviour': 'toggle',
@@ -317,8 +318,13 @@ class FakeNote:
 class FakeClip:
     is_midi_clip = True
 
-    def __init__(self, notes=None):
+    def __init__(self, notes=None, start_time=0.0):
         self.notes = list(notes or [])
+        # Arrangement-clip fields: a session clip leaves these at their defaults.
+        self.start_time = start_time
+        self.looping = False
+        self.loop_start = 0.0
+        self.loop_end = 0.0
 
     def get_notes_extended(self, from_pitch, pitch_span, from_time, time_span):
         return [n for n in self.notes
@@ -365,6 +371,14 @@ class FakeTrackView:
 class FakeTrack:
     def __init__(self, device):
         self.view = FakeTrackView(device)
+        # Live.Track.arrangement_clips (RO list). create_midi_clip inserts here.
+        self.arrangement_clips = []
+
+    def create_midi_clip(self, start_time, length):
+        clip = FakeClip(start_time=start_time)
+        clip._created_length = length
+        self.arrangement_clips.append(clip)
+        return clip
 
 
 class FakeClipSlot:
@@ -387,16 +401,36 @@ class FakeSongView:
 
 
 class FakeSong:
-    def __init__(self, device, clip, highlighted_slot=None):
+    def __init__(self, device, clip, highlighted_slot=None,
+                 loop_start=0.0, loop_length=BAR_BEATS * 4):
         self.view = FakeSongView(device, clip, highlighted_slot)
+        self.loop_start = loop_start
+        self.loop_length = loop_length
+
+
+class FakeApplicationView:
+    def __init__(self, focused_document_view='Session'):
+        self.focused_document_view = focused_document_view
+
+
+class FakeApplication:
+    def __init__(self, focused_document_view='Session'):
+        self.view = FakeApplicationView(focused_document_view)
 
 
 class FakeManager:
-    def __init__(self, device, clip, highlighted_slot=None):
-        self._song = FakeSong(device, clip, highlighted_slot)
+    def __init__(self, device, clip, highlighted_slot=None,
+                 focused_document_view='Session',
+                 loop_start=0.0, loop_length=BAR_BEATS * 4):
+        self._song = FakeSong(device, clip, highlighted_slot,
+                              loop_start=loop_start, loop_length=loop_length)
+        self._app = FakeApplication(focused_document_view)
 
     def song(self):
         return self._song
+
+    def application(self):
+        return self._app
 
     def log_message(self, *a, **k):
         pass
@@ -461,6 +495,77 @@ class TestDrumRackClipCreate(unittest.TestCase):
         c.step_event(0, 127)
         c.step_event(0, 0)  # nothing to edit, must not raise
 
+    def test_session_mode_still_uses_highlighted_slot(self):
+        # focused view defaults to 'Session': the arrangement branch must not fire.
+        slot = FakeClipSlot(clip=None)
+        mgr = FakeManager(FakeDrumRack(36), None, highlighted_slot=slot)
+        c = DrumRackController(mgr)
+        c.step_event(2, 127)
+        c.step_event(2, 0)
+        self.assertTrue(slot.has_clip)
+        self.assertEqual(mgr.song().view.selected_track.arrangement_clips, [])
+
+
+class TestDrumRackArrangementClip(unittest.TestCase):
+    def _arranger_manager(self, loop_start=0.0, loop_length=BAR_BEATS * 4):
+        return FakeManager(FakeDrumRack(36), None, highlighted_slot=None,
+                           focused_document_view='Arranger',
+                           loop_start=loop_start, loop_length=loop_length)
+
+    def test_creates_single_looping_clip_spanning_the_loop(self):
+        mgr = self._arranger_manager(loop_start=0.0, loop_length=BAR_BEATS * 4)
+        c = DrumRackController(mgr)
+        c.step_event(2, 127)
+        c.step_event(2, 0)  # first tap -> create the arrangement clip
+        clips = mgr.song().view.selected_track.arrangement_clips
+        self.assertEqual(len(clips), 1)  # ONE clip, not four tiled copies
+        clip = clips[0]
+        self.assertAlmostEqual(clip.start_time, 0.0)
+        self.assertAlmostEqual(clip._created_length, BAR_BEATS * 4)  # fills the loop
+        self.assertTrue(clip.looping)                                # repeats...
+        self.assertAlmostEqual(clip.loop_start, 0.0)
+        self.assertAlmostEqual(clip.loop_end, BAR_BEATS)             # ...every bar
+        self.assertEqual(len(clip.notes), 1)                         # step edit landed
+        self.assertAlmostEqual(clip.notes[0].start_time, 2 * STEP_BEATS)
+
+    def test_clip_created_at_loop_start_offset(self):
+        mgr = self._arranger_manager(loop_start=BAR_BEATS * 8, loop_length=BAR_BEATS * 2)
+        c = DrumRackController(mgr)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        clip = mgr.song().view.selected_track.arrangement_clips[0]
+        self.assertAlmostEqual(clip.start_time, BAR_BEATS * 8)
+        self.assertAlmostEqual(clip._created_length, BAR_BEATS * 2)
+
+    def test_created_clip_becomes_detail_clip(self):
+        mgr = self._arranger_manager()
+        c = DrumRackController(mgr)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        clip = mgr.song().view.selected_track.arrangement_clips[0]
+        self.assertIs(mgr.song().view.detail_clip, clip)
+
+    def test_second_edit_reuses_same_clip(self):
+        # Idempotency: repeated taps must not spawn a new clip each time.
+        mgr = self._arranger_manager()
+        c = DrumRackController(mgr)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        c.step_event(4, 127)
+        c.step_event(4, 0)
+        clips = mgr.song().view.selected_track.arrangement_clips
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(len(clips[0].notes), 2)
+
+    def test_loop_shorter_than_a_bar_still_makes_at_least_one_bar(self):
+        mgr = self._arranger_manager(loop_start=0.0, loop_length=BAR_BEATS / 2)
+        c = DrumRackController(mgr)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        clip = mgr.song().view.selected_track.arrangement_clips[0]
+        self.assertAlmostEqual(clip._created_length, BAR_BEATS)
+        self.assertAlmostEqual(clip.loop_end, BAR_BEATS)
+
 
 class TestDrumRackIsActive(unittest.TestCase):
     def test_active_on_drum_rack(self):
@@ -474,25 +579,69 @@ class TestDrumRackIsActive(unittest.TestCase):
         self.assertFalse(c.is_active())
 
 
+class TestPadOrientationMapping(unittest.TestCase):
+    """Controller pads are numbered top-down; Live's drum bank is bottom-up."""
+
+    def test_corners_flip_vertically(self):
+        from source_modules.drum_rack import bank_index_from_controller as m
+        self.assertEqual(m(0), 12)   # controller top-left    -> Live top-left
+        self.assertEqual(m(3), 15)   # controller top-right    -> Live top-right
+        self.assertEqual(m(12), 0)   # controller bottom-left  -> Live bottom-left (note 36)
+        self.assertEqual(m(15), 3)   # controller bottom-right -> Live bottom-right
+
+    def test_columns_are_preserved(self):
+        from source_modules.drum_rack import bank_index_from_controller as m
+        # Same column, walking top-down the controller = bottom-up the bank.
+        self.assertEqual([m(i) for i in (1, 5, 9, 13)], [13, 9, 5, 1])
+
+    def test_is_an_involution(self):
+        # Flipping twice returns the original index.
+        from source_modules.drum_rack import bank_index_from_controller as m
+        self.assertEqual([m(m(i)) for i in range(16)], list(range(16)))
+
+
 class TestDrumRackPadSelect(unittest.TestCase):
     def _bank(self):
         return [FakePad(36 + i, name=f"Pad{i}") for i in range(16)]
 
-    def test_select_pad_redirects_step_edits(self):
+    def test_top_left_controller_selects_top_row_of_bank(self):
+        # Regression for the top-down/bottom-up mismatch: tapping the top-left
+        # controller pad must select note 48 (Live's top-left), not note 36.
         bank = self._bank()
         clip = FakeClip()
         c = _controller_with(clip, device=FakeDrumRack(36, bank=bank))
-        c.select_pad(5)          # pick the 6th pad (note 41)
+        c.select_pad(0)
         c.step_event(0, 127)
         c.step_event(0, 0)
-        self.assertEqual(clip.notes[0].pitch, 41)
+        self.assertEqual(clip.notes[0].pitch, 48)
+
+    def test_bottom_left_controller_selects_note_36(self):
+        bank = self._bank()
+        clip = FakeClip()
+        c = _controller_with(clip, device=FakeDrumRack(36, bank=bank))
+        c.select_pad(12)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        self.assertEqual(clip.notes[0].pitch, 36)
+
+    def test_select_pad_redirects_step_edits(self):
+        # Controller index 5 (2nd row, 2nd col from the top) flips to bank index 9
+        # (note 45) because Live lays the bank out bottom-up.
+        bank = self._bank()
+        clip = FakeClip()
+        c = _controller_with(clip, device=FakeDrumRack(36, bank=bank))
+        c.select_pad(5)
+        c.step_event(0, 127)
+        c.step_event(0, 0)
+        self.assertEqual(clip.notes[0].pitch, 45)
 
     def test_select_pad_mirrors_to_live_ui(self):
+        # Controller index 3 (top-right) mirrors to Live's top-right pad = bank[15].
         bank = self._bank()
         device = FakeDrumRack(36, bank=bank)
         c = _controller_with(FakeClip(), device=device)
         c.select_pad(3)
-        self.assertIs(device.view.selected_drum_pad, bank[3])
+        self.assertIs(device.view.selected_drum_pad, bank[15])
 
     def test_selection_falls_back_to_live_selected_pad(self):
         # No controller selection yet -> edits Live's mouse-selected pad.
@@ -510,26 +659,23 @@ class TestDrumRackPadSelect(unittest.TestCase):
         self.assertFalse(c.is_active())
 
 
-class TestDrumRackLongNote(unittest.TestCase):
-    def test_hold_a_tap_b_makes_one_long_note(self):
-        clip = FakeClip()
-        c = _controller_with(clip)
-        c.step_event(2, 127)   # press A=2 (held)
-        c.step_event(6, 127)   # tap B=6 -> note 2..6
-        c.step_event(6, 0)     # release B (consumed, no toggle)
-        c.step_event(2, 0)     # release A (consumed, no toggle)
-        self.assertEqual(len(clip.notes), 1)
-        n = clip.notes[0]
-        self.assertAlmostEqual(n.start_time, 2 * STEP_BEATS)
-        self.assertAlmostEqual(n.duration, (6 - 2 + 1) * STEP_BEATS)
+class TestDrumRackNoLongNote(unittest.TestCase):
+    """The hold-A-tap-B long-note gesture was removed; overlapping presses are now
+    just two independent single-step toggles."""
 
-    def test_release_without_tap_is_plain_toggle(self):
+    def test_overlapping_presses_make_two_independent_one_step_notes(self):
         clip = FakeClip()
         c = _controller_with(clip)
-        c.step_event(5, 127)
-        c.step_event(5, 0)
-        self.assertEqual(len(clip.notes), 1)
-        self.assertAlmostEqual(clip.notes[0].duration, STEP_BEATS)
+        c.step_event(2, 127)   # press A=2
+        c.step_event(6, 127)   # press B=6 while A still held
+        c.step_event(6, 0)     # release B -> toggle step 6
+        c.step_event(2, 0)     # release A -> toggle step 2
+        self.assertEqual(len(clip.notes), 2)
+        by_start = sorted(clip.notes, key=lambda n: n.start_time)
+        self.assertAlmostEqual(by_start[0].start_time, 2 * STEP_BEATS)
+        self.assertAlmostEqual(by_start[0].duration, STEP_BEATS)
+        self.assertAlmostEqual(by_start[1].start_time, 6 * STEP_BEATS)
+        self.assertAlmostEqual(by_start[1].duration, STEP_BEATS)
 
 
 class TestDrumRackVelocity(unittest.TestCase):

@@ -2,8 +2,8 @@
 # Used only by tests/test_drum_rack.py — NOT a real live surface.
 #
 # button-behaviour defaults to momentary (physical down = on, release = 0). The
-# long-note step gesture (hold step A, tap step B) NEEDS momentary buttons — on
-# toggle hardware there is no release event, so the gesture can't be delivered.
+# step sequencer NEEDS momentary buttons — toggle hardware alternates 127/0, so
+# only every second tap would register.
 # A 4x4 grid controller: two button blocks (pads + sequencer) and two knob
 # blocks (velocities + macro encoders).
 

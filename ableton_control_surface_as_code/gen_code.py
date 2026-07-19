@@ -389,9 +389,8 @@ def _drum_step_template(sm, mode_name: str) -> 'GeneratedCode':
 
 
 def _drum_step_action_fn(fn_name: str, step: int) -> str:
-    # Steps forward BOTH edges (press + release) to the runtime: the long-note
-    # gesture (hold step A, tap step B) needs the release, and a plain tap
-    # toggles on release. The runtime interprets press vs release from `value`.
+    # Steps forward BOTH edges (press + release) to the runtime; it toggles the
+    # step on the release edge (value == 0) and ignores the press.
     return Template("""
 def ${fn_name}(self, value):
     self.drum_rack.step_event(${step}, value)

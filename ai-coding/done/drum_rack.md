@@ -17,10 +17,11 @@ Supersedes the "new `drum-rack-device` type" framing below. Decided with the use
 - **Static HUD labels** on shared cells still show macro names on a drum rack in V1; live
   step state comes via the separate `DRUM` message. Runtime label-swap-by-device-type is a
   follow-up.
-- **Hardware assumptions (enforced/noted):** the `sequencer:` step gesture needs a
-  press+release edge → momentary buttons; a `sequencer:` on a `button-behaviour: toggle`
-  controller is now a gen-time `GenError`. `velocities:` assume absolute encoders (map
-  0..127 → velocity 1..127); relative encoders are out of scope for V1.
+- **Hardware assumptions (enforced/noted):** the `sequencer:` needs momentary buttons
+  (toggle hardware alternates 127/0 so only every second tap registers); a `sequencer:` on
+  a `button-behaviour: toggle` controller is a gen-time `GenError`. `velocities:` assume
+  absolute encoders (map 0..127 → velocity 1..127); relative encoders are out of scope for
+  V1. (The hold-A-tap-B long-note gesture was removed 2026-07-19 — see follow-up.)
 - **HUD follow-ups:** `set_velocity` does not yet emit a `DRUM` message (only `step_event`
   does) — close when the Swift HUD side lands. Shared cells still show macro labels on a
   drum rack (runtime label-swap-by-device-type is the follow-up).
@@ -72,10 +73,9 @@ exactly as in a plain `device` mapping, so drum-rack macros can sit on knobs as 
 - **Toggle semantics**: tap a step → if a note for the selected pad starts in that step's
   window, delete it; otherwise add one (duration = 1/16 bar = 0.25 beats, default
   velocity 100).
-- **Long notes**: grid-1 buttons are momentary (note-on/off). Hold step A, then tap a
-  later step B → one note starting at A with duration `(B − A + 1) × 0.25` beats
-  (replacing any existing note at A). Releasing A without tapping another step is a plain
-  toggle of A.
+- **Long notes**: ~~hold step A, tap step B → one note A..B~~ REMOVED 2026-07-19
+  (see follow-up below) — the gesture didn't work in practice. Every step tap is now a
+  plain single-step toggle.
 - **Velocity encoders**: absolute — encoder *i* sets the velocity (1–127) of the existing
   note at step *i* for the selected pad. Turning an encoder on an empty step does nothing.
 - **Non-drum-rack device focused**: the whole mapping (including the inherited encoder
@@ -181,3 +181,62 @@ Candidate approaches, to be verified first (spike + `./bin/tail_logs.sh`):
 - Grid LEDs for step pattern / selected pad / playhead.
 - Non-4/4 signatures (V1 assumes a 4-beat bar).
 - Note-repeat, choke feedback, pad-bank scrolling from the controller.
+
+## Follow-up: arrangement-mode clip creation (2026-07-18)
+
+When the user sequences with no MIDI detail clip focused, clip creation now
+branches on the focused document view (`application().view.focused_document_view`):
+
+- **Session view** (unchanged): create a fresh 1-bar clip in the highlighted
+  clip slot.
+- **Arrangement view**: create ONE looping MIDI clip on the selected track at the
+  arrangement loop start (`song.loop_start`), spanning the whole arrangement loop
+  (`song.loop_length`, floored to at least one bar), with `looping = True` and
+  `loop_end = BAR_BEATS` so its content repeats every bar. This is the API
+  equivalent of the manual Ableton gesture "make a 1-bar clip, enable loop, drag
+  the right edge to fill the loop". Because it is a **single clip** (not tiled
+  independent copies), every step/velocity edit updates all repetitions — there
+  is no divergence to keep in sync (this is why the initial tiling design was
+  dropped). The clip is set as `detail_clip`, which also makes the operation
+  idempotent (subsequent taps resolve it via `_detail_clip()`); a secondary guard
+  scans `track.arrangement_clips` for a MIDI clip already anchored at loop_start.
+
+Runtime seam covered by `TestDrumRackArrangementClip`.
+
+**Needs runtime confirmation on deploy** (tests run against fakes, so they verify
+the internal logic, not the real Live API behaviour). Recipe: set a 4-bar
+arrangement loop, focus a drum rack, sequence one step, then check the created
+clip in the arrangement.
+- Expected: the clip visually spans the full 4 bars and the 1-bar pattern
+  repeats.
+- If it collapses to a single bar at the loop start, the loop brace and the
+  clip's dragged-out extent are independent handles — set `clip.end_marker = span`
+  after `loop_end` (one-line fix in `_arrangement_clip_for_edit`).
+- `Track.create_midi_clip(start_time, arg3)` is assumed to be `(start_time,
+  length)`; if arg3 is an end_time, pass `loop_start + span` instead.
+
+## Follow-up: pad orientation flip (2026-07-19)
+
+The controller numbers its 4x4 pad grid top-down (range index 0 = top-left), but
+Live's drum bank (`visible_drum_pads`) is laid out bottom-up (index 0 = the
+bottom-left pad, note 36). Selecting pad `i` used to index `visible_drum_pads[i]`
+directly, so every controller pad hit the vertically-mirrored drum. Fixed with a
+pure `bank_index_from_controller(index)` that flips rows (columns unchanged),
+applied at both indexing sites via `_bank_pad`. Corners: controller top-left ->
+Live top-left (note 48), controller bottom-left -> note 36. Covered by
+`TestPadOrientationMapping` + regression tests in `TestDrumRackPadSelect`.
+
+## Follow-up: long-note gesture removed (2026-07-19)
+
+The hold-step-A + tap-step-B "long note" gesture (originally in `_on_step_press` /
+`_on_step_release` / `_anchor_for` / `_create_long_note`, with `_pressed` state)
+did not work in practice and was fully removed at the user's request. Every step
+tap is now a plain single-step toggle: `step_event` toggles on the release edge
+(value == 0). Overlapping presses just produce two independent one-step notes
+(`TestDrumRackNoLongNote`).
+
+The momentary-buttons requirement for `sequencer:` **stays** (gen-time `GenError`),
+but its rationale is updated: toggle hardware alternates 127/0 so only every second
+tap would register — the sequencer needs one clean edge per tap, independent of the
+removed gesture. Codegen still forwards both edges (harmless; release is the acting
+one). `set_velocity` and pad selection are unchanged.

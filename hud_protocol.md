@@ -313,8 +313,7 @@ DRUM|<pattern>|<pad name...>
 | `pad name`   | string | selected pad's display name; **may contain `\|`** — always the final field, so parsers join `fields[2:]` |
 
 - **Emitted:** from the runtime `DrumRackController` (`source_modules/drum_rack.py`)
-  via `HudClient.send_drum()`, after a step toggle / long-note / velocity edit and
-  on pad select.
+  via `HudClient.send_drum()`, after a step toggle / velocity edit and on pad select.
 - **Receiver effect:** shows the pad name + step grid. **Status:** the protocol
   message + Python sender are implemented + tested; the Swift parser case and HUD
   *rendering* are a follow-up (an unknown verb is ignored by the current HUD, so

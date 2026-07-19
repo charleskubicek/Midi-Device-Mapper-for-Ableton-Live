@@ -11,8 +11,7 @@ V1 scope (see ai-coding/plans/drum_rack.md):
   - "selected pad" = the pad tapped from the controller if pad wiring is present
     (deferred seam), otherwise Live's own `drum_rack.view.selected_drum_pad`, so
     the step/velocity editing already works against the mouse-selected pad.
-  - a plain step tap toggles the note; hold step A + tap a later step B makes one
-    note A..B (long-note gesture, needs momentary buttons).
+  - a step tap toggles the note on/off (needs momentary buttons for a clean edge).
 
 DEFERRED SEAM: pad *audition* + controller-driven pad *selection* wiring depend
 on a Live note-forwarding/translation spike and are not wired here. `select_pad`
@@ -35,9 +34,25 @@ STEPS_PER_BAR = 16
 DEFAULT_VELOCITY = 100
 BAR_BEATS = STEP_BEATS * STEPS_PER_BAR
 
+# A drum-rack bank is a 4x4 grid of pads, and so is the controller's pad grid.
+PAD_GRID_WIDTH = 4
+PAD_GRID_HEIGHT = 4
+
 
 def clamp(value, lo, hi):
     return max(lo, min(hi, value))
+
+
+def bank_index_from_controller(index, width=PAD_GRID_WIDTH, height=PAD_GRID_HEIGHT):
+    """Map a controller pad index to the index Live uses in `visible_drum_pads`.
+
+    The controller numbers its pads top-down (index 0 = top-left, increasing
+    left->right then down a row), but Live's drum bank is laid out bottom-up
+    (index 0 = the bottom-left pad, note 36). So the two grids are the same
+    left-to-right but vertically mirrored: a top-down controller row maps to the
+    bottom-up bank row. Columns are unchanged."""
+    row, col = divmod(index, width)
+    return (height - 1 - row) * width + col
 
 
 def make_note_spec(pitch, start_time, duration, velocity):
@@ -55,10 +70,6 @@ class DrumRackController:
         # Pad tapped from the controller (0-based index into the visible bank).
         # None => fall back to Live's mouse-selected drum pad.
         self._selected_pad_index = None
-        # Steps currently held down (for the long-note gesture). Maps step ->
-        # {'consumed': bool}; a consumed step's release does not toggle (its note
-        # was already created as the anchor or the length-defining tap).
-        self._pressed = {}
 
     # -- device / clip resolution -------------------------------------------
 
@@ -96,11 +107,16 @@ class DrumRackController:
         return clip
 
     def _clip_for_edit(self):
-        """The MIDI clip to edit — the detail clip, or a fresh 1-bar clip in the
-        highlighted session slot when there is no MIDI detail clip."""
+        """The MIDI clip to edit — in order of preference:
+          1. the MIDI detail clip, if one is focused;
+          2. in Arrangement view, one looping clip that fills the arrangement
+             loop (created on first edit — see _arrangement_clip_for_edit);
+          3. otherwise a fresh 1-bar clip in the highlighted session slot."""
         clip = self._detail_clip()
         if clip is not None:
             return clip
+        if self._in_arrangement():
+            return self._arrangement_clip_for_edit()
         try:
             slot = self._manager.song().view.highlighted_clip_slot
         except Exception:
@@ -113,6 +129,69 @@ class DrumRackController:
             return slot.clip
         except Exception:
             return None
+
+    def _in_arrangement(self):
+        """True when the Arrangement (not Session) is the focused document view.
+        Drives sequencing into a real arrangement clip instead of a session slot."""
+        try:
+            return self._manager.application().view.focused_document_view == "Arranger"
+        except Exception:
+            return False
+
+    def _arrangement_clip_for_edit(self):
+        """The arrangement clip to sequence into, created on first edit.
+
+        Mirrors the manual Ableton gesture "make a 1-bar clip, turn on loop, drag
+        the right edge to fill the arrangement loop": a SINGLE looping MIDI clip
+        placed at the arrangement loop start, spanning the whole loop, whose
+        content loops every bar. Because it is one clip (not tiled copies), every
+        step edit updates every repetition — there is nothing to keep in sync.
+
+        Idempotent: an existing clip anchored at the loop start is reused, so
+        repeated taps never spawn a second clip."""
+        try:
+            song = self._manager.song()
+            track = song.view.selected_track
+            loop_start = song.loop_start
+            span = max(song.loop_length, BAR_BEATS)
+        except Exception:
+            return None
+        if track is None:
+            return None
+        existing = self._existing_arrangement_clip(track, loop_start)
+        if existing is not None:
+            return existing
+        try:
+            clip = track.create_midi_clip(loop_start, span)
+        except Exception:
+            return None  # non-MIDI/frozen/recording track etc.
+        if clip is None:
+            return None
+        try:
+            clip.looping = True
+            clip.loop_start = 0.0
+            clip.loop_end = BAR_BEATS
+        except Exception:
+            pass
+        try:
+            song.view.detail_clip = clip
+        except Exception:
+            pass
+        return clip
+
+    def _existing_arrangement_clip(self, track, loop_start):
+        """A MIDI arrangement clip already anchored at loop_start, or None.
+        Guards against creating a fresh clip on every step tap."""
+        clips = getattr(track, "arrangement_clips", None)
+        if not clips:
+            return None
+        for clip in clips:
+            try:
+                if abs(clip.start_time - loop_start) < 1e-6 and clip.is_midi_clip:
+                    return clip
+            except Exception:
+                continue
+        return None
 
     # -- pad selection -------------------------------------------------------
 
@@ -131,13 +210,22 @@ class DrumRackController:
         except Exception:
             return []
 
+    def _bank_pad(self, pads, controller_index):
+        """The DrumPad for a controller pad index, accounting for the top-down /
+        bottom-up orientation flip. None if out of range."""
+        bank_index = bank_index_from_controller(controller_index)
+        if 0 <= bank_index < len(pads):
+            return pads[bank_index]
+        return None
+
     def _selected_pad_note(self, drum_rack):
         # Prefer the controller-selected pad (re-resolved from the live visible
         # bank so scrolling is respected); fall back to Live's mouse-selected pad.
         if self._selected_pad_index is not None:
             pads = self._visible_pads(drum_rack)
-            if 0 <= self._selected_pad_index < len(pads):
-                note = getattr(pads[self._selected_pad_index], "note", None)
+            pad = self._bank_pad(pads, self._selected_pad_index)
+            if pad is not None:
+                note = getattr(pad, "note", None)
                 if note is not None:
                     return note
         view = getattr(drum_rack, "view", None)
@@ -154,8 +242,8 @@ class DrumRackController:
         drum_rack = self._drum_rack()
         pads = self._visible_pads(drum_rack) if drum_rack is not None else []
         note = None
-        if 0 <= index < len(pads):
-            pad = pads[index]
+        pad = self._bank_pad(pads, index)
+        if pad is not None:
             note = getattr(pad, "note", None)
             try:
                 drum_rack.view.selected_drum_pad = pad
@@ -174,34 +262,11 @@ class DrumRackController:
     # -- step editing --------------------------------------------------------
 
     def step_event(self, step, value):
+        # A step tap toggles the note. Act on the release edge (value == 0) so a
+        # single press-and-let-go is one toggle on momentary buttons.
         if value == 0:
-            self._on_step_release(step)
-        else:
-            self._on_step_press(step)
-        self._emit_hud()
-
-    def _on_step_press(self, step):
-        anchor = self._anchor_for(step)
-        if anchor is not None:
-            # Held step A + tap later step B -> one note A..B. Neither the anchor
-            # nor this length-defining tap toggle on release.
-            self._create_long_note(anchor, step)
-            if anchor in self._pressed:
-                self._pressed[anchor]["consumed"] = True
-            self._pressed[step] = {"consumed": True}
-        else:
-            self._pressed[step] = {"consumed": False}
-
-    def _anchor_for(self, step):
-        held = [s for s in self._pressed if s < step]
-        return min(held) if held else None
-
-    def _on_step_release(self, step):
-        info = self._pressed.pop(step, None)
-        if info is None:
-            return
-        if not info["consumed"]:
             self.toggle_step(step)
+        self._emit_hud()
 
     def toggle_step(self, step):
         drum_rack = self._drum_rack()
@@ -219,22 +284,6 @@ class DrumRackController:
             clip.remove_notes_extended(pitch, 1, start, span)
         else:
             clip.add_new_notes([make_note_spec(pitch, start, span, DEFAULT_VELOCITY)])
-
-    def _create_long_note(self, anchor, b):
-        drum_rack = self._drum_rack()
-        if drum_rack is None:
-            return
-        pitch = self._selected_pad_note(drum_rack)
-        if pitch is None:
-            return
-        clip = self._clip_for_edit()
-        if clip is None:
-            return
-        start = anchor * STEP_BEATS
-        duration = (b - anchor + 1) * STEP_BEATS
-        # Replace any note already at the anchor step.
-        clip.remove_notes_extended(pitch, 1, start, STEP_BEATS)
-        clip.add_new_notes([make_note_spec(pitch, start, duration, DEFAULT_VELOCITY)])
 
     # -- velocity editing ----------------------------------------------------
 
