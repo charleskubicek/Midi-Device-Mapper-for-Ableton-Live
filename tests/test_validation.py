@@ -243,3 +243,68 @@ class TestSwitchCoordClash(unittest.TestCase, CustomAssertions):
             "                    mute: row-2:2\n")
         root, controller_v2, mode_with_midi = self._build(mapping)
         self.assertEqual(1, len(root.modes))
+
+
+class TestModeButtonCollision(unittest.TestCase, CustomAssertions):
+    """A mapping bound onto the mode-button's own control double-binds the note
+    and wedges the shift FSM at runtime — it must be rejected at generate time."""
+
+    _CONTROLLER = (
+        "light_colors:\n"
+        "    c1: 1\n"
+        "    c2: 2\n"
+        "control_groups:\n"
+        "  -\n"
+        "    layout: row\n"
+        "    number: 1\n"
+        "    type: knob\n"
+        "    midi_channel: 1\n"
+        "    midi_type: CC\n"
+        "    midi_range: 21-28\n"
+        "  -\n"
+        "    layout: row\n"
+        "    number: 2\n"
+        "    type: button\n"
+        "    midi_channel: 1\n"
+        "    midi_type: note\n"
+        "    midi_range: C2-G2\n")
+
+    def _build(self, mapping):
+        return build_validated_model(
+            mapping, Path("/tmp"),
+            resolve_controller=lambda root: (self._CONTROLLER, "ctrl.nt"))
+
+    _SHIFT = (
+        "mode-button:\n"
+        "    button: row-2:1\n"
+        "    type: shift\n"
+        "modes:\n"
+        "    -\n        name: base\n        on_color: c1\n"
+        "        mappings:\n"
+        "            -\n                type: mixer\n"
+        "                track: selected\n"
+        "                mappings:\n"
+        "                    mute: row-2:2\n"
+        "    -\n        name: shift\n        on_color: c2\n"
+        "        mappings:\n")
+
+    def test_mapping_on_mode_button_rejected(self):
+        # shift mode binds `solo` onto row-2:1 — the mode-button control itself.
+        mapping = _ROOT_BASE + self._SHIFT + (
+            "            -\n                type: mixer\n"
+            "                track: selected\n"
+            "                mappings:\n"
+            "                    solo: row-2:1\n")
+        self.assert_gen_error(
+            lambda: self._build(mapping),
+            ErrorCode.SEMANTIC_VALIDATION, "mode-button", "shift")
+
+    def test_mapping_off_mode_button_builds(self):
+        # shift mode binds `solo` onto a free control — must build.
+        mapping = _ROOT_BASE + self._SHIFT + (
+            "            -\n                type: mixer\n"
+            "                track: selected\n"
+            "                mappings:\n"
+            "                    solo: row-2:3\n")
+        root, controller_v2, mode_with_midi = self._build(mapping)
+        self.assertEqual(2, len(root.modes))

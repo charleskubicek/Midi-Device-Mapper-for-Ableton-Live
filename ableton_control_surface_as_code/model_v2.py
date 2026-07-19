@@ -292,6 +292,36 @@ def validate_mappings(mappings: AllMappingWithMidiTypes, mode_name: str = "", ac
                 seen[mc.ch_num] = (mc, withMidi)
 
 
+def validate_no_mode_button_collision(mappings, mode_button, acc=None):
+    """Reject any mapping bound onto the mode-button's physical control.
+
+    The mode-button is owned by the mode FSM — its listener is attached for the
+    life of the surface. A mapping on the same control double-binds the note, and
+    for a held shift button the extra element swallows the note-off, wedging the
+    FSM in the shift mode (it never sees the release). This fails silently at
+    runtime, so catch it here instead. `mappings` is [(mode_name, withMidis)]."""
+    if mode_button is None:
+        return
+
+    button = mode_button.button
+    for mode_name, mode_mappings in mappings:
+        for withMidi in mode_mappings:
+            for mc in _bound_coords(withMidi):
+                if mc.ch_num == button.ch_num:
+                    message = (
+                        f"Mapping collides with the mode-button in mode '{mode_name}': "
+                        f"{withMidi.type} binds chanel:{mc.channel} no:{mc.number} "
+                        f"type:{mc.type.value}, which is the mode-button control. The "
+                        f"mode-button is driven by the mode FSM and cannot also carry a "
+                        f"mapping — move it to a free control."
+                        f"\n from mapping source: {mc.source_info}"
+                        f"\n mode-button source: {button.source_info}")
+                    if acc is not None:
+                        acc.add(message)
+                    else:
+                        raise GenError(message, ErrorCode.CLASHING_MAPPINGS)
+
+
 def print_model_with_mappings(model: ControllerV2, mappings):
     def key(mc: MidiCoords):
         return (mc.ch_num, mc.type.value, mc.channel)
@@ -337,6 +367,8 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=Non
                 button=controller.build_midi_coords(parse_coords(root.mode_button.button))[0][0],
                 type=root.mode_button.type)
         mode_button = acc.capture(_build_mode_button) if acc is not None else _build_mode_button()
+
+    validate_no_mode_button_collision(mappings, mode_button, acc=acc)
 
     return ModeGroupWithMidi(
         mappings=mappings,

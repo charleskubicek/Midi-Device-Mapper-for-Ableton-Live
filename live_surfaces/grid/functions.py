@@ -8,8 +8,83 @@ import Live
 import time
 
 from .extensions import parsers, sample_categories, synth_categories
+from .hud_name import hud_name
 
 primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
+
+class TrackNav(ControlSurfaceComponent):
+    def __init__(self, ins, song):
+        ControlSurfaceComponent.__init__(self)
+        self._manager = ins
+        self._song = song
+
+    def log_message(self, message):
+        self._manager.log_message(message)
+
+    def track_nav_inc(self):
+        all_tracks = len(self._song.visible_tracks)
+        selected_track = self._song.view.selected_track
+
+        next_index = 1
+        is_return_track = selected_track in self._song.return_tracks
+        is_main_track = selected_track == self._song.master_track
+
+        if is_main_track and len(self._song.visible_tracks) > 0:
+            self._song.view.selected_track = self._song.visible_tracks[0]
+        elif not is_return_track:
+            next_index = list(self._song.visible_tracks).index(selected_track) + 1
+            if next_index < all_tracks:
+                self._song.view.selected_track = self._song.visible_tracks[next_index]
+            elif next_index == all_tracks and len(self._song.return_tracks) > 0:
+                self._song.view.selected_track = self._song.return_tracks[0]
+        elif is_return_track:
+            next_index = list(self._song.return_tracks).index(selected_track) + 1
+            if next_index < len(self._song.return_tracks):
+                self._song.view.selected_track = self._song.return_tracks[next_index]
+            elif next_index == len(self._song.return_tracks):
+                self._song.view.selected_track = self._song.master_track
+
+    def track_nav_dec(self):
+        all_tracks = len(self._song.visible_tracks)
+        selected_track = self._song.view.selected_track
+
+        next_index = 1
+        is_return_track = selected_track in self._song.return_tracks
+        is_main_track = selected_track == self._song.master_track
+
+        if is_main_track and len(self._song.visible_tracks) > 0:
+            if len(self._song.return_tracks) > 0:
+                self._song.view.selected_track = self._song.return_tracks[-1]
+            else:
+                self._song.view.selected_track = self._song.visible_tracks[-1]
+        elif not is_return_track:
+            next_index = list(self._song.visible_tracks).index(selected_track) - 1
+            if next_index >= 0:
+                self._song.view.selected_track = self._song.visible_tracks[next_index]
+            elif next_index < 0:
+                self._song.view.selected_track = self._song.master_track
+        elif is_return_track:
+            next_index = list(self._song.return_tracks).index(selected_track) - 1
+            if next_index >= 0:
+                self._song.view.selected_track = self._song.return_tracks[next_index]
+            elif next_index < 0:
+                self._song.view.selected_track = self._song.visible_tracks[-1]
+
+    def track_nav_inc_x3(self):
+        if self._song.view.selected_track is None:
+            return
+        for _ in range(3):
+            if self._song.view.selected_track is self._song.master_track:
+                break
+            self.track_nav_inc()
+
+    def track_nav_dec_x3(self):
+        if self._song.view.selected_track is None:
+            return
+        for _ in range(3):
+            if self._song.view.selected_track is self._song.tracks[0]:
+                break
+            self.track_nav_dec()
 
 class Functions(ControlSurface):
     def __init__(self, c_instance=None, publish_self=True, *a, **k):
@@ -24,6 +99,7 @@ class Functions(ControlSurface):
         self.bounce = Bounce(self, self.clip_ops)
         self.record_midi = MidiRecord(self, self.song())
         self.sequencer = SequencerControlSurface(self, self.song())
+        self.track_nav = TrackNav(self, self.song())
 
     def show_message(self, message):
         self._manager.manager.show_message(message)
@@ -31,6 +107,7 @@ class Functions(ControlSurface):
     def selected_device(self):
         return self.song().view.selected_track.view.selected_device
 
+    @hud_name("Rack Random")
     def press_rack_random_button(self):
         device = self.selected_device()
 
@@ -49,14 +126,115 @@ class Functions(ControlSurface):
     def arrange(self):
         self.arranger.copy_all_to_arrangement()
 
+    @hud_name("Audio -> Simpler")
     def selected_audio_to_simpler_in_new_track(self):
         self.bounce.selected_audio_to_simpler_in_new_track()
 
+    @hud_name("Back 8")
     def back8(self):
         self.song().jump_by(-8)
 
+    @hud_name("Fwd 8")
+    def fwd8(self):
+        self.song().jump_by(8)
+
+    @hud_name("Move loop L")
+    def move_loop_left(self):
+        # Move the whole loop one loop-length earlier, keeping its length.
+        loop_start = self.song().loop_start
+        if loop_start is not None:
+            self.song().loop_start = loop_start - self.song().loop_length
+            self.song().current_song_time = self.song().loop_start
+
+    @hud_name("Move loop R")
+    def move_loop_right(self):
+        # Move the whole loop one loop-length later, keeping its length.
+        loop_start = self.song().loop_start
+        if loop_start is not None:
+            self.song().loop_start = loop_start + self.song().loop_length
+            self.song().current_song_time = self.song().loop_start
+
+    @hud_name("To loop start")
+    def move_playhead_to_loop_start(self):
+        # Move the playhead to the loop start (no auto-play).
+        loop_start = self.song().loop_start
+        if loop_start is not None:
+            self.song().current_song_time = loop_start
+
+    @hud_name("Mono on/off")
+    def toggle_mono_on_master(self):
+        for d in self.song().master_track.devices:
+            if d.name == "Mono":
+                d.parameters[0].value = (d.parameters[0].value + 1) % 2
+                self.show_message(f"Mono set to {d.parameters[0].value}")
+
+    # Arrangement loop length is clamped to [1, 128] bars. loop_length is in
+    # beats; a bar is signature_numerator beats.
+    _MIN_LOOP_BARS = 1
+    _MAX_LOOP_BARS = 128
+
+    @hud_name("x2 loop")
+    def double_loop_length(self):
+        song = self.song()
+        beats_per_bar = song.signature_numerator
+        song.loop_length = min(song.loop_length * 2, self._MAX_LOOP_BARS * beats_per_bar)
+
+    @hud_name("half loop")
+    def halve_loop_length(self):
+        song = self.song()
+        beats_per_bar = song.signature_numerator
+        song.loop_length = max(song.loop_length / 2, self._MIN_LOOP_BARS * beats_per_bar)
+
+    @hud_name("Move dev L")
+    def move_device_left(self):
+        self._move_selected_device(-1)
+
+    @hud_name("Move dev R")
+    def move_device_right(self):
+        self._move_selected_device(1)
+
+    def _move_selected_device(self, direction):
+        # Reorder the selected device within its track's chain via
+        # Live.Song.Song.move_device(device, target_track, target_position).
+        #
+        # target_position is an insert-before index in the CURRENT chain (the
+        # device is not removed first), so it is asymmetric: moving LEFT one slot
+        # is index-1, but moving RIGHT one slot is index+2 — index+1 would insert
+        # the device right back in front of the neighbour it already precedes (a
+        # no-op). This is why "left" worked but "right" did nothing.
+        track = self.song().view.selected_track
+        device = track.view.selected_device
+        if device is None:
+            return
+
+        devices = list(track.devices)
+        try:
+            index = devices.index(device)
+        except ValueError:
+            return
+
+        if direction < 0:
+            if index == 0:
+                return  # already first
+            target = index - 1
+        else:
+            if index >= len(devices) - 1:
+                return  # already last
+            target = index + 2
+
+        self.song().move_device(device, track, target)
+
+    @hud_name("Rec MIDI new")
     def record_midi_from_track_to_new_track(self):
         self.record_midi.record_midi_from_track_to_new_track(self.song().view.selected_track)
+
+    @hud_name("Track L x3")
+    def track_nav_left_x3(self):
+        self.track_nav.track_nav_dec_x3()
+
+    @hud_name("Track R x3")
+    def track_nav_right_x3(self):
+        self.track_nav.track_nav_inc_x3()
 
     def clip_extend(self):
         self.clip_ops.smart_clip_extend()
@@ -70,8 +248,13 @@ class Functions(ControlSurface):
     def shift_clip_notes_right(self):
         self.clip_ops.shift_clip_notes_right()
 
+    @hud_name("Rec Audio new")
     def create_audio_track_taking_input_from_selected_track(self):
         self.bounce.create_audio_track_taking_input_from_selected_track()
+
+    @hud_name("Rec Audio resample")
+    def record_audio_resample(self):
+        self.bounce.record_audio_resample()
 
     def sequencer_random_notes(self):
         self.sequencer.sequencer_random_notes()
@@ -517,8 +700,47 @@ class Bounce(ControlSurfaceComponent):
         else:
             self._user.show_message("Couldn't configure Routing")
 
+    def record_audio_resample(self):
+        """Record the master bus into an existing audio track named 'Resampling':
+        route its input to Resampling, arm it alone (disarm everything else), and
+        fire its first empty clip slot to start recording."""
+        resample_track = None
+        for t in self.song().tracks:
+            if t.name.strip().lower() == 'resampling':
+                resample_track = t
+                break
 
+        if resample_track is None:
+            self._manager.show_message("No 'Resampling' track found")
+            return
 
+        routing = None
+        for rt in resample_track.available_input_routing_types:
+            if rt.display_name == 'Resampling':
+                routing = rt
+                break
+
+        if routing is None:
+            self._manager.show_message("No 'Resampling' input available")
+            return
+
+        resample_track.input_routing_type = routing
+        resample_track.current_monitoring_state = 2  # OFF — avoid a feedback loop
+
+        # Arm only the resampling track.
+        for t in self.song().tracks:
+            try:
+                t.arm = (t == resample_track)
+            except Exception as e:
+                self.log_message(f"failed to set arm on {t.name}: {e}")
+
+        # Record into its first empty clip slot.
+        for cs in resample_track.clip_slots:
+            if not cs.has_clip:
+                cs.fire()
+                return
+
+        self._manager.show_message("No empty clip slot on 'Resampling'")
 
     def delete_extra_default_devices(self, new_track):
         total_devices = len(new_track.devices)

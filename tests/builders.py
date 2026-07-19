@@ -96,7 +96,7 @@ def build_mixer_with_multiple_mappings(chan=2, nos=[], type="CC", api_fn="pan", 
         )])
 
 
-def build_functions_with_midi(channel=1, number=51, type="CC", function="toggle") -> FunctionsWithMidi:
+def build_functions_with_midi(channel=1, number=51, type="CC", function="toggle", hud_name=None) -> FunctionsWithMidi:
     return FunctionsWithMidi(midi_maps=[
         FunctionsMidiMapping(
             midi_coords=[MidiCoords(channel=channel,
@@ -107,6 +107,7 @@ def build_functions_with_midi(channel=1, number=51, type="CC", function="toggle"
                                     source_info="tests",
                                     encoder_refs=[])],
             function_name=function,
-            parameter_len=0
+            parameter_len=0,
+            hud_name=hud_name
         )
     ])

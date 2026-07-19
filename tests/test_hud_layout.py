@@ -6,7 +6,49 @@ from ableton_control_surface_as_code.hud_layout import (
     dial_count,
     button_count,
     combine_layouts,
+    _label_pairs_for_mapping,
 )
+from tests.builders import build_functions_with_midi
+
+
+class TestFunctionHudLabels(unittest.TestCase):
+    def test_falls_back_to_function_name_without_annotation(self):
+        mapping = build_functions_with_midi(function="back8")
+        [(_, label)] = _label_pairs_for_mapping(mapping)
+        self.assertEqual(label, "back8")
+
+    def test_uses_hud_name_annotation_when_present(self):
+        mapping = build_functions_with_midi(function="back8", hud_name="Back 8")
+        [(_, label)] = _label_pairs_for_mapping(mapping)
+        self.assertEqual(label, "Back 8")
+
+
+class TestDeviceOnOffLabel(unittest.TestCase):
+    def _device_with_on_off(self):
+        from ableton_control_surface_as_code.model_device import (
+            DeviceWithMidi, DeviceParameterMidiMapping)
+        from ableton_control_surface_as_code.core_model import (
+            MidiCoords, EncoderMode, TrackInfo)
+
+        def coord(number):
+            return MidiCoords(channel=1, type="note", number=number,
+                              encoder_type=EncoderType.button,
+                              encoder_mode=EncoderMode.Absolute, source_info="tests")
+
+        return DeviceWithMidi(
+            track=TrackInfo.selected(),
+            device="selected",
+            midi_maps=[
+                DeviceParameterMidiMapping(midi_coords=[coord(10)], parameter=3, slot="1"),
+                DeviceParameterMidiMapping(midi_coords=[coord(11)], parameter=0, is_on_off=True),
+            ],
+        )
+
+    def test_only_on_off_gets_a_static_label(self):
+        pairs = _label_pairs_for_mapping(self._device_with_on_off())
+        # The slot-driven parameter cell stays dynamic (no static label); only
+        # the on/off toggle is labelled.
+        self.assertEqual([label for _, label in pairs], ["dev on/off"])
 
 
 class TestLayoutMetrics(unittest.TestCase):

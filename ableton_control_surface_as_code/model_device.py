@@ -20,6 +20,7 @@ class DeviceParameterMidiMapping(BaseModel):
     midi_coords: List[MidiCoords]
     parameter: int
     slot: Optional[str] = None  # set when this mapping was driven by a `slots:` list
+    is_on_off: bool = False     # the fixed device on/off toggle (parameter 0)
 
     @property
     def only_midi_coord(self) -> MidiCoords:
@@ -252,6 +253,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
         midi_maps.append(DeviceParameterMidiMapping(
             midi_coords=controller.build_midi_coords(device.mappings.on_off)[0],
             parameter=0,
+            is_on_off=True,
         ))
 
     switch_maps: List[SwitchMidiMapping] = []

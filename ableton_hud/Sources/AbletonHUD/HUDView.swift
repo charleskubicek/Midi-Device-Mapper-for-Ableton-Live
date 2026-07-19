@@ -394,25 +394,14 @@ private struct ButtonSlotView: View {
                 )
                 .frame(width: 36 * scale, height: 20 * scale)
 
-            if isShiftMode {
-                Text(slot?.name ?? "")
-                    .font(.system(size: 9 * scale, weight: .light))
-                    .minimumScaleFactor(0.7)
-                    .allowsTightening(true)
-                    .foregroundColor(Color(white: slot != nil ? 0.88 : 0.18))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 44 * scale, height: 22 * scale, alignment: .top)
-            } else {
-                Text(slot?.name ?? "")
-                    .font(.system(size: 9 * scale, weight: .light).italic())
-                    .minimumScaleFactor(0.7)
-                    .allowsTightening(true)
-                    .foregroundColor(Color(white: slot != nil ? 0.88 : 0.18))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .frame(width: 44 * scale, height: 22 * scale, alignment: .top)
-            }
+            Text(slot?.name ?? "")
+                .font(.system(size: 9 * scale, weight: .light))
+                .minimumScaleFactor(0.7)
+                .allowsTightening(true)
+                .foregroundColor(Color(white: slot != nil ? 0.88 : 0.18))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(width: 44 * scale, height: 22 * scale, alignment: .top)
         }
     }
 }

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, List, Dict
+from typing import Literal, List, Dict, Optional, Tuple
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -46,6 +46,7 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     function_name: str
     parameter_len:int = 0
     builtin: bool = False
+    hud_name: Optional[str] = None
 
     def info_string(self):
         return f"function_{self.function_name}_{self.only_midi_coord.info_string()}"
@@ -89,7 +90,26 @@ class FunctionsWithMidi(BaseModel):
 
 import ast
 
+# Decorator the user can put on a Functions method to name its HUD cell, e.g.
+# `@hud_name("Audio -> Simpler")`. It's a runtime no-op (see
+# source_modules/hud_name.py); the generator reads the string statically here.
+_HUD_NAME_DECORATOR = 'hud_name'
+
+
 class FunctionLookup:
+
+    @staticmethod
+    def _hud_name_from_decorators(node) -> Optional[str]:
+        """Return the string argument of an `@hud_name("...")` decorator on the
+        given function def, or None if it isn't decorated with one."""
+        for dec in node.decorator_list:
+            if (isinstance(dec, ast.Call)
+                    and isinstance(dec.func, ast.Name)
+                    and dec.func.id == _HUD_NAME_DECORATOR
+                    and dec.args
+                    and isinstance(dec.args[0], ast.Constant)):
+                return dec.args[0].value
+        return None
 
     @staticmethod
     def get_functions_from_class(class_node):
@@ -98,27 +118,24 @@ class FunctionLookup:
             if isinstance(node, ast.FunctionDef):
                 function_name = node.name
                 params = [arg.arg for arg in node.args.args]
-                functions.append((function_name, params))
+                hud_name = FunctionLookup._hud_name_from_decorators(node)
+                functions.append((function_name, params, hud_name))
         return functions
 
     @staticmethod
-    def inspect_python_file(file_path, fn_name):
+    def inspect_python_file(file_path, fn_name) -> Tuple[int, Optional[str]]:
+        """Return (parameter_len, hud_name) for `fn_name` in the file's
+        `Functions` class. parameter_len excludes `self`; hud_name is the
+        `@hud_name(...)` label if present, else None."""
         with open(file_path, "r") as file:
             tree = ast.parse(file.read())
 
-        classes = {}
         for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                class_name = node.name
-
-                if class_name == 'Functions':
-                    functions = FunctionLookup.get_functions_from_class(node)
-                    for function_name, params in functions:
-                        # print(f"function_name = {function_name}: {params}")
-
-                        if function_name == fn_name:
-                            # return len(params) == 2
-                            return len(params) - 1
+            if isinstance(node, ast.ClassDef) and node.name == 'Functions':
+                functions = FunctionLookup.get_functions_from_class(node)
+                for function_name, params, hud_name in functions:
+                    if function_name == fn_name:
+                        return len(params) - 1, hud_name
 
         raise ValueError(f"Function {fn_name} not found in {file_path}")
 
@@ -131,15 +148,16 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> F
         if fn in RESERVED_BUILTIN_FUNCTIONS:
             # Built-in: no entry in functions.py — skip the user-file lookup and
             # route to a surface method (see _BUILTIN_CALLS / template_function_call).
-            parameter_len, builtin = 0, True
+            parameter_len, builtin, hud_name = 0, True, None
         else:
-            parameter_len = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
+            parameter_len, hud_name = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
             builtin = False
 
         # One listener per physical button (comma-listed coords bind one function
         # to several buttons).
         for mc in midi_coords:
             midi_maps.append(FunctionsMidiMapping(midi_coords=[mc], function_name=fn,
-                                                  parameter_len=parameter_len, builtin=builtin))
+                                                  parameter_len=parameter_len, builtin=builtin,
+                                                  hud_name=hud_name))
 
     return FunctionsWithMidi(midi_maps=midi_maps)

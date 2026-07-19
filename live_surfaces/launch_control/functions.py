@@ -10,6 +10,7 @@ import time
 from . import parsers
 from . import sample_categories
 from . import synth_categories
+from .hud_name import hud_name
 
 primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71]
 
@@ -51,12 +52,14 @@ class Functions(ControlSurface):
     def arrange(self):
         self.arranger.copy_all_to_arrangement()
 
+    @hud_name("Aduio -> Simpler")
     def selected_audio_to_simpler_in_new_track(self):
         self.bounce.selected_audio_to_simpler_in_new_track()
 
     def back8(self):
         self.song().jump_by(-8)
 
+    @hud_name("REC midi -> new track")
     def record_midi_from_track_to_new_track(self):
         self.record_midi.record_midi_from_track_to_new_track(self.song().view.selected_track)
 

@@ -160,7 +160,12 @@ def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
     t = getattr(mapping, 'type', None)
 
     if t == 'device':
-        return []
+        # Device parameter cells are filled from live device data by the runtime
+        # burst, so they carry no static label. The one exception is the fixed
+        # on/off toggle — it's a constant function of the button, not a device
+        # parameter, so give it a static label the burst won't overwrite.
+        return [(mm.only_midi_coord, "dev on/off")
+                for mm in mapping.midi_maps if getattr(mm, 'is_on_off', False)]
 
     if t == 'mixer':
         out = []
@@ -177,7 +182,7 @@ def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
         return out
 
     if t == 'functions':
-        return [(mm.only_midi_coord, mm.function_name) for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, mm.hud_name or mm.function_name) for mm in mapping.midi_maps]
 
     if t == 'track-nav':
         return [(mm.only_midi_coord, f"track {mm.direction.value}") for mm in mapping.midi_maps]
