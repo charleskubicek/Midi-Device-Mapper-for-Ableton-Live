@@ -16,6 +16,30 @@ from ableton_control_surface_as_code.core_model import EncoderType, MidiCoords
 from source_modules.hud_protocol import LayoutCell, SlotAddress
 
 
+# SF Symbol vocabulary for built-in button types (Phase 2b). Operation-type is
+# encoded in the glyph family, direction in the .left/.right suffix, so the
+# different "left/right" ops stay visually distinct. Names verified for the
+# HUD's macOS 14 deployment target; a missing name degrades to text on the HUD
+# (existence-gated render), so this table is safe to extend.
+_TRACK_NAV_GLYPH = {'inc': 'chevron.right', 'dec': 'chevron.left'}
+_DEVICE_NAV_GLYPH = {
+    'left': 'arrowtriangle.left.fill',
+    'right': 'arrowtriangle.right.fill',
+    'first': 'arrow.left.to.line',
+    'last': 'arrow.right.to.line',
+    'first-last': 'arrow.left.and.right',
+}
+_TRANSPORT_GLYPH = {
+    'play_stop_raw': 'playpause.fill',
+    'record_session_raw': 'record.circle',
+    'record_arrangement_raw': 'record.circle.fill',
+    'loop_raw': 'repeat',
+    'midi_arrange_overdub_raw': 'pencil.and.outline',
+    'metronome_raw': 'metronome',
+}
+_PAGER_GLYPH = {'inc': 'chevron.down', 'dec': 'chevron.up'}
+
+
 def allocate_global_layout(controller) -> List[LayoutCell]:
     """Walk every ControlGroup on the controller and assign sequential wire
     start indices per kind. Dial cells share one index space; button cells
@@ -139,24 +163,25 @@ def _cell_for(cells, gr, gc, kind):
     return None
 
 
-def collect_mode_labels(controller, mode_mappings, cells) -> Dict[SlotAddress, str]:
-    """For one mode's mappings, return {SlotAddress(kind, wire_idx): label}
+def collect_mode_labels(controller, mode_mappings, cells) -> Dict[SlotAddress, Tuple[str, str]]:
+    """For one mode's mappings, return {SlotAddress(kind, wire_idx): (name, glyph)}
     entries for every non-device mapping that occupies a HUD-rendered control.
-    Device mappings are skipped — they're populated from live device data
-    at runtime, not from static labels."""
-    labels: Dict[SlotAddress, str] = {}
+    `glyph` is an optional SF Symbol name ("" = none). Device mappings are
+    skipped — they're populated from live device data at runtime."""
+    labels: Dict[SlotAddress, Tuple[str, str]] = {}
     for mapping in mode_mappings:
-        for coord, label in _label_pairs_for_mapping(mapping):
+        for coord, name, glyph in _label_pairs_for_mapping(mapping):
             wire = find_wire_index(controller, coord, cells)
             if wire is None:
                 continue
-            labels[wire] = label
+            labels[wire] = (name, glyph)
     return labels
 
 
-def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
-    """Return [(coord, label)] for every slot the mapping owns. Empty for
-    device mappings — those are handled by the device path at runtime."""
+def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str, str]]:
+    """Return [(coord, name, glyph)] for every slot the mapping owns. `glyph` is
+    an SF Symbol name or "" when the slot is text-only. Empty for device
+    mappings — those are handled by the device path at runtime."""
     t = getattr(mapping, 'type', None)
 
     if t == 'device':
@@ -164,7 +189,7 @@ def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
         # burst, so they carry no static label. The one exception is the fixed
         # on/off toggle — it's a constant function of the button, not a device
         # parameter, so give it a static label the burst won't overwrite.
-        return [(mm.only_midi_coord, "dev on/off")
+        return [(mm.only_midi_coord, "dev on/off", "")
                 for mm in mapping.midi_maps if getattr(mm, 'is_on_off', False)]
 
     if t == 'mixer':
@@ -174,29 +199,36 @@ def _label_pairs_for_mapping(mapping) -> List[Tuple[MidiCoords, str]]:
             if label == 'sends':
                 # Sends span multiple coords; number them.
                 for i, c in enumerate(mm.midi_coords, start=1):
-                    out.append((c, f"send {i}"))
+                    out.append((c, f"send {i}", ""))
             else:
                 # volume / pan / mute / solo / arm — single coord
                 for c in mm.midi_coords:
-                    out.append((c, label))
+                    out.append((c, label, ""))
         return out
 
     if t == 'functions':
-        return [(mm.only_midi_coord, mm.hud_name or mm.function_name) for mm in mapping.midi_maps]
+        # The one type that carries a caller-chosen glyph today, via
+        # `@hud_name(name, glyph)`.
+        return [(mm.only_midi_coord, mm.hud_name or mm.function_name, mm.hud_glyph or "")
+                for mm in mapping.midi_maps]
 
     if t == 'track-nav':
-        return [(mm.only_midi_coord, f"track {mm.direction.value}") for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, f"track {mm.direction.value}",
+                 _TRACK_NAV_GLYPH.get(mm.direction.value, "")) for mm in mapping.midi_maps]
 
     if t == 'device-nav':
-        return [(mm.only_midi_coord, f"device {mm.action.value}") for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, f"device {mm.action.value}",
+                 _DEVICE_NAV_GLYPH.get(mm.action.value, "")) for mm in mapping.midi_maps]
 
     if t == 'transport':
-        return [(mm.only_midi_coord, mm.api_call) for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, mm.api_call,
+                 _TRANSPORT_GLYPH.get(mm.api_call, "")) for mm in mapping.midi_maps]
 
     if t == 'parameter-pager':
-        return [(mm.only_midi_coord, f"page {mm.direction}") for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, f"page {mm.direction}",
+                 _PAGER_GLYPH.get(mm.direction, "")) for mm in mapping.midi_maps]
 
     if t == 'clip':
-        return [(mm.only_midi_coord, f"clip: {mm.spec.hud_label}") for mm in mapping.midi_maps]
+        return [(mm.only_midi_coord, f"clip: {mm.spec.hud_label}", "") for mm in mapping.midi_maps]
 
     return []

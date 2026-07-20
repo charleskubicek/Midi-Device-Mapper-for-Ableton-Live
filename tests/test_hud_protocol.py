@@ -134,6 +134,27 @@ class TestEncodeBytes(unittest.TestCase):
             "SLOT|dial|0|Frequency|440.0|20.0|20000.0",
         )
 
+    def test_slot_with_glyph_appends_eighth_field(self):
+        self.assertEqual(
+            encode_slot('button', 2, "Loop Expand", 1.0, 0.0, 1.0, "arrow.left.and.right"),
+            "SLOT|button|2|Loop Expand|1.0|0.0|1.0|arrow.left.and.right",
+        )
+
+    def test_slot_without_glyph_stays_seven_fields(self):
+        # Empty glyph must not append a trailing pipe — keeps the historical
+        # 7-field shape so older receivers still parse it.
+        self.assertEqual(
+            encode_slot('button', 2, "Mute", 0.0, 0.0, 1.0, ""),
+            "SLOT|button|2|Mute|0.0|0.0|1.0",
+        )
+
+    def test_slot_payload_carries_glyph_to_wire(self):
+        payload = SlotPayload("Loop Expand", 1.0, 0.0, 1.0, "arrow.left.and.right")
+        self.assertEqual(
+            encode_slot_payload('button', 2, payload),
+            "SLOT|button|2|Loop Expand|1.0|0.0|1.0|arrow.left.and.right",
+        )
+
     def test_slot_empty_sentinel(self):
         # The sentinel format is the contract that distinguishes "empty slot"
         # from a real mapping. Every receiver depends on this exact shape.
@@ -202,6 +223,20 @@ class TestParseRoundtrip(unittest.TestCase):
     def test_slot_roundtrip(self):
         line = encode_slot('dial', 3, "Q", 0.5, 0.0, 1.0)
         self.assertEqual(parse(line), SlotMsg('dial', 3, SlotPayload("Q", 0.5, 0.0, 1.0)))
+
+    def test_slot_with_glyph_roundtrip(self):
+        line = encode_slot('button', 3, "Loop", 1.0, 0.0, 1.0, "repeat")
+        self.assertEqual(
+            parse(line),
+            SlotMsg('button', 3, SlotPayload("Loop", 1.0, 0.0, 1.0, "repeat")),
+        )
+
+    def test_seven_field_slot_parses_with_empty_glyph(self):
+        # A legacy 7-field line (no glyph) must still parse, glyph defaulting "".
+        self.assertEqual(
+            parse("SLOT|button|3|Loop|1.0|0.0|1.0"),
+            SlotMsg('button', 3, SlotPayload("Loop", 1.0, 0.0, 1.0, "")),
+        )
 
     def test_empty_sentinel_roundtrip(self):
         line = encode_slot_payload('button', 0, EMPTY_SLOT)

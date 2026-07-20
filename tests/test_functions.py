@@ -29,7 +29,7 @@ class TestHudNameDecorator(unittest.TestCase):
             return FunctionLookup.inspect_python_file(path, fn_name)
 
     def test_no_decorator_yields_none_hud_name(self):
-        parameter_len, hud_name = self._inspect(
+        parameter_len, hud_name, hud_glyph = self._inspect(
             """
             class Functions:
                 def back8(self):
@@ -37,9 +37,10 @@ class TestHudNameDecorator(unittest.TestCase):
             """, "back8")
         self.assertEqual(parameter_len, 0)
         self.assertIsNone(hud_name)
+        self.assertIsNone(hud_glyph)
 
     def test_decorator_label_is_extracted(self):
-        parameter_len, hud_name = self._inspect(
+        parameter_len, hud_name, hud_glyph = self._inspect(
             """
             class Functions:
                 @hud_name("Back 8")
@@ -48,9 +49,10 @@ class TestHudNameDecorator(unittest.TestCase):
             """, "back8")
         self.assertEqual(parameter_len, 0)
         self.assertEqual(hud_name, "Back 8")
+        self.assertIsNone(hud_glyph)
 
     def test_decorator_coexists_with_a_value_parameter(self):
-        parameter_len, hud_name = self._inspect(
+        parameter_len, hud_name, _glyph = self._inspect(
             """
             class Functions:
                 @hud_name("Set X")
@@ -59,4 +61,26 @@ class TestHudNameDecorator(unittest.TestCase):
             """, "set_x")
         self.assertEqual(parameter_len, 1)
         self.assertEqual(hud_name, "Set X")
+
+    def test_glyph_from_second_positional_arg(self):
+        parameter_len, hud_name, hud_glyph = self._inspect(
+            """
+            class Functions:
+                @hud_name("Loop Expand", "arrow.left.and.right")
+                def loop_expand(self):
+                    pass
+            """, "loop_expand")
+        self.assertEqual(hud_name, "Loop Expand")
+        self.assertEqual(hud_glyph, "arrow.left.and.right")
+
+    def test_glyph_from_keyword_arg(self):
+        parameter_len, hud_name, hud_glyph = self._inspect(
+            """
+            class Functions:
+                @hud_name("Loop Move", glyph="arrowshape.right.fill")
+                def loop_move(self):
+                    pass
+            """, "loop_move")
+        self.assertEqual(hud_name, "Loop Move")
+        self.assertEqual(hud_glyph, "arrowshape.right.fill")
 

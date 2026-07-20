@@ -47,6 +47,7 @@ class FunctionsMidiMapping(ButtonProviderBaseModel):
     parameter_len:int = 0
     builtin: bool = False
     hud_name: Optional[str] = None
+    hud_glyph: Optional[str] = None
 
     def info_string(self):
         return f"function_{self.function_name}_{self.only_midi_coord.info_string()}"
@@ -99,17 +100,25 @@ _HUD_NAME_DECORATOR = 'hud_name'
 class FunctionLookup:
 
     @staticmethod
-    def _hud_name_from_decorators(node) -> Optional[str]:
-        """Return the string argument of an `@hud_name("...")` decorator on the
-        given function def, or None if it isn't decorated with one."""
+    def _hud_name_from_decorators(node) -> Tuple[Optional[str], Optional[str]]:
+        """Return (name, glyph) from an `@hud_name("Name", "sf.symbol")` decorator
+        on the given function def. `glyph` comes from the optional 2nd positional
+        arg or a `glyph=` keyword; both None if the def isn't decorated."""
         for dec in node.decorator_list:
             if (isinstance(dec, ast.Call)
                     and isinstance(dec.func, ast.Name)
                     and dec.func.id == _HUD_NAME_DECORATOR
                     and dec.args
                     and isinstance(dec.args[0], ast.Constant)):
-                return dec.args[0].value
-        return None
+                name = dec.args[0].value
+                glyph = None
+                if len(dec.args) >= 2 and isinstance(dec.args[1], ast.Constant):
+                    glyph = dec.args[1].value
+                for kw in dec.keywords:
+                    if kw.arg == 'glyph' and isinstance(kw.value, ast.Constant):
+                        glyph = kw.value.value
+                return name, glyph
+        return None, None
 
     @staticmethod
     def get_functions_from_class(class_node):
@@ -118,24 +127,24 @@ class FunctionLookup:
             if isinstance(node, ast.FunctionDef):
                 function_name = node.name
                 params = [arg.arg for arg in node.args.args]
-                hud_name = FunctionLookup._hud_name_from_decorators(node)
-                functions.append((function_name, params, hud_name))
+                hud_name, hud_glyph = FunctionLookup._hud_name_from_decorators(node)
+                functions.append((function_name, params, hud_name, hud_glyph))
         return functions
 
     @staticmethod
-    def inspect_python_file(file_path, fn_name) -> Tuple[int, Optional[str]]:
-        """Return (parameter_len, hud_name) for `fn_name` in the file's
-        `Functions` class. parameter_len excludes `self`; hud_name is the
-        `@hud_name(...)` label if present, else None."""
+    def inspect_python_file(file_path, fn_name) -> Tuple[int, Optional[str], Optional[str]]:
+        """Return (parameter_len, hud_name, hud_glyph) for `fn_name` in the file's
+        `Functions` class. parameter_len excludes `self`; hud_name/hud_glyph are
+        the `@hud_name(...)` label and SF Symbol if present, else None."""
         with open(file_path, "r") as file:
             tree = ast.parse(file.read())
 
         for node in tree.body:
             if isinstance(node, ast.ClassDef) and node.name == 'Functions':
                 functions = FunctionLookup.get_functions_from_class(node)
-                for function_name, params, hud_name in functions:
+                for function_name, params, hud_name, hud_glyph in functions:
                     if function_name == fn_name:
-                        return len(params) - 1, hud_name
+                        return len(params) - 1, hud_name, hud_glyph
 
         raise ValueError(f"Function {fn_name} not found in {file_path}")
 
@@ -148,9 +157,9 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> F
         if fn in RESERVED_BUILTIN_FUNCTIONS:
             # Built-in: no entry in functions.py — skip the user-file lookup and
             # route to a surface method (see _BUILTIN_CALLS / template_function_call).
-            parameter_len, builtin, hud_name = 0, True, None
+            parameter_len, builtin, hud_name, hud_glyph = 0, True, None, None
         else:
-            parameter_len, hud_name = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
+            parameter_len, hud_name, hud_glyph = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
             builtin = False
 
         # One listener per physical button (comma-listed coords bind one function
@@ -158,6 +167,6 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> F
         for mc in midi_coords:
             midi_maps.append(FunctionsMidiMapping(midi_coords=[mc], function_name=fn,
                                                   parameter_len=parameter_len, builtin=builtin,
-                                                  hud_name=hud_name))
+                                                  hud_name=hud_name, hud_glyph=hud_glyph))
 
     return FunctionsWithMidi(midi_maps=midi_maps)

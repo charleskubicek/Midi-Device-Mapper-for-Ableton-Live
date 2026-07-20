@@ -5,12 +5,15 @@ public struct Slot: Equatable {
     public let value: Float
     public let min: Float
     public let max: Float
+    /// Optional SF Symbol name rendered *inside* a button cell ("" = none).
+    public let glyph: String
 
-    public init(name: String, value: Float, min: Float, max: Float) {
+    public init(name: String, value: Float, min: Float, max: Float, glyph: String = "") {
         self.name = name
         self.value = value
         self.min = min
         self.max = max
+        self.glyph = glyph
     }
 }
 
@@ -118,14 +121,17 @@ public enum WireProtocol {
             return .device(fields[1])
 
         case "SLOT", "UPDATE":
-            guard fields.count == 7 else { return .unknown }
+            // Optional 8th `glyph` field: 7 fields = text-only (glyph ""),
+            // 8 = with SF Symbol. Tolerating both keeps an older sender working.
+            guard fields.count == 7 || fields.count == 8 else { return .unknown }
             guard let kind = SlotKind(rawValue: fields[1]) else { return .unknown }
             guard let index = Int(fields[2]) else { return .unknown }
             let name = fields[3]
             guard let value = Float(fields[4]),
                   let vmin = Float(fields[5]),
                   let vmax = Float(fields[6]) else { return .unknown }
-            let slot = Slot(name: name, value: value, min: vmin, max: vmax)
+            let glyph = fields.count == 8 ? fields[7] : ""
+            let slot = Slot(name: name, value: value, min: vmin, max: vmax, glyph: glyph)
             return fields[0] == "UPDATE" ? .update(kind, index, slot) : .slot(kind, index, slot)
 
         case "COMMIT":

@@ -7,9 +7,10 @@ the label as the HUD cell name for every mapping that references the function.
 """
 
 
-def hud_name(label):
+def hud_name(label, glyph=None):
     def decorator(fn):
         fn._hud_name = label
+        fn._hud_glyph = glyph
         return fn
 
     return decorator

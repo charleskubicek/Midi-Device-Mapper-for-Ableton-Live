@@ -91,11 +91,11 @@ class HudClient:
     def send_device(self, name: str):
         self._send(hud_protocol.encode_device(name))
 
-    def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax):
-        self._send(hud_protocol.encode_slot(kind, index, name, value, vmin, vmax))
+    def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax, glyph: str = ""):
+        self._send(hud_protocol.encode_slot(kind, index, name, value, vmin, vmax, glyph))
 
-    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax):
-        self._send(hud_protocol.encode_update(kind, index, name, value, vmin, vmax))
+    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax, glyph: str = ""):
+        self._send(hud_protocol.encode_update(kind, index, name, value, vmin, vmax, glyph))
 
     def commit(self, count: int):
         self._send(hud_protocol.encode_commit(count))
@@ -132,8 +132,8 @@ class NullHudClient:
     def send_layout(self, cells): pass
     def send_dividers(self, cols): pass
     def send_device(self, name: str): pass
-    def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax): pass
-    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax): pass
+    def send_slot(self, kind: str, index: int, name: str, value, vmin, vmax, glyph: str = ""): pass
+    def send_update(self, kind: str, index: int, name: str, value, vmin, vmax, glyph: str = ""): pass
     def commit(self, count: int): pass
     def send_ping(self): pass
     def send_hide(self): pass

@@ -44,7 +44,13 @@ def _overlay_labels(payloads, labels, kind):
         if p == EMPTY_SLOT:
             label = labels.get((kind, wire_idx))
             if label is not None:
-                out.append((wire_idx, SlotPayload(label, 0, 0, 1)))
+                # Values are (name, glyph) pairs; tolerate a bare string too
+                # (glyph-less) so older baked label dicts still overlay.
+                if isinstance(label, tuple):
+                    name, glyph = label
+                else:
+                    name, glyph = label, ""
+                out.append((wire_idx, SlotPayload(name, 0, 0, 1, glyph or "")))
                 continue
         out.append((wire_idx, p))
     return out
@@ -687,7 +693,7 @@ class Remote:
                     self._hud_client.send_slot('dial', idx, p.name, p.value, p.vmin, p.vmax)
                     count += 1
                 for idx, p in hud_buttons:
-                    self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax)
+                    self._hud_client.send_slot('button', idx, p.name, p.value, p.vmin, p.vmax, p.glyph)
                     count += 1
                 self._hud_client.commit(count)
             # Fan the whole snapshot out to generic feedback sinks (EC4 readouts, etc.).

@@ -32,6 +32,18 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(msg, .slot(.button, 0, Slot(name: "On/Off", value: 1.0, min: 0.0, max: 1.0)))
     }
 
+    func test_slot_button_with_glyph() {
+        let msg = WireProtocol.parse(line: "SLOT|button|0|Loop Expand|1.0|0.0|1.0|arrow.left.and.right")
+        XCTAssertEqual(msg, .slot(.button, 0, Slot(name: "Loop Expand", value: 1.0,
+                                                   min: 0.0, max: 1.0, glyph: "arrow.left.and.right")))
+    }
+
+    func test_slot_seven_field_has_empty_glyph() {
+        let msg = WireProtocol.parse(line: "SLOT|button|0|Mute|0.0|0.0|1.0")
+        XCTAssertEqual(msg, .slot(.button, 0, Slot(name: "Mute", value: 0.0,
+                                                   min: 0.0, max: 1.0, glyph: "")))
+    }
+
     func test_slot_unknown_kind() {
         let msg = WireProtocol.parse(line: "SLOT|knob|0|Freq|0.5|0.0|1.0")
         XCTAssertEqual(msg, .unknown)

@@ -384,6 +384,23 @@ private struct ButtonSlotView: View {
         zoneHex.flatMap { Color(zoneHex: $0) } ?? Color.white.opacity(slot != nil ? 0.35 : 0.25)
     }
 
+    /// SF Symbol rendered inside the button rect. Existence-gated: an unknown /
+    /// missing symbol yields no overlay, so the name text below still labels the
+    /// button (a typo never blanks the cell).
+    @ViewBuilder private var glyphView: some View {
+        if let g = slot?.glyph, !g.isEmpty,
+           NSImage(systemSymbolName: g, accessibilityDescription: nil) != nil {
+            // scaledToFit + a max frame keeps wide multi-arrow symbols (e.g.
+            // arrow.left.and.line.vertical.and.arrow.right) inside the 36pt
+            // button; compact glyphs (chevron) stay small and are unaffected.
+            Image(systemName: g)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: 30 * scale, maxHeight: 14 * scale)
+                .foregroundColor(Color(white: 0.92))
+        }
+    }
+
     var body: some View {
         VStack(spacing: 4 * scale) {
             RoundedRectangle(cornerRadius: 5 * scale)
@@ -392,6 +409,7 @@ private struct ButtonSlotView: View {
                     RoundedRectangle(cornerRadius: 5 * scale)
                         .stroke(borderColor, lineWidth: 1.5 * scale)
                 )
+                .overlay(glyphView)
                 .frame(width: 36 * scale, height: 20 * scale)
 
             Text(slot?.name ?? "")

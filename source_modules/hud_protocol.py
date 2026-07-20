@@ -60,6 +60,9 @@ class SlotPayload:
     value: float
     vmin: float
     vmax: float
+    # Optional SF Symbol name rendered *inside* a button cell (empty = none).
+    # Non-optional and empty-by-default so the wire never carries "None".
+    glyph: str = ""
 
 
 EMPTY_SLOT = SlotPayload(EMPTY_NAME, EMPTY_VALUE, EMPTY_MIN, EMPTY_MAX)
@@ -123,16 +126,22 @@ def encode_device(name: str) -> str:
     return f"DEVICE|{name}"
 
 
-def encode_slot(kind: str, index: int, name: str, value, vmin, vmax) -> str:
-    return f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+# The optional 8th `glyph` field is appended only when non-empty, so the common
+# no-glyph slot stays the historical 7-field shape (existing golden tests and
+# any older HUD keep parsing it). Receivers accept 7 or 8 fields.
+def encode_slot(kind: str, index: int, name: str, value, vmin, vmax, glyph: str = "") -> str:
+    base = f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+    return f"{base}|{glyph}" if glyph else base
 
 
 def encode_slot_payload(kind: str, index: int, payload: SlotPayload) -> str:
-    return encode_slot(kind, index, payload.name, payload.value, payload.vmin, payload.vmax)
+    return encode_slot(kind, index, payload.name, payload.value, payload.vmin,
+                       payload.vmax, payload.glyph)
 
 
-def encode_update(kind: str, index: int, name: str, value, vmin, vmax) -> str:
-    return f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+def encode_update(kind: str, index: int, name: str, value, vmin, vmax, glyph: str = "") -> str:
+    base = f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+    return f"{base}|{glyph}" if glyph else base
 
 
 def encode_commit(count: int) -> str:
@@ -300,8 +309,8 @@ Message = Union[LayoutMsg, DeviceMsg, SlotMsg, UpdateMsg, CommitMsg, PingMsg, Hi
 
 
 def _parse_slot_fields(fields):
-    # fields: [verb, kind, index, name, value, vmin, vmax]
-    if len(fields) != 7:
+    # fields: [verb, kind, index, name, value, vmin, vmax, (glyph)?]
+    if len(fields) not in (7, 8):
         return None
     kind = fields[1]
     if kind not in ('dial', 'button'):
@@ -313,7 +322,8 @@ def _parse_slot_fields(fields):
         vmax = float(fields[6])
     except ValueError:
         return None
-    return kind, index, SlotPayload(fields[3], value, vmin, vmax)
+    glyph = fields[7] if len(fields) == 8 else ""
+    return kind, index, SlotPayload(fields[3], value, vmin, vmax, glyph)
 
 
 def parse(line: str) -> Message:

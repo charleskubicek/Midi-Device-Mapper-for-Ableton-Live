@@ -47,6 +47,21 @@ class TestHudClientDatagrams(unittest.TestCase):
             "COMMIT|1\n",
         )
 
+    def test_send_slot_puts_glyph_on_the_wire(self):
+        # Guards the emission boundary: send_slot explodes the payload into
+        # scalars, so a glyph arg must reach encode_slot (not be dropped).
+        c = self._client()
+        c.send_slot('button', 2, "Loop Expand", 1.0, 0.0, 1.0, "arrow.left.and.right")
+        self.assertEqual(
+            c._socket.datagrams,
+            ["SLOT|button|2|Loop Expand|1.0|0.0|1.0|arrow.left.and.right\n"],
+        )
+
+    def test_send_slot_without_glyph_stays_seven_fields(self):
+        c = self._client()
+        c.send_slot('button', 2, "Mute", 0.0, 0.0, 1.0)
+        self.assertEqual(c._socket.datagrams, ["SLOT|button|2|Mute|0.0|0.0|1.0\n"])
+
     def test_outside_burst_each_line_is_its_own_datagram(self):
         c = self._client()
         c.send_ping()

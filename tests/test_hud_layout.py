@@ -14,13 +14,57 @@ from tests.builders import build_functions_with_midi
 class TestFunctionHudLabels(unittest.TestCase):
     def test_falls_back_to_function_name_without_annotation(self):
         mapping = build_functions_with_midi(function="back8")
-        [(_, label)] = _label_pairs_for_mapping(mapping)
+        [(_, label, glyph)] = _label_pairs_for_mapping(mapping)
         self.assertEqual(label, "back8")
+        self.assertEqual(glyph, "")
 
     def test_uses_hud_name_annotation_when_present(self):
         mapping = build_functions_with_midi(function="back8", hud_name="Back 8")
-        [(_, label)] = _label_pairs_for_mapping(mapping)
+        [(_, label, glyph)] = _label_pairs_for_mapping(mapping)
         self.assertEqual(label, "Back 8")
+        self.assertEqual(glyph, "")
+
+    def test_carries_glyph_from_hud_glyph(self):
+        mapping = build_functions_with_midi(function="back8", hud_name="Back 8",
+                                            hud_glyph="arrow.left")
+        [(_, label, glyph)] = _label_pairs_for_mapping(mapping)
+        self.assertEqual(label, "Back 8")
+        self.assertEqual(glyph, "arrow.left")
+
+
+class TestBuiltinNavGlyphs(unittest.TestCase):
+    def test_track_nav_inc_carries_chevron_glyph(self):
+        from tests.builders import build_track_nav_with_midi_button
+        [(_, label, glyph)] = _label_pairs_for_mapping(build_track_nav_with_midi_button())
+        self.assertEqual(label, "track inc")
+        self.assertEqual(glyph, "chevron.right")
+
+    def test_device_nav_first_carries_to_line_glyph(self):
+        from ableton_control_surface_as_code.model_device_nav import (
+            DeviceNavWithMidi, DeviceNavMidiMapping)
+        from ableton_control_surface_as_code.core_model import (
+            MidiCoords, EncoderType, EncoderMode, DeviceNavAction)
+        coord = MidiCoords(channel=1, type="note", number=5,
+                           encoder_type=EncoderType.button,
+                           encoder_mode=EncoderMode.Absolute, source_info="tests")
+        mapping = DeviceNavWithMidi(midi_maps=[
+            DeviceNavMidiMapping(midi_coords=[coord], action=DeviceNavAction.first)])
+        [(_, label, glyph)] = _label_pairs_for_mapping(mapping)
+        self.assertEqual(label, "device first")
+        self.assertEqual(glyph, "arrow.left.to.line")
+
+    def test_transport_loop_carries_repeat_glyph(self):
+        from ableton_control_surface_as_code.model_transport import (
+            TransportWithMidi, TransportMidiMapping)
+        from ableton_control_surface_as_code.core_model import (
+            MidiCoords, EncoderType, EncoderMode)
+        coord = MidiCoords(channel=1, type="note", number=6,
+                           encoder_type=EncoderType.button,
+                           encoder_mode=EncoderMode.Absolute, source_info="tests")
+        mapping = TransportWithMidi(midi_maps=[
+            TransportMidiMapping(midi_coords=[coord], api_call="loop_raw")])
+        [(_, label, glyph)] = _label_pairs_for_mapping(mapping)
+        self.assertEqual(glyph, "repeat")
 
 
 class TestDeviceOnOffLabel(unittest.TestCase):
@@ -48,7 +92,7 @@ class TestDeviceOnOffLabel(unittest.TestCase):
         pairs = _label_pairs_for_mapping(self._device_with_on_off())
         # The slot-driven parameter cell stays dynamic (no static label); only
         # the on/off toggle is labelled.
-        self.assertEqual([label for _, label in pairs], ["dev on/off"])
+        self.assertEqual([label for _, label, _g in pairs], ["dev on/off"])
 
 
 class TestLayoutMetrics(unittest.TestCase):

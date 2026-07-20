@@ -138,7 +138,7 @@ class Functions(ControlSurface):
     def fwd8(self):
         self.song().jump_by(8)
 
-    @hud_name("Move loop L")
+    @hud_name("Move loop L", "arrowshape.left.fill")
     def move_loop_left(self):
         # Move the whole loop one loop-length earlier, keeping its length.
         loop_start = self.song().loop_start
@@ -146,7 +146,7 @@ class Functions(ControlSurface):
             self.song().loop_start = loop_start - self.song().loop_length
             self.song().current_song_time = self.song().loop_start
 
-    @hud_name("Move loop R")
+    @hud_name("Move loop R", "arrowshape.right.fill")
     def move_loop_right(self):
         # Move the whole loop one loop-length later, keeping its length.
         loop_start = self.song().loop_start
@@ -154,7 +154,7 @@ class Functions(ControlSurface):
             self.song().loop_start = loop_start + self.song().loop_length
             self.song().current_song_time = self.song().loop_start
 
-    @hud_name("To loop start")
+    @hud_name("To loop start", "arrow.left.to.line")
     def move_playhead_to_loop_start(self):
         # Move the playhead to the loop start (no auto-play).
         loop_start = self.song().loop_start
@@ -173,13 +173,13 @@ class Functions(ControlSurface):
     _MIN_LOOP_BARS = 1
     _MAX_LOOP_BARS = 128
 
-    @hud_name("x2 loop")
+    @hud_name("x2 loop", "arrow.left.and.line.vertical.and.arrow.right")
     def double_loop_length(self):
         song = self.song()
         beats_per_bar = song.signature_numerator
         song.loop_length = min(song.loop_length * 2, self._MAX_LOOP_BARS * beats_per_bar)
 
-    @hud_name("half loop")
+    @hud_name("half loop", "arrow.right.and.line.vertical.and.arrow.left")
     def halve_loop_length(self):
         song = self.song()
         beats_per_bar = song.signature_numerator

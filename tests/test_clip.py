@@ -159,8 +159,9 @@ class TestClipHudLabels(unittest.TestCase):
         cells = allocate_global_layout(controller)
         labels = collect_mode_labels(controller, [clip], cells)
 
-        self.assertIn('clip: gain', labels.values())
-        self.assertIn('clip: loop on', labels.values())
+        # Values are (name, glyph) pairs; clip controls are text-only (glyph "").
+        self.assertIn(('clip: gain', ''), labels.values())
+        self.assertIn(('clip: loop on', ''), labels.values())
 
 
 class TestClipIntegration(unittest.TestCase, CustomAssertions):
