@@ -247,26 +247,63 @@ private struct SourceRegionView: View {
 
     @ViewBuilder
     private func cellView(_ cell: HudCell) -> some View {
+        // Group the cell's slots into contiguous same-hue zone runs and paint a
+        // subtle zone-coloured chip behind each coloured run; the controls
+        // themselves stay in default colours (hud-zone-group-background plan).
+        // Splitting the cell's single spacing-8 HStack into per-run spacing-8
+        // HStacks (outer spacing also 8) keeps the slot geometry byte-for-byte
+        // identical to the pre-zoning layout — the chip is a layout-NEUTRAL
+        // background (negative padding, so it extends outward without enlarging
+        // the run), so zoned and non-zoned cells are exactly the same size and
+        // the panel never jumps when moving between them.
+        let colors = cell.kind == .dial ? region.dialColors : region.buttonColors
+        let runs = zoneRuns(count: cell.count, colors: colors, start: cell.startIndex)
+        HStack(spacing: 8 * scale) {
+            ForEach(runs, id: \.range) { run in
+                zoneRunBackground(hex: run.hex) {
+                    HStack(spacing: 8 * scale) {
+                        ForEach(run.range, id: \.self) { i in
+                            slotView(cell: cell, i: i)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func slotView(cell: HudCell, i: Int) -> some View {
+        let idx = cell.startIndex + i
         switch cell.kind {
         case .dial:
-            HStack(spacing: 8 * scale) {
-                ForEach(0..<cell.count, id: \.self) { i in
-                    let idx = cell.startIndex + i
-                    let slot: Slot? = (cell.startIndex >= 0 && idx < region.dialSlots.count)
-                        ? region.dialSlots[idx] : nil
-                    DialSlotView(slot: slot, zoom: zoom, zoneHex: region.dialColors[idx])
-                }
-            }
+            let slot: Slot? = (cell.startIndex >= 0 && idx < region.dialSlots.count)
+                ? region.dialSlots[idx] : nil
+            DialSlotView(slot: slot, zoom: zoom)
         case .button:
-            HStack(spacing: 8 * scale) {
-                ForEach(0..<cell.count, id: \.self) { i in
-                    let idx = cell.startIndex + i
-                    let slot: Slot? = (cell.startIndex >= 0 && idx < region.buttonSlots.count)
-                        ? region.buttonSlots[idx] : nil
-                    ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: region.isShiftMode,
-                                   zoneHex: region.buttonColors[idx])
-                }
-            }
+            let slot: Slot? = (cell.startIndex >= 0 && idx < region.buttonSlots.count)
+                ? region.buttonSlots[idx] : nil
+            ButtonSlotView(slot: slot, zoom: zoom, isShiftMode: region.isShiftMode)
+        }
+    }
+
+    /// Paint a subtle zone-coloured chip behind a run's slots. The chip is a
+    /// LAYOUT-NEUTRAL `.background`: the rounded rect is sized to the content and
+    /// then `.padding(-3·scale)` bleeds it 3pt outward into the inter-slot gap so
+    /// it reads as a group area — without changing the run's reported size. A
+    /// `nil`/malformed hex renders the content bare, so un-zoned runs (and every
+    /// cell of a non-zoned device) are pixel-identical to the pre-zoning layout.
+    @ViewBuilder
+    private func zoneRunBackground<Content: View>(hex: String?,
+                                                  @ViewBuilder content: () -> Content) -> some View {
+        if let hex, let color = Color(zoneHex: hex) {
+            content()
+                .background(
+                    RoundedRectangle(cornerRadius: 6 * scale)
+                        .fill(color.opacity(0.10))
+                        .padding(-3 * scale)
+                )
+        } else {
+            content()
         }
     }
 }
@@ -302,30 +339,8 @@ extension Color {
 private struct DialSlotView: View {
     let slot: Slot?
     let zoom: Double
-    /// Zone tint (RRGGBB) for the ring outline; nil = default grey.
-    var zoneHex: String? = nil
 
     private var scale: CGFloat { CGFloat(zoom) }
-
-    /// (full, dull) zone colours for this dial. `full` paints the value arc
-    /// (0→current, the primary hue); `dull` is a desaturated, dimmed near-grey
-    /// version for the unfilled track. nil when the device isn't zoned, so
-    /// non-zoned dials keep the default grey track + cyan value arc.
-    private var zoneTint: (full: Color, dull: Color)? {
-        guard let hex = zoneHex else { return nil }
-        let h = hex.trimmingCharacters(in: .whitespaces)
-        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
-        let r = Double((v >> 16) & 0xff) / 255
-        let g = Double((v >> 8) & 0xff) / 255
-        let b = Double(v & 0xff) / 255
-        // Pull each channel most of the way to its own luminance (desaturate),
-        // then darken — reads as "almost grey with a hint of the hue".
-        let lum = 0.299 * r + 0.587 * g + 0.114 * b
-        let sat = 0.30, dim = 0.50
-        func dull(_ c: Double) -> Double { (c * sat + lum * (1 - sat)) * dim }
-        return (Color(red: r, green: g, blue: b),
-                Color(red: dull(r), green: dull(g), blue: dull(b)))
-    }
 
     private var fillFraction: Double {
         guard let s = slot, s.max > s.min else { return 0 }
@@ -339,13 +354,13 @@ private struct DialSlotView: View {
         VStack(spacing: 4 * scale) {
             ZStack {
                 ArcShape(startAngle: .zero, endAngle: .degrees(sweep * 360))
-                    .stroke(zoneTint?.dull ?? Color.gray.opacity(0.3), lineWidth: 2 * scale)
+                    .stroke(Color.gray.opacity(0.3), lineWidth: 2 * scale)
                     .frame(width: 25 * scale, height: 25 * scale)
                     .rotationEffect(.degrees(rotation))
 
                 if slot != nil {
                     ArcShape(startAngle: .zero, endAngle: .degrees(fillFraction * sweep * 360))
-                        .stroke(zoneTint?.full ?? Color.cyan, lineWidth: 2 * scale)
+                        .stroke(Color.cyan, lineWidth: 2 * scale)
                         .frame(width: 25 * scale, height: 25 * scale)
                         .rotationEffect(.degrees(rotation))
                 }
@@ -369,9 +384,6 @@ private struct ButtonSlotView: View {
     let slot: Slot?
     let zoom: Double
     let isShiftMode: Bool
-    /// Zone tint (RRGGBB) for the border outline; nil = default white. This is
-    /// the same hue the physical Grid button LED shows.
-    var zoneHex: String? = nil
 
     private var scale: CGFloat { CGFloat(zoom) }
 
@@ -381,7 +393,7 @@ private struct ButtonSlotView: View {
     }
 
     private var borderColor: Color {
-        zoneHex.flatMap { Color(zoneHex: $0) } ?? Color.white.opacity(slot != nil ? 0.35 : 0.25)
+        Color.white.opacity(slot != nil ? 0.35 : 0.25)
     }
 
     /// SF Symbol rendered inside the button rect. Existence-gated: an unknown /
@@ -411,6 +423,12 @@ private struct ButtonSlotView: View {
                 )
                 .overlay(glyphView)
                 .frame(width: 36 * scale, height: 20 * scale)
+                // Center the 20pt button rect in a 25pt-tall box so a button
+                // cell is the same total height as a dial cell (whose arc is
+                // 25pt). This keeps the zone-group background chips aligned
+                // across the button and encoder blocks and lines the labels up;
+                // the row was already dial-height, so the panel size is unchanged.
+                .frame(height: 25 * scale)
 
             Text(slot?.name ?? "")
                 .font(.system(size: 9 * scale, weight: .light))

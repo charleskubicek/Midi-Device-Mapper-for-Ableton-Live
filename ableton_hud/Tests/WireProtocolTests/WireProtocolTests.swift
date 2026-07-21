@@ -820,6 +820,45 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertTrue(state.dialColors.isEmpty)
     }
 
+    // MARK: - zoneRuns (HUD group-background partitioning)
+
+    func test_zoneRuns_empty_map_is_single_unzoned_run() {
+        // Non-zoned device: no colours → one nil run spanning the cell, so the
+        // view paints no background (pixel-identical to pre-zoning).
+        let runs = zoneRuns(count: 8, colors: [:], start: 0)
+        XCTAssertEqual(runs, [ZoneRun(range: 0..<8, hex: nil)])
+    }
+
+    func test_zoneRuns_zero_count_is_empty() {
+        XCTAssertEqual(zoneRuns(count: 0, colors: [0: "E0A33E"], start: 0), [])
+    }
+
+    func test_zoneRuns_contiguous_hues_group_into_runs() {
+        // env(3) | global(3) | signature(2) laid out at wire indices 16..<24.
+        let colors: [Int: String] = [
+            16: "AAAAAA", 17: "AAAAAA", 18: "AAAAAA",
+            19: "BBBBBB", 20: "BBBBBB", 21: "BBBBBB",
+            22: "CCCCCC", 23: "CCCCCC",
+        ]
+        let runs = zoneRuns(count: 8, colors: colors, start: 16)
+        XCTAssertEqual(runs, [
+            ZoneRun(range: 0..<3, hex: "AAAAAA"),
+            ZoneRun(range: 3..<6, hex: "BBBBBB"),
+            ZoneRun(range: 6..<8, hex: "CCCCCC"),
+        ])
+    }
+
+    func test_zoneRuns_mixed_zoned_and_unzoned() {
+        // A cell where only the middle slots are zoned: nil | hue | nil.
+        let colors: [Int: String] = [1: "AAAAAA", 2: "AAAAAA"]
+        let runs = zoneRuns(count: 4, colors: colors, start: 0)
+        XCTAssertEqual(runs, [
+            ZoneRun(range: 0..<1, hex: nil),
+            ZoneRun(range: 1..<3, hex: "AAAAAA"),
+            ZoneRun(range: 3..<4, hex: nil),
+        ])
+    }
+
     // MARK: - isVisible
 
     func test_isVisible_requires_committed_content_and_not_dismissed() async {
