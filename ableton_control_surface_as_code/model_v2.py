@@ -146,6 +146,11 @@ class RootV2(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    # Optional path (relative to the mapping file) to a shared functions file,
+    # letting many surfaces reuse one ck_functions.py instead of a per-surface
+    # copy. Unset -> functions.py next to the mapping. See
+    # ai-coding/plans/shared-functions-file-plan.md.
+    functions_file: Optional[str] = None
     smart_zoning: bool = False
     hud: HudMode = HudMode.On
     # Built model: always constructed with an explicit value from the (now
@@ -167,6 +172,7 @@ class RootV2ModesOrModeless(BaseModel):
     ableton_dir: str
     remote_on: bool = Field(default=False)
     parameter_mappings_file: Optional[str] = None
+    functions_file: Optional[str] = None
     # Smart-zoning enrollment (grid-po16-synth-surface-plan). Off by default so
     # other surfaces are untouched until they opt in; a 32-slot template only
     # makes sense on this surface's 32 pots.
@@ -194,6 +200,7 @@ class RootV2ModesOrModeless(BaseModel):
             ableton_dir=self.ableton_dir,
             remote_on=self.remote_on,
             parameter_mappings_file=self.parameter_mappings_file,
+            functions_file=self.functions_file,
             smart_zoning=self.smart_zoning,
             hud=self.hud,
             show_hud_on=self.show_hud_on,
@@ -357,9 +364,13 @@ def print_model_with_mappings(model: ControllerV2, mappings):
 
 
 def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=None) -> ModeGroupWithMidi:
+    # Resolve the shared functions file (if any) once, relative to the mapping;
+    # None means the per-mapping functions.py default.
+    functions_path = (root_dir / root.functions_file) if root.functions_file else None
     mappings = [(mode_dev.name,
                  build_mappings_model_v2(mode_dev.mappings, controller, root_dir,
-                                         mode_name=mode_dev.name, acc=acc))
+                                         mode_name=mode_dev.name, acc=acc,
+                                         functions_path=functions_path))
                 for mode_dev in root.modes]
 
     if root.mode_button is None:
@@ -380,20 +391,24 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=Non
     )
 
 
+# Builders take (controller, mapping, root_dir, functions_path); only the
+# functions builder consumes functions_path (the shared-functions file), the
+# rest ignore it.
 _MAPPING_BUILDERS = {
-    "device": lambda c, m, d: build_device_model_v2_1(c, m, d),
-    "mixer": lambda c, m, d: build_mixer_model_v2(c, m),
-    "track-nav": lambda c, m, d: build_track_nav_model_v2(c, m),
-    "device-nav": lambda c, m, d: build_device_nav_model_v2(c, m),
-    "functions": lambda c, m, d: build_functions_model_v2(c, m, d),
-    "transport": lambda c, m, d: build_transport_model(c, m),
-    "parameter-pager": lambda c, m, d: build_parameter_pager_model_v2(c, m),
-    "clip": lambda c, m, d: build_clip_model_v2(c, m),
+    "device": lambda c, m, d, f: build_device_model_v2_1(c, m, d),
+    "mixer": lambda c, m, d, f: build_mixer_model_v2(c, m),
+    "track-nav": lambda c, m, d, f: build_track_nav_model_v2(c, m),
+    "device-nav": lambda c, m, d, f: build_device_nav_model_v2(c, m),
+    "functions": lambda c, m, d, f: build_functions_model_v2(c, m, d, functions_path=f),
+    "transport": lambda c, m, d, f: build_transport_model(c, m),
+    "parameter-pager": lambda c, m, d, f: build_parameter_pager_model_v2(c, m),
+    "clip": lambda c, m, d, f: build_clip_model_v2(c, m),
 }
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
-                            root_dir: Path, mode_name: str = "", acc=None) -> AllMappingWithMidiTypes:
+                            root_dir: Path, mode_name: str = "", acc=None,
+                            functions_path: Optional[Path] = None) -> AllMappingWithMidiTypes:
     """
     Returns a model of the mapping with midi info attached.
 
@@ -409,11 +424,11 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
         if builder is None:
             continue
         if acc is not None:
-            built = acc.capture(lambda: builder(controller, mapping, root_dir))
+            built = acc.capture(lambda b=builder, m=mapping: b(controller, m, root_dir, functions_path))
             if built is not None:
                 mappings_with_midi.append(built)
         else:
-            mappings_with_midi.append(builder(controller, mapping, root_dir))
+            mappings_with_midi.append(builder(controller, mapping, root_dir, functions_path))
 
     print_model_with_mappings(controller, mappings_with_midi)
     validate_mappings(mappings_with_midi, mode_name=mode_name, acc=acc)

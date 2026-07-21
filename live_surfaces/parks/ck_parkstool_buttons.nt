@@ -8,6 +8,7 @@
 # device's parameters as launch_control, updating live on device change.
 
 controller: parks_controller.nt
+functions_file: ../shared/ck_functions.py
 ableton_dir: /Applications/Ableton Live 12 Suite.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
 remote_on: false

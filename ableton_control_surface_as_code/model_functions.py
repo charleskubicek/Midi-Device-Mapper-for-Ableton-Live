@@ -149,7 +149,14 @@ class FunctionLookup:
         raise ValueError(f"Function {fn_name} not found in {file_path}")
 
 
-def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> FunctionsWithMidi:
+def build_functions_model_v2(controller, mapping: Functions, root_dir: Path,
+                             functions_path: Optional[Path] = None) -> FunctionsWithMidi:
+    # `functions_path` lets a surface point at one shared functions file (e.g.
+    # ../shared/ck_functions.py) instead of a per-surface copy; when unset we
+    # fall back to functions.py next to the mapping (see
+    # ai-coding/plans/shared-functions-file-plan.md).
+    functions_path = functions_path if functions_path is not None else root_dir / "functions.py"
+
     midi_maps = []
     for fn, encs in mapping.mappings.items():
         midi_coords, _ = controller.build_midi_coords(encs)
@@ -159,7 +166,7 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir:Path) -> F
             # route to a surface method (see _BUILTIN_CALLS / template_function_call).
             parameter_len, builtin, hud_name, hud_glyph = 0, True, None, None
         else:
-            parameter_len, hud_name, hud_glyph = FunctionLookup.inspect_python_file(root_dir / "functions.py", fn)
+            parameter_len, hud_name, hud_glyph = FunctionLookup.inspect_python_file(functions_path, fn)
             builtin = False
 
         # One listener per physical button (comma-listed coords bind one function

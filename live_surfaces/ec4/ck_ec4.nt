@@ -1,4 +1,5 @@
 controller: ec4.nt
+functions_file: ../shared/ck_functions.py
 ableton_dir: /Applications/Ableton Live 12 Suite.app
 #ableton_dir: /Applications/Ableton Live 12 Beta.app
 parameter_mappings_file: ../../data/custom_device_mappings.json

@@ -497,6 +497,17 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
     for file in mapping_file_path.parent.glob('*.py'):
         shutil.copy(file, target_dir / vars['surface_name'] / "modules" / file.name)
 
+    # A shared functions file (functions_file:) is materialised as the surface's
+    # own modules/functions.py — the loader requires that name (see
+    # surface_name.py / main_component.py). This lets many surfaces reuse one
+    # ck_functions.py instead of a per-surface copy.
+    if mappings.functions_file is not None:
+        shared_functions = (mapping_file_path.parent / mappings.functions_file).resolve()
+        if not shared_functions.exists():
+            raise ValueError(f"functions_file not found: {shared_functions}")
+        shutil.copy(shared_functions,
+                    target_dir / vars['surface_name'] / "modules" / "functions.py")
+
     # copy all files and folders in the source_modules folder to target_dir
     for file in Path('source_modules').glob('*'):
         if file.is_file():

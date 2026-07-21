@@ -258,6 +258,35 @@ class TestGenerate(UiApiDirBase):
         self.assertFalse(resp["ok"])
         self.assertIn("99", resp["error"]["message"])
 
+    def test_shared_functions_file_is_materialised_as_functions_py(self):
+        # functions_file: points at a shared file in a sibling dir; the generated
+        # surface must contain it verbatim as modules/functions.py (the name the
+        # loader requires). See ai-coding/plans/shared-functions-file-plan.md.
+        shared_src = (
+            "class Functions:\n"
+            "    def shared_action(self):\n"
+            "        pass\n")
+        (self.dir / "shared").mkdir()
+        (self.dir / "shared" / "ck_functions.py").write_text(shared_src)
+
+        (self.dir / "s.nt").write_text(
+            "controller: controller.nt\n"
+            f"ableton_dir: {self.dir}\n"
+            "hud: off\n"
+            "show-hud-on: selection\n"
+            "functions_file: shared/ck_functions.py\n"
+            "mappings:\n"
+            "    -\n"
+            "        type: functions\n"
+            "        mappings:\n"
+            "            shared_action: grid-2:1\n")
+
+        resp = handle_request(req("generate", mapping_path=str(self.dir / "s.nt")))
+        self.assertTrue(resp["ok"], resp)
+        materialised = self.dir / "s" / "modules" / "functions.py"
+        self.assertTrue(materialised.exists())
+        self.assertEqual(materialised.read_text(), shared_src)
+
 
 class TestStdioLoop(unittest.TestCase):
     def _run(self, lines):

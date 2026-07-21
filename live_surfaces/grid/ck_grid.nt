@@ -1,4 +1,5 @@
 controller: controller_grid.nt
+functions_file: ../shared/ck_functions.py
 ableton_dir: /Applications/Ableton Live 12 Suite.app
 #ableton_dir: /Applications/Ableton Live 12 Beta.app
 parameter_mappings_file: ../../data/custom_device_mappings.json
@@ -141,6 +142,7 @@ modes:
                     record_audio_resample:                               grid-4:1::2
                     record_midi_from_track_to_new_track:                 grid-4:1::3
                     selected_audio_to_simpler_in_new_track:              grid-4:1::4
+                    iterate_midi_pattern:              grid-4:3::2
                     # R3C3/R3C4: jump 3 tracks at a time.
                     track_nav_left_x3:  grid-4:3::3
                     track_nav_right_x3: grid-4:3::4
