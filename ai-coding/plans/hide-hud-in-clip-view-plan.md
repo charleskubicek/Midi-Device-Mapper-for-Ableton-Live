@@ -1,5 +1,9 @@
 # Suppress HUD while editing in clip view (Detail/Clip)
 
+> **Superseded** (2026-07-19, never implemented) by
+> [`hud-summon-only-plan.md`](./hud-summon-only-plan.md), which absorbs the
+> `ClipViewChanged` design and goes further (summon-only visibility).
+
 ## Context
 
 Entering clip view already dismisses the HUD: clicking a clip flips `Detail/DeviceChain` to not-visible, `_on_detail_changed` (templates/surface_name/modules/main_component.py:250) fires `hud_view_left()` → sticky `HIDE`. But the dismissal doesn't survive bursts: while still in clip view, any `DeviceFocus` (selection poll — e.g. clicking a clip on another track), `ModeChange`, or `RegionCommit` classifies to `Decision.EMIT_BURST` in `source_modules/hud_visibility.py`, which clears `dismissed` and re-shows the HUD over the clip editor.

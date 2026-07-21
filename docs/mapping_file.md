@@ -54,15 +54,32 @@ They are orthogonal — `hud: off` is still the master kill switch.
 | --------------- | -------- |
 | `controller-nav`| **Default.** The HUD burst fires **only** on a controller device-nav action (device-nav left/right/first/last). Selecting a device by mouse or track navigation still remaps the encoders and pushes OSC, but the HUD is hidden (a `HIDE` is sent so turning a knob can't wake it on a stale device). Pair with a `hud_toggle` binding to summon the HUD on demand for a mouse-selected device. |
 | `selection`     | The HUD follows Live's selected device: whenever the focused device changes (mouse click, track select, device-nav), a burst shows the HUD. This was the behavior before `show-hud-on` existed. |
+| `summon`        | The HUD is **hidden by default** and only appears when *summoned* — the `hud_toggle` button or an explicit controller device-nav (both work even over a clip editor). A mouse/track selection never shows it. It **auto-hides on any mouse click or keystroke in Ableton** (see below), and once the idle timer hides it, playback automation can't resurrect it — one `hud_toggle` press brings it back. |
+
+**Input-driven auto-hide (summon only).** Under `summon`, the native HUD app
+watches for mac mouse/keyboard input while Ableton is frontmost and sticky-hides
+the HUD the moment you interact with Live's GUI — clicking a clip, the browser,
+the mixer, arranging, typing. This replaces trying to enumerate every "non-device
+view" from Live's Python API (which can't observe most of them — e.g. clicking
+into a docked browser). It's the summon philosophy: **the controller shows the
+HUD, the GUI hides it.**
+
+- **Permission:** keyboard detection needs macOS **Input Monitoring /
+  Accessibility** granted to the HUD app (mouse works without it). The app
+  prompts on first launch. See `ableton_hud/dev-codesign-setup.sh` — the bundle
+  is signed with a stable local cert so the grant survives rebuilds.
+- **Trade-off:** clicking *on* a device (a macro, a bank arrow) also hides it —
+  the monitor can't tell it from a clip click. Re-summon with `hud_toggle` or
+  device-nav.
 
 ```
-show-hud-on: controller-nav
+show-hud-on: summon
 ```
 
-Note: `controller-nav` covers device-nav buttons only — **track-nav is excluded** (stepping
-tracks via the controller stays silent). `show-hud-on` does not affect the HUD's
-*dismiss*/auto-hide behavior, which is a separate concern (auto-timer, navigate-away HIDE,
-the `hud_toggle` binding).
+Note: `controller-nav` and `summon` cover device-nav buttons only — **track-nav is excluded**
+(stepping tracks via the controller stays silent). Beyond the `summon` auto-hides listed above,
+`show-hud-on` does not change the HUD's other *dismiss* behavior (auto-timer, navigate-away
+HIDE, the `hud_toggle` binding).
 
 ## Modes
 

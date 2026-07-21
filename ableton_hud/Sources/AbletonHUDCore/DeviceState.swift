@@ -23,6 +23,12 @@ public class DeviceState: ObservableObject {
     @Published public var bankLabel: String = ""
     @Published public var dismissed: Bool = false
 
+    /// Whether this surface wants input-driven auto-hide (hud-input-autohide-plan).
+    /// Set by the `AUTOHIDE` wire message; only summon surfaces send `AUTOHIDE|1`.
+    /// The GlobalInputMonitor gates on this so non-summon surfaces (and the
+    /// pre-handshake window) never sticky-hide on a mac click/keystroke.
+    @Published public var autoHideOnInput: Bool = false
+
     /// Zone-colour tints, wire index -> RRGGBB hex (grid-zone-colour-coding-plan).
     /// Empty when the focused device isn't zoned. The view colours dial ring /
     /// button border strokes from these.
@@ -34,6 +40,13 @@ public class DeviceState: ObservableObject {
     /// the view restart its fade even when the same text repeats. Orthogonal to
     /// the burst/published slot state.
     @Published public var lastEvent: ButtonEvent? = nil
+
+    // hud_toggle arbitration: a TOGGLE at the head of a burst arms this, capturing
+    // whether the HUD was visible *before* the burst. The burst's COMMIT then
+    // hides (if it was visible) or shows the fresh data (if it wasn't) — the HUD
+    // owns the show/hide decision because Python can't track true visibility.
+    private var pendingToggle = false
+    private var toggleWasVisible = false
 
     // Pending (in-burst) buffers, swapped into the published values on COMMIT.
     private var pendingDials: [Int: Slot] = [:]
@@ -60,6 +73,16 @@ public class DeviceState: ObservableObject {
     /// dismissed. The overlay manager gates show/hide on this.
     public var isVisible: Bool {
         !dismissed && !deviceName.isEmpty
+    }
+
+    /// The idle auto-dismiss timer fired: hide *stickily*, exactly like a wire
+    /// HIDE. Without this the panel merely orderOut's and the next UPDATE (e.g.
+    /// playback automation) re-shows it — under summon that resurrects the HUD
+    /// uninvited. The sticky flag is cleared by the next device burst, so a
+    /// `selection`-trigger surface keeps its "next selection re-shows" feel.
+    public func timerDismiss() {
+        hudLog("timerDismiss dismissed=\(dismissed)->true", level: .fine)
+        dismissed = true
     }
 
     public func apply(message: WireMessage) {
@@ -104,6 +127,15 @@ public class DeviceState: ObservableObject {
 
         case .update(let kind, let index, let slot):
             guard index >= 0 else { return }
+            // A dismissed HUD ignores live UPDATEs entirely: it neither patches a
+            // slot nor fires the commitReceived visibility signal. Otherwise a
+            // stream of playback-automation UPDATEs would resurrect a HUD the
+            // idle timer (or HIDE) just dismissed — the summon-mode failure the
+            // sticky flag exists to prevent. The next real burst repaints fresh.
+            guard !dismissed else {
+                hudLog("apply UPDATE \(kind) idx=\(index) ignored (dismissed)", level: .fine)
+                return
+            }
             switch kind {
             case .dial:
                 if index < dialSlots.count { dialSlots[index] = slot }
@@ -114,7 +146,6 @@ public class DeviceState: ObservableObject {
             commitReceived.send()
 
         case .commit:
-            dismissed = false
             hudCells = pendingCells
             dividerCols = pendingDividerCols
             deviceName = pendingName
@@ -127,8 +158,20 @@ public class DeviceState: ObservableObject {
             let totalButtons = pendingCells.filter { $0.kind == .button }.reduce(0) { $0 + $1.count }
             dialSlots = (0..<totalDials).map { pendingDials[$0] }
             buttonSlots = (0..<totalButtons).map { pendingButtons[$0] }
-            hudLog("apply COMMIT name=\(deviceName) dials=\(totalDials) buttons=\(totalButtons) dismissed->false isVisible=\(isVisible)", level: .fine)
-            commitReceived.send()
+            // Fresh data is published above either way. A toggle burst that found
+            // the HUD already visible means "hide"; otherwise (and for every
+            // non-toggle burst) it means "show".
+            if pendingToggle && toggleWasVisible {
+                pendingToggle = false
+                dismissed = true
+                hudLog("apply COMMIT name=\(deviceName) (toggle-off) -> hide", level: .fine)
+                hideRequested.send()
+            } else {
+                pendingToggle = false
+                dismissed = false
+                hudLog("apply COMMIT name=\(deviceName) dials=\(totalDials) buttons=\(totalButtons) dismissed->false isVisible=\(isVisible)", level: .fine)
+                commitReceived.send()
+            }
 
         case .ping:
             hudLog("apply PING (rearm timer) dismissed=\(dismissed)", level: .fine)
@@ -173,6 +216,16 @@ public class DeviceState: ObservableObject {
                 }
             }
             hudLog("apply ZONES count=\(tints.count)", level: .fine)
+
+        case .autoHide(let enabled):
+            hudLog("apply AUTOHIDE \(autoHideOnInput)->\(enabled)", level: .fine)
+            autoHideOnInput = enabled
+
+        case .toggleRequest:
+            // Arm; capture visibility BEFORE the burst's DEVICE clears `dismissed`.
+            pendingToggle = true
+            toggleWasVisible = isVisible
+            hudLog("apply TOGGLE armed wasVisible=\(isVisible)", level: .fine)
 
         case .unknown:
             hudLog("apply UNKNOWN", level: .fine)

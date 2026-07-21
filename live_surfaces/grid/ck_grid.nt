@@ -25,8 +25,9 @@ hud: on
 #hud: off           — HUD disabled entirely
 
 # show-hud-on — when the HUD appears (uncomment exactly one):
-show-hud-on: selection
-# selection = follow Live's selected device; HUD shows on any device change (mouse or controller)
+show-hud-on: summon
+# summon = hidden by default; only the hud_toggle button or a controller device-nav shows it, and it auto-hides on any non-device view (clip view, browser, Session↔Arranger)
+#show-hud-on: selection        — follow Live's selected device; HUD shows on any device change (mouse or controller)
 #show-hud-on: controller-nav   — only a controller device-nav action shows the HUD; mouse/track selection stays hidden
 
 mode-button:

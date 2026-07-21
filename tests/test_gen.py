@@ -388,5 +388,35 @@ class TestSmartZoningCodegen(unittest.TestCase):
             self.assertIn(cn, src)
 
 
+class TestSummonHudCodegen(unittest.TestCase):
+    """End-to-end (hud-summon-only-plan): ck_grid is show-hud-on: summon, and
+    the generated surface must register + remove the Detail/Clip app-view
+    listener that drives the clip-view gate."""
+
+    def test_ck_grid_registers_clip_view_listener(self):
+        from pathlib import Path
+        import py_compile
+        from ableton_control_surface_as_code.gen import generate
+
+        repo = Path(__file__).resolve().parent.parent
+        generate(repo / "live_surfaces" / "grid" / "ck_grid.nt")
+
+        main = (repo / "live_surfaces" / "grid" / "ck_grid" / "modules"
+                / "main_component.py")
+        self.assertTrue(main.exists())
+        py_compile.compile(str(main), doraise=True)
+
+        src = main.read_text()
+        self.assertIn("hud_trigger='summon'", src)
+        self.assertIn(
+            "add_is_view_visible_listener('Detail/Clip', self._on_clip_view_changed)", src)
+        self.assertIn(
+            "remove_is_view_visible_listener('Detail/Clip', self._on_clip_view_changed)", src)
+        self.assertIn("self._helpers.hud_clip_view_changed(", src)
+        # The browser is handled by the Swift input monitor now, not a listener.
+        self.assertNotIn("hud_browser_changed", src)
+        self.assertNotIn("_on_browser_visibility_changed", src)
+
+
 if __name__ == '__main__':
     unittest.main()

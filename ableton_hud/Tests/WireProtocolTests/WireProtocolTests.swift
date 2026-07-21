@@ -244,6 +244,52 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(WireProtocol.parse(line: "DIVIDERS|1|x"), .unknown)
     }
 
+    // MARK: - AUTOHIDE (input-driven auto-hide flag)
+
+    func test_autohide_on_parses() {
+        XCTAssertEqual(WireProtocol.parse(line: "AUTOHIDE|1"), .autoHide(true))
+    }
+
+    func test_autohide_off_parses() {
+        XCTAssertEqual(WireProtocol.parse(line: "AUTOHIDE|0"), .autoHide(false))
+    }
+
+    func test_autohide_bad_value_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "AUTOHIDE|yes"), .unknown)
+    }
+
+    func test_autohide_missing_arg_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "AUTOHIDE"), .unknown)
+    }
+
+    // MARK: - TOGGLE (HUD-arbitrated hud_toggle)
+
+    func test_toggle_parses() {
+        XCTAssertEqual(WireProtocol.parse(line: "TOGGLE"), .toggleRequest)
+    }
+
+    func test_toggle_with_trailing_field_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "TOGGLE|x"), .unknown)
+    }
+
+    // MARK: - InputDismissPolicy (pure auto-hide decision)
+
+    func test_input_policy_dismisses_when_enabled_and_frontmost() {
+        XCTAssertTrue(InputDismissPolicy.shouldDismiss(enabled: true, abletonFrontmost: true, overHud: false))
+    }
+
+    func test_input_policy_ignores_when_disabled() {
+        XCTAssertFalse(InputDismissPolicy.shouldDismiss(enabled: false, abletonFrontmost: true, overHud: false))
+    }
+
+    func test_input_policy_ignores_when_ableton_not_frontmost() {
+        XCTAssertFalse(InputDismissPolicy.shouldDismiss(enabled: true, abletonFrontmost: false, overHud: false))
+    }
+
+    func test_input_policy_ignores_when_over_hud() {
+        XCTAssertFalse(InputDismissPolicy.shouldDismiss(enabled: true, abletonFrontmost: true, overHud: true))
+    }
+
     // MARK: - Unknown commands
 
     func test_unknown_command_ignored() {
@@ -630,6 +676,121 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertTrue(state.dismissed)
         state.apply(message: .ping)
         XCTAssertTrue(state.dismissed)
+    }
+
+    // MARK: - Idle timer sticky-dismiss (hud-summon-only-plan)
+
+    func test_timer_dismiss_sets_dismissed() async {
+        let state = makeState()
+        XCTAssertFalse(state.dismissed)
+        state.timerDismiss()
+        XCTAssertTrue(state.dismissed)
+    }
+
+    func test_update_while_dismissed_does_not_publish_visibility() async {
+        // The resurrection bug: after the idle timer sticky-dismisses, an
+        // automation UPDATE must not re-show the HUD. It fires no commitReceived
+        // (the manager's show signal), patches no slot, and leaves isVisible false.
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 2, startIndex: 0)]))
+        state.apply(message: .device("EQ Eight"))
+        state.apply(message: .commit(0))
+        XCTAssertTrue(state.isVisible)
+
+        state.timerDismiss()
+        XCTAssertFalse(state.isVisible)
+
+        var fired = 0
+        let cancellable = state.commitReceived.sink { fired += 1 }
+        defer { cancellable.cancel() }
+        state.apply(message: .update(.dial, 0, Slot(name: "Auto", value: 0.9, min: 0, max: 1)))
+
+        XCTAssertEqual(fired, 0)              // no visibility signal
+        XCTAssertNil(state.dialSlots[0])      // slot not patched
+        XCTAssertFalse(state.isVisible)       // still hidden
+    }
+
+    // MARK: - TOGGLE arbitration (hud_toggle owned by the HUD)
+
+    /// A toggle burst that finds the HUD already visible hides it (fresh data is
+    /// still published, ready for the next show).
+    func test_toggle_burst_hides_when_visible() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 0)]))
+        state.apply(message: .device("Op"))
+        state.apply(message: .commit(0))
+        XCTAssertTrue(state.isVisible)                 // shown
+
+        var hidden = 0
+        let c = state.hideRequested.sink { hidden += 1 }
+        defer { c.cancel() }
+        state.apply(message: .toggleRequest)           // armed, wasVisible=true
+        state.apply(message: .device("Op"))
+        state.apply(message: .slot(.dial, 0, Slot(name: "Freq", value: 0.3, min: 0, max: 1)))
+        state.apply(message: .commit(1))
+
+        XCTAssertTrue(state.dismissed)                 // toggled off
+        XCTAssertFalse(state.isVisible)
+        XCTAssertEqual(hidden, 1)
+        XCTAssertEqual(state.dialSlots[0]?.value, 0.3) // fresh data still published
+    }
+
+    /// A toggle burst that finds the HUD hidden shows it with the fresh data.
+    func test_toggle_burst_shows_when_hidden() async {
+        let state = makeState()
+        state.apply(message: .layout([HudCell(gridRow: 0, gridCol: 0, kind: .dial, count: 1, startIndex: 0)]))
+        state.apply(message: .device("Op"))
+        state.apply(message: .commit(0))
+        state.apply(message: .hide)                    // now hidden
+        XCTAssertFalse(state.isVisible)
+
+        var shown = 0
+        let c = state.commitReceived.sink { shown += 1 }
+        defer { c.cancel() }
+        state.apply(message: .toggleRequest)           // armed, wasVisible=false
+        state.apply(message: .device("Op"))
+        state.apply(message: .commit(0))
+
+        XCTAssertFalse(state.dismissed)                // toggled on
+        XCTAssertTrue(state.isVisible)
+        XCTAssertEqual(shown, 1)
+    }
+
+    /// A normal (non-toggle) burst always shows — arbitration must not leak.
+    func test_normal_burst_after_toggle_still_shows() async {
+        let state = makeState()
+        state.apply(message: .device("A"))
+        state.apply(message: .commit(0))               // shown
+        state.apply(message: .toggleRequest)
+        state.apply(message: .device("A"))
+        state.apply(message: .commit(0))               // toggle-off -> hidden
+        XCTAssertTrue(state.dismissed)
+        // A later ordinary device burst (e.g. controller nav) shows again.
+        state.apply(message: .device("B"))
+        state.apply(message: .commit(0))
+        XCTAssertFalse(state.dismissed)
+        XCTAssertTrue(state.isVisible)
+    }
+
+    func test_autohide_message_sets_flag() async {
+        let state = makeState()
+        XCTAssertFalse(state.autoHideOnInput)   // default off (pre-handshake / non-summon)
+        state.apply(message: .autoHide(true))
+        XCTAssertTrue(state.autoHideOnInput)
+        state.apply(message: .autoHide(false))
+        XCTAssertFalse(state.autoHideOnInput)
+    }
+
+    func test_burst_clears_timer_dismiss() async {
+        // A device burst still re-shows after a timer dismiss (selection-trigger
+        // "next selection re-shows" feel is preserved).
+        let state = makeState()
+        state.apply(message: .device("Dev"))
+        state.apply(message: .commit(0))
+        state.timerDismiss()
+        XCTAssertTrue(state.dismissed)
+        state.apply(message: .device("Dev2"))
+        XCTAssertFalse(state.dismissed)
     }
 
     // MARK: - Zone colours

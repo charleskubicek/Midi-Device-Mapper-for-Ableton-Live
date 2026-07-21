@@ -44,6 +44,10 @@ class TestShowHudOnParsing(unittest.TestCase):
         root = read_root(_BASE + "show-hud-on: selection\n")
         self.assertEqual(root.show_hud_on, HudTrigger.Selection)
 
+    def test_summon_parsed(self):
+        root = read_root(_BASE + "show-hud-on: summon\n")
+        self.assertEqual(root.show_hud_on, HudTrigger.Summon)
+
     def test_bad_value_rejected(self):
         with self.assertRaises(Exception):
             read_root(_BASE + "show-hud-on: device-view\n")
@@ -71,6 +75,10 @@ class TestShowHudOnCodegen(unittest.TestCase):
         res = self._vars(hud_trigger=HudTrigger.ControllerNav)
         self.assertEqual(res['hud_trigger'], "'controller-nav'")
 
+    def test_summon_trigger_rendered(self):
+        res = self._vars(hud_trigger=HudTrigger.Summon)
+        self.assertEqual(res['hud_trigger'], "'summon'")
+
 
 # ---------------------------------------------------------------------------
 # Runtime gating at the Helpers layer: selected_device_changed decides whether
@@ -78,7 +86,11 @@ class TestShowHudOnCodegen(unittest.TestCase):
 # ---------------------------------------------------------------------------
 class TestHelpersBurstGating(unittest.TestCase):
     def _helpers(self, trigger):
-        return Helpers(Mock(), Mock(), SurfaceConfig(hud_trigger=trigger))
+        remote = Mock()
+        # Idle-toggle passthrough: "no send yet" so the presenter's idle-sync is
+        # skipped (a bare Mock() > IDLE_DISMISS_SECONDS would raise).
+        remote.seconds_since_last_hud_send.return_value = None
+        return Helpers(Mock(), remote, SurfaceConfig(hud_trigger=trigger))
 
     def _suppress_arg(self, remote):
         # device_update is called with a keyword suppress_hud=...
@@ -153,6 +165,45 @@ def _make_real_param(param, alias=None, button=None):
     rp.alias = alias
     rp.button = button
     return rp
+
+
+class TestAutohideFlagWiring(unittest.TestCase):
+    """Input-driven auto-hide (hud-input-autohide-plan): summon surfaces send
+    AUTOHIDE|1 to the HUD, others AUTOHIDE|0. The flag rides with LAYOUT
+    (init + re-handshake + every burst head) so a late-starting HUD learns it."""
+
+    def _remote(self):
+        hud = Mock()
+        return Remote(manager=Mock(), osc_client=Mock(), hud_client=hud), hud
+
+    def test_set_autohide_stores_and_sends(self):
+        remote, hud = self._remote()
+        remote.set_autohide_on_input(True)
+        hud.send_autohide.assert_called_with(True)
+
+    def test_init_layout_emits_stored_flag(self):
+        remote, hud = self._remote()
+        remote.set_autohide_on_input(True)
+        hud.reset_mock()
+        remote.init_layout([(0, 0, 'dial', 1, 0, 0)])
+        hud.send_autohide.assert_called_with(True)
+
+    def test_resend_layout_emits_stored_flag(self):
+        remote, hud = self._remote()
+        remote.set_autohide_on_input(True)
+        remote.init_layout([(0, 0, 'dial', 1, 0, 0)])
+        hud.reset_mock()
+        remote.resend_layout()
+        hud.send_autohide.assert_called_with(True)
+
+    def test_helpers_enables_autohide_only_for_summon(self):
+        for trigger, expected in (('summon', True),
+                                  ('selection', False),
+                                  ('controller-nav', False)):
+            remote = Mock()
+            remote.seconds_since_last_hud_send.return_value = None
+            Helpers(Mock(), remote, SurfaceConfig(hud_trigger=trigger))
+            remote.set_autohide_on_input.assert_called_with(expected)
 
 
 class TestRemoteSuppressHud(unittest.TestCase):

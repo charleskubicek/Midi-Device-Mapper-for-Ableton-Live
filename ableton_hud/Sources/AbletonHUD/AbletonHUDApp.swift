@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             AbletonFocusMonitor.shared.start()
             HUDOverlayManager.shared.start()
+            GlobalInputMonitor.shared.start()   // SPIKE: log-only global input probe
         }
 
         os_log("[AbletonHUD] started — listening on UDP :5006", log: OSLog(subsystem: "com.local.AbletonHUD", category: "App"), type: .info)
@@ -37,6 +38,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         udpListener.stop()
         Task { @MainActor in
+            GlobalInputMonitor.shared.stop()
             HUDOverlayManager.shared.stop()
             AbletonFocusMonitor.shared.stop()
         }

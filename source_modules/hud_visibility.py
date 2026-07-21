@@ -57,6 +57,14 @@ class ViewLeft:
 
 
 @dataclass(frozen=True)
+class ClipViewChanged:
+    """Detail/Clip visibility flipped (hud-summon-only-plan, absorbed from the
+    clip-view plan). Entering clip view hides the HUD and gates later
+    selection/mode/region bursts; leaving clears the gate without re-showing."""
+    visible: bool
+
+
+@dataclass(frozen=True)
 class RegionCommit:
     """The lc_parks secondary region changed and a combined burst must re-emit."""
 
@@ -73,17 +81,30 @@ class ControlTouched:
 
 class HudVisibility:
     def __init__(self, trigger, fine=None):
-        # trigger: 'selection' (HUD follows Live's selected device) or
-        # 'controller-nav' (HUD only on explicit device-nav actions).
+        # trigger: 'selection' (HUD follows Live's selected device),
+        # 'controller-nav' (HUD only on explicit device-nav actions), or
+        # 'summon' (hidden by default; only hud_toggle / device-nav shows it).
         # The lc_parks compositor needs selection-driven focus to always show
         # (a HIDE-on-select races the parks-driven combined COMMIT); gen.py
         # expresses that by forcing the compositor's trigger to 'selection'.
         self.trigger = trigger
-        # Mirrors the Swift sticky dismissed flag.
-        self.dismissed = False
+        # Mirrors the Swift sticky dismissed flag. A summon surface boots
+        # hidden — nothing shows until the user asks.
+        self.dismissed = (trigger == 'summon')
+        # Detail/Clip is open: selection/mode/region bursts stay silent until the
+        # user leaves clip view (nav and toggle still override). The browser and
+        # other non-device views are handled by the Swift input monitor now
+        # (hud-input-autohide-plan), not by enumerating view listeners here.
+        self.clip_view_active = False
         # Gated trace sink. Off by default so unit tests and pre-flag
         # surfaces stay silent.
         self._fine = fine or (lambda msg: None)
+
+    @property
+    def view_gated(self):
+        """True while a non-device view (the clip editor) is open — the state
+        that suppresses selection/mode/region bursts."""
+        return self.clip_view_active
 
     def decide(self, event) -> Decision:
         before = self.dismissed
@@ -94,7 +115,7 @@ class HudVisibility:
         self._fine(
             f"[vis] decide event={type(event).__name__}({getattr(event, 'source', '')}) "
             f"trigger={self.trigger} dismissed={before}->{self.dismissed} "
-            f"decision={decision.value}"
+            f"clip={self.clip_view_active} decision={decision.value}"
         )
         return decision
 
@@ -108,21 +129,48 @@ class HudVisibility:
             self.dismissed = True
 
     def _classify(self, event) -> Decision:
+        if isinstance(event, ClipViewChanged):
+            # Entering hides + gates; leaving clears the gate but never
+            # auto-re-shows (the HUD stays hidden until the next normal trigger).
+            self.clip_view_active = event.visible
+            return Decision.HIDE if event.visible else Decision.NOTHING
         if isinstance(event, DeviceFocus):
+            # Explicit controller device-nav is a summon: it overrides both the
+            # summon-hidden default and any view gate (clear user intent).
             if event.source == 'nav':
                 return Decision.EMIT_BURST
-            # selection poll: show unless the surface is controller-nav-only.
+            if self.trigger == 'summon':
+                # Mouse/track selection never shows a summon HUD. Always silent
+                # (not "repaint if shown"): under summon the Swift input monitor
+                # hides on the very click that changed the device, so a repaint
+                # here would fight it across processes — and syncing to dismissed
+                # keeps the Python mirror consistent with the monitor's hide.
+                return Decision.EMIT_SILENT_AND_HIDE
+            # selection poll under selection / controller-nav. While a clip or the
+            # browser is open the HUD stays hidden (view-gate suppression).
+            if self.view_gated:
+                return Decision.EMIT_SILENT_AND_HIDE
             if self.trigger == 'selection':
                 return Decision.EMIT_BURST
             return Decision.EMIT_SILENT_AND_HIDE
         if isinstance(event, ModeChange):
+            if self.trigger == 'summon':
+                # A mode press must not summon a hidden HUD; repaint only a
+                # visible one.
+                if self.dismissed or self.view_gated:
+                    return Decision.EMIT_SILENT_AND_HIDE
+                return Decision.EMIT_BURST
+            if self.view_gated:
+                return Decision.EMIT_SILENT_AND_HIDE
             return Decision.EMIT_BURST
         if isinstance(event, UserToggle):
-            # Flip: shown -> hide, hidden -> show.
+            # Flip: shown -> hide, hidden -> show. Overrides the view gate.
             return Decision.EMIT_BURST if self.dismissed else Decision.HIDE
         if isinstance(event, ViewLeft):
             return Decision.HIDE
         if isinstance(event, RegionCommit):
+            if self.view_gated:
+                return Decision.EMIT_SILENT_AND_HIDE
             return Decision.EMIT_BURST
         if isinstance(event, RegionHide):
             return Decision.HIDE

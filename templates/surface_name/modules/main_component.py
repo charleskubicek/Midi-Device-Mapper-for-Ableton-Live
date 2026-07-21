@@ -151,10 +151,12 @@ class MainComponent(ControlSurfaceComponent):
 
         self._song.view.add_selected_parameter_listener(self._on_selected_parameter_changed)
 
-        # Dismiss the HUD when the user navigates away from the device (browser,
-        # Session/Arrangement switch, leaving the device chain). We over-index on
-        # hiding: only a fresh device burst re-shows the HUD. Callbacks are
-        # directional so they can't race our own show burst.
+        # Dismiss the HUD when the user navigates away from the device
+        # (Session/Arrangement switch, leaving the device chain, opening a clip).
+        # We over-index on hiding: only a fresh device burst re-shows the HUD.
+        # Callbacks are directional so they can't race our own show burst. The
+        # broader "any GUI interaction" auto-hide (browser/mixer/etc.) lives in
+        # the Swift input monitor (hud-input-autohide-plan), not here.
         self._app_view = Live.Application.get_application().view
         self._register_app_view_listeners()
 
@@ -163,14 +165,24 @@ class MainComponent(ControlSurfaceComponent):
             self._app_view.add_focused_document_view_listener(self._on_doc_view_changed)
         except Exception as e:
             self.log_message(f"HUD dismiss: failed to add focused_document_view listener: {e}")
-        try:
-            self._app_view.add_is_view_visible_listener('Browser', self._on_browser_visibility_changed)
-        except Exception as e:
-            self.log_message(f"HUD dismiss: failed to add Browser visibility listener: {e}")
+        # Note: the browser (and mixer/arrangement/etc.) are handled by the Swift
+        # HUD's global input monitor now (hud-input-autohide-plan) — any mac
+        # mouse/keyboard input in Ableton sticky-hides a summon HUD — not by
+        # enumerating view listeners here (Live's API can't even observe a click
+        # into an already-open docked browser).
         try:
             self._app_view.add_is_view_visible_listener('Detail/DeviceChain', self._on_detail_changed)
         except Exception as e:
             self.log_message(f"HUD dismiss: failed to add Detail/DeviceChain visibility listener: {e}")
+        try:
+            # Detail/Clip visibility gates the HUD under show-hud-on: summon
+            # (hud-summon-only-plan): opening a clip hides the HUD and keeps it
+            # silent through selection/mode bursts; closing it clears the gate.
+            # Unlike the other three (dismiss-only), this forwards BOTH directions.
+            self._app_view.add_is_view_visible_listener('Detail/Clip', self._on_clip_view_changed)
+            self._helpers.hud_clip_view_changed(self._app_view.is_view_visible('Detail/Clip'))
+        except Exception as e:
+            self.log_message(f"HUD dismiss: failed to add Detail/Clip visibility listener: {e}")
 
     def _attach_track_devices_listener(self):
         """Observe the selected track's device chain so a device *replace*
@@ -220,11 +232,11 @@ class MainComponent(ControlSurfaceComponent):
         except Exception:
             pass
         try:
-            self._app_view.remove_is_view_visible_listener('Browser', self._on_browser_visibility_changed)
+            self._app_view.remove_is_view_visible_listener('Detail/DeviceChain', self._on_detail_changed)
         except Exception:
             pass
         try:
-            self._app_view.remove_is_view_visible_listener('Detail/DeviceChain', self._on_detail_changed)
+            self._app_view.remove_is_view_visible_listener('Detail/Clip', self._on_clip_view_changed)
         except Exception:
             pass
 
@@ -234,18 +246,6 @@ class MainComponent(ControlSurfaceComponent):
         # redundantly (several times per change); HIDE is idempotent so that's fine.
         self.fine("[appview] _on_doc_view_changed -> hud_view_left")
         self._helpers.hud_view_left()
-
-    def _on_browser_visibility_changed(self):
-        # Hide only when the browser becomes visible (the user opened it). Fires
-        # on show/hide toggle only — clicking into an already-open browser is not
-        # observable in the Live API, so that case won't dismiss.
-        try:
-            visible = self._app_view.is_view_visible('Browser')
-            self.fine(f"[appview] _on_browser_visibility_changed visible={visible}")
-            if visible:
-                self._helpers.hud_view_left()
-        except Exception as e:
-            self.log_message(f"HUD dismiss: Browser visibility check failed: {e}")
 
     def _on_detail_changed(self):
         # Hide only when the device chain becomes hidden. Selecting a device makes
@@ -257,6 +257,17 @@ class MainComponent(ControlSurfaceComponent):
                 self._helpers.hud_view_left()
         except Exception as e:
             self.log_message(f"HUD dismiss: Detail/DeviceChain visibility check failed: {e}")
+
+    def _on_clip_view_changed(self):
+        # Detail/Clip visibility flipped. Both directions matter: visible=True
+        # hides + arms the clip-view gate, visible=False disarms it (without
+        # re-showing). The visibility table owns that logic.
+        try:
+            visible = self._app_view.is_view_visible('Detail/Clip')
+            self.fine(f"[appview] _on_clip_view_changed clip_visible={visible}")
+            self._helpers.hud_clip_view_changed(visible)
+        except Exception as e:
+            self.log_message(f"HUD dismiss: Detail/Clip visibility check failed: {e}")
 
     def button_handler(self, button, send_value):
         value = 127 if send_value > 0.0 else 0

@@ -72,9 +72,13 @@ class HudTrigger(str, Enum):
       - Selection: follows Live's selected device (the 1.5s poll); shows on any
         device change, mouse or controller.
       - ControllerNav: only a controller device-nav action shows the HUD;
-        selection changes from the mouse / track-select stay silent."""
+        selection changes from the mouse / track-select stay silent.
+      - Summon: hidden by default; only the hud_toggle button or an explicit
+        controller device-nav summons it, and it auto-hides whenever a
+        non-device view (clip view, browser, doc-view switch) is focused."""
     Selection = 'selection'
     ControllerNav = 'controller-nav'
+    Summon = 'summon'
 
 
 class ModeButton(BaseModel):
@@ -476,7 +480,7 @@ def read_root(mapping_path, source: str = "mapping file", acc=None) -> RootV2:
                 f"Invalid config in {source}: missing required HUD setting(s): "
                 f"{', '.join(missing)}. Every surface must state both explicitly:\n"
                 f"  - hud: on | device_only | off            (what the HUD shows)\n"
-                f"  - show-hud-on: selection | controller-nav (when it appears)\n"
+                f"  - show-hud-on: selection | controller-nav | summon (when it appears)\n"
                 f"See any config under live_surfaces/ for the documented block.",
                 ErrorCode.CONFIG_VALIDATION)
         root = RootV2ModesOrModeless(**data).buildRootV2()

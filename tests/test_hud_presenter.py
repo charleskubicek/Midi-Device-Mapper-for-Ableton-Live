@@ -43,17 +43,20 @@ class _DeadDeviceRaisingEq(_DeadDevice):
 
 def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=(),
                slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
-               mode_hud_labels=None, button_switch_count=0):
+               mode_hud_labels=None, button_switch_count=0, hud_trigger='controller-nav'):
     resolver = ParameterResolver(
         device_table=_build_device_table(None), device_banks={}, bank_names={},
         banks_per_page=1, button_switch_count=button_switch_count, button_slot_count=8,
         log=lambda m: None)
     remote = Mock()
+    # Idle-toggle passthrough: default to "no send yet" so toggle's idle-sync is
+    # skipped (Mock() > 7 would raise). Idle tests override return_value.
+    remote.seconds_since_last_hud_send.return_value = None
     p = HudPresenter(remote=remote, resolver=resolver,
                      slot_assignments=list(slot_assignments),
                      switch_slot_assignments=list(switch_slot_assignments),
                      hud_cells=list(hud_cells), mode_hud_labels=mode_hud_labels or {},
-                     log=lambda m: None,
+                     log=lambda m: None, hud_trigger=hud_trigger,
                      slot_assignments_by_mode=slot_assignments_by_mode,
                      switch_slot_assignments_by_mode=switch_slot_assignments_by_mode)
     return p, remote
@@ -92,15 +95,15 @@ class TestHudPresenterDirect(unittest.TestCase):
         self.assertTrue(p.hud_dismissed)
         remote.hide.assert_called_once()
 
-    def test_toggle_hides_then_reshows(self):
+    def test_toggle_sends_marker_then_fresh_burst(self):
+        # HUD-arbitrated toggle: every press sends a TOGGLE marker followed by a
+        # fresh burst; the HUD decides show-vs-hide. Python never calls hide().
         p, remote = _presenter(slot_assignments=[(1, 'slot1')])
         dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
-        p.toggle(dev)               # dismiss -> hide
-        self.assertTrue(p.hud_dismissed)
-        remote.hide.assert_called_once()
-        p.toggle(dev)               # show -> burst
-        self.assertFalse(p.hud_dismissed)
-        remote.device_update.assert_called()
+        p.toggle(dev)
+        remote.send_toggle.assert_called_once()
+        remote.device_update.assert_called_once()
+        remote.hide.assert_not_called()
 
     def test_label_only_burst_when_no_device(self):
         p, remote = _presenter()
@@ -284,6 +287,159 @@ class TestVisibilityWiring(unittest.TestCase):
         p.reemit_combined_burst(dev)
         self.assertFalse(p.hud_dismissed)
         remote.device_update.assert_called_once()
+
+
+class TestModeRefreshHonoursSilentDecision(unittest.TestCase):
+    """Under summon, a mode press while the HUD is hidden must not summon it:
+    refresh_for_mode routes the ModeChange decision into suppress_hud like
+    on_device_focus, instead of always showing."""
+
+    def test_mode_refresh_while_hidden_summon_is_silent(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        # summon boots dismissed; a mode change must stay silent + hide.
+        p.refresh_for_mode('mode-a', dev)
+        self.assertTrue(p.hud_dismissed)
+        remote.hide.assert_called_once()
+
+    def test_mode_refresh_while_shown_summon_repaints(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)                 # summon -> shown
+        remote.reset_mock()
+        remote.seconds_since_last_hud_send.return_value = None
+        p.refresh_for_mode('mode-a', dev)
+        self.assertFalse(p.hud_dismissed)
+        remote.hide.assert_not_called()
+        remote.device_update.assert_called()
+
+    def test_label_only_mode_refresh_while_hidden_summon_is_silent(self):
+        # No focused device: the label-only path must also honour suppress.
+        p, remote = _presenter(hud_trigger='summon')
+        p.refresh_for_mode('mode-a', None)
+        self.assertTrue(p.hud_dismissed)
+        remote.hide.assert_called_once()
+
+    def test_selection_trigger_mode_refresh_still_shows(self):
+        # Non-summon surfaces keep the old "mode change always shows" feel.
+        p, remote = _presenter(hud_trigger='selection')
+        p.refresh_for_mode('mode-a', None)
+        self.assertFalse(p.hud_dismissed)
+        remote.hide.assert_not_called()
+
+
+class TestClipViewChanged(unittest.TestCase):
+    """The presenter's clip_view_changed forwards both directions to the
+    visibility table and hides on the HIDE decision."""
+
+    def test_entering_clip_view_hides(self):
+        p, remote = _presenter(hud_trigger='selection')
+        p.clip_view_changed(True)
+        remote.hide.assert_called_once()
+        self.assertTrue(p.hud_dismissed)
+
+    def test_leaving_clip_view_does_not_hide_or_show(self):
+        p, remote = _presenter(hud_trigger='selection')
+        p.clip_view_changed(True)
+        remote.reset_mock()
+        p.clip_view_changed(False)
+        remote.hide.assert_not_called()
+        remote.device_update.assert_not_called()
+
+    def test_clip_view_gate_suppresses_selection_burst(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='selection')
+        p.clip_view_changed(True)
+        remote.reset_mock()
+        remote.seconds_since_last_hud_send.return_value = None
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.on_device_focus(dev, 'selection')
+        self.assertTrue(p.hud_dismissed)
+        remote.hide.assert_called_once()
+
+
+class TestHudArbitratedToggle(unittest.TestCase):
+    """hud_toggle is arbitrated by the HUD (Python can't track HUD visibility —
+    it hides autonomously via the idle timer and the input monitor). Every press
+    sends a TOGGLE marker + a fresh burst; the HUD hides if it was visible, shows
+    the fresh data if not. So on the Python side a press is always
+    `send_toggle()` + a burst, never a hide(), for every trigger."""
+
+    def test_summon_toggle_marker_then_burst(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)
+        remote.send_toggle.assert_called_once()
+        remote.device_update.assert_called_once()
+        remote.hide.assert_not_called()
+
+    def test_marker_precedes_burst(self):
+        # The TOGGLE must reach the HUD before the burst's COMMIT so the HUD arms
+        # its arbitration against the pre-burst visibility. send_toggle is fired
+        # before emit_current_burst (which produces device_update).
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        order = []
+        remote.send_toggle.side_effect = lambda: order.append('toggle')
+        remote.device_update.side_effect = lambda *a, **k: order.append('burst')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)
+        self.assertEqual(order, ['toggle', 'burst'])
+
+    def test_non_summon_toggle_also_arbitrated(self):
+        # No more Python-side flip/idle-sync — the HUD decides for every trigger.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='controller-nav')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)
+        remote.send_toggle.assert_called_once()
+        remote.hide.assert_not_called()
+
+    def test_toggle_without_device_still_sends_marker_and_burst(self):
+        p, remote = _presenter(hud_trigger='summon')
+        p.toggle(None)
+        remote.send_toggle.assert_called_once()
+        remote.device_update.assert_called_once()   # label-only burst
+        remote.hide.assert_not_called()
+
+
+class TestIdleSyncOnDeviceFocus(unittest.TestCase):
+    """The idle-sync mirror fix still guards the device-focus / mode-refresh
+    paths (a Swift idle-dismiss the Python mirror never learned about)."""
+
+    def test_summon_selection_after_idle_hide_stays_hidden(self):
+        # The core-promise regression: under summon the HUD is shown (toggled
+        # on), the Swift idle timer then sticky-hides it (Python mirror still
+        # reads shown), and a mouse selection arrives. It must NOT re-summon.
+        from source_modules.hud_protocol import IDLE_DISMISS_SECONDS
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)                          # summon -> shown, mirror dismissed=False
+        self.assertFalse(p.hud_dismissed)
+        remote.reset_mock()
+        remote.seconds_since_last_hud_send.return_value = IDLE_DISMISS_SECONDS + 1
+        p.on_device_focus(dev, 'selection')    # mouse click after the idle hide
+        self.assertTrue(p.hud_dismissed)       # stayed hidden
+        remote.hide.assert_called_once()
+
+    def test_summon_mode_press_after_idle_hide_stays_hidden(self):
+        from source_modules.hud_protocol import IDLE_DISMISS_SECONDS
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)
+        remote.reset_mock()
+        remote.seconds_since_last_hud_send.return_value = IDLE_DISMISS_SECONDS + 1
+        p.refresh_for_mode('mode-a', dev)      # shift/mode press after idle hide
+        self.assertTrue(p.hud_dismissed)
+        remote.hide.assert_called_once()
+
+    def test_selection_trigger_after_idle_hide_still_repaints(self):
+        # Non-summon must be unaffected: selection repaints regardless of the
+        # synced mirror (its DeviceFocus rule ignores `dismissed`).
+        from source_modules.hud_protocol import IDLE_DISMISS_SECONDS
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='selection')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        remote.seconds_since_last_hud_send.return_value = IDLE_DISMISS_SECONDS + 1
+        p.on_device_focus(dev, 'selection')
+        self.assertFalse(p.hud_dismissed)      # repainted, shown
+        remote.hide.assert_not_called()
 
 
 if __name__ == "__main__":

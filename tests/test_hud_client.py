@@ -110,6 +110,49 @@ class TestHudClientDatagrams(unittest.TestCase):
         self.assertEqual(c._socket.datagrams, ["PING\n"])
 
 
+class TestHudClientActivityClock(unittest.TestCase):
+    """The single send chokepoint stamps a clock on every real datagram so
+    hud_toggle can detect a Swift idle-dismiss (hud-summon-only-plan). Injected
+    clock makes the math unit-testable."""
+
+    def _client(self, clock):
+        c = HudClient(clock=clock)
+        c._socket = FakeSocket()
+        return c
+
+    def test_none_before_any_send(self):
+        c = self._client(lambda: 100.0)
+        self.assertIsNone(c.seconds_since_last_send())
+
+    def test_stamps_on_send_and_measures_elapsed(self):
+        now = [100.0]
+        c = self._client(lambda: now[0])
+        c.send_ping()                       # stamps at 100.0
+        now[0] = 108.5
+        self.assertAlmostEqual(c.seconds_since_last_send(), 8.5)
+
+    def test_burst_flush_counts_as_activity(self):
+        now = [50.0]
+        c = self._client(lambda: now[0])
+        c.begin_burst()
+        c.send_device("EQ Eight")
+        c.commit(0)
+        c.flush_burst()                     # one datagram out -> stamps at 50.0
+        now[0] = 51.0
+        self.assertAlmostEqual(c.seconds_since_last_send(), 1.0)
+
+    def test_disabled_send_does_not_stamp(self):
+        # A discarded datagram must not count as activity (the Swift timer never
+        # saw it), so the stamp stays None.
+        c = self._client(lambda: 100.0)
+        c.set_enabled(False)
+        c.send_ping()
+        self.assertIsNone(c.seconds_since_last_send())
+
+    def test_null_client_reports_none(self):
+        self.assertIsNone(NullHudClient().seconds_since_last_send())
+
+
 class TestHudClientWire(unittest.TestCase):
     def test_single_source_lines(self):
         c = CapturingHudClient()
@@ -142,6 +185,23 @@ class TestHudClientWire(unittest.TestCase):
     def test_null_client_set_enabled_is_noop(self):
         NullHudClient().set_enabled(False)
         NullHudClient().set_enabled(True)
+
+    def test_send_autohide_on_wire(self):
+        c = CapturingHudClient()
+        c.send_autohide(True)
+        c.send_autohide(False)
+        self.assertEqual(c.sent, ["AUTOHIDE|1", "AUTOHIDE|0"])
+
+    def test_null_client_send_autohide_is_noop(self):
+        NullHudClient().send_autohide(True)
+
+    def test_send_toggle_on_wire(self):
+        c = CapturingHudClient()
+        c.send_toggle()
+        self.assertEqual(c.sent, ["TOGGLE"])
+
+    def test_null_client_send_toggle_is_noop(self):
+        NullHudClient().send_toggle()
 
 
 if __name__ == '__main__':

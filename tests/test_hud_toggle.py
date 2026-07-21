@@ -90,9 +90,13 @@ class TestToggleHudRuntime(unittest.TestCase):
     def _helpers(self):
         # no slot/switch assignments and no focused device → toggle_hud's show
         # path emits the label-only burst directly on the (mock) remote.
+        remote = Mock()
+        # Idle-toggle passthrough: "no send yet" so toggle's idle-sync is skipped
+        # (a bare Mock() > 7 would raise).
+        remote.seconds_since_last_hud_send.return_value = None
         return Helpers(
                    Mock(),
-                   Mock(),
+                   remote,
                    SurfaceConfig(
                        slot_assignments=[],
                        switch_slot_assignments=[],
@@ -100,42 +104,32 @@ class TestToggleHudRuntime(unittest.TestCase):
                    ),
                )
 
-    def test_first_press_hides(self):
+    def test_press_sends_toggle_marker_then_burst(self):
+        # HUD-arbitrated toggle: a press sends a TOGGLE marker + a fresh burst;
+        # the HUD decides show-vs-hide, so Python never calls hide().
         h = self._helpers()
         h._remote.reset_mock()
 
         h.toggle_hud()
 
-        self.assertTrue(h._presenter.hud_dismissed)
-        h._remote.hide.assert_called_once()
-        h._remote.device_update.assert_not_called()
-
-    def test_second_press_reshows_and_clears_intent(self):
-        h = self._helpers()
-        h.toggle_hud()            # hide
-        h._remote.reset_mock()
-
-        h.toggle_hud()            # show
-
-        self.assertFalse(h._presenter.hud_dismissed)
+        h._remote.send_toggle.assert_called_once()
+        h._remote.device_update.assert_called_once()   # label-only burst (no device)
         h._remote.hide.assert_not_called()
-        h._remote.device_update.assert_called_once()
 
     def test_label_only_burst_resets_intent(self):
-        # A mode burst with no focused device clears the Swift sticky flag;
-        # intent must re-sync so the toggle direction doesn't invert.
+        # A mode burst with no focused device clears the Swift sticky flag so the
+        # Python mirror re-syncs to shown.
         h = self._helpers()
-        h.toggle_hud()            # dismissed = True
-        self.assertTrue(h._presenter.hud_dismissed)
+        h._presenter.hud_dismissed = True
 
         h.refresh_hud_for_mode("mode_1", None)
 
         self.assertFalse(h._presenter.hud_dismissed)
 
     def test_device_focus_burst_resets_intent(self):
-        # The inversion-fix path: HUD dismissed, then a *device* burst (the
-        # common "select another device while hidden" case) must reset intent.
-        # This exercises the reset at the tail of update_remote_parameters.
+        # HUD dismissed, then a *device* burst (the common "select another device
+        # while hidden" case) must reset intent. Exercises the reset at the tail
+        # of update_remote_parameters.
         from dataclasses import dataclass, field
 
         @dataclass
@@ -149,8 +143,7 @@ class TestToggleHudRuntime(unittest.TestCase):
 
         h = self._helpers()
         h._last_selected_device = _Dev()
-        h.toggle_hud()            # dismissed = True
-        self.assertTrue(h._presenter.hud_dismissed)
+        h._presenter.hud_dismissed = True
 
         h.update_remote_parameters()   # device-focus burst
 

@@ -11,6 +11,14 @@ from dataclasses import dataclass
 from typing import List, NamedTuple, Union
 
 
+# Idle-dismiss window shared with the Swift HUD. When the overlay sees no
+# COMMIT/UPDATE/PING for this many seconds it sticky-dismisses itself (see
+# HUDOverlayManager.armDismissTimer's `withTimeInterval: 7`). The Python side
+# mirrors the same constant so `hud_toggle` can tell, from send activity alone,
+# when the Swift timer has probably fired and re-show on a single press instead
+# of two. Keep the two values in lockstep — see hud_protocol.md.
+IDLE_DISMISS_SECONDS = 7
+
 # Empty-slot sentinel used by senders for any cell position not bound to a
 # real parameter. Receivers render this as a blank slot.
 EMPTY_NAME = ''
@@ -154,6 +162,19 @@ def encode_ping() -> str:
 
 def encode_hide() -> str:
     return "HIDE"
+
+
+def encode_autohide(enabled: bool) -> str:
+    # Input-driven auto-hide flag (hud-input-autohide-plan). Only summon surfaces
+    # send AUTOHIDE|1; the HUD defaults it off. Sent with LAYOUT so a HUD that
+    # started after the surface still learns it.
+    return f"AUTOHIDE|{1 if enabled else 0}"
+
+
+def encode_toggle() -> str:
+    # hud_toggle press. Sent at the head of a fresh burst; the HUD arbitrates
+    # show-vs-hide from its own true visibility (hud-input-autohide-plan).
+    return "TOGGLE"
 
 
 def encode_page_info(enc_page: int, enc_total: int, btn_page: int, btn_total: int,

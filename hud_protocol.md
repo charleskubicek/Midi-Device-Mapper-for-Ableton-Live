@@ -197,7 +197,7 @@ HIDE
 ```
 
 - **Emitted:** by `application.view` listeners in the generated surface
-  (`main_component.py`: `_on_doc_view_changed`, `_on_browser_visibility_changed`,
+  (`main_component.py`: `_on_doc_view_changed`, `_on_clip_view_changed`,
   `_on_detail_changed`) via `HudClient.send_hide()`. Callbacks are directional —
   they only fire on the away-transition, never on selecting a device.
 - **Receiver effect:** sets the **sticky** `dismissed` flag and hides the
@@ -206,6 +206,32 @@ HIDE
   automated parameter emitting `UPDATE` during playback — cannot resurrect the
   HUD. The flag is cleared only by the next device burst (`DEVICE` or `COMMIT`),
   i.e. the user reselecting a device.
+
+### `AUTOHIDE`
+
+Whether this surface wants **input-driven auto-hide** (hud-input-autohide-plan):
+while enabled, the native HUD sticky-dismisses on any mac mouse-click or
+keystroke while Ableton is frontmost. Only `show-hud-on: summon` surfaces enable
+it; the browser/mixer/arrangement etc. are handled here instead of by enumerating
+Live view-visibility listeners (Live's API can't observe most non-device clicks).
+
+```
+AUTOHIDE|<0|1>
+```
+
+- **Emitted:** by `Remote.set_autohide_on_input` (once at init) and re-emitted
+  with `LAYOUT` — on init, re-handshake, and the head of every non-suppressed
+  burst — so a HUD that started after the surface still learns it. Value is `1`
+  iff `hud_trigger == 'summon'`.
+- **Receiver effect:** sets `DeviceState.autoHideOnInput`. The Swift
+  `GlobalInputMonitor` (an `NSEvent` global monitor) dismisses via the
+  `InputDismissPolicy` when this flag is set **and** Ableton is frontmost **and**
+  the event isn't over the HUD panel. Default **false** until an `AUTOHIDE|1`
+  arrives, so pre-handshake and non-summon surfaces never input-hide. Old
+  receivers that don't know `AUTOHIDE` parse it as `.unknown` and ignore it.
+- **Permission:** mouse-down monitoring needs no grant; keyboard needs macOS
+  Accessibility / Input Monitoring (the app prompts). The bundle is signed with a
+  stable local cert (`dev-codesign-setup.sh`) so the grant survives rebuilds.
 
 ### `PAGE`
 
@@ -585,7 +611,20 @@ dense-symmetric emission, every wire index in a burst is populated by a
 pending dict are an error condition rather than the normal case.
 
 The dismiss timer is reset on `COMMIT`, `UPDATE`, and `PING`. If none of those
-arrive within the dismiss window, the HUD hides itself.
+arrive within the **dismiss window**, the HUD hides itself. That window is a
+shared constant, mirrored on both sides and kept in lockstep:
+
+- Swift: `HUDOverlayManager.armDismissTimer` (`withTimeInterval: 7`).
+- Python: `hud_protocol.IDLE_DISMISS_SECONDS` (= 7).
+
+When the timer fires it now sets the same sticky `dismissed` flag that `HIDE`
+sets (`DeviceState.timerDismiss`), not just an `orderOut` — otherwise the next
+automation `UPDATE` during playback would resurrect a HUD the user let idle away
+(the `show-hud-on: summon` failure this prevents). A dismissed HUD ignores
+`UPDATE` entirely (no slot patch, no visibility signal); the next `DEVICE`/
+`COMMIT` burst clears the flag and repaints. The surface reads the same window
+via `HudClient.seconds_since_last_send()` so a `hud_toggle` press after an idle
+dismiss re-shows on the first press instead of needing two.
 
 `HIDE` is an out-of-band dismiss orthogonal to the timer: it sets the sticky
 `dismissed` flag (in `DeviceState`) and hides immediately. While set, the overlay

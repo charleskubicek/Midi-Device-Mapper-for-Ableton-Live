@@ -136,6 +136,10 @@ class Helpers:
             mode_hud_labels=config.mode_hud_labels or {},
             log=self.log_message, hud_trigger=config.hud_trigger,
             fine=self.fine)
+        # Input-driven auto-hide is a summon-only behaviour: the HUD sticky-hides
+        # on any mac mouse/keyboard input in Ableton (hud-input-autohide-plan).
+        # Set before init_layout so the flag rides the initial LAYOUT emission.
+        self._remote.set_autohide_on_input(config.hud_trigger == 'summon')
         self._remote.init_layout(hud_cells, config.hud_dividers)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
@@ -531,6 +535,12 @@ class Helpers:
         table so the dismiss mirror stays in sync with the Swift sticky flag."""
         self._presenter.view_left()
 
+    def hud_clip_view_changed(self, visible):
+        """The generated surface's Detail/Clip visibility listener forwards both
+        directions here. Entering clip view hides the HUD and gates bursts;
+        leaving clears the gate without re-showing (hud-summon-only-plan)."""
+        self._presenter.clip_view_changed(visible)
+
     def value_is_max(self, value, max):
         return value == max
 
@@ -590,6 +600,10 @@ class Remote:
         # each burst for the same restart-resilience reason. Empty -> no DIVIDERS
         # line, so non-divider surfaces are byte-identical on the wire.
         self._hud_dividers = []
+        # Input-driven auto-hide flag (hud-input-autohide-plan). Summon surfaces
+        # set this True; re-emitted with LAYOUT each burst for the same
+        # restart-resilience reason (a HUD that started late learns it).
+        self._hud_autohide = False
         # Optional secondary-region cache (lc_parks compositor). When set, its
         # cached dial/button payloads are appended to the HUD burst so the parks
         # region rides along in the single combined stream.
@@ -597,6 +611,13 @@ class Remote:
 
     def set_region_state(self, region_state):
         self._region_state = region_state
+
+    def set_autohide_on_input(self, enabled):
+        """Record + emit the input-driven auto-hide flag (summon surfaces only).
+        Stored so every burst re-emits it (restart-resilient), and sent once now
+        for the common case where the HUD is already up."""
+        self._hud_autohide = bool(enabled)
+        self._hud_client.send_autohide(self._hud_autohide)
 
     def init_layout(self, cells, dividers=None):
         # Remember the layout so every burst can re-emit it (restart-resilient),
@@ -607,6 +628,7 @@ class Remote:
             self._hud_client.send_layout(self._hud_cells)
         if self._hud_dividers:
             self._hud_client.send_dividers(self._hud_dividers)
+        self._hud_client.send_autohide(self._hud_autohide)
 
     def resend_layout(self):
         """Re-emit the stored LAYOUT without re-deriving it. Public entry point
@@ -617,10 +639,23 @@ class Remote:
             self._hud_client.send_layout(self._hud_cells)
         if self._hud_dividers:
             self._hud_client.send_dividers(self._hud_dividers)
+        self._hud_client.send_autohide(self._hud_autohide)
 
     def hide(self):
         """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
         self._hud_client.send_hide()
+
+    def send_toggle(self):
+        """Emit a TOGGLE marker (hud_toggle press). Must be sent immediately
+        before the fresh burst so the HUD arms its show-vs-hide arbitration
+        against its pre-burst visibility."""
+        self._hud_client.send_toggle()
+
+    def seconds_since_last_hud_send(self):
+        """Seconds since any datagram (burst/UPDATE/PING) last left for the HUD,
+        or None if nothing has been sent. HudPresenter reads this to detect a
+        Swift idle-dismiss so hud_toggle re-shows on a single press."""
+        return self._hud_client.seconds_since_last_send()
 
     #TODO unit tests datatypes sent
     def parameter_updated(self, real_param, parameter_no):
@@ -668,6 +703,7 @@ class Remote:
                     self._hud_client.send_layout(self._hud_cells)
                 if self._hud_dividers:
                     self._hud_client.send_dividers(self._hud_dividers)
+                self._hud_client.send_autohide(self._hud_autohide)
                 self._hud_client.send_device(snapshot.device_name)
                 if snapshot.page is not None:
                     p = snapshot.page

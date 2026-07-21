@@ -178,6 +178,15 @@ class TestEncodeBytes(unittest.TestCase):
     def test_hide(self):
         self.assertEqual(encode_hide(), "HIDE")
 
+    def test_autohide(self):
+        from source_modules.hud_protocol import encode_autohide
+        self.assertEqual(encode_autohide(True), "AUTOHIDE|1")
+        self.assertEqual(encode_autohide(False), "AUTOHIDE|0")
+
+    def test_toggle(self):
+        from source_modules.hud_protocol import encode_toggle
+        self.assertEqual(encode_toggle(), "TOGGLE")
+
     def test_page_info(self):
         self.assertEqual(encode_page_info(1, 3, 1, 2), "PAGE|1|3|1|2")
 

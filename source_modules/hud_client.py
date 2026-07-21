@@ -1,5 +1,6 @@
 import socket
 import logging
+import time
 
 from . import hud_protocol
 
@@ -11,10 +12,16 @@ class HudClient:
     # 127.0.0.1:5006, but the parks forwarder points its client at the
     # `lc_parks` compositor's region port instead, which relays/merges into the
     # one HUD stream.
-    def __init__(self, host='127.0.0.1', port=5006):
+    def __init__(self, host='127.0.0.1', port=5006, clock=None):
         self._host = host
         self._port = port
         self._socket = None
+        # Single chokepoint for wall-clock "last time anything went out" — every
+        # PING/UPDATE/burst datagram passes through `_sendto`. `hud_toggle` reads
+        # `seconds_since_last_send()` to mirror the Swift idle-dismiss timer (see
+        # IDLE_DISMISS_SECONDS). Injectable clock so the math is unit-testable.
+        self._clock = clock or time.monotonic
+        self._last_send = None
         # When a list, `_send` buffers lines instead of emitting them, so a whole
         # burst can be flushed as ONE datagram (burst-atomic on the wire — a lost
         # datagram then loses the whole burst rather than mixing devices). See
@@ -48,8 +55,19 @@ class HudClient:
             return
         try:
             self._socket.sendto(payload.encode('utf-8'), (self._host, self._port))
+            # Stamp only on a real send: this timestamp stands in for "the Swift
+            # idle timer was just re-armed", so a discarded/failed datagram must
+            # not count as activity.
+            self._last_send = self._clock()
         except Exception as e:
             logger.error(f"HudClient._sendto: {e}")
+
+    def seconds_since_last_send(self):
+        """Seconds since the last datagram actually left, or None if nothing has
+        been sent yet. Read by `hud_toggle` to detect a Swift idle-dismiss."""
+        if self._last_send is None:
+            return None
+        return self._clock() - self._last_send
 
     def set_enabled(self, flag: bool):
         """Gate all outgoing datagrams. Used by HudArbiter: only the elected
@@ -106,6 +124,12 @@ class HudClient:
     def send_hide(self):
         self._send(hud_protocol.encode_hide())
 
+    def send_autohide(self, enabled: bool):
+        self._send(hud_protocol.encode_autohide(enabled))
+
+    def send_toggle(self):
+        self._send(hud_protocol.encode_toggle())
+
     def send_mode(self, is_shift: bool):
         self._send(hud_protocol.encode_mode(is_shift))
 
@@ -125,8 +149,10 @@ class HudClient:
 
 
 class NullHudClient:
-    def __init__(self, host='127.0.0.1', port=5006): pass
+    # Parallel interface to HudClient; every method is a no-op.
+    def __init__(self, host='127.0.0.1', port=5006, clock=None): pass
     def set_enabled(self, flag: bool): pass
+    def seconds_since_last_send(self): return None
     def begin_burst(self): pass
     def flush_burst(self): pass
     def send_layout(self, cells): pass
@@ -137,6 +163,8 @@ class NullHudClient:
     def commit(self, count: int): pass
     def send_ping(self): pass
     def send_hide(self): pass
+    def send_autohide(self, enabled: bool): pass
+    def send_toggle(self): pass
     def send_mode(self, is_shift: bool): pass
     def send_page_info(self, enc_page, enc_total, btn_page, btn_total, enc_label='', btn_label=''): pass
     def send_event(self, kind, wire_idx, text): pass

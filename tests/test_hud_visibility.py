@@ -6,6 +6,7 @@ import unittest
 from source_modules.hud_visibility import (
     HudVisibility, Decision,
     DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit, RegionHide, ControlTouched,
+    ClipViewChanged,
 )
 
 
@@ -107,6 +108,125 @@ class TestRaceInvariants(unittest.TestCase):
         self.assertTrue(v.dismissed)
         v.decide(DeviceFocus('nav'))               # a real burst
         self.assertFalse(v.dismissed)              # intent re-synced
+
+
+class TestSummonTrigger(unittest.TestCase):
+    """show-hud-on: summon (hud-summon-only-plan): hidden by default; only
+    UserToggle or an explicit controller device-nav summons the HUD. A
+    selection poll / mode press repaints only while the HUD is already shown
+    (a visible HUD must never go stale), and stays silent while hidden."""
+
+    def test_starts_dismissed_only_under_summon(self):
+        self.assertTrue(HudVisibility('summon').dismissed)
+        for trigger in ('selection', 'controller-nav'):
+            self.assertFalse(HudVisibility(trigger).dismissed)
+
+    def test_selection_while_hidden_is_silent(self):
+        v = HudVisibility('summon')
+        self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
+        self.assertTrue(v.dismissed)
+
+    def test_selection_always_silent_even_when_shown(self):
+        # Mouse/track selection never shows a summon HUD — not even to repaint a
+        # visible one. The Swift input monitor hides on that same click; a
+        # repaint here would fight it across processes (hud-input-autohide-plan).
+        v = HudVisibility('summon')
+        v.decide(UserToggle())               # summoned -> shown
+        self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
+        self.assertTrue(v.dismissed)
+
+    def test_mode_change_while_hidden_is_silent(self):
+        # Under summon a mode press must not summon the HUD.
+        v = HudVisibility('summon')
+        self.assertEqual(v.decide(ModeChange()), Decision.EMIT_SILENT_AND_HIDE)
+        self.assertTrue(v.dismissed)
+
+    def test_mode_change_while_shown_repaints(self):
+        v = HudVisibility('summon')
+        v.decide(UserToggle())
+        self.assertEqual(v.decide(ModeChange()), Decision.EMIT_BURST)
+
+    def test_nav_summons(self):
+        v = HudVisibility('summon')
+        self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
+        self.assertFalse(v.dismissed)
+
+    def test_toggle_flips_from_startup_hidden(self):
+        v = HudVisibility('summon')
+        self.assertEqual(v.decide(UserToggle()), Decision.EMIT_BURST)
+        self.assertEqual(v.decide(UserToggle()), Decision.HIDE)
+
+    def test_nav_summons_even_in_clip_view(self):
+        v = HudVisibility('summon')
+        v.decide(ClipViewChanged(visible=True))
+        self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
+
+    def test_toggle_summons_even_in_clip_view(self):
+        v = HudVisibility('summon')
+        v.decide(ClipViewChanged(visible=True))
+        self.assertEqual(v.decide(UserToggle()), Decision.EMIT_BURST)
+
+    def test_selection_in_clip_view_is_silent_even_if_shown(self):
+        # Summoned inside clip view, then a mouse selection: the clip gate wins.
+        v = HudVisibility('summon')
+        v.decide(ClipViewChanged(visible=True))
+        v.decide(UserToggle())               # shown, clip gate still active
+        self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
+
+    def test_view_left_hides(self):
+        v = HudVisibility('summon')
+        v.decide(UserToggle())
+        self.assertEqual(v.decide(ViewLeft()), Decision.HIDE)
+        self.assertTrue(v.dismissed)
+
+
+class TestClipViewChanged(unittest.TestCase):
+    """The Detail/Clip gate (absorbed from hide-hud-in-clip-view-plan), for
+    every trigger: entering hides, leaving clears the gate without re-showing,
+    and while the gate is up selection/mode/region bursts go silent."""
+
+    def test_entering_clip_view_hides_under_every_trigger(self):
+        for trigger in ('selection', 'controller-nav', 'summon'):
+            v = HudVisibility(trigger)
+            self.assertEqual(v.decide(ClipViewChanged(visible=True)), Decision.HIDE)
+            self.assertTrue(v.dismissed)
+            self.assertTrue(v.clip_view_active)
+
+    def test_leaving_clip_view_never_reshows(self):
+        v = HudVisibility('selection')
+        v.decide(ClipViewChanged(visible=True))
+        self.assertEqual(v.decide(ClipViewChanged(visible=False)), Decision.NOTHING)
+        self.assertFalse(v.clip_view_active)
+        self.assertTrue(v.dismissed)   # hidden until the next normal trigger
+
+    def test_selection_burst_suppressed_while_clip_open(self):
+        for trigger in ('selection', 'controller-nav'):
+            v = HudVisibility(trigger)
+            v.decide(ClipViewChanged(visible=True))
+            self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
+
+    def test_mode_change_suppressed_while_clip_open(self):
+        v = HudVisibility('selection')
+        v.decide(ClipViewChanged(visible=True))
+        self.assertEqual(v.decide(ModeChange()), Decision.EMIT_SILENT_AND_HIDE)
+
+    def test_region_commit_suppressed_while_clip_open(self):
+        v = HudVisibility('selection')
+        v.decide(ClipViewChanged(visible=True))
+        self.assertEqual(v.decide(RegionCommit()), Decision.EMIT_SILENT_AND_HIDE)
+
+    def test_nav_overrides_clip_view(self):
+        # Explicit controller device-nav is clear user intent — show anyway.
+        for trigger in ('selection', 'controller-nav'):
+            v = HudVisibility(trigger)
+            v.decide(ClipViewChanged(visible=True))
+            self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
+
+    def test_selection_resumes_after_leaving_clip_view(self):
+        v = HudVisibility('selection')
+        v.decide(ClipViewChanged(visible=True))
+        v.decide(ClipViewChanged(visible=False))
+        self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_BURST)
 
 
 class TestFineTrace(unittest.TestCase):

@@ -78,6 +78,17 @@ public enum WireMessage: Equatable {
     /// column. Empty array = no dividers. Behaves like LAYOUT: buffered, then
     /// published on COMMIT.
     case dividers([Int])
+    /// Whether this surface wants input-driven auto-hide: while true, the HUD
+    /// sticky-dismisses on any mac mouse/keyboard input in Ableton (summon
+    /// surfaces only — see hud-input-autohide-plan). Sent with LAYOUT so a
+    /// late-starting HUD learns it; default false until an `AUTOHIDE|1` arrives.
+    case autoHide(Bool)
+    /// hud_toggle press. The HUD arbitrates show-vs-hide from its own true
+    /// visibility (Python can't track it — the HUD hides autonomously via the
+    /// idle timer and input monitor). Sent at the head of a fresh burst: if the
+    /// HUD was visible it hides on that burst's COMMIT, else it shows the fresh
+    /// data. See hud-input-autohide-plan.
+    case toggleRequest
     case unknown
 }
 
@@ -165,6 +176,15 @@ public enum WireProtocol {
             guard fields.count >= 4, let wireIdx = Int(fields[2]) else { return .unknown }
             let text = fields[3...].joined(separator: "|")
             return .event(kind: fields[1], wireIdx: wireIdx, text: text)
+
+        case "AUTOHIDE":
+            // AUTOHIDE|<0|1> — enable input-driven auto-hide for this surface.
+            guard fields.count == 2, fields[1] == "0" || fields[1] == "1" else { return .unknown }
+            return .autoHide(fields[1] == "1")
+
+        case "TOGGLE":
+            guard fields.count == 1 else { return .unknown }
+            return .toggleRequest
 
         case "DIVIDERS":
             // DIVIDERS|<n>|<col0>|<col1>|... — cosmetic HUD column rules.

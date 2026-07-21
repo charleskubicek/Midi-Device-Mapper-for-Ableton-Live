@@ -11,9 +11,10 @@ fires events (`DeviceFocus`, `ModeChange`, `UserToggle`, `ViewLeft`,
 changes inside `HudVisibility.apply`.
 """
 from .param_resolver import ParameterMapping, SwitchSlotMapping, _device_alive
-from .hud_protocol import PageInfo
+from .hud_protocol import PageInfo, IDLE_DISMISS_SECONDS
 from .hud_visibility import (
     HudVisibility, Decision, DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit,
+    ClipViewChanged,
 )
 
 
@@ -194,6 +195,13 @@ class HudPresenter:
         OSC/feedback sinks while staying hidden (controller-nav on a non-nav
         selection). Replaces the inline suppress rule that lived in Helpers."""
         self._fine(f"[focus] on_device_focus device={getattr(device, 'name', None)!r} source={source}")
+        # Sync the mirror first: if the Swift idle timer hid the HUD while our
+        # mirror still read `shown`, a mouse selection under `summon` would
+        # wrongly re-summon it (EMIT_BURST). Syncing to dismissed makes a
+        # non-nav selection classify to EMIT_SILENT_AND_HIDE and stay hidden;
+        # `selection`/`controller-nav` are unaffected (their DeviceFocus rules
+        # don't branch on `dismissed`), and a nav source shows before any check.
+        self._sync_idle_dismiss()
         decision = self._visibility.decide(DeviceFocus(source))
         self.emit_burst(device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
@@ -217,36 +225,78 @@ class HudPresenter:
             self.emit_burst(device, suppress_hud=False)
 
     def refresh_for_mode(self, mode_name, device):
-        """Called by the surface when goto_mode swaps bindings. Sets the
-        active overlay and re-emits a burst so the HUD reflects the new
-        labels for non-device cells. Device cells reuse the existing
-        device-path data when a device is focused. A mode change always shows
-        the HUD, even after a view-left dismiss (ModeChange -> EMIT_BURST)."""
+        """Called by the surface when goto_mode swaps bindings. Sets the active
+        overlay and re-emits a burst so the HUD reflects the new labels for
+        non-device cells. The visibility table decides whether this repaints the
+        HUD or only feeds the sinks silently — under `summon` a mode press must
+        not summon a hidden HUD, so the ModeChange decision is routed into
+        suppress_hud exactly like on_device_focus (a `selection`/`controller-nav`
+        surface still classifies ModeChange to EMIT_BURST and shows)."""
         self._current_mode_name = mode_name
-        self._visibility.decide(ModeChange())
-        self.emit_current_burst(device)
+        # Same mirror-drift guard as on_device_focus: after an idle hide, a mode
+        # press must not re-summon a hidden HUD under `summon`.
+        self._sync_idle_dismiss()
+        decision = self._visibility.decide(ModeChange())
+        self.emit_current_burst(
+            device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
-    def emit_current_burst(self, device):
+    def clip_view_changed(self, visible):
+        """Detail/Clip flipped visibility. Opening hides the HUD and gates later
+        selection/mode/region bursts; closing clears the gate without re-showing.
+        Routes through the table so the dismiss mirror stays in sync with the
+        Swift sticky flag. (The browser and other non-device views are handled by
+        the Swift input monitor now, not by per-view listeners.)"""
+        if self._visibility.decide(ClipViewChanged(visible)) is Decision.HIDE:
+            self._fine("[clipview] -> remote.hide()")
+            self._remote.hide()
+
+    def emit_current_burst(self, device, suppress_hud=False):
         """Re-emit the HUD burst for the active mode + focused device. If a
         device is focused, reuse the device path; otherwise emit a label-only
-        burst. Either way the burst clears the Swift sticky dismissed flag, so
-        intent is re-synced to False."""
+        burst. When not suppressed the burst clears the Swift sticky dismissed
+        flag; when suppressed it sends HIDE + sets the flag, mirroring
+        emit_burst's own suppress branch."""
         if device is not None:
-            self.emit_burst(device)
+            self.emit_burst(device, suppress_hud=suppress_hud)
         else:
             # No focused device yet — emit a label-only burst.
             mode_labels = self._mode_hud_labels.get(self._current_mode_name) or {}
             self._remote.device_update(
                 '', [], info_text='', switch_entries=[], device_parameters=[],
                 hud_layout=self._hud_cells, mode_labels=mode_labels,
+                suppress_hud=suppress_hud,
             )
-            self._visibility.apply(Decision.EMIT_BURST)
+            if suppress_hud:
+                self._remote.hide()
+                self._visibility.apply(Decision.EMIT_SILENT_AND_HIDE)
+            else:
+                self._visibility.apply(Decision.EMIT_BURST)
 
     def toggle(self, device):
-        """Bound to a `functions: hud_toggle` button. Flips the HUD between
-        hidden and shown via the visibility table: hiding sends a sticky HIDE;
-        showing re-emits the current burst (clears the HIDE, repaints)."""
-        if self._visibility.decide(UserToggle()) is Decision.HIDE:
-            self._remote.hide()
-        else:
-            self.emit_current_burst(device)
+        """Bound to a `functions: hud_toggle` button. A true toggle, arbitrated
+        by the HUD: Python cannot track the HUD's visibility (it hides
+        autonomously via the Swift idle timer and the input monitor), so a
+        Python-side flip mis-fires. Instead we send a TOGGLE marker + a fresh
+        burst; the HUD hides if it was visible, or shows the fresh data if it
+        wasn't (see DeviceState arbitration). One press, every time, for every
+        trigger. Our local `dismissed` mirror is best-effort after this — the
+        HUD is the source of truth."""
+        self._remote.send_toggle()
+        self.emit_current_burst(device)
+
+    def _sync_idle_dismiss(self):
+        """Mirror-drift fix: the Swift idle timer sticky-dismisses the overlay on
+        its own (no back-channel), so our `dismissed` mirror can wrongly read
+        `shown` after an idle hide. If nothing has been sent for longer than the
+        shared idle window, the Swift timer has fired — sync the mirror to
+        dismissed so the next UserToggle flips to show on a single press.
+        Keyed on real send activity (burst/UPDATE/PING) so knob traffic that
+        keeps the Swift timer alive also keeps this mirror shown."""
+        if self._visibility.dismissed:
+            return
+        idle = self._remote.seconds_since_last_hud_send()
+        # Contract is float | None (None = nothing sent yet). Guard on the type,
+        # not just `is not None`, so anything unmeasurable simply skips the sync.
+        if isinstance(idle, (int, float)) and idle > IDLE_DISMISS_SECONDS:
+            self._fine(f"[idle-sync] idle {idle:.1f}s > {IDLE_DISMISS_SECONDS}s -> sync dismissed")
+            self._visibility.apply(Decision.HIDE)

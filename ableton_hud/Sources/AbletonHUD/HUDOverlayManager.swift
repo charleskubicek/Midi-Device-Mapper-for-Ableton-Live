@@ -127,13 +127,26 @@ class HUDOverlayManager {
         overlayPanel?.orderOut(nil)
     }
 
+    /// Sticky-dismiss: hide AND set the sticky `dismissed` flag (like a wire
+    /// HIDE) so routine `UPDATE`/`PING` traffic can't resurrect the panel until
+    /// the next device burst. Shared by the idle timer and the input monitor.
+    func stickyDismiss(_ reason: String) {
+        hudLog("stickyDismiss(\(reason))", level: .fine)
+        DeviceState.shared.timerDismiss()
+        hide()
+    }
+
     // MARK: - Private
 
     private func armDismissTimer() {
         dismissTimer?.invalidate()
+        // Keep in lockstep with the Python IDLE_DISMISS_SECONDS constant
+        // (hud_protocol.py): the surface reads this window to detect an idle
+        // dismiss so hud_toggle re-shows on a single press.
         dismissTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: false) { [weak self] _ in
-            hudLog("dismissTimer fired -> hide()", level: .fine)
-            self?.hide()
+            // Sticky-dismiss (like a wire HIDE), not just orderOut: otherwise the
+            // next automation UPDATE resurrects the HUD. Bursts still clear it.
+            self?.stickyDismiss("idleTimer")
         }
     }
 
