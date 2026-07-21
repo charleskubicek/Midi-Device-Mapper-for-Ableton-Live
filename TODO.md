@@ -1,1 +1,4 @@
-- [ ] Add "special" buttons that map an encoder behaviour to a button 
+- 
+- [ ] Remove the zonal colours from encoders and buttons (move them back to ableton blue) and instead use 'group' area which has the background as the colour of the zone. the colour should be subtle. 
+- [ ] Operators attack, decay, sustain, release names are actually called Ae Attack, Ae Release etc. the filter envelope is Fe Attack, Fe Release. these are poor names. Consider what we could do instead. One option is for aliases to be written somewhere else. Remember, these are totally dynamic fields from Ableton. 
+- [ ] I actually don't think the HUD should be showing most of the time because I'm realizing I'm going into clip mode and the browser mode and it's still showing getting in the way. I think it should actually be summoned by the HUD button, but when is it closed? this is similar to hide-hud-in-clip-view-plan.md but goes further. the main goal is to automatcially hide the HUD when anything other than a device is focussed.

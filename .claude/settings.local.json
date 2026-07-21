@@ -4,7 +4,10 @@
       "Bash(poetry run *)",
       "Bash(kill %1)",
       "Bash(pkill -f \"tail -n 0 -f.*Log.txt\")",
-      "Bash(swift test *)"
+      "Bash(swift test *)",
+      "Bash(grep -rniB1 -A3 \"functions:\" live_surfaces --include=\"*.nt\")",
+      "Bash(grep -iA3 -B1 \"hud\")",
+      "Bash(python3 -c ' *)"
     ]
   }
 }
