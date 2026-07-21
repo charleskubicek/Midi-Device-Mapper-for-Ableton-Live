@@ -28,6 +28,7 @@ modes:
 | `parameter_mappings_file`  | no       | none          | Path to the custom device-mapping JSON. See [`custom_device_mappings.md`](./custom_device_mappings.md). When omitted, the surface falls back to identity parameter mapping. |
 | `remote_on`                | no       | `false`       | When `true`, the generated surface emits OSC parameter updates to a multi-client target (localhost + a hard-coded LAN IP). When `false`, OSC is a no-op (`NullOSCClient`). |
 | `hud`                      | no       | `on`          | Controls the floating HUD overlay. See [HUD modes](#hud-modes). |
+| `smart-zoning`             | no       | `false`       | Set to `on` / `true` to enable semantic synth zoning for enrolled synthesizers on page 1. See [Smart Synth Zoning](#smart-synth-zoning). |
 | `mode-button`              | no       | none          | Declares a physical button that drives the mode FSM. See [Modes](#modes). |
 | `modes`                    | no       | none          | Named list of modes, each with its own mappings. If omitted, you can use a flat top-level `mappings:` instead and the generator wraps it in a single anonymous mode. |
 
@@ -80,6 +81,21 @@ Note: `controller-nav` and `summon` cover device-nav buttons only — **track-na
 (stepping tracks via the controller stays silent). Beyond the `summon` auto-hides listed above,
 `show-hud-on` does not change the HUD's other *dismiss* behavior (auto-timer, navigate-away
 HIDE, the `hud_toggle` binding).
+
+### `smart-zoning` — semantic synth layouts
+
+When `smart-zoning: on` is set at the top level of a mapping file:
+
+```nt
+smart-zoning: on
+```
+
+For supported synthesizers (Wavetable, Drift, Operator, Analog), Page 1 of the device parameter mapping is replaced by a curated 32-encoder and 16-button **semantic zone layout** (labeled "Zoned" on the HUD).
+- Controls are grouped into consistent functional zones (Oscillators, Filter, Envelopes, LFOs, Mixer, Character) across different synthesizers.
+- The 16 buttons on Page 1 are arranged into functional areas (Filter controls, Oscillator toggles/modes, Character parameters).
+- Supports toggle-dependent parameters (e.g. Operator Oscillator A/B fixed-frequency mode toggles dynamic pot bindings between Coarse/Fine and Fix Freq/Mul).
+- Zone colors are pushed to the HUD overlay (dial tracks, button borders, and subtle group backgrounds) and supported RGB LED hardware.
+- Custom BOB parameter banks and factory banks start on Page 2+. Non-enrolled devices or when `smart-zoning: off` (default) retain standard BOB/factory bank paging on Page 1.
 
 ## Modes
 
@@ -227,6 +243,20 @@ The function names must match methods exposed by a `Functions` class in a
 file into the generated surface. Function buttons fire once on press by default;
 add `momentary` to fire on both press and release. (`toggle` is deprecated — it
 is now the default and can be removed.)
+
+**Custom HUD Labels & Glyphs (`@hud_name`)**:
+Functions in `functions.py` can be decorated with `@hud_name("Display Name", "sf_symbol_glyph")` to customize how the button cell renders on the HUD overlay:
+
+```python
+from hud_name import hud_name
+
+class Functions:
+    @hud_name("Audio -> Simpler", "waveform")
+    def selected_audio_to_simpler_in_new_track(self):
+        ...
+```
+
+The decorator accepts a custom display string and an optional SF Symbol name (e.g. `"waveform"`, `"play.fill"`, `"slider.horizontal.3"`). If omitted, the HUD displays the raw function name.
 
 **Reserved built-in: `hud_toggle`.** One name is intercepted and does *not* need an
 entry in `functions.py`:

@@ -115,6 +115,7 @@ control_groups:
 *   **`midi_range`**: Can be defined as ranges (`21-28`), comma-separated numbers (`114, 115`), or MIDI note names (`C-1, C1, CS1, C3`).
 *   **`under` / `right_of`**: Optional placement decorators relative to other group numbers to help the compiler build visual representation parameters.
 *   **`hud`**: Set to `false` to prevent this group from rendering on the floating HUD overlay.
+*   **`dividers`**: Optional top-level list declaring cosmetic vertical grid-boundary rules between hardware sections on the HUD (e.g., `dividers: [{a: grid-2, b: grid-3}]`).
 
 ---
 
@@ -170,6 +171,8 @@ modes:
 *   **`show-hud-on`**: Controls *when* the HUD pops up (orthogonal to `hud` content selection).
     *   `controller-nav` (**Default**): The HUD burst fires **only** on controller device-nav actions (`device_nav_left/right/first/last`). Mouse selection and track navigation update control remappings and OSC values, but keep the HUD hidden (the HUD is explicitly hidden so encoder adjustments don't wake the HUD on stale devices). This can be paired with the reserved `hud_toggle` function to summon/hide the HUD manually.
     *   `selection`: The HUD follows Live's selected device. Any device selection change (mouse click, track select, device-nav, poll etc.) triggers a full HUD burst.
+    *   `summon`: The HUD is hidden by default and only appears when summoned (via `hud_toggle` button or controller device navigation). Auto-hides on mouse clicks/keypresses inside Ableton Live, or when track navigation lands on a device-less track.
+*   **`smart-zoning`**: Set to `on` / `true` to enable semantic synth zoning. Enrolled synthesizers (Wavetable, Drift, Operator, Analog) present a fixed 32-pot and 16-button layout with zone color-coding across functional areas (Oscillators, Filter, Envelopes, LFOs, Mixer, Character). Custom BOB banks move to Page 2+.
 *   **`mode-button`**: Wire a physical button to drive the mode state machine.
     *   `type: switch`: Pressing the button cycles through the declared modes.
     *   `type: shift`: The second mode is active only *while held*; releasing returns to the first mode.
@@ -228,6 +231,16 @@ Maps buttons or encoders to custom Python methods written in a sidecar `function
     *   `def my_func(self)`: Simple trigger (fired on button down/CC trigger).
     *   `def my_func(self, value)`: Receives the current MIDI value (0–127).
     *   `def my_func(self, value, previous_value)`: Receives current and prior MIDI values (ideal for encoder direction detection or scaling).
+*   **Custom HUD Labels & Glyphs (`@hud_name`)**:
+    Decorate methods with `@hud_name("Custom Name", "sf_symbol_glyph")` to customize how the function button cell renders on the HUD overlay:
+    ```python
+    from hud_name import hud_name
+
+    class Functions:
+        @hud_name("Audio -> Simpler", "waveform")
+        def selected_audio_to_simpler_in_new_track(self):
+            ...
+    ```
 
 **Reserved built-in `hud_toggle`**: bind `hud_toggle: <coord>` and the button toggles the floating HUD on/off (first press dismisses, next press re-shows with the current device/mode labels). It is intercepted by the generator and needs no entry in `functions.py`.
 
@@ -392,17 +405,21 @@ If a device has more parameters than physical knobs, the pager manages bank layo
 ### Native macOS HUD
 *   The control surface sends pipe-delimited UDP updates on port `5006` to `127.0.0.1` whenever parameter values, pages, or modes change.
 *   Allows tracking what physical knob maps to what parameter on screen.
+*   **Zone Color-Coding**: When `smart-zoning: on` is enabled, the HUD renders zone-specific accent colors for dial value arcs, button borders, and subtle group background tints.
 
-### Faderfox EC4 Text Feedback
-*   The Faderfox EC4 supports character feedback via SysEx.
-*   **Configuration**:
+### Hardware Feedback Sinks
+Configurations support hardware feedback targets under the `feedback:` top-level list:
+
+*   **Faderfox EC4 Text Feedback (`ec4_text`)**: Sends four-letter parameter labels to the EC4 screens using MIDI triplet bytes (`0x4D, 0x20 | (char >> 4), 0x10 | (char & 0x0F)`).
     ```nt
     feedback:
-        -
-            type: ec4_text
+        - type: ec4_text
     ```
-*   **Character Mapping**: Sends four-letter parameter labels to the EC4 screens using MIDI triplet bytes (`0x4D, 0x20 | (char >> 4), 0x10 | (char & 0x0F)`).
-*   Displays track parameter name changes in lock-step with the HUD.
+*   **Grid LED Feedback (`grid_led`)**: Sends a 48-slot RGB SysEx frame (`F0 7D 4C 01 [r g b]x48 F7`) to update controller button/knob LED colors and brightness dynamically based on parameter values and zone color tables.
+    ```nt
+    feedback:
+        - type: grid_led
+    ```
 
 ---
 
