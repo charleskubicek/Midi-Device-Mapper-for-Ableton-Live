@@ -147,6 +147,54 @@ class TestHelpersBurstGating(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Track-nav onto a device-less track (view.selected_device is None). The bare
+# `device is None` return used to skip the visibility table entirely, leaving a
+# summoned HUD frozen on the previous track's device (hud-hide-on-empty-track).
+# ---------------------------------------------------------------------------
+class TestHelpersEmptyTrackHide(unittest.TestCase):
+    def _helpers(self, trigger):
+        remote = Mock()
+        remote.seconds_since_last_hud_send.return_value = None
+        return Helpers(Mock(), remote, SurfaceConfig(hud_trigger=trigger))
+
+    def test_empty_track_hides_under_controller_nav(self):
+        h = self._helpers('controller-nav')
+        h.selected_device_changed(FakeDevice(), source='nav')  # prior device shown
+        h._remote.reset_mock()
+        h.selected_device_changed(None)                        # track-nav to empty
+        self.assertTrue(h._remote.hide.called)
+        self.assertTrue(h._presenter.hud_dismissed)
+        h._remote.device_update.assert_not_called()            # nothing to burst
+
+    def test_empty_track_hides_under_summon(self):
+        h = self._helpers('summon')
+        h.selected_device_changed(FakeDevice(), source='nav')  # summoned via nav
+        h._remote.reset_mock()
+        h.selected_device_changed(None)
+        self.assertTrue(h._remote.hide.called)
+        self.assertTrue(h._presenter.hud_dismissed)
+
+    def test_empty_track_noop_under_selection(self):
+        # 'selection' surfaces (incl. the forced lc_parks compositor) stay silent
+        # on focus-loss: no hide (would race the parks COMMIT), no burst.
+        h = self._helpers('selection')
+        h.selected_device_changed(FakeDevice())                # prior device shown
+        h._remote.reset_mock()
+        h.selected_device_changed(None)
+        h._remote.hide.assert_not_called()
+        h._remote.device_update.assert_not_called()
+
+    def test_empty_track_keeps_last_selected_device(self):
+        # _last_selected_device is untouched so nav-back to the original track
+        # short-circuits on the same-device guard (stays hidden = summon semantics).
+        h = self._helpers('summon')
+        dev = FakeDevice()
+        h.selected_device_changed(dev, source='nav')
+        h.selected_device_changed(None)
+        self.assertIs(h._last_selected_device, dev)
+
+
+# ---------------------------------------------------------------------------
 # Runtime gating at the Remote layer: suppress_hud skips the HUD wire calls but
 # keeps the OSC sends.
 # ---------------------------------------------------------------------------

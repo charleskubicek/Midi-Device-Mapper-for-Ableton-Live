@@ -5,7 +5,7 @@ import unittest
 
 from source_modules.hud_visibility import (
     HudVisibility, Decision,
-    DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit, RegionHide, ControlTouched,
+    DeviceFocus, ModeChange, ViewLeft, RegionCommit, RegionHide, ControlTouched,
     ClipViewChanged,
 )
 
@@ -70,19 +70,6 @@ class TestSimpleEvents(unittest.TestCase):
         self.assertFalse(v.dismissed)
 
 
-class TestUserToggle(unittest.TestCase):
-    def test_toggle_from_shown_hides(self):
-        v = HudVisibility('selection')  # starts shown (dismissed=False)
-        self.assertEqual(v.decide(UserToggle()), Decision.HIDE)
-        self.assertTrue(v.dismissed)
-
-    def test_toggle_from_hidden_shows(self):
-        v = HudVisibility('selection')
-        v.dismissed = True
-        self.assertEqual(v.decide(UserToggle()), Decision.EMIT_BURST)
-        self.assertFalse(v.dismissed)
-
-
 class TestRaceInvariants(unittest.TestCase):
     """The three races that used to live as prose comments, now named tests."""
 
@@ -111,10 +98,12 @@ class TestRaceInvariants(unittest.TestCase):
 
 
 class TestSummonTrigger(unittest.TestCase):
-    """show-hud-on: summon (hud-summon-only-plan): hidden by default; only
-    UserToggle or an explicit controller device-nav summons the HUD. A
-    selection poll / mode press repaints only while the HUD is already shown
-    (a visible HUD must never go stale), and stays silent while hidden."""
+    """show-hud-on: summon (hud-summon-only-plan): hidden by default; only the
+    HUD-arbitrated hud_toggle or an explicit controller device-nav summons the
+    HUD. A selection poll / mode press repaints only while the HUD is already
+    shown (a visible HUD must never go stale), and stays silent while hidden.
+    (hud_toggle is arbitrated by Swift now, so these tests reach the shown state
+    via DeviceFocus('nav'), which always summons.)"""
 
     def test_starts_dismissed_only_under_summon(self):
         self.assertTrue(HudVisibility('summon').dismissed)
@@ -131,7 +120,7 @@ class TestSummonTrigger(unittest.TestCase):
         # visible one. The Swift input monitor hides on that same click; a
         # repaint here would fight it across processes (hud-input-autohide-plan).
         v = HudVisibility('summon')
-        v.decide(UserToggle())               # summoned -> shown
+        v.decide(DeviceFocus('nav'))         # summoned -> shown
         self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
         self.assertTrue(v.dismissed)
 
@@ -143,7 +132,7 @@ class TestSummonTrigger(unittest.TestCase):
 
     def test_mode_change_while_shown_repaints(self):
         v = HudVisibility('summon')
-        v.decide(UserToggle())
+        v.decide(DeviceFocus('nav'))
         self.assertEqual(v.decide(ModeChange()), Decision.EMIT_BURST)
 
     def test_nav_summons(self):
@@ -151,31 +140,21 @@ class TestSummonTrigger(unittest.TestCase):
         self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
         self.assertFalse(v.dismissed)
 
-    def test_toggle_flips_from_startup_hidden(self):
-        v = HudVisibility('summon')
-        self.assertEqual(v.decide(UserToggle()), Decision.EMIT_BURST)
-        self.assertEqual(v.decide(UserToggle()), Decision.HIDE)
-
     def test_nav_summons_even_in_clip_view(self):
         v = HudVisibility('summon')
         v.decide(ClipViewChanged(visible=True))
         self.assertEqual(v.decide(DeviceFocus('nav')), Decision.EMIT_BURST)
 
-    def test_toggle_summons_even_in_clip_view(self):
-        v = HudVisibility('summon')
-        v.decide(ClipViewChanged(visible=True))
-        self.assertEqual(v.decide(UserToggle()), Decision.EMIT_BURST)
-
     def test_selection_in_clip_view_is_silent_even_if_shown(self):
         # Summoned inside clip view, then a mouse selection: the clip gate wins.
         v = HudVisibility('summon')
         v.decide(ClipViewChanged(visible=True))
-        v.decide(UserToggle())               # shown, clip gate still active
+        v.decide(DeviceFocus('nav'))         # shown, clip gate still active
         self.assertEqual(v.decide(DeviceFocus('selection')), Decision.EMIT_SILENT_AND_HIDE)
 
     def test_view_left_hides(self):
         v = HudVisibility('summon')
-        v.decide(UserToggle())
+        v.decide(DeviceFocus('nav'))
         self.assertEqual(v.decide(ViewLeft()), Decision.HIDE)
         self.assertTrue(v.dismissed)
 

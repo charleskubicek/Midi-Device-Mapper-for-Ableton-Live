@@ -211,10 +211,24 @@ class Helpers:
         # (device was replaced out from under us) is treated as changed so the
         # funnel proceeds and re-bursts — otherwise a stale dead reference makes
         # this guard short-circuit forever and the HUD never recovers.
-        if device is None or _same_device(device, self._last_selected_device):
+        if device is None:
+            # Track-nav landed on a device-less track (empty / return / master /
+            # fresh). There is nothing to resolve, but the focus-loss must still
+            # reach the visibility table so a summoned HUD hides instead of
+            # freezing on the previous track's device (hud-hide-on-empty-track).
+            # Leave _last_selected_device untouched: nav-back to the original
+            # track then short-circuits on the same-device guard below (stays
+            # hidden = summon semantics).
+            self.fine(
+                f"[funnel] selected_device_changed device=None source={source} "
+                f"guard=short-circuit (none) -> on_device_focus_lost"
+            )
+            self._presenter.on_device_focus_lost(source)
+            return
+        if _same_device(device, self._last_selected_device):
             self.fine(
                 f"[funnel] selected_device_changed device={dev_name!r} source={source} "
-                f"guard=short-circuit ({'none' if device is None else 'same-device'})"
+                f"guard=short-circuit (same-device)"
             )
             return
         # A freshly-read selection is normally a live handle, but during a

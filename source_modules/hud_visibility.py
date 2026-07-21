@@ -13,11 +13,13 @@ every production path goes through. It is pure (no Live, no sockets) so the
 full event x policy matrix — including the three race invariants — is a
 unit-tested table rather than comments spread across modules.
 
-Wiring status: DeviceFocus, ModeChange, UserToggle, ViewLeft and RegionCommit
-are fired by HudPresenter/Helpers/the generated template. RegionHide and
-ControlTouched encode RegionState's and the listeners' rules but those call
-sites still own their behaviour directly — routing them through this table is
-the deferred, hardware-verified step of plan item R10.
+Wiring status: DeviceFocus, ModeChange, ClipViewChanged, ViewLeft and
+RegionCommit are fired by HudPresenter/Helpers/the generated template. The
+hud_toggle button is HUD-arbitrated (Swift owns the show-vs-hide decision) and
+no longer fires a table event. RegionHide and ControlTouched encode
+RegionState's and the listeners' rules but those call sites still own their
+behaviour directly — routing them through this table is the deferred,
+hardware-verified step of plan item R10.
 """
 from dataclasses import dataclass
 from enum import Enum
@@ -43,11 +45,6 @@ class DeviceFocus:
 @dataclass(frozen=True)
 class ModeChange:
     """goto_mode swapped the active binding set — the HUD always repaints."""
-
-
-@dataclass(frozen=True)
-class UserToggle:
-    """The hud_toggle button: flip between shown and sticky-hidden."""
 
 
 @dataclass(frozen=True)
@@ -100,12 +97,6 @@ class HudVisibility:
         # surfaces stay silent.
         self._fine = fine or (lambda msg: None)
 
-    @property
-    def view_gated(self):
-        """True while a non-device view (the clip editor) is open — the state
-        that suppresses selection/mode/region bursts."""
-        return self.clip_view_active
-
     def decide(self, event) -> Decision:
         before = self.dismissed
         decision = self._classify(event)
@@ -146,9 +137,9 @@ class HudVisibility:
                 # here would fight it across processes — and syncing to dismissed
                 # keeps the Python mirror consistent with the monitor's hide.
                 return Decision.EMIT_SILENT_AND_HIDE
-            # selection poll under selection / controller-nav. While a clip or the
-            # browser is open the HUD stays hidden (view-gate suppression).
-            if self.view_gated:
+            # selection poll under selection / controller-nav. While a clip is
+            # open the HUD stays hidden (clip-view gate suppression).
+            if self.clip_view_active:
                 return Decision.EMIT_SILENT_AND_HIDE
             if self.trigger == 'selection':
                 return Decision.EMIT_BURST
@@ -157,19 +148,16 @@ class HudVisibility:
             if self.trigger == 'summon':
                 # A mode press must not summon a hidden HUD; repaint only a
                 # visible one.
-                if self.dismissed or self.view_gated:
+                if self.dismissed or self.clip_view_active:
                     return Decision.EMIT_SILENT_AND_HIDE
                 return Decision.EMIT_BURST
-            if self.view_gated:
+            if self.clip_view_active:
                 return Decision.EMIT_SILENT_AND_HIDE
             return Decision.EMIT_BURST
-        if isinstance(event, UserToggle):
-            # Flip: shown -> hide, hidden -> show. Overrides the view gate.
-            return Decision.EMIT_BURST if self.dismissed else Decision.HIDE
         if isinstance(event, ViewLeft):
             return Decision.HIDE
         if isinstance(event, RegionCommit):
-            if self.view_gated:
+            if self.clip_view_active:
                 return Decision.EMIT_SILENT_AND_HIDE
             return Decision.EMIT_BURST
         if isinstance(event, RegionHide):

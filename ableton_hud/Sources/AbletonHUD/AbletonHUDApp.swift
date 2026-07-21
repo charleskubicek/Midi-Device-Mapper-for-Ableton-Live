@@ -29,7 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             AbletonFocusMonitor.shared.start()
             HUDOverlayManager.shared.start()
-            GlobalInputMonitor.shared.start()   // SPIKE: log-only global input probe
+            GlobalInputMonitor.shared.start()   // production input-driven auto-hide monitor (AUTOHIDE)
         }
 
         os_log("[AbletonHUD] started — listening on UDP :5006", log: OSLog(subsystem: "com.local.AbletonHUD", category: "App"), type: .info)

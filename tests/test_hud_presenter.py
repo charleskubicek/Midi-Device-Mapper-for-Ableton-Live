@@ -400,6 +400,57 @@ class TestHudArbitratedToggle(unittest.TestCase):
         remote.hide.assert_not_called()
 
 
+class TestDeviceFocusLost(unittest.TestCase):
+    """Track-nav onto a device-less track routes through on_device_focus_lost:
+    the visibility table decides, and only EMIT_SILENT_AND_HIDE sends hide. No
+    burst, no resolver — there is nothing to resolve (hud-hide-on-empty-track)."""
+
+    def test_focus_lost_hides_under_summon(self):
+        p, remote = _presenter(hud_trigger='summon')
+        p.on_device_focus_lost('selection')
+        remote.hide.assert_called_once()
+        self.assertTrue(p.hud_dismissed)
+        remote.device_update.assert_not_called()
+
+    def test_focus_lost_hides_under_controller_nav(self):
+        p, remote = _presenter(hud_trigger='controller-nav')
+        p.on_device_focus_lost('selection')
+        remote.hide.assert_called_once()
+        self.assertTrue(p.hud_dismissed)
+
+    def test_focus_lost_noop_under_selection(self):
+        # 'selection' classifies DeviceFocus('selection') to EMIT_BURST; with
+        # nothing to burst it is a deliberate no-op (no hide races the COMMIT).
+        p, remote = _presenter(hud_trigger='selection')
+        p.on_device_focus_lost('selection')
+        remote.hide.assert_not_called()
+        remote.device_update.assert_not_called()
+
+
+class TestReemitCombinedBurstClipGate(unittest.TestCase):
+    """reemit_combined_burst must honour the clip-view gate: while a clip is
+    open the RegionCommit decision is EMIT_SILENT_AND_HIDE, so the combined
+    burst is suppressed (hide sent, HUD wire skipped) rather than re-shown."""
+
+    def test_clip_open_suppresses_region_burst(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='selection')
+        p.clip_view_changed(True)                 # enter clip view -> gate up + hide
+        remote.reset_mock()
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.reemit_combined_burst(dev)
+        remote.hide.assert_called_once()
+        self.assertTrue(p.hud_dismissed)
+        # device_update still fires (OSC/sinks) but suppressed on the HUD wire.
+        self.assertTrue(remote.device_update.call_args.kwargs.get('suppress_hud'))
+
+    def test_clip_closed_region_burst_shows(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='selection')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.reemit_combined_burst(dev)
+        self.assertFalse(p.hud_dismissed)
+        self.assertFalse(remote.device_update.call_args.kwargs.get('suppress_hud'))
+
+
 class TestIdleSyncOnDeviceFocus(unittest.TestCase):
     """The idle-sync mirror fix still guards the device-focus / mode-refresh
     paths (a Swift idle-dismiss the Python mirror never learned about)."""

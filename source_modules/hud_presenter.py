@@ -6,14 +6,15 @@ a HUD/feedback burst on `Remote`, and owns the local mirror of the Swift sticky
 holds no manager/song — Helpers passes it the focused device on each call.
 
 Show/hide intent is owned by the `HudVisibility` table: the presenter
-fires events (`DeviceFocus`, `ModeChange`, `UserToggle`, `ViewLeft`,
+fires events (`DeviceFocus`, `ModeChange`, `ClipViewChanged`, `ViewLeft`,
 `RegionCommit`) and acts on the returned `Decision`; the `dismissed` flag only
-changes inside `HudVisibility.apply`.
+changes inside `HudVisibility.apply`. The hud_toggle button is HUD-arbitrated
+(see `toggle`) and does not fire a table event.
 """
 from .param_resolver import ParameterMapping, SwitchSlotMapping, _device_alive
 from .hud_protocol import PageInfo, IDLE_DISMISS_SECONDS
 from .hud_visibility import (
-    HudVisibility, Decision, DeviceFocus, ModeChange, UserToggle, ViewLeft, RegionCommit,
+    HudVisibility, Decision, DeviceFocus, ModeChange, ViewLeft, RegionCommit,
     ClipViewChanged,
 )
 
@@ -195,15 +196,31 @@ class HudPresenter:
         OSC/feedback sinks while staying hidden (controller-nav on a non-nav
         selection). Replaces the inline suppress rule that lived in Helpers."""
         self._fine(f"[focus] on_device_focus device={getattr(device, 'name', None)!r} source={source}")
-        # Sync the mirror first: if the Swift idle timer hid the HUD while our
-        # mirror still read `shown`, a mouse selection under `summon` would
-        # wrongly re-summon it (EMIT_BURST). Syncing to dismissed makes a
-        # non-nav selection classify to EMIT_SILENT_AND_HIDE and stay hidden;
-        # `selection`/`controller-nav` are unaffected (their DeviceFocus rules
-        # don't branch on `dismissed`), and a nav source shows before any check.
-        self._sync_idle_dismiss()
+        # No idle-sync here: no DeviceFocus rule reads `dismissed` (summon
+        # selection is unconditionally EMIT_SILENT_AND_HIDE, nav is always
+        # EMIT_BURST), so the mirror-drift guard is a no-op on this path. It
+        # still matters for ModeChange (see refresh_for_mode).
         decision = self._visibility.decide(DeviceFocus(source))
         self.emit_burst(device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
+
+    def on_device_focus_lost(self, source):
+        """Focus moved to a device-less track (track-nav onto an empty / return /
+        master / fresh track — `view.selected_device` is None). Route the
+        focus-loss through the visibility table and hide only when it decides
+        EMIT_SILENT_AND_HIDE. No burst, no resolver: there is nothing to resolve.
+
+        - summon / controller-nav: DeviceFocus('selection') -> EMIT_SILENT_AND_HIDE
+          -> HIDE goes out, mirror syncs, a summoned HUD stops freezing on the
+          previous device (hud-hide-on-empty-track).
+        - selection (incl. the forced lc_parks compositor): -> EMIT_BURST, but
+          with nothing to burst it is a deliberate no-op — a HIDE here would race
+          the parks-driven combined COMMIT.
+        - source='nav' landing on nothing: -> EMIT_BURST -> also a no-op (a nav
+          that lands on nothing shows nothing)."""
+        self._fine(f"[focus] on_device_focus_lost source={source}")
+        if self._visibility.decide(DeviceFocus(source)) is Decision.EMIT_SILENT_AND_HIDE:
+            self._fine("[focus] -> remote.hide() (focus lost, nothing to burst)")
+            self._remote.hide()
 
     def view_left(self):
         """App-view listeners (doc-view switch, browser opened, detail hidden)
@@ -221,8 +238,12 @@ class HudPresenter:
         the parks region would never reach the HUD under the primary's
         'controller-nav' trigger or when the focused device is unchanged."""
         if device is not None:
-            self._visibility.decide(RegionCommit())
-            self.emit_burst(device, suppress_hud=False)
+            # Honour the clip-view gate: while a clip is open RegionCommit
+            # classifies to EMIT_SILENT_AND_HIDE, so the combined burst is
+            # suppressed (OSC/sinks still flow, HUD wire skipped + HIDE) rather
+            # than re-showing over the clip editor.
+            decision = self._visibility.decide(RegionCommit())
+            self.emit_burst(device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
     def refresh_for_mode(self, mode_name, device):
         """Called by the surface when goto_mode swaps bindings. Sets the active
@@ -289,9 +310,10 @@ class HudPresenter:
         its own (no back-channel), so our `dismissed` mirror can wrongly read
         `shown` after an idle hide. If nothing has been sent for longer than the
         shared idle window, the Swift timer has fired — sync the mirror to
-        dismissed so the next UserToggle flips to show on a single press.
-        Keyed on real send activity (burst/UPDATE/PING) so knob traffic that
-        keeps the Swift timer alive also keeps this mirror shown."""
+        dismissed so a following ModeChange under summon stays silent instead of
+        re-summoning a HUD the idle timer already hid (refresh_for_mode). Keyed
+        on real send activity (burst/UPDATE/PING) so knob traffic that keeps the
+        Swift timer alive also keeps this mirror shown."""
         if self._visibility.dismissed:
             return
         idle = self._remote.seconds_since_last_hud_send()
