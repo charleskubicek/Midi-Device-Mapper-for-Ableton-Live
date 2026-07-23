@@ -36,11 +36,11 @@ Grid LED hues.
 |---|---|---|---|---|---|---|---|
 | 1 | osc | `#E0A33E` | Osc 1 timbre | `Osc 1 Pos` | `Osc 1 Shape` | `A Coarse` | `OSC1 Shape` |
 | 2 | osc | `#E0A33E` | Osc 1 timbre 2 | `Osc 1 Effect 1` | `Osc 1 Shape Mod Amt` | `A Fine` | `OSC1 PW` |
-| 3 | osc | `#E0A33E` | Osc 1 pitch | `Osc 1 Transp` | `Osc 1 Oct` | `Osc-A Feedb` | `OSC1 Octave` |
+| 3 | osc | `#E0A33E` | Osc 1 pitch | `Osc 1 Transp` | `Osc 1 Oct` | `Osc-A Wave` | `OSC1 Octave` |
 | 4 | osc | `#E0A33E` | Osc 1 level | `Osc 1 Gain` | `Osc 1 Gain` | `Osc-A Level` | `OSC1 Level` |
 | 5 | osc | `#E0A33E` | Osc 2 timbre | `Osc 2 Pos` | `Osc 2 Wave` | `B Coarse` | `OSC2 Shape` |
 | 6 | osc | `#E0A33E` | Osc 2 detune | `Osc 2 Detune` | `Osc 2 Detune` | `B Fine` | `OSC2 Detune` |
-| 7 | osc | `#E0A33E` | Osc 2 pitch | `Osc 2 Transp` | `Osc 2 Oct` | `Osc-B Feedb` | `OSC2 Octave` |
+| 7 | osc | `#E0A33E` | Osc 2 pitch | `Osc 2 Transp` | `Osc 2 Oct` | `Osc-B Wave` | `OSC2 Octave` |
 | 8 | osc | `#E0A33E` | Osc 2 level | `Osc 2 Gain` | `Osc 2 Gain` | `Osc-B Level` | `OSC2 Level` |
 | 9 | filter | `#33B5A6` | Cutoff | `Filter 1 Freq` | `LP Freq` | `Filter Freq` | `F1 Freq` |
 | 10 | filter | `#33B5A6` | Resonance | `Filter 1 Res` | `LP Reso` | `Filter Res` | `F1 Resonance` |

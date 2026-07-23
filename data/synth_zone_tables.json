@@ -672,7 +672,7 @@
           ]
         },
         "osc1_pitch": {
-          "name": "Osc-A Feedb"
+          "name": "Osc-A Wave"
         },
         "osc1_level": {
           "name": "Osc-A Level"
@@ -692,7 +692,7 @@
           ]
         },
         "osc2_pitch": {
-          "name": "Osc-B Feedb"
+          "name": "Osc-B Wave"
         },
         "osc2_level": {
           "name": "Osc-B Level"
