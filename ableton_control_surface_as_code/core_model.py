@@ -82,6 +82,27 @@ class LayoutAxis(str, Enum):
     grid = 'grid'
 
 
+class GridOrigin(str, Enum):
+    """Which physical corner of a `layout: grid` block holds the first value of
+    its `midi_range` (grid-origin plan). Traversal is row-major from that corner:
+    along the origin's row away from it, then to the next row away from it.
+
+    The generator always presents cells in logical top-left row-major order, so
+    a non-default origin is just a permutation of the raw MIDI list."""
+    top_left = 'top-left'
+    top_right = 'top-right'
+    bottom_left = 'bottom-left'
+    bottom_right = 'bottom-right'
+
+    @property
+    def flips_rows(self):
+        return self in (GridOrigin.bottom_left, GridOrigin.bottom_right)
+
+    @property
+    def flips_columns(self):
+        return self in (GridOrigin.top_right, GridOrigin.bottom_right)
+
+
 class NamedTrack(str, Enum):
     master = 'master'
     selected = 'selected'

@@ -112,10 +112,59 @@ control_groups:
 *   **`type`**: Must be `knob`, `button`, or `slider`.
 *   **`midi_channel`**: MIDI channel (1-16) the controls emit on.
 *   **`midi_type`**: `CC` (Control Change) or `note`.
-*   **`midi_range`**: Can be defined as ranges (`21-28`), comma-separated numbers (`114, 115`), or MIDI note names (`C-1, C1, CS1, C3`).
+*   **`midi_range`**: Can be defined as ranges (`21-28`), comma-separated numbers (`114, 115`), or MIDI note names (`C-1, C1, CS1, C3`). Ranges must be **increasing** — to describe hardware that counts backwards, use `origin` (below) rather than a descending range.
+*   **`rows` / `columns`**: Required on `layout: grid`; the block's dimensions. `rows * columns` must equal the number of controls in `midi_range`.
+*   **`origin`**: `layout: grid` only. Names the physical corner holding the **first** value of `midi_range`. One of `top-left` (default), `top-right`, `bottom-left`, `bottom-right`. See [Grid origin](#grid-origin).
 *   **`under` / `right_of`**: Optional placement decorators relative to other group numbers to help the compiler build visual representation parameters.
 *   **`hud`**: Set to `false` to prevent this group from rendering on the floating HUD overlay.
 *   **`dividers`**: Optional top-level list declaring cosmetic vertical grid-boundary rules between hardware sections on the HUD (e.g., `dividers: [{a: grid-2, b: grid-3}]`).
+
+### Grid origin
+
+Coordinates like `grid-4:2::3` always mean *row 2, column 3 counting from the
+top-left*, and the compiler assigns `midi_range` to those cells row-major from
+the top-left. Plenty of hardware does not count that way — the Intech Grid, for
+one, numbers its rows bottom-to-top.
+
+`origin` states which physical corner holds the first value of `midi_range`.
+Traversal is row-major from that corner: along the origin's row away from it,
+then to the next row away from it.
+
+```
+layout: grid
+number: 4
+type: button
+midi_channel: 1
+midi_type: note
+midi_range: B2-D4       # 16 notes, 59..74
+rows: 4
+columns: 4
+origin: bottom-left     # 59 sits at the physical bottom-left
+```
+
+With `origin: bottom-left`, `midi_range: B2-D4` lays out as:
+
+```
+ 71 72 73 74      <- physical top row     (grid-4:1::1 .. grid-4:1::4)
+ 67 68 69 70
+ 63 64 65 66
+ 59 60 61 62      <- physical bottom row  (grid-4:4::1 .. grid-4:4::4)
+```
+
+The four values cover a vertical flip (`bottom-left`), a horizontal flip
+(`top-right`), and a 180 degree rotation (`bottom-right`).
+
+**To find your origin:** press the block's top-left button, note what it emits,
+and pick the corner that puts the first value of your range where the hardware
+actually put it. `./bin/tail_logs.sh` shows a `calling : button_ch1_NN_note…`
+line for any note the surface has a binding for; silence means that note is not
+mapped at all.
+
+`origin` affects the flat form too — `grid-4:3` is the 3rd cell in *logical*
+order, so it moves when the origin changes.
+
+For a layout no corner describes, list the numbers explicitly:
+`midi_range: D4,CS4,C4,B3,…`. That form is taken verbatim, in order.
 
 ---
 

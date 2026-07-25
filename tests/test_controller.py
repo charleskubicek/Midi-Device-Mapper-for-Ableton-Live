@@ -1,6 +1,6 @@
 import unittest
 
-from ableton_control_surface_as_code.core_model import EncoderType
+from ableton_control_surface_as_code.core_model import EncoderType, EncoderMode
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.gen_error import GenError, ProblemAccumulator
 from ableton_control_surface_as_code.hud_layout import allocate_global_layout, find_wire_index
@@ -521,3 +521,111 @@ class TestDividerAdjacency(unittest.TestCase):
         with self.assertRaises(GenError) as ctx:
             controller.divider_columns()
         self.assertIn('adjacent', str(ctx.exception).lower())
+
+
+class TestGridOrigin(unittest.TestCase):
+    """`origin:` names the physical corner holding the first value of
+    `midi_range` (grid-origin plan). The generator always presents cells in
+    logical top-left row-major order, so `origin` is a permutation of the raw
+    MIDI list."""
+
+    def _grid(self, origin=None, midi_range='64-79', midi_type='CC'):
+        kwargs = dict(layout='grid', number=1, type='button', midi_channel=1,
+                      midi_type=midi_type, midi_range=midi_range, rows=4, columns=4)
+        if origin is not None:
+            kwargs['origin'] = origin
+        return ControllerV2.build_from(
+            build_raw_controller_v2([ControlGroupPartV2(**kwargs)]))
+
+    def _logical_order(self, controller):
+        e, _ = controller.build_midi_coords(
+            EncoderCoords(row=1, range_=(1, 16), axis_kind="grid", encoder_refs=[]))
+        return [c.number for c in e]
+
+    def test_origin_defaults_to_top_left(self):
+        self.assertEqual(self._logical_order(self._grid()), list(range(64, 80)))
+
+    def test_origin_top_left_is_explicit_identity(self):
+        self.assertEqual(self._logical_order(self._grid(origin='top-left')),
+                         list(range(64, 80)))
+
+    def test_origin_bottom_left_flips_rows_only(self):
+        # Hardware counts rows bottom-to-top, columns left-to-right.
+        self.assertEqual(self._logical_order(self._grid(origin='bottom-left')), [
+            76, 77, 78, 79,
+            72, 73, 74, 75,
+            68, 69, 70, 71,
+            64, 65, 66, 67,
+        ])
+
+    def test_origin_top_right_flips_columns_only(self):
+        self.assertEqual(self._logical_order(self._grid(origin='top-right')), [
+            67, 66, 65, 64,
+            71, 70, 69, 68,
+            75, 74, 73, 72,
+            79, 78, 77, 76,
+        ])
+
+    def test_origin_bottom_right_is_180_degree_rotation(self):
+        self.assertEqual(self._logical_order(self._grid(origin='bottom-right')),
+                         list(reversed(range(64, 80))))
+
+    def test_bottom_left_matches_the_grid_hardware(self):
+        # controller_grid.nt grid-4: notes 59-74, physical top-left emits 71.
+        controller = self._grid(origin='bottom-left', midi_range='B2-D4',
+                                midi_type='note')
+        e, _ = controller.build_midi_coords(
+            EncoderCoords(row=1, grid_row=1, range_=(1, 1), axis_kind="grid",
+                          encoder_refs=[]))
+        self.assertEqual(e[0].number, 71)
+
+    def test_2d_indexing_respects_origin(self):
+        controller = self._grid(origin='bottom-left')
+        # logical row 4 col 1 is the physical bottom-left = first raw value.
+        e, _ = controller.build_midi_coords(
+            EncoderCoords(row=1, grid_row=4, range_=(1, 1), axis_kind="grid",
+                          encoder_refs=[]))
+        self.assertEqual(e[0].number, 64)
+
+    def test_origin_on_non_grid_layout_is_rejected(self):
+        with self.assertRaises(ValueError) as ctx:
+            ControlGroupPartV2(layout='row', number=1, type='knob',
+                               midi_channel=1, midi_type='CC', midi_range='21-28',
+                               origin='bottom-left')
+        self.assertIn('origin', str(ctx.exception).lower())
+
+    def test_unknown_origin_is_rejected(self):
+        with self.assertRaises(ValueError):
+            ControlGroupPartV2(layout='grid', number=1, type='button',
+                               midi_channel=1, midi_type='CC', midi_range='0-15',
+                               rows=4, columns=4, origin='sideways')
+
+
+class TestDescendingRangesRejected(unittest.TestCase):
+    """Descending ranges only express a 180 degree rotation and silently mirror
+    the columns; `origin:` is the supported spelling (grid-origin plan)."""
+
+    def test_descending_note_range_names_origin(self):
+        cg = ControlGroupPartV2(layout='grid', number=1, type='button',
+                                midi_channel=1, midi_type='note',
+                                midi_range='D4-B2', rows=4, columns=4)
+        with self.assertRaises(ValueError) as ctx:
+            _ = cg._midi_list
+        self.assertIn('origin', str(ctx.exception).lower())
+
+    def test_descending_cc_range_is_a_real_error_not_an_empty_list(self):
+        cg = ControlGroupPartV2(layout='grid', number=1, type='knob',
+                                midi_channel=1, midi_type='CC',
+                                midi_range='31-16', rows=4, columns=4)
+        with self.assertRaises(ValueError) as ctx:
+            _ = cg._midi_list
+        self.assertIn('origin', str(ctx.exception).lower())
+
+
+class TestMidiCoordSourceInfo(unittest.TestCase):
+    def test_first_control_reports_position_zero(self):
+        cg = ControlGroupPartV2(layout='row', number=1, type='knob',
+                                midi_channel=1, midi_type='CC', midi_range='21-28')
+        coords = cg.build_midi_coords(EncoderMode.Absolute)
+        self.assertIn('position 0', coords[0].source_info)
+        self.assertIn('position 7', coords[7].source_info)

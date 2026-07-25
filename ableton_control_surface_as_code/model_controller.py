@@ -8,9 +8,18 @@ from typing import Optional, List, Union
 from pydantic import BaseModel, Field, model_validator
 
 from ableton_control_surface_as_code.core_model import LayoutAxis, EncoderType, MidiType, RangeV2, MidiCoords, \
-    EncoderMode, ButtonBehaviour
+    EncoderMode, ButtonBehaviour, GridOrigin
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords, EncoderRefinement
 from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
+
+
+def _descending_range_message(raw):
+    return (
+        f"MIDI range must be increasing: {raw}. A descending range only expresses "
+        f"a 180 degree rotation and would also mirror the columns — use 'origin:' "
+        f"(top-left | top-right | bottom-left | bottom-right) to say which physical "
+        f"corner the hardware starts counting from, or list the values explicitly "
+        f"as a comma-separated sequence.")
 
 
 class ControlGroupPartV2(BaseModel):
@@ -25,6 +34,7 @@ class ControlGroupPartV2(BaseModel):
     right_of: Optional[int] = Field(None)
     rows: Optional[int] = Field(None)
     columns: Optional[int] = Field(None)
+    origin: GridOrigin = Field(default=GridOrigin.top_left)
     hud: bool = Field(default=True)
 
     @model_validator(mode='after')
@@ -42,19 +52,26 @@ class ControlGroupPartV2(BaseModel):
                     "(needed to index buttons as row::col)")
             if self.row_parts_raw is not None:
                 raise ValueError("Grid layout must not have row_parts")
-        elif self.rows is not None or self.columns is not None:
-            raise ValueError("'rows'/'columns' are only valid on a grid layout")
+        else:
+            if self.rows is not None or self.columns is not None:
+                raise ValueError("'rows'/'columns' are only valid on a grid layout")
+            if 'origin' in self.model_fields_set:
+                raise ValueError("'origin' is only valid on a grid layout")
 
         return self
 
     @property
-    def _midi_list(self):
-
+    def _raw_midi_list(self):
+        """The MIDI numbers in the order `midi_range` spells them — i.e. the
+        order the hardware itself counts. `_midi_list` re-orders these into
+        logical top-left row-major order using `origin`."""
         if RangeV2.is_valid_range(self.midi_range_raw):
             if self.midi_type.is_note():
                 raise ValueError(f"Ranges of notes not supported for note types:{self.midi_range_raw}")
             else:
                 [a, b] = self.midi_range_raw.split("-")
+            if int(b) < int(a):
+                raise ValueError(_descending_range_message(self.midi_range_raw))
             return RangeV2.model_validate({'from': int(a), 'to': int(b)}).as_inclusive_list()
         elif self.midi_type.is_note():
             raw = self.midi_range_raw.strip()
@@ -66,7 +83,7 @@ class ControlGroupPartV2(BaseModel):
                     raise ValueError(f"Note range is invalid: {raw}")
                 lo, hi = span
                 if hi < lo:
-                    raise ValueError(f"Note range must be increasing: {raw}")
+                    raise ValueError(_descending_range_message(raw))
                 return list(range(lo, hi + 1))
             values = [v.strip() for v in raw.split(",")]
             missing = list(filter(lambda x: x not in note_values, values))
@@ -76,6 +93,30 @@ class ControlGroupPartV2(BaseModel):
         else:
             values = [v.strip() for v in self.midi_range_raw.split(",")]
             return list(map(int, values))
+
+    @property
+    def _midi_list(self):
+        """MIDI numbers in logical top-left row-major order — index 0 is row 1
+        col 1, whatever corner the hardware started counting from."""
+        raw = self._raw_midi_list
+        if self.layout != LayoutAxis.grid or self.origin == GridOrigin.top_left:
+            return raw
+        rows, columns = self.rows, self.columns
+        if rows * columns != len(raw):
+            # The cell-count mismatch is reported with a better message by
+            # validate_controller_semantics; permuting here would just IndexError.
+            return raw
+        def raw_index(r, c):
+            """Index into hardware order for logical cell (r, c), 1-based from
+            the top-left. Flip the row term for a `bottom-*` origin, the column
+            term for a `*-right` one."""
+            row_term = (rows - r) if self.origin.flips_rows else (r - 1)
+            col_term = (columns - c) if self.origin.flips_columns else (c - 1)
+            return row_term * columns + col_term
+
+        return [raw[raw_index(r, c)]
+                for r in range(1, rows + 1)
+                for c in range(1, columns + 1)]
 
     def info_string(self):
         return f"midi channel: {self.midi_channel}, midi no: {self.number}, midi type:{self.midi_type.value}, parts:{self.row_parts_raw}, range:{self.midi_range_raw} type:{self.type.value}"
@@ -88,7 +129,7 @@ class ControlGroupPartV2(BaseModel):
             number=midi_number,
             encoder_type=self.type,
             encoder_mode=encoder_mode,
-            source_info=info + f", position {i - 1}",
+            source_info=info + f", position {i}",
             encoder_refs=list()
         ) for i, midi_number in enumerate(self._midi_list)]
 

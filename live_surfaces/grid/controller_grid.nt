@@ -21,9 +21,15 @@ control_groups:
         type: button
         midi_channel: 1
         midi_type: note
-        midi_range: C-2-DS-1
+        midi_range: C1-DS2
         rows: 4
         columns: 4
+        # UNVERIFIED — inferred from grid-4, not measured. This block has never
+        # been seen emitting a note. Press its physical top-left button and check
+        # ./bin/tail_logs.sh: note 48 = correct as written; 51 = bottom-right;
+        # 36 = no flip (drop this line); silence = the block is still on its old
+        # 0-15 range in Grid Editor. See ai-coding/plans/grid-origin-plan.md.
+        origin: bottom-left
     -
         layout: grid
         number: 2
@@ -50,10 +56,13 @@ control_groups:
         type: button
         midi_channel: 1
         midi_type: note
-        midi_range: C2-DS3
+        midi_range: B2-D4
         rows: 4
         columns: 4
         right_of: 3
+        # Verified on hardware: the physical top-left button of this block emits
+        # note 71, which is B2+12 — i.e. counting starts at the bottom-left.
+        origin: bottom-left
 
 # Cosmetic HUD divider (hud_dividers plan): a single vertical rule between the
 # two PO16 synth banks — grid-1/grid-2 on the left, grid-3/grid-4 on the right.

@@ -420,3 +420,42 @@ class TestSummonHudCodegen(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestGridOriginCodegen(unittest.TestCase):
+    """End-to-end (grid-origin plan): controller_grid.nt declares
+    `origin: bottom-left` on both note blocks, so the generated surface must
+    bind each `grid-N:r::c` coordinate to the note the hardware actually emits
+    from that physical cell."""
+
+    def test_ck_grid_mode_button_binds_the_physical_top_left_note(self):
+        from pathlib import Path
+        import py_compile
+        from ableton_control_surface_as_code.gen import generate
+
+        repo = Path(__file__).resolve().parent.parent
+        generate(repo / "live_surfaces" / "grid" / "ck_grid.nt")
+
+        main = (repo / "live_surfaces" / "grid" / "ck_grid" / "modules"
+                / "main_component.py")
+        py_compile.compile(str(main), doraise=True)
+        src = main.read_text()
+
+        # ck_grid.nt has `mode-button: grid-4:4::1` — logical bottom-left of the
+        # block. grid-4 is `B2-D4` (59..74) with origin bottom-left, so the
+        # hardware emits 59 there, not 71.
+        self.assertIn("self.mode_button = ConfigurableButtonElement(True, MIDI_NOTE_TYPE, 0, 59)", src)
+
+    def test_ck_grid_button_row_notes_are_row_flipped(self):
+        from pathlib import Path
+        from ableton_control_surface_as_code.gen import generate
+
+        repo = Path(__file__).resolve().parent.parent
+        generate(repo / "live_surfaces" / "grid" / "ck_grid.nt")
+        src = (repo / "live_surfaces" / "grid" / "ck_grid" / "modules"
+               / "main_component.py").read_text()
+
+        # grid-1 is C1-DS2 (36..51) with origin bottom-left, so `grid-1:1-16`
+        # (logical order, top row first) starts at 48 and ends at 39.
+        self.assertIn("button_ch1_48_note__mode_main_mode_button1_listener", src)
+        self.assertIn("button_ch1_39_note__mode_main_mode_button16_listener", src)
