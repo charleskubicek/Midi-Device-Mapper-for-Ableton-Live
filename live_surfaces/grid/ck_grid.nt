@@ -43,6 +43,13 @@ modes:
     -
         name: main_mode
         on_color: red_low
+        # Drum-rack pass-through (ai-coding/plans/drum-rack-passthrough-plan.md).
+        # While the focused device is a drum rack, grid-1 (notes 36-51 = the
+        # rack's visible 4x4 bank) stops being forwarded to this script, so Live
+        # routes it straight to the armed track: the pad SOUNDS and Live SELECTS
+        # it — exactly the behaviour you get with no control surface loaded.
+        # Only this mode; shift_mode keeps grid-1 for the step sequencer.
+        drum-rack-passthrough: grid-1:1-16
         mappings:
             -
                 type: device
@@ -63,12 +70,14 @@ modes:
                     # Drum-rack precedence (ai-coding/plans/drum_rack.md): inert
                     # unless the focused device is a drum rack, then these share
                     # controls with the switch/macro roles above and win.
-                    # MAIN mode: grid-1 buttons SELECT the pad (which drum the
-                    # sequencer edits); hold shift to edit that pad's steps.
-                    # grid-2 knobs -> per-step velocity. Pad audition (sound on
-                    # press) is the deferred spike seam.
-                    pads:
-                        range: grid-1:1-16
+                    # MAIN mode: grid-2 knobs -> per-step velocity of the
+                    # selected pad; hold shift to edit that pad's steps.
+                    #
+                    # There is deliberately NO `pads:` block: pad selection is
+                    # handled by drum-rack-passthrough above, which also gives
+                    # audition (the pad makes a sound) — something `pads:` /
+                    # select_pad could never do, since a control the script
+                    # consumes never reaches the instrument.
                     velocities:
                         range: grid-2:1-16
             -

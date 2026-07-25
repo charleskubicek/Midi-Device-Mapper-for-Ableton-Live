@@ -74,6 +74,20 @@ class MainComponent(ControlSurfaceComponent):
         # work against Live's mouse-selected pad.
         self.drum_rack = DrumRackController(self.manager, self._hud_client)
 
+        # Drum-rack MIDI pass-through (drum-rack-passthrough-plan). While a drum
+        # rack is focused, the controls listed for the ACTIVE mode stop being
+        # forwarded to this script, so Live routes their notes to the track input
+        # and the pads sound + select natively — the behaviour you get with no
+        # control surface loaded at all. Per-mode because the same row is a step
+        # sequencer in another mode, which needs the script to keep consuming it.
+        self._drum_passthrough_by_mode = $drum_passthrough_by_mode
+        self._drum_passthrough_default_mode = $drum_passthrough_default_mode
+        # Union across modes: the only elements this feature is ever allowed to
+        # touch. Everything else keeps its forwarding untouched, always.
+        self._drum_passthrough_all = sorted({
+            name for names in self._drum_passthrough_by_mode.values() for name in names})
+        self._drum_passthrough_state = None
+
         $code_setup
 
         code_slot_assignments = [
@@ -221,6 +235,7 @@ class MainComponent(ControlSurfaceComponent):
         # device.
         self.fine(f"[listener] _on_track_devices_changed dev={getattr(self.selected_device(),'name',None)!r}")
         self._helpers.selected_device_changed(self.selected_device())
+        self.sync_drum_passthrough()
 
     def remove_app_view_listeners(self):
         self._teardown_track_devices_listener()
@@ -283,6 +298,53 @@ class MainComponent(ControlSurfaceComponent):
 
     def update_selected_device(self):
         self._helpers.selected_device_changed(self.selected_device())
+        # Backstop: the surface polls this every 1.5s, so pass-through converges
+        # even if a focus change slipped past every listener below. Cheap because
+        # the assignment is a no-op when the state hasn't changed.
+        self.sync_drum_passthrough()
+
+    def sync_drum_passthrough(self):
+        """Release (or reclaim) the current mode's pass-through controls.
+
+        `_Framework` forwards an element to this script only while
+        `script_wants_forwarding()` holds, and that reads
+        `not _suppress_script_forwarding and _input_signal_listener_count > 0`.
+        Setting the flag requests a MIDI-map rebuild, after which Live drops the
+        element from the forwarding registry and its messages reach the track
+        input instead. We set the flag rather than tearing down listeners so this
+        stays orthogonal to the mode FSM's listener bookkeeping.
+
+        Idempotent: the state is assigned, never toggled, and the property setter
+        itself no-ops when the value is unchanged — so the 1.5s poll can't cause a
+        rebuild storm.
+
+        UNVERIFIED IN LIVE: the rebuild is asynchronous (Live calls build_midi_map
+        on a later tick), so a press in that gap lands on the OLD routing. The case
+        that matters is *reclaiming*: grabbing shift with a drum rack focused
+        un-suppresses the pad row, and until the rebuild lands a step tap still
+        plays the pad instead of toggling the step — and step_event fires on the
+        release edge, so that tap is lost, not delayed. Watch for
+        `[drum] pass-through mode=... released=0` in ./bin/tail_logs.sh and check
+        whether the first tap after shift registers."""
+        if not self._drum_passthrough_all:
+            return
+        mode = getattr(self, 'current_mode', None)
+        mode_name = mode['name'] if mode else self._drum_passthrough_default_mode
+        released = frozenset(self._drum_passthrough_by_mode.get(mode_name, ())) \
+            if self.drum_rack.is_active() else frozenset()
+        if released == self._drum_passthrough_state:
+            return
+        self._drum_passthrough_state = released
+        for name in self._drum_passthrough_all:
+            element = getattr(self, name, None)
+            if element is None:
+                continue  # coord declared but no mapping binds it: nothing to release
+            try:
+                element.suppress_script_forwarding = name in released
+            except Exception as e:
+                self.log_message(f"[drum] pass-through: could not update {name}: {e}")
+        self.log_message(f"[drum] pass-through mode={mode_name} released={len(released)} "
+                         f"of {len(self._drum_passthrough_all)}")
 
     def setup_controls(self):
         $code_creation
@@ -382,6 +444,12 @@ $code_setup_listeners
 
         self.current_mode = next_mode
 
+        # Pass-through is per-mode (main mode releases the pads to Live, shift
+        # mode reclaims them for the step sequencer), so it must be re-asserted
+        # on every mode change — with a drum rack focused the failure mode
+        # (silently re-consuming the pads after a shift press) is invisible.
+        self.sync_drum_passthrough()
+
         # HUD: refresh labels for the new mode's bindings (mixer/functions/etc.).
         # Device-bound slots are repopulated by the next selected_device_changed.
         # Trace the order of refresh_hud_for_mode -> send_mode -> mode_sender:
@@ -457,6 +525,8 @@ $code_setup_listeners
         # to 'selection'.
         self.fine(f"[listener] on_device_selected dev={getattr(self.selected_device(),'name',None)!r}")
         self._helpers.selected_device_changed(self.selected_device())
+        # Focus moved onto (or off) a drum rack: release or reclaim the pads.
+        self.sync_drum_passthrough()
 
     def on_selected_track_changed(self):
         ### This is called when the selected track changes
@@ -464,3 +534,4 @@ $code_setup_listeners
         # Follow the new track's device chain (see _attach_track_devices_listener).
         self._attach_track_devices_listener()
         self._helpers.selected_device_changed(self.selected_device())
+        self.sync_drum_passthrough()

@@ -147,6 +147,40 @@ modes:
 - `on_color` must be a name defined in the controller's `light_colors` block.
   It's rendered on the mode button itself so you can see which mode is active.
 
+### `drum-rack-passthrough` — hand controls back to Live on a drum rack
+
+```nt
+modes:
+    -
+        name: main_mode
+        drum-rack-passthrough: grid-1:1-16      # or a list of ranges
+        mappings: ...
+```
+
+While the focused device is a drum rack **and this mode is active**, the listed
+controls are released: the generated surface stops consuming their MIDI, so Live
+routes it to the armed track. A pad button then **sounds** and Live **selects**
+the pad — the behaviour you get with no control surface loaded at all. Any
+mapping bound to those controls is inert for as long as the drum rack is focused;
+they behave normally again the moment focus moves to another device.
+
+Use it for the button block whose note numbers line up with a drum rack's
+visible bank (notes 36–51). Points to watch:
+
+- **Declare it per mode.** Only the modes that should give the row up need the
+  key. A mode that binds the same row to `sequencer:` must *not* have it, or the
+  step sequencer stops receiving anything.
+- It can also be set at the top level, where it becomes the default for every
+  mode that doesn't declare its own — that is how a modeless file declares it.
+- **Knobs are a poor fit.** CC messages don't play pads, so passing them through
+  gains nothing and costs you `velocities:` step editing.
+- **Don't include nav/shift buttons**, or you'll be stuck on the drum rack with
+  no working controller navigation.
+- Sound only arrives if **Track** is enabled for that input port in Live's MIDI
+  preferences.
+
+The generated `BEHAVIOR.md` lists the released controls per mode.
+
 ## Encoder coordinates
 
 Mappings reference physical controls by **coordinate strings** parsed by a Lark

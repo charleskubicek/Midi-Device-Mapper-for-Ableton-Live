@@ -96,4 +96,34 @@ def build_behavior_doc(mode_with_midi, controller=None, surface_name: str = "") 
     lines.append("|---|---|---|---|---|---|")
     for mode_name, coord, t, action, refs_text, phrase in rows:
         lines.append(f"| {mode_name} | {coord} | {t} | {action} | {refs_text} | {phrase} |")
+    lines.extend(_passthrough_section(mode_with_midi, controller))
     return "\n".join(lines) + "\n"
+
+
+def _passthrough_section(mode_with_midi, controller) -> List[str]:
+    """Document the drum-rack pass-through controls. Without this the table above
+    is misleading: while a drum rack is focused these buttons do NOT do what
+    their row says — the script stops consuming them and Live plays/selects the
+    drum pad instead."""
+    released = {name: coords
+                for name, coords in getattr(mode_with_midi, 'drum_passthrough', {}).items()
+                if coords}
+    if not released:
+        return []
+
+    lines = [
+        "",
+        "## Drum-rack pass-through",
+        "",
+        "While the focused device is a **drum rack**, these controls are released "
+        "to Live: the script stops consuming their MIDI, so the note reaches the "
+        "armed track and plays *and* selects the pad. Their table rows above apply "
+        "only when the focused device is not a drum rack.",
+        "",
+        "| Mode | Coords |",
+        "|---|---|",
+    ]
+    for mode_name, coords in released.items():
+        labels = ", ".join(coord_label(controller, mc) for mc in coords)
+        lines.append(f"| {mode_name} | {labels} |")
+    return lines

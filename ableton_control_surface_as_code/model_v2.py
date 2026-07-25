@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Union, List, Optional, Tuple, Annotated, get_args
+from typing import Union, Dict, List, Optional, Tuple, Annotated, get_args
 
 from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
@@ -87,15 +87,45 @@ class ModeButton(BaseModel):
     on_color: Optional[str] = None
 
 
+def _as_coord_list(value) -> Optional[Tuple[str, ...]]:
+    """Normalise a `drum-rack-passthrough` value to a tuple of coord strings.
+
+    Accepts a single range (`grid-1:1-16`) or a list of them; None stays None so
+    "not declared" stays distinguishable from "declared empty" (a mode with no
+    key inherits the root-level default, one with an empty list does not)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return (value,)
+    return tuple(value)
+
+
 class ModeDef(BaseModel, frozen=True):
     name: str
     on_color: Optional[str] = None
     mappings: AllMappingTypes
     is_fake_wrapper_mode: bool = False
+    # Controls released to Live while a drum rack is focused, so their MIDI
+    # reaches the track input instead of this script (pads sound + select
+    # natively). Per-mode because the same row is a step sequencer in another
+    # mode — see ai-coding/plans/drum-rack-passthrough-plan.md. None = inherit
+    # the root-level default.
+    drum_rack_passthrough: Optional[Tuple[str, ...]] = Field(
+        default=None, alias='drum-rack-passthrough')
+
+    @model_validator(mode='before')
+    @classmethod
+    def _normalise_passthrough(cls, data):
+        if isinstance(data, dict):
+            for key in ('drum-rack-passthrough', 'drum_rack_passthrough'):
+                if key in data:
+                    data = {**data, key: _as_coord_list(data[key])}
+        return data
 
     @classmethod
-    def empty_with_one_mode(cls, mappings: AllMappingTypes):
-        return cls(name="fake_mode", on_color="0", mappings=mappings, is_fake_wrapper_mode=True)
+    def empty_with_one_mode(cls, mappings: AllMappingTypes, drum_rack_passthrough=None):
+        return cls(name="fake_mode", on_color="0", mappings=mappings, is_fake_wrapper_mode=True,
+                   **{'drum-rack-passthrough': drum_rack_passthrough})
 
 
 class FeedbackSinkType(str, Enum):
@@ -163,6 +193,8 @@ class RootV2(BaseModel):
     hud_idle_timeout: int = 120
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
+    # Surface-wide default for the per-mode `drum-rack-passthrough` (see ModeDef).
+    drum_rack_passthrough: Tuple[str, ...] = ()
 
     class Config:
         extra = 'forbid'
@@ -190,6 +222,18 @@ class RootV2ModesOrModeless(BaseModel):
     hud_idle_timeout: int = Field(default=120, alias='hud-idle-timeout')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
+    # Root-level default for `drum-rack-passthrough`; a mode declaring its own
+    # key overrides it. This is also how a modeless mapping declares it, since
+    # there is no mode block to hang it off.
+    drum_rack_passthrough: Tuple[str, ...] = Field(
+        default=(), alias='drum-rack-passthrough')
+
+    @model_validator(mode='before')
+    @classmethod
+    def _normalise_passthrough(cls, data):
+        if isinstance(data, dict) and 'drum-rack-passthrough' in data:
+            data = {**data, 'drum-rack-passthrough': _as_coord_list(data['drum-rack-passthrough'])}
+        return data
 
     def buildRootV2(self):
         if self.hud_idle_timeout <= 0:
@@ -198,7 +242,8 @@ class RootV2ModesOrModeless(BaseModel):
                 f"seconds, got {self.hud_idle_timeout}. There is no 'off' value — "
                 f"for an effectively-never timeout use a large number (e.g. 86400).",
                 ErrorCode.CONFIG_VALIDATION)
-        model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
+        model_modes = ([ModeDef.empty_with_one_mode(self.mappings, self.drum_rack_passthrough)]
+                       if self.modes is None else self.modes)
 
         # Back-compat: synthesise legacy OSC targets when remote_on: true and no
         # explicit outputs: list is provided.
@@ -220,6 +265,7 @@ class RootV2ModesOrModeless(BaseModel):
             hud_idle_timeout=self.hud_idle_timeout,
             feedback=self.feedback,
             outputs=outputs,
+            drum_rack_passthrough=self.drum_rack_passthrough,
         )
 
 
@@ -232,6 +278,10 @@ class ModeButtonWithMidi(BaseModel):
 class ModeGroupWithMidi(BaseModel):
     mappings: List[Tuple[str, AllMappingWithMidiTypes]]
     mode_button: Optional[ModeButtonWithMidi]
+    # mode name -> the controls released to Live while a drum rack is focused.
+    # Not bindings (nothing listens to them), so they take no part in the clash
+    # check — see ai-coding/plans/drum-rack-passthrough-plan.md.
+    drum_passthrough: Dict[str, List[MidiCoords]] = Field(default_factory=dict)
 
     def first_mode_name(self):
         return self.mappings[0][0]
@@ -401,8 +451,30 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=Non
 
     return ModeGroupWithMidi(
         mappings=mappings,
-        mode_button=mode_button
+        mode_button=mode_button,
+        drum_passthrough=_build_drum_passthrough(root, controller, acc=acc),
     )
+
+
+def _build_drum_passthrough(root: RootV2, controller: ControllerV2, acc=None) -> dict:
+    """Resolve each mode's `drum-rack-passthrough` ranges to MidiCoords.
+
+    A mode without its own key inherits the root-level default, so a modeless
+    mapping (which has no mode block) can declare it at the top level."""
+    resolved = {}
+    for mode_dev in root.modes:
+        declared = (mode_dev.drum_rack_passthrough
+                    if mode_dev.drum_rack_passthrough is not None
+                    else root.drum_rack_passthrough)
+
+        def _resolve(ranges=declared):
+            return [mc
+                    for coord in ranges
+                    for mc in controller.build_midi_coords(parse_coords(coord))[0]]
+
+        coords = acc.capture(_resolve) if acc is not None else _resolve()
+        resolved[mode_dev.name] = coords or []
+    return resolved
 
 
 # Builders take (controller, mapping, root_dir, functions_path); only the

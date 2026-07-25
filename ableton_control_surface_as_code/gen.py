@@ -235,6 +235,16 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         feedback_sink_ctors[d.type.value] for d in (feedback or [])
     )
 
+    # Drum-rack pass-through (drum-rack-passthrough-plan): per mode, the surface
+    # element attribute names whose MIDI is released to Live while a drum rack is
+    # focused. Names only — the runtime looks them up with getattr, so a coord
+    # that no mapping binds (hence no element) is silently skipped, which is
+    # correct: nothing was consuming it anyway.
+    drum_passthrough_by_mode = {
+        mode_name: [mc.controller_variable_name() for mc in coords]
+        for mode_name, coords in modes.drum_passthrough.items()
+    }
+
     osc_clients = ", ".join(
         f"OSCClient(host='{t.host}', port={t.port})"
         for sink in (outputs or [])
@@ -274,6 +284,10 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         # Hardware button mode (momentary vs toggle): drives the runtime
         # press-once guard so the same mapping works on both kinds of hardware.
         'button_behaviour': repr(controller.button_behaviour.value if controller is not None else 'momentary'),
+        'drum_passthrough_by_mode': repr(drum_passthrough_by_mode),
+        # The mode to assume before the FSM has run goto_mode, and on a modeless
+        # surface (which never sets self.current_mode at all).
+        'drum_passthrough_default_mode': repr(first_mode_name),
         'feedback_sinks': feedback_sinks,
         'osc_clients': osc_clients,
         '_hud_cells_raw': hud_cells_raw,
