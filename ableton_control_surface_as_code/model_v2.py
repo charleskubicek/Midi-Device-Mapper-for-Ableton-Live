@@ -157,6 +157,10 @@ class RootV2(BaseModel):
     # required) parsed model, so this default is only a safety net for direct
     # construction — kept as Selection so nothing ever silently hides the HUD.
     show_hud_on: HudTrigger = HudTrigger.Selection
+    # Per-surface idle-dismiss window in seconds (hud-shift-summon-and-configurable-
+    # timeout). Mirrors source_modules.hud_protocol.DEFAULT_IDLE_TIMEOUT; a large
+    # value (e.g. 86400) is "effectively never".
+    hud_idle_timeout: int = 120
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
 
@@ -181,10 +185,19 @@ class RootV2ModesOrModeless(BaseModel):
     # appears; `read_root` pre-checks their presence for a friendly error.
     hud: HudMode
     show_hud_on: HudTrigger = Field(alias='show-hud-on')
+    # Optional; default 120s. A large value is "effectively never" (no `off`
+    # sentinel). Drives both the Swift dismiss timer and the Python idle-sync.
+    hud_idle_timeout: int = Field(default=120, alias='hud-idle-timeout')
     feedback: List[FeedbackSinkDef] = Field(default_factory=list)
     outputs: List[OutputSinkDef] = Field(default_factory=list)
 
     def buildRootV2(self):
+        if self.hud_idle_timeout <= 0:
+            raise GenError(
+                f"Invalid config: hud-idle-timeout must be a positive number of "
+                f"seconds, got {self.hud_idle_timeout}. There is no 'off' value — "
+                f"for an effectively-never timeout use a large number (e.g. 86400).",
+                ErrorCode.CONFIG_VALIDATION)
         model_modes = [ModeDef.empty_with_one_mode(self.mappings)] if self.modes is None else self.modes
 
         # Back-compat: synthesise legacy OSC targets when remote_on: true and no
@@ -204,6 +217,7 @@ class RootV2ModesOrModeless(BaseModel):
             smart_zoning=self.smart_zoning,
             hud=self.hud,
             show_hud_on=self.show_hud_on,
+            hud_idle_timeout=self.hud_idle_timeout,
             feedback=self.feedback,
             outputs=outputs,
         )

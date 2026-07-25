@@ -140,10 +140,12 @@ class HUDOverlayManager {
 
     private func armDismissTimer() {
         dismissTimer?.invalidate()
-        // Keep in lockstep with the Python IDLE_DISMISS_SECONDS constant
-        // (hud_protocol.py): the surface reads this window to detect an idle
-        // dismiss so hud_toggle re-shows on a single press.
-        dismissTimer = Timer.scheduledTimer(withTimeInterval: 7, repeats: false) { [weak self] _ in
+        // Window is per-surface config (hud-shift-summon-and-configurable-timeout),
+        // delivered over IDLETIMEOUT and mirrored by the Python idle-sync so
+        // hud_toggle re-shows on a single press after an idle dismiss. Default 120
+        // until an IDLETIMEOUT arrives.
+        let window = TimeInterval(DeviceState.shared.idleTimeoutSeconds)
+        dismissTimer = Timer.scheduledTimer(withTimeInterval: window, repeats: false) { [weak self] _ in
             // Sticky-dismiss (like a wire HIDE), not just orderOut: otherwise the
             // next automation UPDATE resurrects the HUD. Bursts still clear it.
             self?.stickyDismiss("idleTimer")

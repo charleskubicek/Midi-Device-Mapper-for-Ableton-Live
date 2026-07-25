@@ -43,7 +43,8 @@ class _DeadDeviceRaisingEq(_DeadDevice):
 
 def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=(),
                slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
-               mode_hud_labels=None, button_switch_count=0, hud_trigger='controller-nav'):
+               mode_hud_labels=None, button_switch_count=0, hud_trigger='controller-nav',
+               idle_timeout=None):
     resolver = ParameterResolver(
         device_table=_build_device_table(None), device_banks={}, bank_names={},
         banks_per_page=1, button_switch_count=button_switch_count, button_slot_count=8,
@@ -52,13 +53,15 @@ def _presenter(slot_assignments=(), switch_slot_assignments=(), hud_cells=(),
     # Idle-toggle passthrough: default to "no send yet" so toggle's idle-sync is
     # skipped (Mock() > 7 would raise). Idle tests override return_value.
     remote.seconds_since_last_hud_send.return_value = None
+    kwargs = {} if idle_timeout is None else {'idle_timeout': idle_timeout}
     p = HudPresenter(remote=remote, resolver=resolver,
                      slot_assignments=list(slot_assignments),
                      switch_slot_assignments=list(switch_slot_assignments),
                      hud_cells=list(hud_cells), mode_hud_labels=mode_hud_labels or {},
                      log=lambda m: None, hud_trigger=hud_trigger,
                      slot_assignments_by_mode=slot_assignments_by_mode,
-                     switch_slot_assignments_by_mode=switch_slot_assignments_by_mode)
+                     switch_slot_assignments_by_mode=switch_slot_assignments_by_mode,
+                     **kwargs)
     return p, remote
 
 
@@ -326,6 +329,79 @@ class TestModeRefreshHonoursSilentDecision(unittest.TestCase):
         p.refresh_for_mode('mode-a', None)
         self.assertFalse(p.hud_dismissed)
         remote.hide.assert_not_called()
+
+
+class TestSummonForMode(unittest.TestCase):
+    """Shift-press summons the HUD (hud-shift-summon-and-configurable-timeout).
+    summon_for_mode forces a non-suppressed burst: it shows a hidden HUD and
+    repaints a shown one, but never hides — unlike refresh_for_mode, which stays
+    silent under summon while the HUD is hidden."""
+
+    def test_summon_shows_while_hidden_under_summon(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        # summon boots dismissed; a plain refresh would stay silent here.
+        p.summon_for_mode('mode-a', dev)
+        self.assertFalse(p.hud_dismissed)
+        remote.hide.assert_not_called()
+        remote.device_update.assert_called()
+
+    def test_summon_repaints_while_shown(self):
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.toggle(dev)                 # summon -> shown
+        remote.reset_mock()
+        remote.seconds_since_last_hud_send.return_value = None
+        p.summon_for_mode('mode-a', dev)
+        self.assertFalse(p.hud_dismissed)
+        remote.hide.assert_not_called()
+        remote.device_update.assert_called()
+
+    def test_summon_label_only_when_no_device(self):
+        p, remote = _presenter(hud_trigger='summon')
+        p.summon_for_mode('mode-a', None)
+        self.assertFalse(p.hud_dismissed)
+        remote.hide.assert_not_called()
+        remote.device_update.assert_called_once()   # label-only burst
+
+    def test_refresh_stays_silent_where_summon_shows(self):
+        # Same starting state as test_summon_shows..., but the plain refresh
+        # (release / switch path) must NOT summon a hidden HUD.
+        p, remote = _presenter(slot_assignments=[(1, 'slot1')], hud_trigger='summon')
+        dev = FakeDevice("X", [FakeParam("On/Off"), FakeParam("A")])
+        p.refresh_for_mode('mode-a', dev)
+        self.assertTrue(p.hud_dismissed)
+        remote.hide.assert_called_once()
+
+
+class TestConfigurableIdleTimeout(unittest.TestCase):
+    """The idle-sync window is per-surface config, default 120s, not the old
+    hard-coded 7 (hud-shift-summon-and-configurable-timeout)."""
+
+    def test_default_window_is_120_not_7(self):
+        # 10s idle used to sync-dismiss (>7); with the 120 default it must not.
+        p, remote = _presenter(hud_trigger='selection')
+        remote.seconds_since_last_hud_send.return_value = 10
+        p._sync_idle_dismiss()
+        self.assertFalse(p.hud_dismissed)
+
+    def test_below_configured_window_does_not_sync(self):
+        p, remote = _presenter(hud_trigger='selection', idle_timeout=120)
+        remote.seconds_since_last_hud_send.return_value = 90
+        p._sync_idle_dismiss()
+        self.assertFalse(p.hud_dismissed)
+
+    def test_above_configured_window_syncs_dismissed(self):
+        p, remote = _presenter(hud_trigger='selection', idle_timeout=120)
+        remote.seconds_since_last_hud_send.return_value = 130
+        p._sync_idle_dismiss()
+        self.assertTrue(p.hud_dismissed)
+
+    def test_small_configured_window_syncs_quickly(self):
+        p, remote = _presenter(hud_trigger='selection', idle_timeout=5)
+        remote.seconds_since_last_hud_send.return_value = 6
+        p._sync_idle_dismiss()
+        self.assertTrue(p.hud_dismissed)
 
 
 class TestClipViewChanged(unittest.TestCase):

@@ -12,7 +12,7 @@ changes inside `HudVisibility.apply`. The hud_toggle button is HUD-arbitrated
 (see `toggle`) and does not fire a table event.
 """
 from .param_resolver import ParameterMapping, SwitchSlotMapping, _device_alive
-from .hud_protocol import PageInfo, IDLE_DISMISS_SECONDS
+from .hud_protocol import PageInfo, DEFAULT_IDLE_TIMEOUT
 from .hud_visibility import (
     HudVisibility, Decision, DeviceFocus, ModeChange, ViewLeft, RegionCommit,
     ClipViewChanged,
@@ -23,7 +23,7 @@ class HudPresenter:
     def __init__(self, remote, resolver, slot_assignments, switch_slot_assignments,
                  hud_cells, mode_hud_labels, log, hud_trigger='controller-nav',
                  slot_assignments_by_mode=None, switch_slot_assignments_by_mode=None,
-                 fine=None):
+                 idle_timeout=DEFAULT_IDLE_TIMEOUT, fine=None):
         self._remote = remote
         self._resolver = resolver
         # Flat global assignments (union across modes) — the fallback used by
@@ -41,6 +41,10 @@ class HudPresenter:
         # appear here. _current_mode_name tracks which overlay is active.
         self._mode_hud_labels = mode_hud_labels or {}
         self._current_mode_name = None
+        # Idle-dismiss window, config-driven (hud-shift-summon-and-configurable-
+        # timeout). Same value the Swift armDismissTimer uses, so _sync_idle_dismiss
+        # detects a Swift idle hide from send activity alone.
+        self._idle_timeout = idle_timeout
         self._log = log
         # Gated protocol-trace sink; no-op by default so unit tests and
         # pre-flag surfaces stay silent.
@@ -261,6 +265,19 @@ class HudPresenter:
         self.emit_current_burst(
             device, suppress_hud=(decision is Decision.EMIT_SILENT_AND_HIDE))
 
+    def summon_for_mode(self, mode_name, device):
+        """Shift-press summon (hud-shift-summon-and-configurable-timeout). Like
+        refresh_for_mode but forces a non-suppressed burst: a non-suppressed
+        COMMIT unconditionally clears Swift's `dismissed`, so this shows a hidden
+        HUD and repaints a shown one, and never hides. Under `summon` the plain
+        refresh_for_mode stays silent while dismissed; the shift key must instead
+        act like the on/off button when the HUD is off. The ModeChange event is
+        still fired so the mirror tracks the mode, but the decision is ignored —
+        the burst always shows."""
+        self._current_mode_name = mode_name
+        self._visibility.decide(ModeChange())
+        self.emit_current_burst(device, suppress_hud=False)
+
     def clip_view_changed(self, visible):
         """Detail/Clip flipped visibility. Opening hides the HUD and gates later
         selection/mode/region bursts; closing clears the gate without re-showing.
@@ -319,6 +336,6 @@ class HudPresenter:
         idle = self._remote.seconds_since_last_hud_send()
         # Contract is float | None (None = nothing sent yet). Guard on the type,
         # not just `is not None`, so anything unmeasurable simply skips the sync.
-        if isinstance(idle, (int, float)) and idle > IDLE_DISMISS_SECONDS:
-            self._fine(f"[idle-sync] idle {idle:.1f}s > {IDLE_DISMISS_SECONDS}s -> sync dismissed")
+        if isinstance(idle, (int, float)) and idle > self._idle_timeout:
+            self._fine(f"[idle-sync] idle {idle:.1f}s > {self._idle_timeout}s -> sync dismissed")
             self._visibility.apply(Decision.HIDE)

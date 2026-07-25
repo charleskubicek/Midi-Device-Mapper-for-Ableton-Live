@@ -183,6 +183,11 @@ class TestEncodeBytes(unittest.TestCase):
         self.assertEqual(encode_autohide(True), "AUTOHIDE|1")
         self.assertEqual(encode_autohide(False), "AUTOHIDE|0")
 
+    def test_idle_timeout(self):
+        from source_modules.hud_protocol import encode_idle_timeout
+        self.assertEqual(encode_idle_timeout(120), "IDLETIMEOUT|120")
+        self.assertEqual(encode_idle_timeout(5), "IDLETIMEOUT|5")
+
     def test_toggle(self):
         from source_modules.hud_protocol import encode_toggle
         self.assertEqual(encode_toggle(), "TOGGLE")

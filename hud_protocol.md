@@ -53,7 +53,7 @@ Authoritative implementations:
 
 ## Message catalog
 
-There are eleven message types.
+There are twelve message types.
 
 ### `LAYOUT`
 
@@ -232,6 +232,27 @@ AUTOHIDE|<0|1>
 - **Permission:** mouse-down monitoring needs no grant; keyboard needs macOS
   Accessibility / Input Monitoring (the app prompts). The bundle is signed with a
   stable local cert (`dev-codesign-setup.sh`) so the grant survives rebuilds.
+
+### `IDLETIMEOUT`
+
+Per-surface **auto-dismiss window** in seconds (hud-shift-summon-and-configurable-
+timeout). The HUD arms its idle-dismiss timer to this value instead of a hard-coded
+default. Configured in the mapping `.nt` with `hud-idle-timeout:` (default 120).
+
+```
+IDLETIMEOUT|<seconds>
+```
+
+- **Emitted:** by `Remote.set_idle_timeout` (once at init) and re-emitted with
+  `LAYOUT` — on init, re-handshake, and the head of every non-suppressed burst —
+  so a HUD that started after the surface still learns it. Value is the mapping's
+  `hud-idle-timeout` (a positive integer; no `off` — a large value is
+  "effectively never").
+- **Receiver effect:** sets `DeviceState.idleTimeoutSeconds`;
+  `HUDOverlayManager.armDismissTimer` uses it as its `withTimeInterval`. Default
+  **120** until an `IDLETIMEOUT` arrives (matches Python `DEFAULT_IDLE_TIMEOUT`).
+  Non-positive or malformed values parse as `.unknown` and are ignored; old
+  receivers that don't know `IDLETIMEOUT` ignore it too.
 
 ### `PAGE`
 
@@ -611,11 +632,15 @@ dense-symmetric emission, every wire index in a burst is populated by a
 pending dict are an error condition rather than the normal case.
 
 The dismiss timer is reset on `COMMIT`, `UPDATE`, and `PING`. If none of those
-arrive within the **dismiss window**, the HUD hides itself. That window is a
-shared constant, mirrored on both sides and kept in lockstep:
+arrive within the **dismiss window**, the HUD hides itself. That window is now
+**per-surface config** (`hud-idle-timeout` in the mapping `.nt`, default 120),
+carried over the `IDLETIMEOUT` message from a single source of truth and mirrored
+on both sides:
 
-- Swift: `HUDOverlayManager.armDismissTimer` (`withTimeInterval: 7`).
-- Python: `hud_protocol.IDLE_DISMISS_SECONDS` (= 7).
+- Swift: `HUDOverlayManager.armDismissTimer` reads `DeviceState.idleTimeoutSeconds`
+  (set by `IDLETIMEOUT`; default 120).
+- Python: `HudPresenter._sync_idle_dismiss` compares against the same configured
+  value (default `hud_protocol.DEFAULT_IDLE_TIMEOUT` = 120).
 
 When the timer fires it now sets the same sticky `dismissed` flag that `HIDE`
 sets (`DeviceState.timerDismiss`), not just an `orderOut` — otherwise the next

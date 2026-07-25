@@ -83,6 +83,11 @@ public enum WireMessage: Equatable {
     /// surfaces only — see hud-input-autohide-plan). Sent with LAYOUT so a
     /// late-starting HUD learns it; default false until an `AUTOHIDE|1` arrives.
     case autoHide(Bool)
+    /// Per-surface idle-dismiss window in seconds (hud-shift-summon-and-
+    /// configurable-timeout). The HUD arms its auto-dismiss timer to this many
+    /// seconds instead of a hard-coded default. Sent with LAYOUT so a
+    /// late-starting HUD learns it; default 120 until an `IDLETIMEOUT` arrives.
+    case idleTimeout(Int)
     /// hud_toggle press. The HUD arbitrates show-vs-hide from its own true
     /// visibility (Python can't track it — the HUD hides autonomously via the
     /// idle timer and input monitor). Sent at the head of a fresh burst: if the
@@ -181,6 +186,11 @@ public enum WireProtocol {
             // AUTOHIDE|<0|1> — enable input-driven auto-hide for this surface.
             guard fields.count == 2, fields[1] == "0" || fields[1] == "1" else { return .unknown }
             return .autoHide(fields[1] == "1")
+
+        case "IDLETIMEOUT":
+            // IDLETIMEOUT|<seconds> — per-surface auto-dismiss window.
+            guard fields.count == 2, let secs = Int(fields[1]), secs > 0 else { return .unknown }
+            return .idleTimeout(secs)
 
         case "TOGGLE":
             guard fields.count == 1 else { return .unknown }

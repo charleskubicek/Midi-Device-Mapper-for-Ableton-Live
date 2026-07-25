@@ -81,6 +81,61 @@ class TestShowHudOnCodegen(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# hud-idle-timeout config (hud-shift-summon-and-configurable-timeout).
+# ---------------------------------------------------------------------------
+class TestIdleTimeoutParsing(unittest.TestCase):
+    def test_default_is_120(self):
+        root = read_root(_BASE + "show-hud-on: summon\n")
+        self.assertEqual(root.hud_idle_timeout, 120)
+
+    def test_custom_value_parsed(self):
+        root = read_root(_BASE + "show-hud-on: summon\nhud-idle-timeout: 5\n")
+        self.assertEqual(root.hud_idle_timeout, 5)
+
+    def test_large_value_parsed(self):
+        root = read_root(_BASE + "show-hud-on: summon\nhud-idle-timeout: 86400\n")
+        self.assertEqual(root.hud_idle_timeout, 86400)
+
+    def test_zero_rejected(self):
+        # No 'off' sentinel — <= 0 is a config error pointing at the large-number
+        # idiom.
+        with self.assertRaises(Exception):
+            read_root(_BASE + "show-hud-on: summon\nhud-idle-timeout: 0\n")
+
+    def test_negative_rejected(self):
+        with self.assertRaises(Exception):
+            read_root(_BASE + "show-hud-on: summon\nhud-idle-timeout: -5\n")
+
+
+class TestIdleTimeoutCodegen(unittest.TestCase):
+    def _vars(self, **kwargs):
+        m = ModeGroupWithMidi(
+            mappings=[("mode_1", [build_mixer_with_midi(api_fn='pan')])],
+            mode_button=ModeButtonWithMidi(
+                on_colors=[], button=midi_coords_ch2_cc_50_knob(), type=ModeType.Switch),
+        )
+        return generate_code_as_template_vars(m, **kwargs)
+
+    def test_default_rendered_as_120(self):
+        self.assertEqual(self._vars()['hud_idle_timeout'], "120")
+
+    def test_custom_rendered(self):
+        self.assertEqual(self._vars(hud_idle_timeout=5)['hud_idle_timeout'], "5")
+
+
+class TestIdleTimeoutRuntimeThreading(unittest.TestCase):
+    """The baked value reaches the HUD (send_idle_timeout) and the presenter's
+    idle-sync window, from one SurfaceConfig field."""
+
+    def test_helpers_sends_idle_timeout_and_sets_presenter_window(self):
+        remote = Mock()
+        remote.seconds_since_last_hud_send.return_value = None
+        h = Helpers(Mock(), remote, SurfaceConfig(hud_idle_timeout=42))
+        remote.set_idle_timeout.assert_called_once_with(42)
+        self.assertEqual(h._presenter._idle_timeout, 42)
+
+
+# ---------------------------------------------------------------------------
 # Runtime gating at the Helpers layer: selected_device_changed decides whether
 # the burst is suppressed based on (trigger, source).
 # ---------------------------------------------------------------------------

@@ -117,7 +117,7 @@ def _render_assignments_by_mode(by_mode: dict) -> str:
     return "{" + ", ".join(parts) + "}"
 
 
-def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.Selection, feedback=None, outputs=None, hud_cells_override=None) -> dict:
+def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hud_mode: HudMode = HudMode.On, hud_trigger: HudTrigger = HudTrigger.Selection, hud_idle_timeout: int = 120, feedback=None, outputs=None, hud_cells_override=None) -> dict:
     first_mode_name = modes.first_mode_name()
 
     # Global wire-index allocation: every physical control on the surface
@@ -268,6 +268,9 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
         'hud_client_class': hud_client_class,
         'hud_mode_on': repr(hud_mode_on),
         'hud_trigger': repr(hud_trigger.value),
+        # Per-surface idle-dismiss window (seconds). Baked as a plain int; drives
+        # the Swift dismiss timer (over the wire) and the Python idle-sync.
+        'hud_idle_timeout': repr(int(hud_idle_timeout)),
         # Hardware button mode (momentary vs toggle): drives the runtime
         # press-once guard so the same mapping works on both kinds of hardware.
         'button_behaviour': repr(controller.button_behaviour.value if controller is not None else 'momentary'),
@@ -484,7 +487,7 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
     }
 
     hud_trigger = overrides.hud_trigger if overrides.hud_trigger is not None else mappings.show_hud_on
-    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=overrides.hud_cells)
+    code_vars = generate_code_as_template_vars(mode_with_midi, controller=controller, hud_mode=mappings.hud, hud_trigger=hud_trigger, hud_idle_timeout=mappings.hud_idle_timeout, feedback=mappings.feedback, outputs=mappings.outputs, hud_cells_override=overrides.hud_cells)
     mode_vars = vars | code_vars
     write_templates(Path(f'templates'), target_dir, mode_vars)
 

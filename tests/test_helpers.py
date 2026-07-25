@@ -907,6 +907,15 @@ class TestRemoteResendLayout(unittest.TestCase):
         self.remote.resend_layout()
         self.hud.send_layout.assert_not_called()
 
+    def test_idle_timeout_re_emitted_with_layout(self):
+        # Restart-resilience: a HUD that started after the surface learns the
+        # configured window on the next re-handshake / burst, not just at init.
+        self.remote.set_idle_timeout(42)
+        self.remote.init_layout([(0, 0, 'dial', 8, 0, 0)])
+        self.hud.reset_mock()
+        self.remote.resend_layout()
+        self.hud.send_idle_timeout.assert_called_once_with(42)
+
 
 class TestDenseSymmetricEmission(unittest.TestCase):
     """Dials and buttons must follow the same emission rule: one SLOT per cell

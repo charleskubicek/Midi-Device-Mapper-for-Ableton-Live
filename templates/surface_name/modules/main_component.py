@@ -104,6 +104,7 @@ class MainComponent(ControlSurfaceComponent):
             hud_dividers=$hud_dividers,
             mode_hud_labels=$mode_hud_labels,
             hud_trigger=$hud_trigger,
+            hud_idle_timeout=$hud_idle_timeout,
             button_behaviour=$button_behaviour))
 
         self._song.add_appointed_device_listener(self.on_device_selected)
@@ -363,7 +364,7 @@ $code_setup_listeners
 
     $code_listener_fns
 
-    def goto_mode(self, next_mode_name):
+    def goto_mode(self, next_mode_name, summon=False):
         self.log_message(f'switching to {next_mode_name}')
         next_mode = self._modes[next_mode_name]
         self.log_message(f'next mode: {next_mode}')
@@ -386,8 +387,16 @@ $code_setup_listeners
         # Trace the order of refresh_hud_for_mode -> send_mode -> mode_sender:
         # a stray MODE/HIDE interleave here is order-dependent, so a [hudtrace]
         # capture needs to see these three sends in the order they actually fire.
-        self.fine(f"[mode] goto_mode {next_mode_name!r} is_shift={next_mode['is_shift']} -> refresh_hud_for_mode")
-        self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
+        # summon=True on the shift-press path (hud-shift-summon-and-configurable-
+        # timeout): force the HUD to show for the new mode, like the on/off button,
+        # instead of honouring the summon-silent decision. Every other caller
+        # (shift release, switch-cycle, remote mode-link) passes summon=False and
+        # keeps the existing decision-driven behaviour.
+        self.fine(f"[mode] goto_mode {next_mode_name!r} is_shift={next_mode['is_shift']} summon={summon} -> refresh_hud_for_mode")
+        if summon:
+            self._helpers.refresh_hud_for_mode_summon(next_mode_name, self.selected_device())
+        else:
+            self._helpers.refresh_hud_for_mode(next_mode_name, self.selected_device())
 
         self.fine(f"[mode] goto_mode {next_mode_name!r} -> send_mode({next_mode['is_shift']})")
         self._hud_client.send_mode(next_mode['is_shift'])
@@ -423,7 +432,10 @@ $code_setup_listeners
             if value == 127:
                 self.fine(f"[mode] mode_button_listener value=127 branch=shift-press in_base={in_base}")
                 if in_base:
-                    self.goto_mode(self.current_mode['next_mode_name'])
+                    # Shift press summons the HUD if it's off (and repaints if on),
+                    # while still entering shift mode — hud-shift-summon-and-
+                    # configurable-timeout.
+                    self.goto_mode(self.current_mode['next_mode_name'], summon=True)
             else:
                 self.fine(f"[mode] mode_button_listener value=0 branch=shift-release in_base={in_base}")
                 if not in_base:

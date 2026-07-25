@@ -13,11 +13,17 @@ from typing import List, NamedTuple, Union
 
 # Idle-dismiss window shared with the Swift HUD. When the overlay sees no
 # COMMIT/UPDATE/PING for this many seconds it sticky-dismisses itself (see
-# HUDOverlayManager.armDismissTimer's `withTimeInterval: 7`). The Python side
-# mirrors the same constant so `hud_toggle` can tell, from send activity alone,
-# when the Swift timer has probably fired and re-show on a single press instead
-# of two. Keep the two values in lockstep — see hud_protocol.md.
-IDLE_DISMISS_SECONDS = 7
+# HUDOverlayManager.armDismissTimer). The Python side mirrors the same value so
+# `hud_toggle` can tell, from send activity alone, when the Swift timer has
+# probably fired and re-show on a single press instead of two.
+#
+# This is now a per-surface config value (`hud-idle-timeout` in the mapping .nt,
+# hud-shift-summon-and-configurable-timeout-plan): the configured number is sent
+# to the HUD over `IDLETIMEOUT` and injected into HudPresenter, so both sides use
+# one source of truth. DEFAULT_IDLE_TIMEOUT is the fallback when nothing is
+# configured; IDLE_DISMISS_SECONDS is retained only as a legacy alias.
+DEFAULT_IDLE_TIMEOUT = 120
+IDLE_DISMISS_SECONDS = DEFAULT_IDLE_TIMEOUT
 
 # Empty-slot sentinel used by senders for any cell position not bound to a
 # real parameter. Receivers render this as a blank slot.
@@ -169,6 +175,13 @@ def encode_autohide(enabled: bool) -> str:
     # send AUTOHIDE|1; the HUD defaults it off. Sent with LAYOUT so a HUD that
     # started after the surface still learns it.
     return f"AUTOHIDE|{1 if enabled else 0}"
+
+
+def encode_idle_timeout(seconds: int) -> str:
+    # Per-surface idle-dismiss window (hud-shift-summon-and-configurable-timeout).
+    # Sent with LAYOUT so a late-starting HUD learns it; the HUD arms its
+    # dismiss timer to this many seconds instead of a hard-coded default.
+    return f"IDLETIMEOUT|{int(seconds)}"
 
 
 def encode_toggle() -> str:

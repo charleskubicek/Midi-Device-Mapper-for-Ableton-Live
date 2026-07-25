@@ -262,6 +262,26 @@ final class WireProtocolTests: XCTestCase {
         XCTAssertEqual(WireProtocol.parse(line: "AUTOHIDE"), .unknown)
     }
 
+    // MARK: - IDLETIMEOUT (per-surface idle-dismiss window)
+
+    func test_idle_timeout_parses() {
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT|120"), .idleTimeout(120))
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT|5"), .idleTimeout(5))
+    }
+
+    func test_idle_timeout_bad_value_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT|abc"), .unknown)
+    }
+
+    func test_idle_timeout_non_positive_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT|0"), .unknown)
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT|-5"), .unknown)
+    }
+
+    func test_idle_timeout_missing_arg_is_unknown() {
+        XCTAssertEqual(WireProtocol.parse(line: "IDLETIMEOUT"), .unknown)
+    }
+
     // MARK: - TOGGLE (HUD-arbitrated hud_toggle)
 
     func test_toggle_parses() {
@@ -676,6 +696,19 @@ final class DeviceStateBurstTests: XCTestCase {
         XCTAssertTrue(state.dismissed)
         state.apply(message: .ping)
         XCTAssertTrue(state.dismissed)
+    }
+
+    // MARK: - IDLETIMEOUT (configurable idle window)
+
+    func test_idle_timeout_default_is_120() async {
+        let state = makeState()
+        XCTAssertEqual(state.idleTimeoutSeconds, 120)
+    }
+
+    func test_apply_idle_timeout_sets_seconds() async {
+        let state = makeState()
+        state.apply(message: .idleTimeout(5))
+        XCTAssertEqual(state.idleTimeoutSeconds, 5)
     }
 
     // MARK: - Idle timer sticky-dismiss (hud-summon-only-plan)

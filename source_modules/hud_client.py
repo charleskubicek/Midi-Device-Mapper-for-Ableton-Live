@@ -127,6 +127,9 @@ class HudClient:
     def send_autohide(self, enabled: bool):
         self._send(hud_protocol.encode_autohide(enabled))
 
+    def send_idle_timeout(self, seconds: int):
+        self._send(hud_protocol.encode_idle_timeout(seconds))
+
     def send_toggle(self):
         self._send(hud_protocol.encode_toggle())
 
@@ -164,6 +167,7 @@ class NullHudClient:
     def send_ping(self): pass
     def send_hide(self): pass
     def send_autohide(self, enabled: bool): pass
+    def send_idle_timeout(self, seconds: int): pass
     def send_toggle(self): pass
     def send_mode(self, is_shift: bool): pass
     def send_page_info(self, enc_page, enc_total, btn_page, btn_total, enc_label='', btn_label=''): pass

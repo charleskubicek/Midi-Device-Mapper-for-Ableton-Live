@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from .hud_client import HudClient, NullHudClient
-from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot
+from .hud_protocol import SlotPayload, EMPTY_SLOT, LayoutCell, PageInfo, BurstSnapshot, DEFAULT_IDLE_TIMEOUT
 from .param_resolver import (
     ParameterResolver, RealParameter, ParameterMapping, SwitchSlotMapping,
     M4L_CLASSES, _device_table_key, _build_device_table, _build_zone_tables,
@@ -88,6 +88,10 @@ class SurfaceConfig:
     device_banks: Any = None
     bank_names: Any = None
     hud_trigger: str = 'controller-nav'
+    # Per-surface idle-dismiss window in seconds (hud-shift-summon-and-
+    # configurable-timeout). Drives both the Swift dismiss timer (over the wire)
+    # and the Python idle-sync window, from one baked value.
+    hud_idle_timeout: int = DEFAULT_IDLE_TIMEOUT
     # 'momentary' (default) or 'toggle' — how this controller's buttons report a
     # press (see ButtonBehaviour). Drives the press-once edge guard.
     button_behaviour: str = 'momentary'
@@ -135,11 +139,15 @@ class Helpers:
             hud_cells=hud_cells,
             mode_hud_labels=config.mode_hud_labels or {},
             log=self.log_message, hud_trigger=config.hud_trigger,
+            idle_timeout=config.hud_idle_timeout,
             fine=self.fine)
         # Input-driven auto-hide is a summon-only behaviour: the HUD sticky-hides
         # on any mac mouse/keyboard input in Ableton (hud-input-autohide-plan).
         # Set before init_layout so the flag rides the initial LAYOUT emission.
         self._remote.set_autohide_on_input(config.hud_trigger == 'summon')
+        # Configured idle-dismiss window, threaded to the HUD (and mirrored in the
+        # presenter above). Set before init_layout so it rides the initial LAYOUT.
+        self._remote.set_idle_timeout(config.hud_idle_timeout)
         self._remote.init_layout(hud_cells, config.hud_dividers)
         self._last_selected_device = None
         self._group_selector_listeners = []  # [(param, callback)] for teardown
@@ -538,6 +546,15 @@ class Helpers:
             self._last_selected_device = device
         self._presenter.refresh_for_mode(mode_name, self._last_selected_device)
 
+    def refresh_hud_for_mode_summon(self, mode_name, device):
+        """Shift-press variant of refresh_hud_for_mode (hud-shift-summon-and-
+        configurable-timeout): forces the HUD to show for the new mode instead of
+        honouring the summon-silent decision, so holding shift summons a hidden
+        HUD (like the on/off button) while still switching mode."""
+        if device is not None:
+            self._last_selected_device = device
+        self._presenter.summon_for_mode(mode_name, self._last_selected_device)
+
     def toggle_hud(self):
         """Bound to a `functions: hud_toggle` button. Flips the HUD between
         hidden and shown."""
@@ -618,6 +635,10 @@ class Remote:
         # set this True; re-emitted with LAYOUT each burst for the same
         # restart-resilience reason (a HUD that started late learns it).
         self._hud_autohide = False
+        # Per-surface idle-dismiss window in seconds (hud-shift-summon-and-
+        # configurable-timeout). Re-emitted with LAYOUT each burst, same
+        # restart-resilience reason. Default matches DEFAULT_IDLE_TIMEOUT.
+        self._hud_idle_timeout = DEFAULT_IDLE_TIMEOUT
         # Optional secondary-region cache (lc_parks compositor). When set, its
         # cached dial/button payloads are appended to the HUD burst so the parks
         # region rides along in the single combined stream.
@@ -633,6 +654,13 @@ class Remote:
         self._hud_autohide = bool(enabled)
         self._hud_client.send_autohide(self._hud_autohide)
 
+    def set_idle_timeout(self, seconds):
+        """Record + emit the per-surface idle-dismiss window. Stored so every
+        burst re-emits it (restart-resilient), and sent once now for the common
+        case where the HUD is already up."""
+        self._hud_idle_timeout = int(seconds)
+        self._hud_client.send_idle_timeout(self._hud_idle_timeout)
+
     def init_layout(self, cells, dividers=None):
         # Remember the layout so every burst can re-emit it (restart-resilient),
         # and send it once now for the common case where the HUD is already up.
@@ -643,6 +671,7 @@ class Remote:
         if self._hud_dividers:
             self._hud_client.send_dividers(self._hud_dividers)
         self._hud_client.send_autohide(self._hud_autohide)
+        self._hud_client.send_idle_timeout(self._hud_idle_timeout)
 
     def resend_layout(self):
         """Re-emit the stored LAYOUT without re-deriving it. Public entry point
@@ -654,6 +683,7 @@ class Remote:
         if self._hud_dividers:
             self._hud_client.send_dividers(self._hud_dividers)
         self._hud_client.send_autohide(self._hud_autohide)
+        self._hud_client.send_idle_timeout(self._hud_idle_timeout)
 
     def hide(self):
         """Sticky-dismiss the HUD (HIDE). Stays hidden until the next burst."""
@@ -718,6 +748,7 @@ class Remote:
                 if self._hud_dividers:
                     self._hud_client.send_dividers(self._hud_dividers)
                 self._hud_client.send_autohide(self._hud_autohide)
+                self._hud_client.send_idle_timeout(self._hud_idle_timeout)
                 self._hud_client.send_device(snapshot.device_name)
                 if snapshot.page is not None:
                     p = snapshot.page

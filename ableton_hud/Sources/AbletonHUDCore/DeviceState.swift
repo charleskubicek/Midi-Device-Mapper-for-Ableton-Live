@@ -29,6 +29,12 @@ public class DeviceState: ObservableObject {
     /// pre-handshake window) never sticky-hide on a mac click/keystroke.
     @Published public var autoHideOnInput: Bool = false
 
+    /// Per-surface idle-dismiss window in seconds (hud-shift-summon-and-
+    /// configurable-timeout). Set by the `IDLETIMEOUT` wire message; the overlay
+    /// manager arms its auto-dismiss timer to this many seconds. Default 120
+    /// until an `IDLETIMEOUT` arrives (matches the Python DEFAULT_IDLE_TIMEOUT).
+    @Published public var idleTimeoutSeconds: Int = 120
+
     /// Zone-colour tints, wire index -> RRGGBB hex (grid-zone-colour-coding-plan).
     /// Empty when the focused device isn't zoned. The view colours dial ring /
     /// button border strokes from these.
@@ -220,6 +226,10 @@ public class DeviceState: ObservableObject {
         case .autoHide(let enabled):
             hudLog("apply AUTOHIDE \(autoHideOnInput)->\(enabled)", level: .fine)
             autoHideOnInput = enabled
+
+        case .idleTimeout(let secs):
+            hudLog("apply IDLETIMEOUT \(idleTimeoutSeconds)->\(secs)", level: .fine)
+            idleTimeoutSeconds = secs
 
         case .toggleRequest:
             // Arm; capture visibility BEFORE the burst's DEVICE clears `dismissed`.

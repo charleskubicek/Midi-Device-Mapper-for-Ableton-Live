@@ -82,6 +82,28 @@ Note: `controller-nav` and `summon` cover device-nav buttons only — **track-na
 `show-hud-on` does not change the HUD's other *dismiss* behavior (auto-timer, navigate-away
 HIDE, the `hud_toggle` binding).
 
+On a `summon` surface with a `type: shift` mode-button, **holding shift also
+summons the HUD** when it's off (and repaints it when it's on) — the shift key
+plays the same role as the `hud_toggle` button when the HUD is hidden, while
+still switching into shift mode. It never *hides* a visible HUD. On release the
+HUD stays up and repaints to base-mode labels.
+
+### `hud-idle-timeout` — auto-dismiss window
+
+How many seconds of no HUD traffic (no `COMMIT`/`UPDATE`/`PING`) before the HUD
+auto-hides itself.
+
+```nt
+hud-idle-timeout: 120   # default when the key is absent
+```
+
+- Optional; **defaults to 120** seconds.
+- Must be a positive integer — there is no `off` sentinel. For an
+  effectively-never timeout, set a large value (e.g. `86400`).
+- One source of truth for both sides: the number is sent to the HUD (which arms
+  its dismiss timer to it) and mirrored by the surface's idle-sync (so a
+  `hud_toggle` press re-shows on a single press right after an idle hide).
+
 ### `smart-zoning` — semantic synth layouts
 
 When `smart-zoning: on` is set at the top level of a mapping file:

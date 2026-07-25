@@ -28,8 +28,13 @@ hud: on
 # show-hud-on — when the HUD appears (uncomment exactly one):
 show-hud-on: summon
 # summon = hidden by default; only the hud_toggle button or a controller device-nav shows it, and it auto-hides on any non-device view (clip view, browser, Session↔Arranger)
+# On this shift surface, holding shift also summons the HUD when it's off (and repaints when it's on) while entering shift mode.
 #show-hud-on: selection        — follow Live's selected device; HUD shows on any device change (mouse or controller)
 #show-hud-on: controller-nav   — only a controller device-nav action shows the HUD; mouse/track selection stays hidden
+
+# hud-idle-timeout — seconds of no HUD traffic before it auto-hides (default 120).
+# Positive integer only; no 'off' — use a large value (e.g. 86400) for effectively never.
+hud-idle-timeout: 120
 
 mode-button:
     button: grid-4:4::1
