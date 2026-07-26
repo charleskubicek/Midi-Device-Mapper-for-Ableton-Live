@@ -288,36 +288,55 @@ class DrumRackController:
     # -- velocity editing ----------------------------------------------------
 
     def set_velocity(self, step, value):
+        # Every bail-out below logs. There are six ways for this to do nothing
+        # and, before, two silently swallowed exceptions — which made "the
+        # velocity knob isn't working" indistinguishable from "that step is
+        # empty". The Live log is the only instrument available in here
+        # (CLAUDE.md, Debugging), so each path has to name itself.
         drum_rack = self._drum_rack()
         if drum_rack is None:
+            self._log(f"[drum] set_velocity step={step}: no drum rack focused")
             return
         pitch = self._selected_pad_note(drum_rack)
         if pitch is None:
+            self._log(f"[drum] set_velocity step={step}: no selected pad note "
+                      f"(sel_index={self._selected_pad_index})")
             return
         clip = self._clip_for_edit()
         if clip is None:
+            self._log(f"[drum] set_velocity step={step} pitch={pitch}: no clip to edit")
             return
         start, span = step * STEP_BEATS, STEP_BEATS
         notes = self._notes_in_window(clip, pitch, start, span)
         if not notes:
+            self._log(f"[drum] set_velocity step={step} pitch={pitch}: no note at step "
+                      f"(window start={start} span={span}) — nothing to set")
             return  # empty step: turning the encoder does nothing
         new_velocity = clamp(int(value), 1, 127)
         for note in notes:
             try:
                 note.velocity = new_velocity
-            except Exception:
-                pass
+            except Exception as e:
+                self._log(f"[drum] set_velocity step={step}: could not set note.velocity: {e}")
         try:
             clip.apply_note_modifications(notes)
-        except Exception:
-            pass
+        except Exception as e:
+            self._log(f"[drum] set_velocity step={step}: apply_note_modifications failed "
+                      f"({type(e).__name__}: {e})")
+            return
+        self._log(f"[drum] set_velocity step={step} pitch={pitch} velocity={new_velocity} "
+                  f"applied to {len(notes)} note(s)")
 
     # -- helpers -------------------------------------------------------------
 
     def _notes_in_window(self, clip, pitch, start, span):
         try:
             result = clip.get_notes_extended(pitch, 1, start, span)
-        except Exception:
+        except Exception as e:
+            # Shared by toggle_step, set_velocity and pattern(): if this is what
+            # fails, ALL of them look like dead controls, so it must be visible.
+            self._log(f"[drum] get_notes_extended failed pitch={pitch} start={start} "
+                      f"span={span} ({type(e).__name__}: {e})")
             return []
         notes = list(result) if result is not None else []
         # get_notes_extended already filters by time_span, but guard against a

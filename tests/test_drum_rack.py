@@ -436,6 +436,29 @@ class FakeManager:
         pass
 
 
+class LoggingManager(FakeManager):
+    """FakeManager that keeps the log lines, so the diagnostics that the Live
+    session depends on can be asserted here."""
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.messages = []
+
+    def log_message(self, message):
+        self.messages.append(str(message))
+
+
+class FakeNonRackDevice:
+    can_have_drum_pads = False
+
+
+class RejectingClip(FakeClip):
+    """Mimics an API that refuses what we hand `apply_note_modifications`."""
+
+    def apply_note_modifications(self, notes):
+        raise TypeError("boom: expected MidiNoteVector")
+
+
 def _controller_with(clip, device=None, hud=None):
     device = device if device is not None else FakeDrumRack(36)
     return DrumRackController(FakeManager(device, clip), hud_client=hud)
@@ -698,6 +721,58 @@ class TestDrumRackVelocity(unittest.TestCase):
         c = _controller_with(clip)
         c.set_velocity(0, 0)
         self.assertEqual(note.velocity, 1)
+
+
+class TestDrumRackVelocityDiagnostics(unittest.TestCase):
+    """set_velocity has six ways to do nothing and two swallowed exceptions, so
+    a knob that "isn't working" is indistinguishable from a knob on an empty
+    step. Every bail-out must name itself in the Live log — that log is the only
+    instrument we have inside Ableton (see CLAUDE.md, Debugging)."""
+
+    def _logged(self, clip, device=None, step=4, value=100):
+        manager = LoggingManager(device if device is not None else FakeDrumRack(36), clip)
+        DrumRackController(manager).set_velocity(step, value)
+        return "\n".join(manager.messages)
+
+    def test_no_drum_rack_is_logged(self):
+        log = self._logged(FakeClip(), device=FakeNonRackDevice())
+        self.assertIn("set_velocity", log)
+        self.assertIn("no drum rack", log)
+
+    def test_no_selected_pad_is_logged(self):
+        log = self._logged(FakeClip(), device=FakeDrumRack(None))
+        self.assertIn("no selected pad", log)
+
+    def test_missing_clip_is_logged(self):
+        manager = LoggingManager(FakeDrumRack(36), None, highlighted_slot=None)
+        DrumRackController(manager).set_velocity(4, 100)
+        self.assertIn("no clip", "\n".join(manager.messages))
+
+    def test_empty_step_is_logged_with_pitch_and_window(self):
+        log = self._logged(FakeClip())
+        self.assertIn("no note at step", log)
+        self.assertIn("pitch=36", log)
+
+    def test_apply_failure_is_logged_not_swallowed(self):
+        clip = RejectingClip([FakeNote(36, 4 * STEP_BEATS)])
+        log = self._logged(clip)
+        self.assertIn("apply_note_modifications", log)
+        self.assertIn("boom", log)
+
+    def test_success_is_logged(self):
+        log = self._logged(FakeClip([FakeNote(36, 4 * STEP_BEATS)]))
+        self.assertIn("velocity=100", log)
+
+    def test_note_lookup_failure_is_logged(self):
+        # Shared by steps, velocities and the HUD pattern — if the lookup itself
+        # throws, every drum control looks dead at once.
+        class ThrowingClip(FakeClip):
+            def get_notes_extended(self, *a):
+                raise RuntimeError("nope")
+
+        log = self._logged(ThrowingClip())
+        self.assertIn("get_notes_extended failed", log)
+        self.assertIn("nope", log)
 
 
 class TestDrumRackPattern(unittest.TestCase):
