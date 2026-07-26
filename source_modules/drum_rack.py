@@ -307,7 +307,14 @@ class DrumRackController:
             self._log(f"[drum] set_velocity step={step} pitch={pitch}: no clip to edit")
             return
         start, span = step * STEP_BEATS, STEP_BEATS
-        notes = self._notes_in_window(clip, pitch, start, span)
+        # apply_note_modifications is typed (Clip, MidiNoteVector) — it takes
+        # back only the vector object Live handed us, never a Python list built
+        # from it (dev-docs/Live.md:546). So hold the vector, mutate the notes
+        # inside it, and return that same object.
+        vector = self._fetch_notes(clip, pitch, start, span)
+        if vector is None:
+            return
+        notes = self._in_window(vector, start, span)
         if not notes:
             self._log(f"[drum] set_velocity step={step} pitch={pitch}: no note at step "
                       f"(window start={start} span={span}) — nothing to set")
@@ -319,7 +326,10 @@ class DrumRackController:
             except Exception as e:
                 self._log(f"[drum] set_velocity step={step}: could not set note.velocity: {e}")
         try:
-            clip.apply_note_modifications(notes)
+            # The whole vector goes back, including notes the window guard
+            # skipped: the docs allow a subset of the clip's notes, and an
+            # unmodified note re-applies to the value it already has.
+            clip.apply_note_modifications(vector)
         except Exception as e:
             self._log(f"[drum] set_velocity step={step}: apply_note_modifications failed "
                       f"({type(e).__name__}: {e})")
@@ -329,7 +339,10 @@ class DrumRackController:
 
     # -- helpers -------------------------------------------------------------
 
-    def _notes_in_window(self, clip, pitch, start, span):
+    def _fetch_notes(self, clip, pitch, start, span):
+        """The MidiNoteVector Live returned, or None if the call failed. Callers
+        that only read may treat it as a sequence; the one that writes must pass
+        this exact object to apply_note_modifications."""
         try:
             result = clip.get_notes_extended(pitch, 1, start, span)
         except Exception as e:
@@ -337,11 +350,18 @@ class DrumRackController:
             # fails, ALL of them look like dead controls, so it must be visible.
             self._log(f"[drum] get_notes_extended failed pitch={pitch} start={start} "
                       f"span={span} ({type(e).__name__}: {e})")
-            return []
-        notes = list(result) if result is not None else []
+            return None
+        return result if result is not None else []
+
+    @staticmethod
+    def _in_window(notes, start, span):
         # get_notes_extended already filters by time_span, but guard against a
         # note that only touches the window from a previous step.
         return [n for n in notes if start <= getattr(n, "start_time", start) < start + span]
+
+    def _notes_in_window(self, clip, pitch, start, span):
+        vector = self._fetch_notes(clip, pitch, start, span)
+        return [] if vector is None else self._in_window(vector, start, span)
 
     def pattern(self):
         """16-char pattern for the selected pad: 'X' filled, '.' empty."""

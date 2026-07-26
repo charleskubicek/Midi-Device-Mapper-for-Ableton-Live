@@ -459,6 +459,39 @@ class RejectingClip(FakeClip):
         raise TypeError("boom: expected MidiNoteVector")
 
 
+class LiveNoteVector(list):
+    """Stands in for Live's `MidiNoteVector`. Subclasses list only so the rest
+    of the fakes can treat it as a sequence — identity is what matters."""
+
+
+class VectorStrictClip(FakeClip):
+    """`apply_note_modifications` is a Boost.Python binding typed
+    `(Clip, MidiNoteVector)` (dev-docs/Live.md:546). It accepts only the vector
+    object `get_notes_extended` handed back — anything rebuilt from it, a list
+    comprehension included, is rejected at the signature. Identity, not
+    `isinstance`, is the check: a list subclass would sneak past `isinstance`
+    where the real binding refuses it."""
+
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.vectors = []
+        self.applied = None
+
+    def get_notes_extended(self, *a):
+        vector = LiveNoteVector(super().get_notes_extended(*a))
+        self.vectors.append(vector)
+        return vector
+
+    def apply_note_modifications(self, notes):
+        if not any(notes is v for v in self.vectors):
+            raise TypeError(
+                "ArgumentError: Python argument types in "
+                "Clip.apply_note_modifications(Clip, list) did not match C++ "
+                "signature: apply_note_modifications(TPyHandle<AClip>, "
+                "std::vector<NClipApi::TNoteInfo>)")
+        self.applied = list(notes)
+
+
 def _controller_with(clip, device=None, hud=None):
     device = device if device is not None else FakeDrumRack(36)
     return DrumRackController(FakeManager(device, clip), hud_client=hud)
@@ -721,6 +754,36 @@ class TestDrumRackVelocity(unittest.TestCase):
         c = _controller_with(clip)
         c.set_velocity(0, 0)
         self.assertEqual(note.velocity, 1)
+
+    def test_applies_the_vector_live_returned_not_a_python_list(self):
+        # Seen in the Live log on 2026-07-26: step 12 raised ArgumentError
+        # because the filtered list comprehension is a plain `list`, which the
+        # Boost.Python signature refuses. The vector must go back untouched.
+        note = FakeNote(36, 12 * STEP_BEATS)
+        clip = VectorStrictClip([note])
+        manager = LoggingManager(FakeDrumRack(36), clip)
+        DrumRackController(manager).set_velocity(12, 100)
+        log = "\n".join(manager.messages)
+        self.assertNotIn("apply_note_modifications failed", log)
+        self.assertEqual(clip.applied, [note])
+        self.assertEqual(note.velocity, 100)
+
+    def test_whole_vector_goes_back_but_only_in_window_notes_are_retuned(self):
+        # The vector must go back whole (Live rejects anything rebuilt from it),
+        # so a note Live included but the window guard excludes still reaches
+        # apply_note_modifications — it just must not have been re-velocitied.
+        inside = FakeNote(36, 12 * STEP_BEATS, velocity=64)
+        outside = FakeNote(36, 11 * STEP_BEATS, velocity=64)
+        clip = VectorStrictClip([inside, outside])
+        # Live handed back both; only `inside` starts in step 12's window.
+        clip.get_notes_extended = lambda *a: clip.vectors.append(
+            LiveNoteVector([inside, outside])) or clip.vectors[-1]
+        manager = LoggingManager(FakeDrumRack(36), clip)
+        DrumRackController(manager).set_velocity(12, 100)
+        self.assertNotIn("apply_note_modifications failed", "\n".join(manager.messages))
+        self.assertEqual(inside.velocity, 100)
+        self.assertEqual(outside.velocity, 64)
+        self.assertEqual(clip.applied, [inside, outside])
 
 
 class TestDrumRackVelocityDiagnostics(unittest.TestCase):
