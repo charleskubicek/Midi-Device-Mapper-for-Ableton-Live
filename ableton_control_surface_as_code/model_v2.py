@@ -7,7 +7,7 @@ from nestedtext import nestedtext as nt
 from prettytable import PrettyTable
 from pydantic import BaseModel, model_validator, Extra, Field, ValidationError
 
-from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType
+from ableton_control_surface_as_code.core_model import MixerWithMidi, MidiCoords, parse_coords, MidiType, GridOrigin
 from ableton_control_surface_as_code.gen_error import GenError, ErrorCode, ProblemAccumulator
 from ableton_control_surface_as_code.model_controller import ControllerRawV2, ControllerV2, \
     validate_controller_semantics
@@ -195,6 +195,11 @@ class RootV2(BaseModel):
     outputs: List[OutputSinkDef] = Field(default_factory=list)
     # Surface-wide default for the per-mode `drum-rack-passthrough` (see ModeDef).
     drum_rack_passthrough: Tuple[str, ...] = ()
+    # Which grid corner holds step 1 of the drum sequencer (sequencer-start plan).
+    # Distinct from the controller file's `origin:`: that maps hardware MIDI
+    # numbers onto grid cells (a measured fact about the box), this maps grid
+    # cells onto step numbers (a musical choice). The two compose.
+    sequencer_start: GridOrigin = GridOrigin.top_left
 
     class Config:
         extra = 'forbid'
@@ -227,6 +232,13 @@ class RootV2ModesOrModeless(BaseModel):
     # there is no mode block to hang it off.
     drum_rack_passthrough: Tuple[str, ...] = Field(
         default=(), alias='drum-rack-passthrough')
+    # Which grid corner holds step 1 of the drum sequencer, and therefore which
+    # way steps advance (row-major from that corner). Governs `sequencer:` and
+    # `velocities:` together — they are two views of the same 16 steps, and
+    # letting them differ is the bug this key exists to prevent. Not `pads:`:
+    # a pad index picks which drum, an ordering that belongs to Live's rack.
+    sequencer_start: GridOrigin = Field(
+        default=GridOrigin.top_left, alias='sequencer-start')
 
     @model_validator(mode='before')
     @classmethod
@@ -266,6 +278,7 @@ class RootV2ModesOrModeless(BaseModel):
             feedback=self.feedback,
             outputs=outputs,
             drum_rack_passthrough=self.drum_rack_passthrough,
+            sequencer_start=self.sequencer_start,
         )
 
 
@@ -434,7 +447,8 @@ def read_root_v2(root: RootV2, controller: ControllerV2, root_dir: Path, acc=Non
     mappings = [(mode_dev.name,
                  build_mappings_model_v2(mode_dev.mappings, controller, root_dir,
                                          mode_name=mode_dev.name, acc=acc,
-                                         functions_path=functions_path))
+                                         functions_path=functions_path,
+                                         sequencer_start=root.sequencer_start))
                 for mode_dev in root.modes]
 
     if root.mode_button is None:
@@ -477,24 +491,26 @@ def _build_drum_passthrough(root: RootV2, controller: ControllerV2, acc=None) ->
     return resolved
 
 
-# Builders take (controller, mapping, root_dir, functions_path); only the
-# functions builder consumes functions_path (the shared-functions file), the
-# rest ignore it.
+# Builders take (controller, mapping, root_dir, functions_path, sequencer_start).
+# Only `functions` consumes functions_path (the shared-functions file) and only
+# `device` consumes sequencer_start (the drum step traversal); the rest ignore
+# both.
 _MAPPING_BUILDERS = {
-    "device": lambda c, m, d, f: build_device_model_v2_1(c, m, d),
-    "mixer": lambda c, m, d, f: build_mixer_model_v2(c, m),
-    "track-nav": lambda c, m, d, f: build_track_nav_model_v2(c, m),
-    "device-nav": lambda c, m, d, f: build_device_nav_model_v2(c, m),
-    "functions": lambda c, m, d, f: build_functions_model_v2(c, m, d, functions_path=f),
-    "transport": lambda c, m, d, f: build_transport_model(c, m),
-    "parameter-pager": lambda c, m, d, f: build_parameter_pager_model_v2(c, m),
-    "clip": lambda c, m, d, f: build_clip_model_v2(c, m),
+    "device": lambda c, m, d, f, s: build_device_model_v2_1(c, m, d, sequencer_start=s),
+    "mixer": lambda c, m, d, f, s: build_mixer_model_v2(c, m),
+    "track-nav": lambda c, m, d, f, s: build_track_nav_model_v2(c, m),
+    "device-nav": lambda c, m, d, f, s: build_device_nav_model_v2(c, m),
+    "functions": lambda c, m, d, f, s: build_functions_model_v2(c, m, d, functions_path=f),
+    "transport": lambda c, m, d, f, s: build_transport_model(c, m),
+    "parameter-pager": lambda c, m, d, f, s: build_parameter_pager_model_v2(c, m),
+    "clip": lambda c, m, d, f, s: build_clip_model_v2(c, m),
 }
 
 
 def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
                             root_dir: Path, mode_name: str = "", acc=None,
-                            functions_path: Optional[Path] = None) -> AllMappingWithMidiTypes:
+                            functions_path: Optional[Path] = None,
+                            sequencer_start: GridOrigin = GridOrigin.top_left) -> AllMappingWithMidiTypes:
     """
     Returns a model of the mapping with midi info attached.
 
@@ -510,11 +526,13 @@ def build_mappings_model_v2(mappings: AllMappingTypes, controller: ControllerV2,
         if builder is None:
             continue
         if acc is not None:
-            built = acc.capture(lambda b=builder, m=mapping: b(controller, m, root_dir, functions_path))
+            built = acc.capture(lambda b=builder, m=mapping:
+                                b(controller, m, root_dir, functions_path, sequencer_start))
             if built is not None:
                 mappings_with_midi.append(built)
         else:
-            mappings_with_midi.append(builder(controller, mapping, root_dir, functions_path))
+            mappings_with_midi.append(
+                builder(controller, mapping, root_dir, functions_path, sequencer_start))
 
     print_model_with_mappings(controller, mappings_with_midi)
     validate_mappings(mappings_with_midi, mode_name=mode_name, acc=acc)

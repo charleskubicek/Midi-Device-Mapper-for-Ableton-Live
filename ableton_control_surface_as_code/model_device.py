@@ -2,7 +2,7 @@ from typing import Literal, List, Optional, Dict, Tuple
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2, parse_multiple_coords, ButtonBehaviour
+from ableton_control_surface_as_code.core_model import MidiCoords, TrackInfo, RowMapV2_1, parse_coords, RangeV2, parse_multiple_coords, ButtonBehaviour, GridOrigin
 from ableton_control_surface_as_code.encoder_coords import EncoderCoords
 from ableton_control_surface_as_code.gen_error import GenError, ErrorCode
 
@@ -199,7 +199,8 @@ class DeviceV2(BaseModel):
         return TrackInfo.parse_track(value)
 
 
-def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWithMidi:
+def build_device_model_v2_1(controller, device: DeviceV2, root_dir,
+                            sequencer_start: GridOrigin = GridOrigin.top_left) -> DeviceWithMidi:
     midi_maps: List[DeviceParameterMidiMapping] = []
     slot_assignments: List[Tuple[int, str]] = []
 
@@ -281,7 +282,7 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir) -> DeviceWit
     total_slots = sum(len(e.slots) for e in slot_groups)
     encoder_slot_count = total_slots if total_slots > 0 else 8
 
-    pad_maps, step_maps, velocity_maps = _build_drum_maps(controller, device)
+    pad_maps, step_maps, velocity_maps = _build_drum_maps(controller, device, sequencer_start)
 
     return DeviceWithMidi(
         track=device.track,
@@ -302,6 +303,55 @@ def _resolve_drum_range(controller, range_map: DrumRangeMap) -> List[MidiCoords]
         midis, _ = controller.build_midi_coords(ec)
         all_midis.extend(midis)
     return all_midis
+
+
+def _grid_shape(controller, range_map: DrumRangeMap, count: int):
+    """(rows, columns) of the single grid block this range covers, or None when
+    the range has no unambiguous 2D shape — more than one block, or a subrange
+    that does not fill its block. Only a full block can be re-cornered."""
+    coords = range_map.multi_encoder_coords
+    if len(coords) != 1:
+        return None
+    group = next((g for g in controller.control_groups if g.number == coords[0].row), None)
+    if group is None or group.rows is None or group.columns is None:
+        return None
+    if group.rows * group.columns != count:
+        return None
+    return group.rows, group.columns
+
+
+def _from_corner(midis: List[MidiCoords], shape, start: GridOrigin) -> List[MidiCoords]:
+    """Re-index the controls so position 0 is the cell in `start`'s corner, then
+    row-major away from it. Same traversal rule as the controller file's
+    `origin:` (GridOrigin), applied one layer up: there it orders MIDI numbers
+    into grid cells, here it orders grid cells into step numbers."""
+    rows, columns = shape
+    def source(r, c):
+        row_term = (rows - r) if start.flips_rows else (r - 1)
+        col_term = (columns - c) if start.flips_columns else (c - 1)
+        return row_term * columns + col_term
+
+    return [midis[source(r, c)]
+            for r in range(1, rows + 1)
+            for c in range(1, columns + 1)]
+
+
+def _apply_sequencer_start(controller, name: str, range_map: DrumRangeMap,
+                           midis: List[MidiCoords], start: GridOrigin) -> List[MidiCoords]:
+    if start == GridOrigin.top_left:
+        return midis  # identity — never needs a shape, so never rejects a range
+    shape = _grid_shape(controller, range_map, len(midis))
+    if shape is None:
+        raise GenError(
+            f"sequencer-start: {start.value} needs a range covering exactly one "
+            f"whole grid block, so there is a 2D shape to count corners on, but "
+            f"device drum '{name}' resolves to {len(midis)} control(s) that do "
+            f"not fill a single block. Either give '{name}' a full grid block, "
+            f"or drop sequencer-start (top-left is the default and needs no "
+            f"shape).",
+            ErrorCode.SEMANTIC_VALIDATION,
+        )
+    return _from_corner(midis, shape, start)
 
 
 def _validate_drum_count(name: str, midis: List[MidiCoords], allowed: set):
@@ -326,10 +376,15 @@ def _validate_drum_type(name: str, midis: List[MidiCoords], want_button: bool):
             )
 
 
-def _build_drum_maps(controller, device: 'DeviceV2'):
+def _build_drum_maps(controller, device: 'DeviceV2',
+                     sequencer_start: GridOrigin = GridOrigin.top_left):
     """Build the optional drum-rack roles (pads/sequencer/velocities). Each takes
     just a range; the pad/step index is the 0-based position within it. These are
-    inert at runtime unless the focused device is a drum rack."""
+    inert at runtime unless the focused device is a drum rack.
+
+    `sequencer_start` re-corners the step-indexed roles — this is the one place
+    list position becomes a step number, so it is the one place that decision is
+    made. `pads:` is exempt: its index picks which drum, not which step."""
     pad_maps: List[DrumPadMidiMapping] = []
     if device.mappings.pads is not None:
         midis = _resolve_drum_range(controller, device.mappings.pads)
@@ -354,6 +409,8 @@ def _build_drum_maps(controller, device: 'DeviceV2'):
         midis = _resolve_drum_range(controller, device.mappings.sequencer)
         _validate_drum_count('sequencer', midis, {8, 16})
         _validate_drum_type('sequencer', midis, want_button=True)
+        midis = _apply_sequencer_start(controller, 'sequencer', device.mappings.sequencer,
+                                       midis, sequencer_start)
         step_maps = [DrumStepMidiMapping(midi_coords=mc, step=i) for i, mc in enumerate(midis)]
 
     velocity_maps: List[DrumVelocityMidiMapping] = []
@@ -361,6 +418,8 @@ def _build_drum_maps(controller, device: 'DeviceV2'):
         midis = _resolve_drum_range(controller, device.mappings.velocities)
         _validate_drum_count('velocities', midis, {8, 16})
         _validate_drum_type('velocities', midis, want_button=False)
+        midis = _apply_sequencer_start(controller, 'velocities', device.mappings.velocities,
+                                       midis, sequencer_start)
         velocity_maps = [DrumVelocityMidiMapping(midi_coords=mc, step=i) for i, mc in enumerate(midis)]
 
     return pad_maps, step_maps, velocity_maps

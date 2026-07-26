@@ -36,6 +36,15 @@ show-hud-on: summon
 # Positive integer only; no 'off' — use a large value (e.g. 86400) for effectively never.
 hud-idle-timeout: 120
 
+# sequencer-start — which grid cell holds beat 1 of the drum sequencer, and so
+# which way steps advance (row-major from that corner). Drives `sequencer:` and
+# `velocities:` together so the button and the knob above it always mean the
+# same step. Default top-left; uncomment to count from the bottom row up.
+#sequencer-start: bottom-left
+# NOTE: this is NOT the controller file's `origin:`. That one states a measured
+# fact (which physical corner emits the first MIDI value); this one states a
+# preference (which grid cell is beat 1). See docs/mapping_file.md.
+
 mode-button:
     button: grid-4:4::1
     type: shift
@@ -79,7 +88,7 @@ modes:
                     # select_pad could never do, since a control the script
                     # consumes never reaches the instrument.
                     velocities:
-                        range: grid-2:1-16
+                        range: grid-3:1-16
             -
                 type: mixer
                 track: selected

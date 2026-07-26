@@ -119,6 +119,58 @@ For supported synthesizers (Wavetable, Drift, Operator, Analog), Page 1 of the d
 - Zone colors are pushed to the HUD overlay (dial tracks, button borders, and subtle group backgrounds) and supported RGB LED hardware.
 - Custom BOB parameter banks and factory banks start on Page 2+. Non-enrolled devices or when `smart-zoning: off` (default) retain standard BOB/factory bank paging on Page 1.
 
+### `sequencer-start` — which grid cell is beat 1
+
+```nt
+sequencer-start: top-left     # default; or top-right | bottom-left | bottom-right
+```
+
+Sets which corner of the grid holds **step 1** of the drum sequencer, and
+therefore which way steps advance: row-major from that corner — along the
+corner's row away from it, then to the next row away from it.
+
+On a 4x4 block, `bottom-left` lays the 16 steps out as:
+
+```
+ 13 14 15 16      <- physical top row
+  9 10 11 12
+  5  6  7  8
+  1  2  3  4      <- physical bottom row, beat 1 at the left
+```
+
+Governs **`sequencer:` and `velocities:` together**. They are two views of the
+same 16 steps, so a single key drives both — that is the point. If they could
+be set separately, the step under a button and the step under the knob above it
+could drift apart, which is the bug this key exists to prevent.
+
+Does **not** govern `pads:`. A pad index selects *which drum*, not which step;
+that ordering belongs to Live's drum rack, not to this file.
+
+#### Not the same thing as the controller file's `origin`
+
+These two are easy to confuse and they **compose** rather than duplicate:
+
+| | file | question it answers | kind of answer |
+|---|---|---|---|
+| `origin:` | controller | which physical corner emits the first value of `midi_range` | a **measured fact** about the hardware |
+| `sequencer-start:` | mapping | which grid cell is step 1 | a **musical choice** |
+
+`origin` maps hardware MIDI numbers onto grid cells. `sequencer-start` maps grid
+cells onto step numbers. Even with the hardware perfectly described, "beat 1 at
+the bottom-left, running up" stays a legitimate preference.
+
+Because they are layered, **`sequencer-start` cannot compensate for a wrong
+`origin`.** It moves every role the same way in *grid-cell* space; if two blocks
+declare different origins, the same grid cell is a different physical control in
+each, and no value of `sequencer-start` will line them up. If the sequencer and
+the velocity row disagree about where beat 1 is, check the blocks' `origin:`
+first.
+
+A non-default corner needs a range covering exactly one whole grid block, so
+there is a 2D shape to count corners on; a partial range or one spanning two
+blocks is a generation error naming the key. `top-left` is the identity
+ordering and is always valid.
+
 ## Modes
 
 A mapping file is either modeless (flat `mappings:`) or has explicit `modes:`.
