@@ -9,6 +9,12 @@ parameter_mappings_file: ../../data/custom_device_mappings.json
 # page 1; non-enrolled devices fall back to BOB/banks exactly as before.
 smart-zoning: on
 
+# rack-shaping (rack-macro-shaping-plan): a focused rack's macro panel is laid
+# onto the grid from visible_macro_count — a 2x8 rack fills all 16, a 2x4 fills
+# the left 4 columns (macros 9-16 hidden), etc. Drum racks are excluded. The
+# top two physical rows are the 8-wide macro panel (macro-panel-columns: 8).
+rack-shaping: on
+
 # grid_led (grid-po16-synth-surface-plan §F): stream a dense 48-slot RGB LED
 # frame (hue = zone colour, brightness = live value) to the Grid's MIDI RX on
 # every device-focus burst. Grid-side Lua: live_surfaces/grid/grid_led_handler.lua
@@ -67,11 +73,17 @@ modes:
                 mappings:
                     encoder-list:
                         -
-                            range: grid-2:1-16
-                            slots: 1-16
+                            range: grid-2:1-4
+                            slots: 1-4
                         -
-                            range: grid-3:1-16
-                            slots: 17-32
+                            range: grid-3:1-4
+                            slots: 5-8
+                        -
+                            range: grid-2:5-8
+                            slots: 9-12
+                        -
+                            range: grid-3:5-8
+                            slots: 13-16
                     button:
                         range: grid-1:1-16
                         slots: 1-16
