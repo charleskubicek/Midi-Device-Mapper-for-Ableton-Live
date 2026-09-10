@@ -1,9 +1,9 @@
 # BeatSpark Learnings — Plan
 
-Source: `docs/beatspark.py` (a read-only LOM telemetry/verification bridge for a
+Source: `../../docs/beatspark.py` (a read-only LOM telemetry/verification bridge for a
 "learn Ableton" tutor app). It is not a controller-mapping script, so nothing is
 copied wholesale — but four techniques and a body of LOM gotchas are worth
-adopting. Line references are into `docs/beatspark.py`.
+adopting. Line references are into `../../docs/beatspark.py`.
 
 Rating = value-to-us × ease, as a single high/med/low priority.
 
@@ -104,7 +104,7 @@ gap.
 
 ## LOM gotchas — reference to fold into `dev-docs`
 
-Our `dev-docs/Live.md` is an auto-generated signature dump; none of the practical
+Our `../../dev-docs/Live.md` is an auto-generated signature dump; none of the practical
 traps below are in it. Rating here = how likely it bites us / how load-bearing.
 
 | Gotcha | Detail | Lines | Rating |

@@ -67,6 +67,20 @@ modes:
         drum-rack-passthrough: grid-1:1-16
         mappings:
             -
+                type: vst-device
+                track: selected
+                device: selected
+                mappings:
+                    slot-direction: down
+                    encoder-list:
+                        -
+                            range: grid-2:1-16
+                            slots: 1-16
+                        -
+                            range: grid-3:1-16
+                            slots: 17-32
+                    on-off: grid-4:3
+            -
                 type: device
                 track: selected
                 device: selected

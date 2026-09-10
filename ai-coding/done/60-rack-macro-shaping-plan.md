@@ -45,7 +45,7 @@ so a 2×4 rack wrongly shows macros 9-16 and the shapes don't line up.
 
 ## Key finding — the API gives us the shape directly
 
-The name-counting heuristic isn't needed. `dev-docs/Live.md`:
+The name-counting heuristic isn't needed. `../../dev-docs/Live.md`:
 
 - **`RackDevice.visible_macro_count`** (RO, get/observe) — exact count of visible
   macros (8 for a 2×4, 16 for a 2×8). This is the authoritative signal.
