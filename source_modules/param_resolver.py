@@ -14,6 +14,27 @@ from typing import Any, Optional
 from .hud_protocol import SlotPayload
 
 
+def macro_at(slot, panel_cols, visible_macro_count):
+    """Map a 1-based panel-cell `slot` to the 1-based Ableton macro it drives, or
+    None if the cell falls outside the rack's on-screen shape.
+
+    The hardware panel is `panel_cols` wide (rows implied by the slot numbering).
+    Ableton lays a rack's macros in 2 rows, `ceil(visible/2)` wide, so the rack
+    occupies the left `rack_cols` columns of each panel row (left-aligned). A cell
+    to the right of that, or past the last visible macro, is dim.
+    """
+    if visible_macro_count <= 0 or panel_cols <= 0:
+        return None
+    rack_cols = (visible_macro_count + 1) // 2  # ceil(visible / 2)
+    srow, scol = divmod(slot - 1, panel_cols)
+    if scol >= rack_cols:
+        return None                              # right of the rack
+    macro = srow * rack_cols + scol + 1
+    if macro > visible_macro_count:
+        return None                              # below the last visible macro
+    return macro
+
+
 @dataclass
 class RealParameter:
     param: Any
@@ -183,7 +204,8 @@ def _default_bank_names():
 class ParameterResolver:
     def __init__(self, device_table, device_banks, bank_names,
                  banks_per_page, button_switch_count, button_slot_count, log,
-                 smart_zoning=False, zone_tables=None):
+                 smart_zoning=False, zone_tables=None,
+                 rack_shaping=False, macro_panel_cols=8):
         self._device_table = device_table
         self._device_banks = device_banks
         self._bank_names = bank_names
@@ -197,6 +219,12 @@ class ParameterResolver:
         # resolution path below is byte-for-byte today's behavior.
         self._smart_zoning = bool(smart_zoning)
         self._zone_tables = zone_tables
+        # Rack-macro-shaping tier (rack-macro-shaping-plan): active only when the
+        # surface toggle is on AND the focused device is a rack (has a readable
+        # visible_macro_count). Off/non-rack -> `_is_rack_shaped` is False and the
+        # rack falls through to today's unknown-class fallback.
+        self._rack_shaping = bool(rack_shaping)
+        self._macro_panel_cols = macro_panel_cols
         # Paging state — reset on every device focus via focus().
         self.encoder_page = 1
         self.button_page = 1
@@ -419,6 +447,27 @@ class ParameterResolver:
         gate zone-colour emission on this so a non-zoned focus shows no tint."""
         return self._is_zoned(device)
 
+    def _visible_macro_count(self, device):
+        """The rack's visible macro count, or None if the device isn't a rack (or
+        the handle is dead). Rack-only property — its absence is the gate."""
+        vmc = _safe_device_attr(device, 'visible_macro_count')
+        return vmc if isinstance(vmc, int) else None
+
+    def _is_rack_shaped(self, device):
+        """True when the rack-shaping tier owns this device: the surface toggle is
+        on and the focused device is a (non-drum) rack.
+
+        Drum racks are excluded: they have visible_macro_count, but surfaces that
+        enable shaping repurpose the encoder grid for per-step velocity, so
+        shaping their macros onto the HUD would mislabel the knobs. The live
+        velocity path already short-circuits before the resolver; this keeps the
+        HUD burst consistent with it. Drum racks stay on today's behaviour."""
+        if not self._rack_shaping or device is None:
+            return False
+        if self._visible_macro_count(device) is None:
+            return False
+        return _safe_device_attr(device, 'class_name') != 'DrumGroupDevice'
+
     def zone_for_slot(self, kind, surface_slot):
         """Template zone for a 1-based surface slot ('dial'|'button' kind), or
         None if there are no zone tables or the slot isn't in the template.
@@ -551,7 +600,7 @@ class ParameterResolver:
         slot_in_page = c_idx - 1
         class_name = getattr(device, 'class_name', None)
         known = (self._has_bob(device) or bool(self.standard_banks(device))
-                 or self._is_zoned(device))
+                 or self._is_zoned(device) or self._is_rack_shaped(device))
 
         # Zone tier — page 1 of an enrolled synth. Precedes BOB (zone beats BOB;
         # by design they never both apply — custom mappings stay effects-only).
@@ -579,6 +628,30 @@ class ParameterResolver:
                     return None
                 return RealParameter(p, entry.get('display') or name, entry.get('button'))
             # outcome == 'fallthrough' — slot not owned by the template
+
+        # Rack tier — page 1 of a rack (rack-macro-shaping-plan). Maps the panel
+        # cell to the rack's on-screen macro shape from visible_macro_count;
+        # macro M is device.parameters[M]. Precedes BOB/fallback for racks (a rack
+        # is never zoned, so it can't reach here while zoned). Wins for racks by
+        # design — it replaces the 16-positional fallback mess.
+        if page == 1 and self._is_rack_shaped(device):
+            macro = macro_at(c_idx, self._macro_panel_cols,
+                             self._visible_macro_count(device))
+            if macro is None:
+                return None  # cell outside the rack's shape -> dim
+            mapped = _safe_device_attr(device, 'macros_mapped')
+            try:
+                if mapped is not None and not mapped[macro - 1]:
+                    return None  # visible but unmapped -> dim
+            except (IndexError, TypeError):
+                pass  # unexpected macros_mapped shape — don't dim on its account
+            try:
+                p = device.parameters[macro]
+            except (IndexError, TypeError):
+                return None
+            # alias=None -> the HUD shows the parameter's display name, i.e. the
+            # user's macro name ('Low Decay', …).
+            return RealParameter(p, None, None)
 
         if page == 1 and self._has_bob_encoders(device):
             encoders = self._bob_encoders(device)

@@ -502,6 +502,8 @@ def _generate_surface(mapping_file_path, surface_name, target_dir, overrides=Non
         'parameter_mappings_raw': repr(parameter_mappings_raw),
         'smart_zoning': repr(bool(mappings.smart_zoning)),
         'zone_tables_raw': repr(zone_tables_raw),
+        'rack_shaping': repr(bool(mappings.rack_shaping)),
+        'macro_panel_cols': repr(int(mappings.macro_panel_cols)),
         # HUD client target as data. None -> the HUD on 127.0.0.1:5006; the parks
         # forwarder sets (host, port) to reach the compositor's region port.
         'hud_target': repr(overrides.hud_target),

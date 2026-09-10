@@ -182,6 +182,11 @@ class RootV2(BaseModel):
     # ai-coding/plans/shared-functions-file-plan.md.
     functions_file: Optional[str] = None
     smart_zoning: bool = False
+    # Rack-macro-shaping (rack-macro-shaping-plan): shape a focused rack's macro
+    # panel onto the grid from visible_macro_count. macro_panel_cols is the
+    # macro-panel width in cells on this hardware (8 for the grid's top two rows).
+    rack_shaping: bool = False
+    macro_panel_cols: int = 8
     hud: HudMode = HudMode.On
     # Built model: always constructed with an explicit value from the (now
     # required) parsed model, so this default is only a safety net for direct
@@ -218,6 +223,8 @@ class RootV2ModesOrModeless(BaseModel):
     # other surfaces are untouched until they opt in; a 32-slot template only
     # makes sense on this surface's 32 pots.
     smart_zoning: bool = Field(default=False, alias='smart-zoning')
+    rack_shaping: bool = Field(default=False, alias='rack-shaping')
+    macro_panel_cols: int = Field(default=8, alias='macro-panel-columns')
     # Required — no default. A surface must state what the HUD shows and when it
     # appears; `read_root` pre-checks their presence for a friendly error.
     hud: HudMode
@@ -272,6 +279,8 @@ class RootV2ModesOrModeless(BaseModel):
             parameter_mappings_file=self.parameter_mappings_file,
             functions_file=self.functions_file,
             smart_zoning=self.smart_zoning,
+            rack_shaping=self.rack_shaping,
+            macro_panel_cols=self.macro_panel_cols,
             hud=self.hud,
             show_hud_on=self.show_hud_on,
             hud_idle_timeout=self.hud_idle_timeout,

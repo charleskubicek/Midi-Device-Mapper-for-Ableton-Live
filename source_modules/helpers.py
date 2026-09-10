@@ -78,6 +78,10 @@ class SurfaceConfig:
     # both baked by gen.py. Off/None -> resolver behaves exactly as today.
     smart_zoning: bool = False
     zone_tables_raw: Any = None
+    # Rack-macro-shaping (rack-macro-shaping-plan): flag + macro-panel width, both
+    # baked by gen.py. Off -> resolver behaves exactly as today for racks.
+    rack_shaping: bool = False
+    macro_panel_cols: int = 8
     encoder_slot_count: int = 8
     button_slot_count: int = 8
     hud_cells: Any = None
@@ -129,7 +133,9 @@ class Helpers:
             banks_per_page=banks_per_page, button_switch_count=button_switch_count,
             button_slot_count=config.button_slot_count, log=self.log_message,
             smart_zoning=config.smart_zoning,
-            zone_tables=_build_zone_tables(config.zone_tables_raw))
+            zone_tables=_build_zone_tables(config.zone_tables_raw),
+            rack_shaping=config.rack_shaping,
+            macro_panel_cols=config.macro_panel_cols)
         self._presenter = HudPresenter(
             remote=remote, resolver=self._resolver,
             slot_assignments=slot_assignments,

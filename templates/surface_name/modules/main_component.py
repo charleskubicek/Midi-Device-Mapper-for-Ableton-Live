@@ -113,6 +113,8 @@ class MainComponent(ControlSurfaceComponent):
             parameter_mappings_raw=$parameter_mappings_raw,
             smart_zoning=$smart_zoning,
             zone_tables_raw=$zone_tables_raw,
+            rack_shaping=$rack_shaping,
+            macro_panel_cols=$macro_panel_cols,
             encoder_slot_count=$encoder_slot_count,
             hud_cells=$hud_cells,
             hud_dividers=$hud_dividers,

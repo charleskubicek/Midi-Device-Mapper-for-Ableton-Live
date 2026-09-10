@@ -29,6 +29,8 @@ modes:
 | `remote_on`                | no       | `false`       | When `true`, the generated surface emits OSC parameter updates to a multi-client target (localhost + a hard-coded LAN IP). When `false`, OSC is a no-op (`NullOSCClient`). |
 | `hud`                      | no       | `on`          | Controls the floating HUD overlay. See [HUD modes](#hud-modes). |
 | `smart-zoning`             | no       | `false`       | Set to `on` / `true` to enable semantic synth zoning for enrolled synthesizers on page 1. See [Smart Synth Zoning](#smart-synth-zoning). |
+| `rack-shaping`             | no       | `false`       | Set to `on` / `true` to shape a focused rack's macro panel onto the grid from `visible_macro_count`. See [Rack macro shaping](#rack-macro-shaping). |
+| `macro-panel-columns`      | no       | `8`           | Width, in cells, of the macro panel on this hardware (used only by `rack-shaping`). |
 | `mode-button`              | no       | none          | Declares a physical button that drives the mode FSM. See [Modes](#modes). |
 | `modes`                    | no       | none          | Named list of modes, each with its own mappings. If omitted, you can use a flat top-level `mappings:` instead and the generator wraps it in a single anonymous mode. |
 
@@ -118,6 +120,31 @@ For supported synthesizers (Wavetable, Drift, Operator, Analog), Page 1 of the d
 - Supports toggle-dependent parameters (e.g. Operator Oscillator A/B fixed-frequency mode toggles dynamic pot bindings between Coarse/Fine and Fix Freq/Mul).
 - Zone colors are pushed to the HUD overlay (dial tracks, button borders, and subtle group backgrounds) and supported RGB LED hardware.
 - Custom BOB parameter banks and factory banks start on Page 2+. Non-enrolled devices or when `smart-zoning: off` (default) retain standard BOB/factory bank paging on Page 1.
+
+### Rack macro shaping
+
+When `rack-shaping: on` is set at the top level, a focused **rack** (Instrument /
+Audio Effect / MIDI Effect / Drum rack) has its macro panel laid onto the grid to
+match how Ableton draws it on screen:
+
+```nt
+rack-shaping: on
+macro-panel-columns: 8   # optional; the macro-panel width on this hardware
+```
+
+- The rack's `visible_macro_count` (from the Live API, not a heuristic) sets the
+  shape: Ableton draws macros in two rows `ceil(visible / 2)` wide, so a **2×8**
+  rack (16 macros) fills the panel, a **2×4** rack (8 macros) fills the left four
+  columns with the rest blank, a **2×2** rack (4 macros) the left two, etc. Macro
+  *M* drives `parameters[M]`; its HUD label is the macro's own name.
+- Cells outside the rack's shape, and visible-but-unmapped macros (`macros_mapped`
+  is False), render blank/dim rather than driving a stray parameter — so a 2×4
+  rack no longer shows macros 9–16.
+- `macro-panel-columns` is how wide (in cells) your macro panel is on the
+  hardware; it must match how you numbered the device `slots:` (the grid's top two
+  rows are 8 wide). Racks are one page — there is no rack paging.
+- Non-rack devices, and `rack-shaping: off` (default), are unaffected: a rack then
+  falls back to the standard positional resolution.
 
 ### `sequencer-start` — which grid cell is beat 1
 

@@ -17,9 +17,17 @@ gated on the `update.py` prerequisite below.
     `wire_idx` kwarg; the single-dial repaint keys on the turned knob's wire
     (`wire+1`), not the parameter number. On-off keeps `parameter_updated(rp, 0)`
     on purpose (index 0 = static label, no dial UPDATE — never a dial cell).
-- **Step 1 — rack tier.** Gated on the `update.py` prerequisite below (and on
-  re-adding the `rackprobe` command, reverted with the rest). Then add the
-  `macro_at` shape function + resolver tier + config.
+- **Step 1 — rack tier. ✅ DONE (900 tests green).** Prerequisite answered (below).
+  - **`macro_at`** (`param_resolver`) — pure panel-cell → macro shape function.
+  - **Resolver tier** — page-1 rack tier gated on `rack_shaping` + a readable
+    `visible_macro_count`; `macro_at` → `parameters[macro]`, dim outside the shape
+    or where `macros_mapped[M-1]` is False. Racks added to `known` (one page).
+  - **Config** — `rack-shaping: on` + `macro-panel-columns` (default 8), baked
+    through model_v2 → gen.py → SurfaceConfig → ParameterResolver (mirrors
+    `smart-zoning`). Verified end-to-end on ck_grid.
+  - **Decisions taken** (were open questions): dedicated `rack-shaping:` flag (NOT
+    folded into smart-zoning); rack tier wins over BOB/fallback for racks; odd
+    counts use `cols = ceil(visible/2)`. Reversible if you disagree.
 
 ## Goal
 
@@ -123,34 +131,52 @@ Fixed the 16-param bug ("moving one grid dial moves the OTHER HUD encoder"):
 no longer repaint each other. Resolution still keys on the slot/parameter; the
 OSC parameter-update rides the same wire index the burst uses.
 
-## PREREQUISITE — one `update.py` run before any rack-shaping code
+## PREREQUISITE — ANSWERED (rackprobe on real racks, 2026-09-10)
 
-`macro_at()` returns a macro *number*; the resolver needs a *parameter*. That
-cell→param path is **undefined** until we confirm the rack's parameter layout, so
-this gates the code (not a footnote). On a real rack, log via `update.py`:
+Confirmed on a 2×4 `AudioEffectGroupDevice` and a 2×8 `InstrumentGroupDevice`:
 
-- `device.parameters` names + indices — is Macro M at `parameters[M]` (Device On
-  at 0)? The screenshot's first cell reads "Chain Selector": is that a **renamed
-  macro** or the actual **`chain_selector`** parameter sitting in `parameters[1]`?
-  If the latter, every macro index shifts by one and a 2×4 rack would drive the
-  wrong eight params. This must be pinned first.
-- `device.visible_macro_count` — readable, and correct (8 vs 16)?
-- `len(device.macros_mapped)` — 16, or `visible`? The resolver indexes
-  `macros_mapped[M-1]`; a wrong length is an IndexError *inside a burst* (worst
-  failure site). Guard the access accordingly.
+- **Macro M is at `parameters[M]`** (Device On at 0, Macro 1 at index 1 … Macro 16
+  at 16). No off-by-one. The "Chain Selector" seen in the HUD was a *renamed*
+  Macro 1 (`original_name='Macro 1'`, display `'Chain Selector'`), NOT the chain
+  selector parameter. The real `chain_selector` sits at index **17**, after the
+  16 macros — it never shifts them. (`chain_selector` the property returns a proxy
+  that fails an `is` identity check against `parameters`, so don't match it by
+  identity; it's simply not one of the 16 macros.)
+- **`visible_macro_count`** returns 8 / 16 exactly. ✓ gate + shape signal.
+- **`macros_mapped`** is always **len 16**; the 2×4 reads `[True×8, False×8]`.
+  Safe to index `[M-1]` for M in 1..16; use it to dim a visible-but-unmapped macro.
+- Rack className is `*GroupDevice` (`AudioEffectGroupDevice`,
+  `InstrumentGroupDevice`, and by extension Midi/Drum); non-racks have no
+  `visible_macro_count`, which stays the gate.
+
+Resolution is therefore: `macro = macro_at(slot)`; if None → dim; else
+`RealParameter(device.parameters[macro])` (its display name is the user's macro
+name); if `macros_mapped[macro-1]` is False → dim.
 
 ## Resolved (no longer open)
 
 - **Paging:** racks cap at 16 macros = one 2×8 page. Page 1 is the whole rack; no
   rack paging.
 
-## Open questions (design choices, decide at review)
+## Notes / behaviour choices made (all reversible)
 
-1. **Odd/small counts.** Is Live's panel always 2 rows with `cols=ceil(n/2)`?
-   8/16 are certain; verify 6/12 if you use them.
-2. **Flag placement** — own `rack-shaping:` flag, or part of `smart-zoning`?
-3. **BOB precedence** — if a rack also has a custom BOB entry, which wins? Default
-   proposal: rack shaping wins for racks (more specific, dynamic).
+- **Drum racks excluded.** A `DrumGroupDevice` has `visible_macro_count`, but
+  surfaces that enable shaping repurpose the encoder grid for per-step velocity,
+  so shaping would mislabel those knobs. Drum racks stay on today's behaviour.
+  (The live velocity listener already short-circuits before the resolver; the
+  exclusion keeps the HUD burst consistent with that.)
+- **Visible-but-unmapped macro → blank** (not "shown but dimmed"). Simpler MVP;
+  only visible on a rack with a `macros_mapped[M-1] == False` cell.
+- **`macro-panel-columns` must match the `slots:` numbering.** No validation ties
+  them yet — a mismatch silently misplaces macros. A `GenError` when
+  `max(slot) > panel_cols * 2` would catch the obvious case (future).
+
+## Still open
+
+1. **Odd/small counts.** Panel assumed 2 rows, `cols=ceil(n/2)`; 8/16 certain,
+   verify 6/12 if you use them.
+2. **BOB precedence** — a rack with a custom BOB entry currently gets shaping
+   (rack tier precedes BOB). Fine by default; revisit if a rack needs BOB.
 
 ## Test plan (once specced is agreed)
 

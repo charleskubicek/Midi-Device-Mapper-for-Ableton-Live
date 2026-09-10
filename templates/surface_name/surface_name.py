@@ -110,6 +110,53 @@ class $surface_name(ControlSurface):
         self.log_message(res)
 
 
+    def dump_selected_rack_macro_info(self):
+        """[rackprobe] One-shot probe for the rack-macro-shaping design
+        (ai-coding/plans/rack-macro-shaping-plan.md). Logs the facts that gate
+        that feature: visible_macro_count, the chain_selector's parameters[]
+        index (does it push macros off by one?), len(macros_mapped), and every
+        parameter's index/name. Rack-only properties are read defensively so a
+        non-rack (or dead handle) degrades to a message instead of throwing."""
+        device = self.song().view.selected_track.view.selected_device
+        if not device:
+            self.log_message("[rackprobe] No device selected")
+            return
+
+        def safe(fn, default=None):
+            try:
+                return fn()
+            except Exception as e:
+                return f"<err: {e}>"
+
+        cn = safe(lambda: device.class_name, '?')
+        self.log_message(f"[rackprobe] name={safe(lambda: device.name)!r} class_name={cn}")
+        self.log_message(f"[rackprobe] visible_macro_count={safe(lambda: device.visible_macro_count)}")
+
+        cs = None
+        try:
+            cs = device.chain_selector
+        except Exception as e:
+            self.log_message(f"[rackprobe] chain_selector: <unavailable: {e}>")
+        cs_idx = None
+        if cs is not None:
+            for i, p in enumerate(device.parameters):
+                if p is cs:
+                    cs_idx = i
+                    break
+            self.log_message(
+                f"[rackprobe] chain_selector: original_name={safe(lambda: cs.original_name)!r} "
+                f"name={safe(lambda: cs.name)!r} parameters_index={cs_idx}")
+
+        mm = safe(lambda: list(device.macros_mapped))
+        self.log_message(f"[rackprobe] macros_mapped: len={len(mm) if isinstance(mm, list) else mm} values={mm}")
+
+        self.log_message("[rackprobe] parameters (index: original_name | display_name):")
+        for i, p in enumerate(device.parameters):
+            mark = " <-- chain_selector" if (cs is not None and p is cs) else ""
+            self.log_message(
+                f"[rackprobe]   {str(i).zfill(2)}: "
+                f"{safe(lambda: p.original_name)!r} | {safe(lambda: p.name)!r}{mark}")
+
     def dump_selected_device_parameter_info(self):
         device = self.song().view.selected_track.view.selected_device
         if not device:
@@ -364,6 +411,13 @@ class $surface_name(ControlSurface):
             elif cmd == 'lom':
                 self.dump_selected_device_lom()
                 response = b'LOM dump written to logs'
+
+            elif cmd == 'rackprobe':
+                # One-shot rack-macro probe (rack-macro-shaping-plan). Logs
+                # visible_macro_count, chain_selector index, macros_mapped length,
+                # and all parameter indices/names for the focused device.
+                self.dump_selected_rack_macro_info()
+                response = b'rackprobe written to logs'
 
             elif cmd == 'doctor':
                 # Button doctor: first call enables (press each button twice),
