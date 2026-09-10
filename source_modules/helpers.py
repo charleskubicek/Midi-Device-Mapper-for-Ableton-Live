@@ -341,6 +341,30 @@ class Helpers:
             parameter.value = next_value
             self._remote.parameter_updated(rp, raw_parameter_no)
 
+    def device_on_off_action(self, device, midi_no, value, fn_name):
+        """The fixed `on-off:` toggle. Live parameter 0 is the device's on/off
+        switch on every device, so it is taken directly and never passed to
+        `resolve_encoder` — encoder slots are 1-based, so slot 0 would negative-
+        index the Best-of-Bank list and drive the wrong parameter entirely
+        (hud-quick-fixes-plan §3).
+
+        `parameter_updated` with parameter_no 0 emits the OSC update and,
+        correctly, no dial `UPDATE`: this cell carries a static HUD label."""
+        if device is None:
+            return
+        self.selected_device_changed(device)
+        try:
+            parameter = device.parameters[0]
+        except (IndexError, TypeError, AttributeError):
+            self.log_message(f"{fn_name}: no on/off parameter on this device")
+            return
+        # Press-once, exactly like any other latching button.
+        if not self.should_act_on_edge(value):
+            return
+        parameter.value = (parameter.max if parameter.value == parameter.min
+                           else parameter.min)
+        self._remote.parameter_updated(RealParameter(parameter, 'On/Off'), 0)
+
     def switch_slot_action(self, device, slot, value, fn_name):
         """`slot` is a 1-based device switch-slot index (int)."""
         self.log_message(f"[switch] enter fn={fn_name} slot={slot} value={value} device={getattr(device,'class_name','None')}")

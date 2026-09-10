@@ -185,7 +185,12 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
     for mm in device_with_midi.midi_maps:
         ch = mm.only_midi_coord.ch_num
         vm = vel_by_ch.get(ch)
-        if vm is not None:
+        if getattr(mm, 'is_on_off', False):
+            # Live parameter 0 is the device's on/off switch, not an encoder
+            # slot — it gets its own action so it never enters the encoder
+            # resolver (hud-quick-fixes-plan §3).
+            codes.append(_on_off_template(mm, mode_name, track, device))
+        elif vm is not None:
             consumed_vel.add(ch)
             codes.append(_dispatch_encoder_template(mm, vm, mode_name, track, device))
         else:
@@ -245,6 +250,40 @@ def _plain_encoder_template(mm, mode_name: str, track: str, device: str) -> 'Gen
             mm.info_string(),
             doctor=mm.only_midi_coord.encoder_type.is_button()),
     )
+
+
+def _on_off_template(mm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+    """The fixed device on/off toggle. Same element/listener wiring as any other
+    device control; only the action differs."""
+    enc_name = mm.controller_variable_name()
+    fn_name = mm.controller_listener_fn_name(mode_name)
+    return GeneratedCode(
+        control_defs=mm.midi_coords,
+        setup_listeners=[f"self.{enc_name}.add_value_listener(self.{fn_name})",
+                         f"self._previous_values['{fn_name}'] = 0"],
+        remove_listeners=[f"self.{enc_name}.remove_value_listener(self.{fn_name})"],
+        listener_fns=generate_on_off_listener_action(
+            mm.only_midi_coord.number, track, device, fn_name),
+    )
+
+
+def generate_on_off_listener_action(midi_no, track, device, fn_name) -> [str]:
+    if not is_valid_function_name(fn_name):
+        raise ValueError(f"Invalid function name: {fn_name}")
+
+    return Template("""
+def ${fn_name}(self, value):
+    self._helpers.button_event('${fn_name}', value)
+    device = self.find_device("${track}", "${device}")
+    if device is None:
+        self.log_message(f"device not found: ${track} - ${device}")
+        return
+
+
+    self.device_on_off_action(device, $midi_no, value, "$fn_name")
+    self._hud_client.send_ping()
+    """).substitute(midi_no=midi_no, track=track, device=device,
+                    fn_name=fn_name).split("\n")
 
 
 def _dispatch_encoder_template(mm, vm, mode_name: str, track: str, device: str) -> 'GeneratedCode':

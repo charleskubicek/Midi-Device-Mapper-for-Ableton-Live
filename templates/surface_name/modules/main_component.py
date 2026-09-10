@@ -479,6 +479,9 @@ $code_setup_listeners
     def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
         self._helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
 
+    def device_on_off_action(self, device, midi_no, value, fn_name):
+        self._helpers.device_on_off_action(device, midi_no, value, fn_name)
+
     def find_device(self, track_name, device_name):
         return self._helpers.find_device(self._song, track_name, device_name)
 

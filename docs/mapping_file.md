@@ -297,7 +297,10 @@ Each entry under a mode's `mappings:` (or top-level modeless `mappings:`) has a
 - `mappings.encoder-list`: list of `range` (controller coords) → `slots`
   (parameter slot indices, 1-based). The slot numbers feed into the custom
   device-mapping JSON, or fall back to the device's parameter list by index.
-- `mappings.on-off`: a button that toggles the device's on/off state.
+- `mappings.on-off`: a button that toggles the device's on/off state. This is
+  Live parameter 0, which every device has, so it bypasses slot resolution
+  entirely — it is unaffected by `smart-zoning`, Best-of-Bank tables, custom
+  device mappings, and the parameter pager, and works the same on every device.
 - `mappings.button` / `mappings.button-list`: mirror `encoders` / `encoder-list`
   but for device *switch* (cycle/toggle) slots — a `range` of buttons paired
   with a `slots` list of 1-based device switch-slot indices:

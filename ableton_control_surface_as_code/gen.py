@@ -21,7 +21,7 @@ from ableton_control_surface_as_code.core_model import EncoderType
 from ableton_control_surface_as_code.encoder_coords import EncoderRefinements
 from ableton_control_surface_as_code.behavior_doc import build_behavior_doc
 from ableton_control_surface_as_code.hud_layout import (
-    allocate_global_layout, collect_mode_labels, combine_layouts,
+    allocate_global_layout, collect_mode_labels, combine_layouts, find_wire_index,
 )
 from ableton_control_surface_as_code.model_composition import is_composition_file, read_composition
 from ableton_control_surface_as_code.model_custom_devices import validate_custom_device_mappings
@@ -216,6 +216,17 @@ def generate_code_as_template_vars(modes: ModeGroupWithMidi, controller=None, hu
             mode_name: collect_mode_labels(controller, mode_maps, hud_cells_raw)
             for mode_name, mode_maps in modes.mappings
         }
+        # The mode button is not a mapping, so collect_mode_labels never visits
+        # it and its cell rendered blank (hud-quick-fixes-plan §1). It means the
+        # same thing in every mode, so it is labelled in all of them. A mapping
+        # can't share the coord — validation rejects that — so nothing is
+        # clobbered here.
+        if modes.mode_button is not None:
+            wire = find_wire_index(controller, modes.mode_button.button, hud_cells_raw)
+            if wire is not None:
+                label = 'Shift' if modes.mode_button.type == ModeType.Shift else 'Mode'
+                for labels in mode_hud_labels.values():
+                    labels[wire] = (label, '')
 
     hud_client_class = 'NullHudClient' if hud_mode == HudMode.Off else 'HudClient'
     # Election marker: a HUD-off surface must never win HUD-owner election

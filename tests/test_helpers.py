@@ -985,6 +985,21 @@ class TestModeOverlay(unittest.TestCase):
         # idx 0..3 empty, idx 4 = 'volume', idx 5 = 'pan', idx 6..7 empty
         self.assertEqual(names, ['', '', '', '', 'volume', 'pan', '', ''])
 
+    def test_mode_labels_land_on_button_cells_no_mapping_owns(self):
+        # The mode button (hud-quick-fixes-plan §1) is the first label whose wire
+        # index belongs to no mapping at all — validation forbids one there — so
+        # nothing in the device path ever writes that slot and the overlay is the
+        # only thing that can fill it.
+        self.remote.device_update(
+            "Dev", [_make_real_param(_make_param("On/Off"))],
+            hud_layout=[(3, 3, 'button', 4, 28)],
+            mode_labels={('button', 28): ('Shift', ''),
+                         ('button', 29): ('Hide HUD', '')},
+        )
+        button_calls = [c for c in self.hud.send_slot.call_args_list if c[0][0] == 'button']
+        self.assertEqual([c[0][2] for c in button_calls],
+                         ['Shift', 'Hide HUD', '', ''])
+
     def test_mode_labels_do_not_clobber_real_device_data(self):
         params = [
             _make_real_param(_make_param("On/Off")),

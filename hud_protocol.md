@@ -137,6 +137,14 @@ SLOT|<kind>|<index>|<name>|<value>|<min>|<max>
   (buttons — see indexing notes).
 - **Receiver effect:** writes to `pendingDials[index]` or
   `pendingButtons[index]`. Not visible until `COMMIT`.
+- **`name` is capitalised on the wire** by `hud_protocol.display_label`, applied
+  inside `encode_slot`/`encode_update` — underscores become spaces and each word
+  is capitalised, but only when that word is *entirely* lowercase. That guard is
+  the point: static labels (`dev on/off` → `Dev On/Off`, `move_loop_left` →
+  `Move Loop Left`) get fixed while live Live parameter names (`LFO Rate`, `dB`,
+  `EQ8`) pass through untouched. It is deliberately a sender-side rule — Swift's
+  `.capitalized` (like Python's `str.title()`) would flatten `LFO` to `Lfo`. The
+  empty-slot sentinel stays empty.
 
 ### `UPDATE`
 

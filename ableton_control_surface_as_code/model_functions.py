@@ -20,6 +20,14 @@ _BUILTIN_CALLS = {
     'hud_toggle': 'self._helpers.toggle_hud()',
 }
 
+# What the HUD renders for a builtin. A user function carries its display name
+# via `@hud_name`; a builtin has no functions.py entry to decorate, so the name
+# is declared here rather than in a second table in hud_layout
+# (hud-quick-fixes-plan §4).
+_BUILTIN_HUD_NAMES = {
+    'hud_toggle': 'Hide HUD',
+}
+
 
 class Functions(BaseModel):
     type: Literal['functions'] = "functions"
@@ -164,7 +172,8 @@ def build_functions_model_v2(controller, mapping: Functions, root_dir: Path,
         if fn in RESERVED_BUILTIN_FUNCTIONS:
             # Built-in: no entry in functions.py — skip the user-file lookup and
             # route to a surface method (see _BUILTIN_CALLS / template_function_call).
-            parameter_len, builtin, hud_name, hud_glyph = 0, True, None, None
+            parameter_len, builtin = 0, True
+            hud_name, hud_glyph = _BUILTIN_HUD_NAMES.get(fn), None
         else:
             parameter_len, hud_name, hud_glyph = FunctionLookup.inspect_python_file(functions_path, fn)
             builtin = False

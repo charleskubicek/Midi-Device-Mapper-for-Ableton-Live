@@ -152,3 +152,27 @@ class TestToggleHudRuntime(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHudToggleDisplayName(unittest.TestCase, CustomAssertions):
+    """hud-quick-fixes-plan §4 — the HUD showed the raw identifier `hud_toggle`.
+    Reserved builtins have no functions.py entry to carry an `@hud_name`, so the
+    name is declared alongside the builtin itself."""
+
+    def test_builtin_carries_a_display_name(self):
+        controller = build_1_group_controller()
+        functions = Functions(mappings={"hud_toggle": "row-1:1"})
+
+        model = build_functions_model_v2(controller, functions, root_dir=Path("/nonexistent"))
+
+        self.assertEqual("Hide HUD", model.midi_maps[0].hud_name)
+
+    def test_that_name_is_what_the_hud_label_pass_picks_up(self):
+        from ableton_control_surface_as_code.hud_layout import _label_pairs_for_mapping
+        from ableton_control_surface_as_code.model_functions import FunctionsWithMidi
+
+        m = _builtin_mapping()
+        m.hud_name = "Hide HUD"
+        pairs = _label_pairs_for_mapping(FunctionsWithMidi(midi_maps=[m]))
+
+        self.assertEqual(["Hide HUD"], [label for _c, label, _g in pairs])

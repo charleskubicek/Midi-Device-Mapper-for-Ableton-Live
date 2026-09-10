@@ -7,6 +7,7 @@ keeps a single source of truth for the bytes-on-the-wire format.
 See `hud_protocol.md` for the spec. Mirrors the Swift `WireProtocol` parser
 in /Users/ck/current/ableton_hud.
 """
+import re
 from dataclasses import dataclass
 from typing import List, NamedTuple, Union
 
@@ -140,11 +141,29 @@ def encode_device(name: str) -> str:
     return f"DEVICE|{name}"
 
 
+# Every label the HUD renders is capitalised, whatever case the source used
+# (hud-quick-fixes-plan §2). Applied here rather than in the SwiftUI render
+# because live Live parameter names are already cased and Swift's `.capitalized`
+# (like `str.title()`) would flatten `LFO Rate` to `Lfo Rate`.
+_LABEL_WORD = re.compile(r"[^\s/_-]+")
+
+
+def display_label(name):
+    """Presentation form of a slot label: underscores become spaces and each
+    word is capitalised, but only when the word is *entirely* lowercase — so
+    `LFO`, `dB` and `EQ8` survive while `dev on/off` becomes `Dev On/Off`."""
+    if not isinstance(name, str) or not name:
+        return name
+    return _LABEL_WORD.sub(
+        lambda m: m.group(0).capitalize() if m.group(0).islower() else m.group(0),
+        name.replace("_", " "))
+
+
 # The optional 8th `glyph` field is appended only when non-empty, so the common
 # no-glyph slot stays the historical 7-field shape (existing golden tests and
 # any older HUD keep parsing it). Receivers accept 7 or 8 fields.
 def encode_slot(kind: str, index: int, name: str, value, vmin, vmax, glyph: str = "") -> str:
-    base = f"SLOT|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+    base = f"SLOT|{kind}|{index}|{display_label(name)}|{value}|{vmin}|{vmax}"
     return f"{base}|{glyph}" if glyph else base
 
 
@@ -154,7 +173,7 @@ def encode_slot_payload(kind: str, index: int, payload: SlotPayload) -> str:
 
 
 def encode_update(kind: str, index: int, name: str, value, vmin, vmax, glyph: str = "") -> str:
-    base = f"UPDATE|{kind}|{index}|{name}|{value}|{vmin}|{vmax}"
+    base = f"UPDATE|{kind}|{index}|{display_label(name)}|{value}|{vmin}|{vmax}"
     return f"{base}|{glyph}" if glyph else base
 
 
