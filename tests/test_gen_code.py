@@ -90,16 +90,78 @@ class TestRowMapV2_1ExclusiveFields(unittest.TestCase):
 
 
 class TestSlotAssignmentsCodegen(unittest.TestCase):
-    def test_emits_flat_tuple_list(self):
-        lines = code_from_slot_assignments([(1, "slot1"), (2, "slot2"), (3, "slot3")])
-        self.assertEqual(lines, ["(1, 'slot1')", "(2, 'slot2')", "(3, 'slot3')"])
+    """`code_from_slot_assignments` bakes (wire_idx, slot) pairs. wire_idx is the
+    physical HUD dial position (from find_wire_index), NOT the position in the
+    encoder-list — so the HUD label lands on the knob that drives the parameter,
+    even when the encoder-list interleaves two side-by-side controller grids."""
 
-    def test_mode_slots_excluded(self):
-        lines = code_from_slot_assignments([(1, "slot1"), (2, "switch1")])
-        self.assertEqual(lines, ["(1, 'slot1')"])
+    def _two_grid_controller(self):
+        from ableton_control_surface_as_code.model_controller import (
+            ControllerV2, ControllerRawV2, ControlGroupPartV2,
+        )
+        # Two 2x2 knob grids, grid-2 physically right_of grid-1. Wire allocation
+        # groups all of grid-1 (wire 0-3) then grid-2 (wire 4-7).
+        g1 = ControlGroupPartV2(layout='grid', number=1, type='knob',
+                                midi_channel=1, midi_type='CC',
+                                midi_range='16-19', rows=2, columns=2)
+        g2 = ControlGroupPartV2(layout='grid', number=2, type='knob',
+                                midi_channel=1, midi_type='CC',
+                                midi_range='32-35', rows=2, columns=2, right_of=1)
+        return ControllerV2.build_from(
+            ControllerRawV2(light_colors={}, control_groups=[g1, g2]))
 
-    def test_empty_input_emits_nothing(self):
-        self.assertEqual(code_from_slot_assignments([]), [])
+    def _interleaved_device(self, controller):
+        from ableton_control_surface_as_code.model_device import (
+            DeviceV2, build_device_model_v2_1,
+        )
+        dev = DeviceV2.model_validate({
+            'track': 'selected', 'device': 'selected',
+            'mappings': {'encoder-list': [
+                {'range': 'grid-1:1-2', 'slots': '1-2'},   # g1 top  -> wire 0,1
+                {'range': 'grid-2:1-2', 'slots': '3-4'},   # g2 top  -> wire 4,5
+                {'range': 'grid-1:3-4', 'slots': '5-6'},   # g1 bot  -> wire 2,3
+                {'range': 'grid-2:3-4', 'slots': '7-8'},   # g2 bot  -> wire 6,7
+            ]},
+        })
+        return build_device_model_v2_1(controller, dev, root_dir="")
+
+    def test_wire_indices_follow_physical_layout_not_list_order(self):
+        from ableton_control_surface_as_code.hud_layout import allocate_global_layout
+        controller = self._two_grid_controller()
+        hud_cells = allocate_global_layout(controller)
+        dwm = self._interleaved_device(controller)
+        lines = code_from_slot_assignments(dwm, controller, hud_cells)
+        self.assertEqual(lines, [
+            "(0, 'slot1')", "(1, 'slot2')",   # g1 top row
+            "(4, 'slot3')", "(5, 'slot4')",   # g2 top row (wire 4,5 — not 2,3)
+            "(2, 'slot5')", "(3, 'slot6')",   # g1 bottom row
+            "(6, 'slot7')", "(7, 'slot8')",   # g2 bottom row
+        ])
+
+    def test_generated_listener_bakes_the_physical_wire_index(self):
+        # The live-UPDATE path repaints the turned knob's dial, so each device
+        # listener carries its physical wire index. slot3 is grid-2:1 (midi 32),
+        # which the two-grid layout puts at wire 4 — not its list position (2).
+        from ableton_control_surface_as_code.hud_layout import allocate_global_layout
+        controller = self._two_grid_controller()
+        hud_cells = allocate_global_layout(controller)
+        dwm = self._interleaved_device(controller)
+        result = GeneratedCodes.merge_all(device_templates(dwm, "main", controller, hud_cells))
+        self.assertIn("self.device_parameter_action(device, 3, 32, value,",
+                      "\n".join(result.listener_fns))
+        line = next(l for l in result.listener_fns if "device, 3, 32, value," in l)
+        self.assertIn("wire_idx=4", line)
+
+    def test_no_layout_falls_back_to_model_index(self):
+        # HUD off (no controller/hud_cells): keep the model's c_idx so the baked
+        # tuples stay well-formed; alignment only matters when the HUD runs.
+        controller = self._two_grid_controller()
+        dwm = self._interleaved_device(controller)
+        lines = code_from_slot_assignments(dwm)
+        self.assertEqual(lines, [
+            "(1, 'slot1')", "(2, 'slot2')", "(3, 'slot3')", "(4, 'slot4')",
+            "(5, 'slot5')", "(6, 'slot6')", "(7, 'slot7')", "(8, 'slot8')",
+        ])
 
 
 class TestDictVariableDeclerationBlock(unittest.TestCase):

@@ -122,7 +122,9 @@ def fn(self, value):
 
         print(generated)
 
-        expected_call = 'self.device_parameter_action(device, 2, 22, value, "fn", toggle=False'
+        # wire_idx (the knob's physical dial, -1 here = no layout) rides along so
+        # the live UPDATE repaints the right dial. The call may wrap across lines.
+        expected_call = 'device, 2, 22, value, "fn", toggle=False, wire_idx=-1'
         self.assert_string_in(expected_call, generated)
 
         expected_device = 'device = self.find_device("lom_value", "selected")'

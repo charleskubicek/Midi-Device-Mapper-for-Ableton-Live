@@ -12,7 +12,7 @@ STEPS_PER_BAR = 16
 # module so `core_model` can use them without importing this model module.
 from ableton_control_surface_as_code.slots import (  # noqa: F401
     SWITCH_SLOT_NAMES, is_switch_slot, parse_slot_token, parse_continuous_slot_list,
-    parse_button_slot_list,
+    parse_button_slot_list, slot_number,
 )
 
 
@@ -222,9 +222,14 @@ def build_device_model_v2_1(controller, device: DeviceV2, root_dir,
                     )
                 for m, slot in zip(midis, slot_list):
                     encoder_index += 1
+                    # `parameter` is the device parameter this knob drives, and
+                    # slots are honored literally — it is the slot number, NOT the
+                    # positional encoder_index (which two reused slots would make
+                    # diverge). encoder_index stays the c_idx in slot_assignments;
+                    # codegen turns that into a physical wire index for the HUD.
                     midi_maps.append(DeviceParameterMidiMapping(
                         midi_coords=[m],
-                        parameter=encoder_index,
+                        parameter=slot_number(slot),
                         slot=slot,
                     ))
                     slot_assignments.append((encoder_index, slot))

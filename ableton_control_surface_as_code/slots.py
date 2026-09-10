@@ -28,6 +28,15 @@ def parse_slot_token(token: str) -> str:
     raise ValueError(f"Unknown slot token: {token!r}")
 
 
+def slot_number(name: str) -> int:
+    """The 1-based device-parameter index a continuous slot name refers to
+    ('slot9' -> 9). This is what an encoder actually drives — encoder slots are
+    honored literally, not by position in the list (see model_device)."""
+    if name.startswith("slot") and name[4:].isdigit():
+        return int(name[4:])
+    raise ValueError(f"Not a continuous slot name: {name!r}")
+
+
 def parse_continuous_slot_list(raw: str) -> List[str]:
     if ":" in raw:
         raise ValueError(

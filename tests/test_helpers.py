@@ -182,6 +182,21 @@ class TestEncoderResolution(unittest.TestCase):
         self.assertAlmostEqual(device.parameters[1].value, 0.5, places=1)
         self.assertEqual(self.remote.parameter_updated.call_args[0][0].alias, 'Bass')
 
+    def test_live_update_reports_the_knobs_wire_not_the_parameter_number(self):
+        # The single-dial HUD repaint keys on the physical wire of the knob turned
+        # (wire+1 as the 1-based dial index), so two knobs sharing a parameter each
+        # repaint their own dial instead of both hitting the parameter-number dial.
+        device = FakeDevice(class_name="Unknown",
+                            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(10)])
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn", wire_idx=5)
+        self.assertEqual(self.remote.parameter_updated.call_args[0][1], 6)  # wire 5 -> dial 6
+
+    def test_live_update_without_wire_falls_back_to_parameter_number(self):
+        device = FakeDevice(class_name="Unknown",
+                            parameters=[FakeParameter(name=f"p{i}", min=0.0, max=1.0) for i in range(10)])
+        self.helpers.device_parameter_action(device, 2, 22, 127.0, "fn")  # no wire_idx
+        self.assertEqual(self.remote.parameter_updated.call_args[0][1], 2)  # fallback
+
     def test_encoder_identity_fallback_when_class_unknown(self):
         device = FakeDevice(
             class_name="Unknown",
@@ -330,7 +345,7 @@ class TestSimplerEncoderRegression(unittest.TestCase):
                    Mock(),
                    Mock(),
                    SurfaceConfig(
-                       slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+                       slot_assignments=[(c, f'slot{c+1}') for c in range(0, 16)],  # (wire_idx, slot): 0-based physical dial
                        switch_slot_assignments=[(0, 1)],
                        parameter_mappings_raw={"devices": [{
                 "className": "OriginalSimpler",
@@ -1324,7 +1339,7 @@ class TestEncoderResolveGapPreservesHudAlignment(unittest.TestCase):
                       Mock(),
                       Remote(manager=Mock(), osc_client=Mock(), hud_client=hud),
                       SurfaceConfig(
-                          slot_assignments=[(c, f'slot{c}') for c in range(1, 17)],
+                          slot_assignments=[(c, f'slot{c+1}') for c in range(0, 16)],  # (wire_idx, slot): 0-based physical dial
                           switch_slot_assignments=[],
                           parameter_mappings_raw=None,
                           encoder_slot_count=16,

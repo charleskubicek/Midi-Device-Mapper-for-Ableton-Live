@@ -19,6 +19,18 @@ from .hud_visibility import (
 )
 
 
+def _slot_index(slot):
+    """The 1-based device-parameter index a slot_assignments entry refers to, or
+    None if it isn't a recognisable slot. Codegen bakes continuous encoder slots
+    as 'slotN' strings; anything else dims that dial rather than resolving an
+    arbitrary parameter (the wire index is NOT a parameter index)."""
+    if isinstance(slot, int):
+        return slot
+    if isinstance(slot, str) and slot.startswith("slot") and slot[4:].isdigit():
+        return int(slot[4:])
+    return None
+
+
 class HudPresenter:
     def __init__(self, remote, resolver, slot_assignments, switch_slot_assignments,
                  hud_cells, mode_hud_labels, log, hud_trigger='controller-nav',
@@ -114,22 +126,33 @@ class HudPresenter:
         # is a template property, not tied to what resolved).
         zoned = self._resolver.is_zoned(device)
         on_off = ParameterMapping.on_off().with_real_param(device.parameters[0])
-        real_params = [on_off]
+        # slot_assignments are (wire_idx, slot): wire_idx is the physical HUD dial
+        # position (baked via find_wire_index), slot the device parameter to
+        # resolve. Place each dial at real_params[wire+1] so the label lands on the
+        # knob that drives it — independent of encoder-list order, and robust to
+        # gaps (an unmapped physical knob stays a None placeholder rather than
+        # left-shifting later dials). resolve/colour by the SLOT number because
+        # encoder slots are honored literally.
+        assignments = list(self._active_slot_assignments(burst_mode))
+        n_dials = max((wire for wire, _ in assignments), default=-1) + 1
+        dials = [None] * n_dials
         # dial_zone_colors is kept parallel to real_params (index 0 = Device On
         # = no tint), so `_build_zone_color_entries` can index it exactly like
         # the dial payloads.
-        dial_zone_colors = [None]
-        # Append unconditionally — a None placeholder for a failed resolve
-        # keeps the wire-index alignment in `_build_dial_payloads`. Squashing
-        # Nones here shifts every later encoder one slot left on the HUD.
+        dial_cols = [None] * n_dials
         missing_c_idxs = []
-        for c_idx, _slot in sorted(self._active_slot_assignments(burst_mode)):
-            rp = self._resolver.resolve_encoder(device, c_idx)
-            real_params.append(rp)
-            dial_zone_colors.append(
-                self._resolver.color_for_slot('dial', c_idx) if zoned else None)
+        for wire, slot in assignments:
+            slot_no = _slot_index(slot)
+            rp = None if slot_no is None else self._resolver.resolve_encoder(device, slot_no)
+            if 0 <= wire < n_dials:
+                dials[wire] = rp
+                dial_cols[wire] = (
+                    self._resolver.color_for_slot('dial', slot_no)
+                    if (zoned and slot_no is not None) else None)
             if rp is None:
-                missing_c_idxs.append(c_idx)
+                missing_c_idxs.append(wire)
+        real_params = [on_off] + dials
+        dial_zone_colors = [None] + dial_cols
         if missing_c_idxs:
             # One summary line per burst makes mis-resolved encoders trivial
             # to spot in tail_logs.sh — individual `[bank]`/`[bob]` lines

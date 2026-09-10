@@ -83,6 +83,37 @@ class TestHudPresenterDirect(unittest.TestCase):
         p.emit_burst(dev_b)                   # funnel never ran for dev_b
         self.assertEqual(p._resolver.encoder_page, 1)
 
+    def test_burst_places_dials_by_wire_index_not_list_order(self):
+        # slot_assignments are (wire_idx, slot). The burst must place each dial at
+        # real_params[wire+1] regardless of the order the pairs are given — so a
+        # HUD label always lands on the physical knob that drives it, even when
+        # the encoder-list interleaved two controller grids. Also resolves each
+        # by its SLOT number (encoder slots honored literally).
+        p, remote = _presenter(slot_assignments=[(2, 'slot1'), (0, 'slot2'), (1, 'slot3')])
+        params = [FakeParam("On/Off"), FakeParam("P1"), FakeParam("P2"), FakeParam("P3")]
+        dev = FakeDevice("Unknown", params)
+        p.emit_burst(dev)
+        real_parameters = remote.device_update.call_args[0][1]
+        self.assertEqual(len(real_parameters), 4)  # On/Off + wires 0,1,2
+        # wire 0 -> slot2 -> P2 ; wire 1 -> slot3 -> P3 ; wire 2 -> slot1 -> P1
+        self.assertIs(real_parameters[1].param, params[2])
+        self.assertIs(real_parameters[2].param, params[3])
+        self.assertIs(real_parameters[3].param, params[1])
+
+    def test_burst_keeps_wire_alignment_with_a_gap(self):
+        # A mapping that skips a physical knob leaves a gap in the wire indices
+        # (wire 1 unmapped). Each mapped dial must still land at real_params[wire+1];
+        # the gap is a None placeholder, not a left-shift of later dials.
+        p, remote = _presenter(slot_assignments=[(0, 'slot1'), (2, 'slot2')])
+        params = [FakeParam("On/Off"), FakeParam("P1"), FakeParam("P2"), FakeParam("P3")]
+        dev = FakeDevice("Unknown", params)
+        p.emit_burst(dev)
+        real_parameters = remote.device_update.call_args[0][1]
+        self.assertEqual(len(real_parameters), 4)            # On/Off + wires 0,1,2
+        self.assertIs(real_parameters[1].param, params[1])   # wire 0 -> slot1 -> P1
+        self.assertIsNone(real_parameters[2])                # wire 1 -> gap
+        self.assertIs(real_parameters[3].param, params[2])   # wire 2 -> slot2 -> P2
+
     def test_emit_burst_clears_dismiss_intent(self):
         p, remote = _presenter(slot_assignments=[(1, 'slot1')])
         p.hud_dismissed = True

@@ -118,6 +118,46 @@ class TestButtonMappings(unittest.TestCase):
 
         self.assertEqual([m.slot for m in res.switch_maps], [5, 6, 7, 8])
 
+    def test_encoder_slots_are_honored_literally_not_positional(self):
+        # An encoder-list `slots:` value must pick the device parameter, not be
+        # ignored in favour of the control's position in the list. So reusing a
+        # slot number on a second range drives the SAME param (mirror), exactly
+        # like button slots (test_slots_are_honored_literally_not_renumbered).
+        controller = self._controller()
+        dev = DeviceV2.model_validate({
+            'track': 'selected',
+            'device': 'selected',
+            'mappings': {
+                'encoder-list': [
+                    {'range': 'row-1:1-4', 'slots': '1-4'},
+                    {'range': 'row-2:1-4', 'slots': '1-4'},  # reused slots
+                ],
+            },
+        })
+        res = build_device_model_v2_1(controller, dev, root_dir="")
+
+        self.assertEqual(len(res.midi_maps), 8)
+        self.assertEqual([m.parameter for m in res.midi_maps[:4]], [1, 2, 3, 4])
+        self.assertEqual(res.midi_maps[0].midi_coords[0].number, 21)
+        # Second range: same slots -> same params 1..4 (mirror), NOT 5..8.
+        self.assertEqual([m.parameter for m in res.midi_maps[4:]], [1, 2, 3, 4])
+        self.assertEqual(res.midi_maps[4].midi_coords[0].number, 31)
+        # slot_assignments keep the positional c_idx (wire alignment is applied
+        # later in codegen, not here).
+        self.assertEqual([c for c, _ in res.slot_assignments], [1, 2, 3, 4, 5, 6, 7, 8])
+
+    def test_reordered_encoder_slots_drive_the_named_slot(self):
+        controller = self._controller()
+        dev = DeviceV2.model_validate({
+            'track': 'selected',
+            'device': 'selected',
+            'mappings': {
+                'encoder-list': [{'range': 'row-1:1-4', 'slots': '4,3,2,1'}],
+            },
+        })
+        res = build_device_model_v2_1(controller, dev, root_dir="")
+        self.assertEqual([m.parameter for m in res.midi_maps], [4, 3, 2, 1])
+
     def test_multi_range_merges_in_order(self):
         controller = self._controller()
         dev = DeviceV2.model_validate({

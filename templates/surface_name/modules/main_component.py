@@ -476,8 +476,8 @@ $code_setup_listeners
 
         self.manager.show_message(f'Switched to {next_mode_name}')
 
-    def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False):
-        self._helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle)
+    def device_parameter_action(self, device, parameter_no, midi_no, value, fn_name, toggle=False, wire_idx=-1):
+        self._helpers.device_parameter_action(device, parameter_no, midi_no, value, fn_name, toggle, wire_idx)
 
     def device_on_off_action(self, device, midi_no, value, fn_name):
         self._helpers.device_on_off_action(device, midi_no, value, fn_name)

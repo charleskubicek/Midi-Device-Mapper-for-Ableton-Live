@@ -87,7 +87,7 @@ def is_valid_function_name(name):
     return True
 
 
-def generate_parameter_listener_action(parameter, midi_no, track, device, fn_name, toggle: bool, debug_st, doctor: bool = False) -> [str]:
+def generate_parameter_listener_action(parameter, midi_no, track, device, fn_name, toggle: bool, debug_st, doctor: bool = False, wire_idx: int = -1) -> [str]:
     if not is_valid_function_name(fn_name):
         raise ValueError(f"Invalid function name: {fn_name}")
 
@@ -101,9 +101,9 @@ def ${fn_name}(self, value):${doctor_block}
         return
 
 
-    self.device_parameter_action(device, $parameter, $midi_no, value, "$fn_name", toggle=$toggle)
+    self.device_parameter_action(device, $parameter, $midi_no, value, "$fn_name", toggle=$toggle, wire_idx=$wire_idx)
     """).substitute(parameter=parameter, midi_no=midi_no, track=track, device=device, toggle=toggle, fn_name=fn_name,
-                    comment=debug_st, doctor_block=doctor_block).split("\n")
+                    comment=debug_st, doctor_block=doctor_block, wire_idx=wire_idx).split("\n")
 
 
 def generate_control_value_listener_function_action(fn_name, var_name, callee, toggle: bool, debug_st: str, doctor: bool = False) -> [str]:
@@ -182,6 +182,16 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
     pad_by_ch = {pm.midi_coords.ch_num: pm for pm in device_with_midi.pad_maps}
     consumed_vel, consumed_step, consumed_pad = set(), set(), set()
 
+    def _wire(mm):
+        """The knob's physical HUD dial wire, so its live UPDATE repaints its own
+        dial. -1 when there's no layout (HUD off) — helpers falls back to the
+        parameter number, the pre-wire behaviour."""
+        if controller is None or hud_cells is None:
+            return -1
+        from ableton_control_surface_as_code.hud_layout import find_wire_index
+        r = find_wire_index(controller, mm.only_midi_coord, hud_cells)
+        return r.index if (r is not None and r.kind == 'dial') else -1
+
     for mm in device_with_midi.midi_maps:
         ch = mm.only_midi_coord.ch_num
         vm = vel_by_ch.get(ch)
@@ -192,9 +202,9 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
             codes.append(_on_off_template(mm, mode_name, track, device))
         elif vm is not None:
             consumed_vel.add(ch)
-            codes.append(_dispatch_encoder_template(mm, vm, mode_name, track, device))
+            codes.append(_dispatch_encoder_template(mm, vm, mode_name, track, device, _wire(mm)))
         else:
-            codes.append(_plain_encoder_template(mm, mode_name, track, device))
+            codes.append(_plain_encoder_template(mm, mode_name, track, device, _wire(mm)))
 
     for mb in device_with_midi.switch_maps:
         ch = mb.only_midi_coord.ch_num
@@ -223,7 +233,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
         if pm.midi_coords.ch_num not in consumed_pad:
             codes.append(_drum_pad_template(pm, mode_name))
 
-    custom_mappings = code_from_slot_assignments(device_with_midi.slot_assignments)
+    custom_mappings = code_from_slot_assignments(device_with_midi, controller, hud_cells)
     switch_mappings = code_from_switch_slot_assignments(device_with_midi.switch_maps, controller, hud_cells)
     codes.append(GeneratedCode(custom_parameter_mappings=custom_mappings,
                                switch_parameter_mappings=switch_mappings))
@@ -231,7 +241,7 @@ def device_templates(device_with_midi: DeviceWithMidi, mode_name: str, controlle
     return codes
 
 
-def _plain_encoder_template(mm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+def _plain_encoder_template(mm, mode_name: str, track: str, device: str, wire_idx: int = -1) -> 'GeneratedCode':
     enc_name = mm.controller_variable_name()
     enc_listener_name = mm.controller_listener_fn_name(mode_name)
     enc_refs = EncoderRefinements(mm.only_midi_coord.encoder_refs)
@@ -248,7 +258,8 @@ def _plain_encoder_template(mm, mode_name: str, track: str, device: str) -> 'Gen
             enc_listener_name,
             mm.only_midi_coord.encoder_type.is_button() and not enc_refs.has_momentary(),
             mm.info_string(),
-            doctor=mm.only_midi_coord.encoder_type.is_button()),
+            doctor=mm.only_midi_coord.encoder_type.is_button(),
+            wire_idx=wire_idx),
     )
 
 
@@ -286,13 +297,13 @@ def ${fn_name}(self, value):
                     fn_name=fn_name).split("\n")
 
 
-def _dispatch_encoder_template(mm, vm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
+def _dispatch_encoder_template(mm, vm, mode_name: str, track: str, device: str, wire_idx: int = -1) -> 'GeneratedCode':
     """One knob, two roles: device-macro parameter normally, per-step velocity on
     a drum rack. A single listener branches on the focused device type."""
     enc_name = mm.controller_variable_name()
     fn_name = mm.controller_listener_fn_name(mode_name)
     fn = _dispatch_encoder_fn(fn_name, vm.step, mm.parameter, mm.only_midi_coord.number,
-                              track, device).split("\n")
+                              track, device, wire_idx).split("\n")
     return GeneratedCode(
         control_defs=mm.midi_coords,
         setup_listeners=[f"self.{enc_name}.add_value_listener(self.{fn_name})",
@@ -302,7 +313,7 @@ def _dispatch_encoder_template(mm, vm, mode_name: str, track: str, device: str) 
     )
 
 
-def _dispatch_encoder_fn(fn_name: str, step: int, parameter, midi_no, track: str, device: str) -> str:
+def _dispatch_encoder_fn(fn_name: str, step: int, parameter, midi_no, track: str, device: str, wire_idx: int = -1) -> str:
     return Template("""
 def ${fn_name}(self, value):
     if self.drum_rack.is_active():
@@ -313,9 +324,9 @@ def ${fn_name}(self, value):
     if device is None:
         self.log_message(f"device not found: ${track} - ${device}")
         return
-    self.device_parameter_action(device, ${parameter}, ${midi_no}, value, "${fn_name}", toggle=False)
+    self.device_parameter_action(device, ${parameter}, ${midi_no}, value, "${fn_name}", toggle=False, wire_idx=${wire_idx})
     """).substitute(fn_name=fn_name, step=step, parameter=parameter, midi_no=midi_no,
-                    track=track, device=device)
+                    track=track, device=device, wire_idx=wire_idx)
 
 
 def _dispatch_switch_template(mb, sm, mode_name: str, track: str, device: str) -> 'GeneratedCode':
@@ -501,16 +512,37 @@ def ${fn_name}(self, value):
     """).substitute(fn_name=fn_name, track=track, device=device, slot=slot)
 
 
-def code_from_slot_assignments(slot_assignments: List[Tuple[int, str]]) -> List[str]:
+def code_from_slot_assignments(device_with_midi, controller=None, hud_cells=None) -> List[str]:
     """
-    Emit a flat list of (c_idx, slot_name) tuples for the runtime to resolve
-    against the loaded parameter_mappings JSON.
+    Emit (wire_idx, slot_name) tuples. wire_idx is the physical HUD dial index
+    (from find_wire_index) — NOT the encoder-list position — so the HUD label
+    lands on the knob that actually drives the parameter, even when the
+    encoder-list interleaves two side-by-side controller grids. Mirrors
+    `code_from_switch_slot_assignments`, which already keys buttons on wire_idx.
+
+    The runtime resolves `slot_name` against the loaded parameter_mappings JSON.
     """
+    from ableton_control_surface_as_code.hud_layout import find_wire_index
     out: List[str] = []
-    for c_idx, slot in slot_assignments:
+    # slot_assignments is the canonical (index, slot) list. Its slot-driven
+    # encoders line up 1:1, in order, with the slot-carrying midi_maps (both are
+    # appended together in build_device_model_v2_1) — so slotted[i] is the coord
+    # for slot_assignments[i], which is what find_wire_index needs.
+    slotted = [m for m in device_with_midi.midi_maps if m.slot is not None]
+    for i, (c_idx, slot) in enumerate(device_with_midi.slot_assignments):
         if is_switch_slot(slot):
             continue
-        out.append(f"({c_idx}, '{slot}')")
+        wire_idx = None
+        if i < len(slotted) and controller is not None and hud_cells is not None:
+            resolved = find_wire_index(controller, slotted[i].only_midi_coord, hud_cells)
+            if resolved is not None and resolved.kind == 'dial':
+                wire_idx = resolved.index
+        if wire_idx is None:
+            # No layout info (HUD off) or coord unresolved — keep the model's index
+            # so the baked tuples stay well-formed; alignment only matters when the
+            # HUD runs, and that path always has hud_cells.
+            wire_idx = c_idx
+        out.append(f"({wire_idx}, '{slot}')")
     return out
 
 

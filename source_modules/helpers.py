@@ -320,7 +320,7 @@ class Helpers:
         if self._last_selected_device is not None:
             self.update_remote_parameters()
 
-    def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False):
+    def device_parameter_action(self, device, raw_parameter_no, midi_no, value, fn_name, toggle=False, wire_idx=-1):
         if device is None:
             return
         self.selected_device_changed(device)
@@ -339,7 +339,13 @@ class Helpers:
             next_value = self.normalise(value, parameter.min, parameter.max)
         if will_fire:
             parameter.value = next_value
-            self._remote.parameter_updated(rp, raw_parameter_no)
+            # Repaint the dial of the KNOB that moved (its physical wire, +1 for
+            # the 1-based dial index used by the burst), not the parameter-number
+            # dial — two knobs sharing a parameter must not repaint each other.
+            # wire_idx < 0 (HUD off / no layout) keeps the old parameter-number
+            # keying.
+            dial_no = (wire_idx + 1) if wire_idx is not None and wire_idx >= 0 else raw_parameter_no
+            self._remote.parameter_updated(rp, dial_no)
 
     def device_on_off_action(self, device, midi_no, value, fn_name):
         """The fixed `on-off:` toggle. Live parameter 0 is the device's on/off
