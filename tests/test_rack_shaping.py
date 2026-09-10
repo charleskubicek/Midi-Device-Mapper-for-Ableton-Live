@@ -87,14 +87,16 @@ class TestResolverRackTier(unittest.TestCase):
         # slot 5 would be dim under shaping; under fallback it resolves to a param.
         self.assertIsNotNone(r.resolve_encoder(dev, 5))
 
-    def test_drum_rack_is_excluded_from_shaping(self):
-        # A drum rack has visible_macro_count, but this surface repurposes its
-        # encoder grid for per-step velocity — shaping its macros onto the HUD
-        # would mislabel the knobs. So a drum rack stays on today's behaviour
-        # (falls through to fallback), NOT the shape.
+    def test_drum_rack_is_shaped_like_any_other_rack(self):
+        # A drum rack is shaped too: a 2x4 drum rack puts macros on the left 4
+        # columns and blanks the right 4 — which is exactly where the velocities:
+        # overlay lives, so they don't collide (the live velocity path
+        # short-circuits before the resolver anyway).
         r = _resolver()
         dev = FakeRack(visible=8, class_name="DrumGroupDevice")
-        self.assertIsNotNone(r.resolve_encoder(dev, 5))  # would be dim if shaped
+        self.assertIs(r.resolve_encoder(dev, 1).param, dev.parameters[1])  # macro 1
+        self.assertIsNone(r.resolve_encoder(dev, 5))                        # right of rack
+        self.assertIs(r.resolve_encoder(dev, 9).param, dev.parameters[5])  # macro 5
 
     def test_non_rack_unaffected_by_rack_shaping(self):
         r = _resolver(rack_shaping=True)

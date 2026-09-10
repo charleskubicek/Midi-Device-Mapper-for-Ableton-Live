@@ -455,18 +455,14 @@ class ParameterResolver:
 
     def _is_rack_shaped(self, device):
         """True when the rack-shaping tier owns this device: the surface toggle is
-        on and the focused device is a (non-drum) rack.
+        on and the focused device is a rack (readable visible_macro_count).
 
-        Drum racks are excluded: they have visible_macro_count, but surfaces that
-        enable shaping repurpose the encoder grid for per-step velocity, so
-        shaping their macros onto the HUD would mislabel the knobs. The live
-        velocity path already short-circuits before the resolver; this keeps the
-        HUD burst consistent with it. Drum racks stay on today's behaviour."""
-        if not self._rack_shaping or device is None:
-            return False
-        if self._visible_macro_count(device) is None:
-            return False
-        return _safe_device_attr(device, 'class_name') != 'DrumGroupDevice'
+        Drum racks are included: a narrow drum rack shapes its macros onto the
+        left columns and blanks the right, which is where a `velocities:` overlay
+        typically sits — so they don't collide, and the live velocity listener
+        short-circuits before the resolver regardless."""
+        return (self._rack_shaping and device is not None
+                and self._visible_macro_count(device) is not None)
 
     def zone_for_slot(self, kind, surface_slot):
         """Template zone for a 1-based surface slot ('dial'|'button' kind), or

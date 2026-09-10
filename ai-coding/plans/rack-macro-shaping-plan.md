@@ -160,11 +160,13 @@ name); if `macros_mapped[macro-1]` is False → dim.
 
 ## Notes / behaviour choices made (all reversible)
 
-- **Drum racks excluded.** A `DrumGroupDevice` has `visible_macro_count`, but
-  surfaces that enable shaping repurpose the encoder grid for per-step velocity,
-  so shaping would mislabel those knobs. Drum racks stay on today's behaviour.
-  (The live velocity listener already short-circuits before the resolver; the
-  exclusion keeps the HUD burst consistent with that.)
+- **Drum racks included** (an early exclusion was removed after testing on
+  hardware). A narrow drum rack (e.g. 2×4) shapes macros onto the left columns
+  and blanks the right — which is exactly where the `velocities:` overlay sits —
+  so they don't collide. The live velocity listener short-circuits before the
+  resolver regardless, and blanking the right half is better than the old
+  behaviour, which mislabeled the velocity knobs as macros. (A 2×8 drum rack is
+  identity, same as before.)
 - **Visible-but-unmapped macro → blank** (not "shown but dimmed"). Simpler MVP;
   only visible on a rack with a `macros_mapped[M-1] == False` cell.
 - **`macro-panel-columns` must match the `slots:` numbering.** No validation ties
